@@ -191,12 +191,19 @@ export default function Home() {
                 </SelectContent>
               </Select>
 
-              <Select value={selectedStore || "__all__"} onValueChange={(v) => setSelectedStore(v === "__all__" ? "" : v)}>
+              <Select 
+                value="__all__" 
+                onValueChange={(v) => {
+                  if (v !== "__all__") {
+                    setLocation(`/store/${encodeURIComponent(v)}`);
+                  }
+                }}
+              >
                 <SelectTrigger className="text-sm h-9">
                   <SelectValue placeholder="Store" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">All Stores</SelectItem>
+                  <SelectItem value="__all__">Select Store</SelectItem>
                   {stats?.filters?.stores?.slice(0, 100).map(store => (
                     <SelectItem key={store} value={store}>{store}</SelectItem>
                   ))}
