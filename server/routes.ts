@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { insertTaskSchema } from "@shared/schema";
 import { z } from "zod";
 import multer from "multer";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx";
 import path from "path";
 import fs from "fs";
 
