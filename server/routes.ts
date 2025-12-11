@@ -50,6 +50,8 @@ export async function registerRoutes(
       const statusCounts: Record<string, number> = {};
       const actionCounts: Record<string, number> = {};
       const storeCounts: Record<string, number> = {};
+      const repCounts: Record<string, number> = {};
+      const clientCounts: Record<string, number> = {};
       
       tasks.forEach(task => {
         // Status counts
@@ -61,12 +63,33 @@ export async function registerRoutes(
         
         // Store counts
         storeCounts[task.storeName] = (storeCounts[task.storeName] || 0) + 1;
+        
+        // Rep counts
+        if (task.repName) {
+          repCounts[task.repName] = (repCounts[task.repName] || 0) + 1;
+        }
+        
+        // Client counts
+        if (task.client) {
+          clientCounts[task.client] = (clientCounts[task.client] || 0) + 1;
+        }
       });
       
       // Top 5 stores by task count
       const topStores = Object.entries(storeCounts)
         .sort((a, b) => b[1] - a[1])
         .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
+      
+      // Top reps by task count
+      const topReps = Object.entries(repCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
+      
+      // All clients with task counts
+      const clients = Object.entries(clientCounts)
+        .sort((a, b) => b[1] - a[1])
         .map(([name, count]) => ({ name, count }));
       
       // Action breakdown for chart
@@ -81,6 +104,8 @@ export async function registerRoutes(
         statusCounts,
         actionBreakdown,
         topStores,
+        topReps,
+        clients,
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);

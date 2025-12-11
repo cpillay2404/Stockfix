@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ClipboardList, CheckCircle2, Clock, Store, 
-  ArrowRight, BarChart3, Upload
+  ArrowRight, BarChart3, Upload, Users, Building2
 } from "lucide-react";
 import { useUserRole } from "@/hooks/use-user-role";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -185,6 +185,62 @@ export default function Home() {
               ))
             ) : (
               <p className="text-muted-foreground text-sm text-center py-4">No store data available</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Top 5 Reps by Tasks
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {stats.topReps.length > 0 ? (
+              stats.topReps.map((rep, index) => (
+                <div key={rep.name} className="flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div 
+                      className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
+                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                    >
+                      {index + 1}
+                    </div>
+                    <span className="text-sm font-medium truncate">{rep.name}</span>
+                  </div>
+                  <span className="text-sm font-bold text-muted-foreground shrink-0 ml-2">
+                    {rep.count.toLocaleString()}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-muted-foreground text-sm text-center py-4">No rep data available</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Clients
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {stats.clients.length > 0 ? (
+              <div className="grid gap-2">
+                {stats.clients.map((client) => (
+                  <div key={client.name} className="flex items-center justify-between py-1 border-b last:border-0">
+                    <span className="text-sm font-medium">{client.name}</span>
+                    <span className="text-sm text-muted-foreground font-mono">
+                      {client.count.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm text-center py-4">No client data available</p>
             )}
           </CardContent>
         </Card>

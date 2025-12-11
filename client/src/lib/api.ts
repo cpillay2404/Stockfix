@@ -9,6 +9,8 @@ export interface DashboardStats {
   statusCounts: Record<string, number>;
   actionBreakdown: { action: string; count: number }[];
   topStores: { name: string; count: number }[];
+  topReps: { name: string; count: number }[];
+  clients: { name: string; count: number }[];
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
