@@ -1,0 +1,112 @@
+import { useState } from "react";
+import { Layout } from "@/components/layout";
+import { mockTasks, Task } from "@/lib/mock-data";
+import { TaskCard } from "@/components/task-card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Search } from "lucide-react";
+
+export default function Dashboard() {
+  const [tasks] = useState<Task[]>(mockTasks);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+
+  // Sort tasks by Store, then by Priority (High first), then by ProductName
+  const sortedTasks = [...tasks].sort((a, b) => {
+    if (a.store !== b.store) return a.store.localeCompare(b.store);
+    if (a.priority === 'high' && b.priority !== 'high') return -1;
+    if (a.priority !== 'high' && b.priority === 'high') return 1;
+    return a.productName.localeCompare(b.productName);
+  });
+
+  const filteredTasks = sortedTasks.filter(task => {
+    const matchesFilter = filter === "all" ? true : task.status === filter;
+    const matchesSearch = 
+      task.productName.toLowerCase().includes(search.toLowerCase()) ||
+      task.store.toLowerCase().includes(search.toLowerCase()) ||
+      task.sku.toLowerCase().includes(search.toLowerCase());
+    return matchesFilter && matchesSearch;
+  });
+
+  const pendingCount = tasks.filter(t => t.status === 'pending').length;
+  const completedCount = tasks.filter(t => t.status === 'completed').length;
+
+  return (
+    <Layout>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-2">
+          <h1 className="text-2xl font-bold tracking-tight">Today's Tasks</h1>
+          <p className="text-muted-foreground">
+            You have <span className="font-semibold text-foreground">{pendingCount}</span> pending tasks to action.
+          </p>
+        </div>
+
+        <div className="flex flex-col gap-4 sticky top-14 bg-gray-50 dark:bg-gray-900 z-40 py-2 -mx-4 px-4 border-b md:static md:bg-transparent md:border-0 md:p-0">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search SKU, Store, Product..."
+              className="pl-9 bg-background"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-2 md:pb-0 scrollbar-hide">
+            <Button 
+              variant={filter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilter("all")}
+              className="rounded-full"
+            >
+              All
+            </Button>
+            <Button 
+              variant={filter === "pending" ? "default" : "outline"} 
+              size="sm"
+              onClick={() => setFilter("pending")}
+              className="rounded-full"
+            >
+              Pending ({pendingCount})
+            </Button>
+            <Button 
+              variant={filter === "completed" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilter("completed")}
+              className="rounded-full"
+            >
+              Completed ({completedCount})
+            </Button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {filteredTasks.length === 0 ? (
+            <div className="text-center py-12 text-muted-foreground">
+              <p>No tasks found matching your criteria.</p>
+            </div>
+          ) : (
+            // Group visually by store if searching/all
+            // A simple way is just to render them. Since they are sorted, 
+            // we could insert headers, but let's keep it simple for now. 
+            // I'll just render the list.
+            <div className="grid gap-4">
+               {filteredTasks.map((task, index) => {
+                 const showStoreHeader = index === 0 || task.store !== filteredTasks[index - 1].store;
+                 return (
+                   <div key={task.id} className="space-y-2">
+                     {showStoreHeader && !search && filter === 'all' && (
+                       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 pl-1">
+                         {task.store}
+                       </h3>
+                     )}
+                     <TaskCard task={task} />
+                   </div>
+                 );
+               })}
+            </div>
+          )}
+        </div>
+      </div>
+    </Layout>
+  );
+}
