@@ -17,6 +17,11 @@ interface ClientData {
   negativeCount: number;
 }
 
+interface ActionCount {
+  action: string;
+  count: number;
+}
+
 interface StoreData {
   storeName: string;
   region: string;
@@ -26,6 +31,8 @@ interface StoreData {
   completedTasks: number;
   totalP4WeekSales: number;
   totalSOH: number;
+  skusOOS: number;
+  actionsByType: ActionCount[];
   clients: ClientData[];
   urgentNoSalesCount: number;
   outOfStockCount: number;
@@ -156,6 +163,77 @@ export default function StoreSummaryPage() {
         </div>
 
         <div className="px-4 space-y-4">
+          {/* SUMMARY TILES - Key Metrics */}
+          <div className="grid grid-cols-2 gap-3">
+            {/* Total SOH */}
+            <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total SOH</div>
+              <div className="text-2xl font-bold text-[#1e3a5f] font-mono">
+                {store.totalSOH.toLocaleString()}
+              </div>
+            </div>
+            
+            {/* P4 Weeks Sales */}
+            <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">P4 Weeks Sales</div>
+              <div className="text-2xl font-bold text-[#1e3a5f] font-mono">
+                {store.totalP4WeekSales.toLocaleString()}
+              </div>
+            </div>
+            
+            {/* SKUs OOS */}
+            <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">SKUs Out of Stock</div>
+              <div className="text-2xl font-bold text-orange-600 font-mono">
+                {store.skusOOS}
+              </div>
+            </div>
+            
+            {/* Total SKUs */}
+            <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Total SKUs</div>
+              <div className="text-2xl font-bold text-[#1e3a5f] font-mono">
+                {store.totalTasks}
+              </div>
+            </div>
+          </div>
+
+          {/* ACTIONS BY TYPE */}
+          <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3">Actions by Type</h2>
+            <div className="space-y-2">
+              {store.actionsByType.map((item) => {
+                const maxCount = Math.max(...store.actionsByType.map(a => a.count));
+                const percentage = (item.count / maxCount) * 100;
+                const isUrgent = item.action.toLowerCase().startsWith('urgent');
+                
+                return (
+                  <div 
+                    key={item.action} 
+                    className="cursor-pointer hover:bg-gray-50 rounded p-2 -mx-2"
+                    onClick={() => setLocation(`/tasks?store=${encodeURIComponent(storeName)}&action=${encodeURIComponent(item.action)}`)}
+                    data-testid={`action-${item.action.substring(0, 20)}`}
+                  >
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className={`font-medium ${isUrgent ? 'text-red-700' : 'text-gray-700'}`}>
+                        {item.action}
+                      </span>
+                      <span className={`font-mono font-bold ${isUrgent ? 'text-red-600' : 'text-[#1e3a5f]'}`}>
+                        {item.count}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${isUrgent ? 'bg-red-500' : 'bg-[#1e3a5f]'}`}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Quick Action Buttons */}
           <div className="grid grid-cols-2 gap-2">
             <Button 

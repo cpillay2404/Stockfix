@@ -232,6 +232,21 @@ export async function registerRoutes(
         t.stockClassification?.toLowerCase().includes('negative')
       ).length;
 
+      // Count actions by type
+      const actionCounts: Record<string, number> = {};
+      storeTasks.forEach(t => {
+        const action = t.action || 'Unknown';
+        actionCounts[action] = (actionCounts[action] || 0) + 1;
+      });
+      const actionsByType = Object.entries(actionCounts)
+        .map(([action, count]) => ({ action, count }))
+        .sort((a, b) => b.count - a.count);
+
+      // Count SKUs OOS (Out of Stock classification)
+      const skusOOS = storeTasks.filter(t => 
+        t.stockClassification === 'Out of Stock'
+      ).length;
+
       res.json({
         storeName,
         region: storeTasks[0]?.region || '',
@@ -241,6 +256,8 @@ export async function registerRoutes(
         completedTasks,
         totalP4WeekSales: Math.round(totalP4WeekSales),
         totalSOH: Math.round(totalSOH),
+        skusOOS,
+        actionsByType,
         clients,
         urgentNoSalesCount,
         outOfStockCount,
