@@ -14,34 +14,37 @@ export default function Dashboard() {
   const [search, setSearch] = useState("");
   const { role } = useUserRole();
 
-  // Sort tasks by Store, then by Priority (High first), then by ProductName
+  // Sort tasks by Store, then by Missed Sales (High first)
   const sortedTasks = [...tasks].sort((a, b) => {
-    if (a.store !== b.store) return a.store.localeCompare(b.store);
-    if (a.priority === 'high' && b.priority !== 'high') return -1;
-    if (a.priority !== 'high' && b.priority === 'high') return 1;
-    return a.productName.localeCompare(b.productName);
+    if (a.storeName !== b.storeName) return a.storeName.localeCompare(b.storeName);
+    return parseFloat(b.missedSales) - parseFloat(a.missedSales);
   });
 
   const filteredTasks = sortedTasks.filter(task => {
-    const matchesFilter = filter === "all" ? true : task.status === filter;
+    const matchesFilter = filter === "all" ? true : 
+                          filter === "pending" ? task.actionStatus === 'Pending' :
+                          task.actionStatus === 'Completed';
+    
     const matchesSearch = 
-      task.productName.toLowerCase().includes(search.toLowerCase()) ||
-      task.store.toLowerCase().includes(search.toLowerCase()) ||
-      task.sku.toLowerCase().includes(search.toLowerCase());
+      task.articleDescription.toLowerCase().includes(search.toLowerCase()) ||
+      task.storeName.toLowerCase().includes(search.toLowerCase()) ||
+      task.barcode.toLowerCase().includes(search.toLowerCase()) ||
+      task.client.toLowerCase().includes(search.toLowerCase());
+      
     return matchesFilter && matchesSearch;
   });
 
-  const pendingCount = tasks.filter(t => t.status === 'pending').length;
-  const completedCount = tasks.filter(t => t.status === 'completed').length;
+  const pendingCount = tasks.filter(t => t.actionStatus === 'Pending').length;
+  const completedCount = tasks.filter(t => t.actionStatus === 'Completed').length;
 
   return (
     <Layout>
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">Today's Tasks</h1>
+            <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
             <p className="text-muted-foreground">
-              You have <span className="font-semibold text-foreground">{pendingCount}</span> pending tasks to action.
+              You have <span className="font-semibold text-foreground">{pendingCount}</span> pending actions.
             </p>
           </div>
           {role === 'manager' && (
@@ -105,18 +108,14 @@ export default function Dashboard() {
               <p>No tasks found matching your criteria.</p>
             </div>
           ) : (
-            // Group visually by store if searching/all
-            // A simple way is just to render them. Since they are sorted, 
-            // we could insert headers, but let's keep it simple for now. 
-            // I'll just render the list.
             <div className="grid gap-4">
                {filteredTasks.map((task, index) => {
-                 const showStoreHeader = index === 0 || task.store !== filteredTasks[index - 1].store;
+                 const showStoreHeader = index === 0 || task.storeName !== filteredTasks[index - 1].storeName;
                  return (
-                   <div key={task.id} className="space-y-2">
+                   <div key={task.uniqueId} className="space-y-2">
                      {showStoreHeader && !search && filter === 'all' && (
-                       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 pl-1">
-                         {task.store}
+                       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 pl-1 truncate">
+                         {task.storeName}
                        </h3>
                      )}
                      <TaskCard task={task} />

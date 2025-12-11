@@ -81,13 +81,15 @@ export default function ImportData() {
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50 flex gap-3">
               <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
               <div className="text-sm text-blue-900 dark:text-blue-100 space-y-2">
-                <p className="font-medium">Expected Column Headers</p>
-                <p className="opacity-90">
-                  Ensure your sheet includes: <code className="bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded">Store</code>, <code className="bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded">SKU</code>, <code className="bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded">Product Name</code>, <code className="bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded">Client</code>, <code className="bg-blue-100 dark:bg-blue-900 px-1 py-0.5 rounded">Instructions</code>.
-                </p>
-                <p className="text-xs opacity-75">
-                  * Additional columns will be stored as custom data.
-                </p>
+                <p className="font-medium">Required Column Headers:</p>
+                <div className="flex flex-wrap gap-1">
+                  {['Unique Id', 'Key', 'client', 'BANNER.1', 'REGION.1', 'STORE NAME', 'REP NAME', 'Category', 'Barcode', 'article description', 'Action', 'Action Date'].map(h => (
+                    <code key={h} className="bg-blue-100 dark:bg-blue-900 px-1.5 py-0.5 rounded text-xs border border-blue-200 dark:border-blue-800">
+                      {h}
+                    </code>
+                  ))}
+                  <span className="text-xs opacity-75 self-center">+ 15 more</span>
+                </div>
               </div>
             </div>
 
