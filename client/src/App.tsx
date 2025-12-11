@@ -6,11 +6,13 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import Dashboard from "@/pages/dashboard";
 import TaskDetail from "@/pages/task-detail";
+import ImportData from "@/pages/import-data";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Dashboard} />
+      <Route path="/import" component={ImportData} />
       <Route path="/task/:id" component={TaskDetail} />
       <Route component={NotFound} />
     </Switch>

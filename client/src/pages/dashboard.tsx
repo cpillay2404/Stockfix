@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import { Layout } from "@/components/layout";
 import { mockTasks, Task } from "@/lib/mock-data";
 import { TaskCard } from "@/components/task-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, Upload } from "lucide-react";
 
 export default function Dashboard() {
   const [tasks] = useState<Task[]>(mockTasks);
@@ -34,11 +35,24 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-bold tracking-tight">Today's Tasks</h1>
-          <p className="text-muted-foreground">
-            You have <span className="font-semibold text-foreground">{pendingCount}</span> pending tasks to action.
-          </p>
+        <div className="flex items-start justify-between">
+          <div className="flex flex-col gap-2">
+            <h1 className="text-2xl font-bold tracking-tight">Today's Tasks</h1>
+            <p className="text-muted-foreground">
+              You have <span className="font-semibold text-foreground">{pendingCount}</span> pending tasks to action.
+            </p>
+          </div>
+          <Link href="/import">
+            <Button variant="outline" size="sm" className="hidden sm:flex">
+              <Upload className="mr-2 h-4 w-4" />
+              Import Excel
+            </Button>
+          </Link>
+          <Link href="/import">
+            <Button variant="outline" size="icon" className="sm:hidden">
+              <Upload className="h-4 w-4" />
+            </Button>
+          </Link>
         </div>
 
         <div className="flex flex-col gap-4 sticky top-14 bg-gray-50 dark:bg-gray-900 z-40 py-2 -mx-4 px-4 border-b md:static md:bg-transparent md:border-0 md:p-0">
