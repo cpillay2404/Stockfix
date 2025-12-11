@@ -173,11 +173,11 @@ export default function StoreSummaryPage() {
               </div>
             </div>
             
-            {/* P4 Weeks Sales */}
+            {/* Average Daily Sales */}
             <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
-              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">P4 Weeks Sales</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wide mb-1">Avg Daily Sales</div>
               <div className="text-2xl font-bold text-[#1e3a5f] font-mono">
-                {store.totalP4WeekSales.toLocaleString()}
+                {Math.round(store.totalP4WeekSales / 28).toLocaleString()}
               </div>
             </div>
             
