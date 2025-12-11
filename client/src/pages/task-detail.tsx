@@ -1,49 +1,94 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation } from "wouter";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
-import { mockTasks, Task } from "@/lib/mock-data";
+import { fetchTask, updateTask, uploadImage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, Camera, CheckCircle2, AlertCircle, MapPin, 
-  Calendar, BarChart3, Package, Layers, Info 
+  Calendar, Layers, Info, Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function TaskDetail() {
   const [match, params] = useRoute("/task/:id");
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [task, setTask] = useState<Task | null>(null);
+  const queryClient = useQueryClient();
   
-  // Form State
   const [comment, setComment] = useState("");
   const [reasonCode, setReasonCode] = useState("");
   const [image1, setImage1] = useState<string | null>(null);
   const [image2, setImage2] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState<1 | 2 | null>(null);
+  
+  const fileInput1 = useRef<HTMLInputElement>(null);
+  const fileInput2 = useRef<HTMLInputElement>(null);
+
+  const { data: task, isLoading } = useQuery({
+    queryKey: ["task", params?.id],
+    queryFn: () => fetchTask(params!.id),
+    enabled: !!params?.id,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (updates: any) => updateTask(params!.id, updates),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      queryClient.invalidateQueries({ queryKey: ["task", params?.id] });
+      toast({
+        title: "Action Captured",
+        description: "Task updated successfully.",
+      });
+      setLocation("/");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update task. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   useEffect(() => {
-    if (params?.id) {
-      const found = mockTasks.find(t => t.uniqueId === params.id);
-      if (found) {
-        setTask(found);
-        if (found.actionStatus === 'Completed') {
-          setComment(found.actionTakenComment || "");
-          setReasonCode(found.reasonCode || "");
-          setImage1(found.image1 || null);
-          setImage2(found.image2 || null);
-        }
-      }
+    if (task) {
+      setComment(task.actionTakenComment || "");
+      setReasonCode(task.reasonCode || "");
+      setImage1(task.image1 || null);
+      setImage2(task.image2 || null);
     }
-  }, [params?.id]);
+  }, [task]);
 
-  if (!task) return null;
+  if (!params?.id) return null;
+
+  if (isLoading) {
+    return (
+      <Layout>
+        <div className="space-y-6">
+          <Skeleton className="h-8 w-32" />
+          <Skeleton className="h-40 w-full" />
+          <Skeleton className="h-60 w-full" />
+        </div>
+      </Layout>
+    );
+  }
+
+  if (!task) {
+    return (
+      <Layout>
+        <div className="text-center py-12">
+          <p className="text-destructive">Task not found</p>
+        </div>
+      </Layout>
+    );
+  }
 
   const handleSubmit = () => {
     if (!comment) {
@@ -64,37 +109,44 @@ export default function TaskDetail() {
       return;
     }
 
-    setIsSubmitting(true);
-    setTimeout(() => {
-      task.actionStatus = 'Completed';
-      task.actionTakenComment = comment;
-      task.reasonCode = reasonCode;
-      task.image1 = image1 || undefined;
-      task.image2 = image2 || undefined;
-      task.captureDate = new Date().toISOString().split('T')[0];
-      
-      toast({
-        title: "Action Captured",
-        description: "Task updated successfully.",
-      });
-      setIsSubmitting(false);
-      setLocation("/");
-    }, 1000);
+    updateMutation.mutate({
+      actionStatus: 'Completed',
+      actionTakenComment: comment,
+      reasonCode: reasonCode,
+      image1: image1 || undefined,
+      image2: image2 || undefined,
+      captureDate: new Date().toISOString().split('T')[0],
+    });
   };
 
-  const handleImageUpload = (slot: 1 | 2) => {
-    const mockImages = [
-      "https://images.unsplash.com/photo-1606859191214-25806e8e2423?auto=format&fit=crop&q=80&w=400",
-      "https://images.unsplash.com/photo-1550989460-0adf9ea622e2?auto=format&fit=crop&q=80&w=400"
-    ];
-    const img = mockImages[Math.floor(Math.random() * mockImages.length)];
-    if (slot === 1) setImage1(img);
-    else setImage2(img);
-    
-    toast({
-      title: "Image Captured",
-      description: `Image ${slot} attached.`,
-    });
+  const handleImageClick = (slot: 1 | 2) => {
+    if (slot === 1) fileInput1.current?.click();
+    else fileInput2.current?.click();
+  };
+
+  const handleFileChange = async (slot: 1 | 2, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingImage(slot);
+    try {
+      const result = await uploadImage(file);
+      if (slot === 1) setImage1(result.url);
+      else setImage2(result.url);
+      
+      toast({
+        title: "Image Uploaded",
+        description: `Image ${slot} attached successfully.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Upload Failed",
+        description: "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(null);
+    }
   };
 
   const isCompleted = task.actionStatus === 'Completed';
@@ -102,6 +154,23 @@ export default function TaskDetail() {
   return (
     <Layout>
       <div className="space-y-6 pb-24">
+        <input 
+          ref={fileInput1} 
+          type="file" 
+          accept="image/*" 
+          className="hidden" 
+          onChange={(e) => handleFileChange(1, e)}
+          disabled={isCompleted}
+        />
+        <input 
+          ref={fileInput2} 
+          type="file" 
+          accept="image/*" 
+          className="hidden" 
+          onChange={(e) => handleFileChange(2, e)}
+          disabled={isCompleted}
+        />
+
         <Button 
           variant="ghost" 
           className="pl-0 hover:bg-transparent text-muted-foreground hover:text-foreground"
@@ -112,7 +181,6 @@ export default function TaskDetail() {
         </Button>
 
         <div className="space-y-4">
-          {/* Header Section */}
           <div className="flex items-start justify-between">
             <div className="space-y-1 pr-4">
               <Badge variant="outline" className="mb-2 font-mono text-xs text-muted-foreground">
@@ -128,7 +196,6 @@ export default function TaskDetail() {
             {isCompleted && <CheckCircle2 className="h-8 w-8 text-green-500 shrink-0" />}
           </div>
 
-          {/* Action Card */}
           <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 rounded-lg p-4">
             <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
@@ -144,7 +211,6 @@ export default function TaskDetail() {
             </div>
           </div>
 
-          {/* Location & Metrics */}
           <div className="bg-card rounded-lg border shadow-sm divide-y">
             <div className="p-4 grid grid-cols-1 gap-3">
               <div className="flex items-center gap-2 text-sm">
@@ -180,7 +246,6 @@ export default function TaskDetail() {
             </div>
           </div>
 
-          {/* Reference Image */}
           {task.systemImage && (
             <div className="space-y-2">
               <h3 className="text-sm font-medium flex items-center gap-2">
@@ -195,7 +260,6 @@ export default function TaskDetail() {
 
           <Separator className="my-6" />
 
-          {/* Feedback Form */}
           <div className="space-y-5">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5" />
@@ -236,7 +300,6 @@ export default function TaskDetail() {
             <div className="space-y-3">
               <label className="text-sm font-medium">Evidence (Photos)</label>
               <div className="grid grid-cols-2 gap-3">
-                {/* Image 1 */}
                 {image1 ? (
                   <div className="relative rounded-lg overflow-hidden border aspect-square group">
                     <img src={image1} alt="Proof 1" className="w-full h-full object-cover" />
@@ -246,13 +309,23 @@ export default function TaskDetail() {
                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 text-center">Image 1</div>
                   </div>
                 ) : (
-                  <Button variant="outline" className="h-auto aspect-square flex flex-col gap-2" onClick={() => handleImageUpload(1)} disabled={isCompleted}>
-                    <Camera className="h-6 w-6 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Add Image 1</span>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto aspect-square flex flex-col gap-2" 
+                    onClick={() => handleImageClick(1)} 
+                    disabled={isCompleted || uploadingImage === 1}
+                  >
+                    {uploadingImage === 1 ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <>
+                        <Camera className="h-6 w-6 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Add Image 1</span>
+                      </>
+                    )}
                   </Button>
                 )}
 
-                {/* Image 2 */}
                 {image2 ? (
                   <div className="relative rounded-lg overflow-hidden border aspect-square group">
                     <img src={image2} alt="Proof 2" className="w-full h-full object-cover" />
@@ -262,9 +335,20 @@ export default function TaskDetail() {
                     <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 text-center">Image 2</div>
                   </div>
                 ) : (
-                  <Button variant="outline" className="h-auto aspect-square flex flex-col gap-2" onClick={() => handleImageUpload(2)} disabled={isCompleted}>
-                    <Camera className="h-6 w-6 text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">Add Image 2</span>
+                  <Button 
+                    variant="outline" 
+                    className="h-auto aspect-square flex flex-col gap-2" 
+                    onClick={() => handleImageClick(2)} 
+                    disabled={isCompleted || uploadingImage === 2}
+                  >
+                    {uploadingImage === 2 ? (
+                      <Loader2 className="h-6 w-6 animate-spin" />
+                    ) : (
+                      <>
+                        <Camera className="h-6 w-6 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">Add Image 2</span>
+                      </>
+                    )}
                   </Button>
                 )}
               </div>
@@ -280,9 +364,16 @@ export default function TaskDetail() {
               className="w-full h-12 text-base font-semibold shadow-lg" 
               size="lg"
               onClick={handleSubmit}
-              disabled={isSubmitting}
+              disabled={updateMutation.isPending}
             >
-              {isSubmitting ? "Saving..." : "Submit Action"}
+              {updateMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Submit Action"
+              )}
             </Button>
           </div>
         </div>

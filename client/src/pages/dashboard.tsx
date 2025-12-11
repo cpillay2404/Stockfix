@@ -1,18 +1,24 @@
 import { useState } from "react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
-import { mockTasks, Task } from "@/lib/mock-data";
+import { fetchTasks } from "@/lib/api";
 import { TaskCard } from "@/components/task-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Upload } from "lucide-react";
 import { useUserRole } from "@/hooks/use-user-role";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
-  const [tasks] = useState<Task[]>(mockTasks);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const { role } = useUserRole();
+
+  const { data: tasks = [], isLoading, error } = useQuery({
+    queryKey: ["tasks"],
+    queryFn: fetchTasks,
+  });
 
   // Sort tasks by Store, then by Missed Sales (High first)
   const sortedTasks = [...tasks].sort((a, b) => {
@@ -37,27 +43,45 @@ export default function Dashboard() {
   const pendingCount = tasks.filter(t => t.actionStatus === 'Pending').length;
   const completedCount = tasks.filter(t => t.actionStatus === 'Completed').length;
 
+  if (error) {
+    return (
+      <Layout>
+        <div className="text-center py-12">
+          <p className="text-destructive">Failed to load tasks. Please try again.</p>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="space-y-6">
         <div className="flex items-start justify-between">
           <div className="flex flex-col gap-2">
             <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-            <p className="text-muted-foreground">
-              You have <span className="font-semibold text-foreground">{pendingCount}</span> pending actions.
-            </p>
+            {isLoading ? (
+              <Skeleton className="h-5 w-48" />
+            ) : (
+              <p className="text-muted-foreground">
+                You have <span className="font-semibold text-foreground">{pendingCount}</span> pending actions.
+              </p>
+            )}
           </div>
           {role === 'manager' && (
             <>
-              <Link href="/import">
-                <Button variant="outline" size="sm" className="hidden sm:flex">
-                  <Upload className="mr-2 h-4 w-4" />
-                  Import Excel
+              <Link href="/import" className="hidden sm:flex">
+                <Button variant="outline" size="sm" asChild>
+                  <span>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import Excel
+                  </span>
                 </Button>
               </Link>
-              <Link href="/import">
-                <Button variant="outline" size="icon" className="sm:hidden">
-                  <Upload className="h-4 w-4" />
+              <Link href="/import" className="sm:hidden">
+                <Button variant="outline" size="icon" asChild>
+                  <span>
+                    <Upload className="h-4 w-4" />
+                  </span>
                 </Button>
               </Link>
             </>
@@ -103,7 +127,13 @@ export default function Dashboard() {
         </div>
 
         <div className="space-y-6">
-          {filteredTasks.length === 0 ? (
+          {isLoading ? (
+            <div className="grid gap-4">
+              {[1, 2, 3].map(i => (
+                <Skeleton key={i} className="h-32 w-full" />
+              ))}
+            </div>
+          ) : filteredTasks.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>No tasks found matching your criteria.</p>
             </div>

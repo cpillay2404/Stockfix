@@ -1,18 +1,39 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { importExcel } from "@/lib/api";
 
 export default function ImportData() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
-  const [isUploading, setIsUploading] = useState(false);
+  const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const importMutation = useMutation({
+    mutationFn: (file: File) => importExcel(file),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["tasks"] });
+      toast({
+        title: "Import Successful",
+        description: data.message,
+      });
+      setTimeout(() => setLocation("/"), 1500);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Import Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -22,18 +43,7 @@ export default function ImportData() {
 
   const handleUpload = () => {
     if (!file) return;
-
-    setIsUploading(true);
-    
-    // Simulate processing time
-    setTimeout(() => {
-      setIsUploading(false);
-      toast({
-        title: "Import Successful",
-        description: `Successfully imported tasks from ${file.name}`,
-      });
-      setLocation("/");
-    }, 2000);
+    importMutation.mutate(file);
   };
 
   return (
@@ -41,7 +51,9 @@ export default function ImportData() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold tracking-tight">Import Data</h1>
-          <Button variant="ghost" onClick={() => setLocation("/")}>Cancel</Button>
+          <Button variant="ghost" onClick={() => setLocation("/")} disabled={importMutation.isPending}>
+            Cancel
+          </Button>
         </div>
 
         <Card>
@@ -53,14 +65,17 @@ export default function ImportData() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="grid w-full max-w-sm items-center gap-1.5">
-              <Label htmlFor="picture">Spreadsheet File</Label>
+              <Label htmlFor="excel-upload">Spreadsheet File</Label>
               <div className="flex items-center gap-4">
                 <div className="grid w-full max-w-sm items-center gap-1.5">
-                  <Input 
+                  <input 
+                    ref={fileInputRef}
                     id="excel-upload" 
                     type="file" 
                     accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                     onChange={handleFileChange}
+                    disabled={importMutation.isPending}
+                    className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                   />
                 </div>
               </div>
@@ -68,11 +83,17 @@ export default function ImportData() {
 
             {file && (
               <div className="bg-muted/50 p-4 rounded-lg flex items-start gap-3">
-                <FileSpreadsheet className="h-5 w-5 text-green-600 mt-0.5" />
+                {importMutation.isSuccess ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                ) : (
+                  <FileSpreadsheet className="h-5 w-5 text-green-600 mt-0.5" />
+                )}
                 <div className="space-y-1">
                   <p className="font-medium text-sm">{file.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {(file.size / 1024).toFixed(2)} KB • Ready to upload
+                    {(file.size / 1024).toFixed(2)} KB
+                    {importMutation.isSuccess && " • Import Complete"}
+                    {!importMutation.isSuccess && " • Ready to upload"}
                   </p>
                 </div>
               </div>
@@ -96,10 +117,13 @@ export default function ImportData() {
             <Button 
               className="w-full sm:w-auto" 
               onClick={handleUpload} 
-              disabled={!file || isUploading}
+              disabled={!file || importMutation.isPending}
             >
-              {isUploading ? (
-                <>Processing...</>
+              {importMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Processing...
+                </>
               ) : (
                 <>
                   <Upload className="mr-2 h-4 w-4" />
