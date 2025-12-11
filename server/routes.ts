@@ -124,36 +124,75 @@ export async function registerRoutes(
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet);
 
-      // Map Excel columns to our schema
-      const tasks = data.map((row: any) => ({
-        uniqueId: String(row['Unique Id'] || row['uniqueId'] || ''),
-        key: String(row['Key'] || row['key'] || ''),
-        client: String(row['client'] || ''),
-        banner: String(row['BANNER.1'] || row['banner'] || ''),
-        region: String(row['REGION.1'] || row['region'] || ''),
-        storeName: String(row['STORE NAME'] || row['storeName'] || ''),
-        repName: String(row['REP NAME'] || row['repName'] || ''),
-        lineManager: String(row['LINE MANAGER'] || row['lineManager'] || ''),
-        category: String(row['Category'] || row['category'] || ''),
-        barcode: String(row['Barcode'] || row['barcode'] || ''),
-        articleDescription: String(row['article description'] || row['articleDescription'] || ''),
-        dcSoh: String(row['DC SOH'] || row['dcSoh'] || '0'),
-        storeSoh: String(row['Store SOH'] || row['storeSoh'] || '0'),
-        p4WeekSales: String(row['P4 week Sales'] || row['p4WeekSales'] || '0'),
-        missedSales: String(row['Missed Sales (This Week)'] || row['missedSales'] || '0'),
-        storeWfc: String(row['Store WFC (This Week)'] || row['storeWfc'] || '0'),
-        stockClassification: String(row['Stock Classification (This Week)'] || row['stockClassification'] || ''),
-        action: String(row['Action'] || row['action'] || ''),
-        actionDate: String(row['Action Date'] || row['actionDate'] || ''),
-        actionStatus: String(row['Action Status'] || row['actionStatus'] || 'Pending'),
-        systemImage: String(row['System Image'] || row['systemImage'] || ''),
-      }));
+      console.log("Excel import - Total rows:", data.length);
+      if (data.length > 0) {
+        console.log("Excel import - Column headers:", Object.keys(data[0] as object));
+      }
+
+      // Helper to get value from row with flexible column matching
+      const getValue = (row: any, ...possibleKeys: string[]): string => {
+        for (const key of possibleKeys) {
+          if (row[key] !== undefined && row[key] !== null) {
+            return String(row[key]);
+          }
+          // Also try case-insensitive match
+          const lowerKey = key.toLowerCase();
+          for (const rowKey of Object.keys(row)) {
+            if (rowKey.toLowerCase() === lowerKey || rowKey.toLowerCase().replace(/[^a-z0-9]/g, '') === lowerKey.replace(/[^a-z0-9]/g, '')) {
+              return String(row[rowKey]);
+            }
+          }
+        }
+        return '';
+      };
+
+      // Map Excel columns to our schema with flexible matching
+      const mappedTasks = data.map((row: any, index: number) => {
+        const task = {
+          uniqueId: getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID') || `task-${Date.now()}-${index}`,
+          key: getValue(row, 'Key', 'key') || `key-${index}`,
+          client: getValue(row, 'client', 'Client', 'CLIENT') || 'Unknown',
+          banner: getValue(row, 'BANNER.1', 'BANNER', 'Banner', 'banner') || '',
+          region: getValue(row, 'REGION.1', 'REGION', 'Region', 'region') || '',
+          storeName: getValue(row, 'STORE NAME', 'Store Name', 'StoreName', 'store_name', 'Store') || 'Unknown Store',
+          repName: getValue(row, 'REP NAME', 'Rep Name', 'RepName', 'rep_name', 'Rep') || '',
+          lineManager: getValue(row, 'LINE MANAGER', 'Line Manager', 'LineManager', 'line_manager') || '',
+          category: getValue(row, 'Category', 'CATEGORY', 'category') || '',
+          barcode: getValue(row, 'Barcode', 'BARCODE', 'barcode', 'SKU', 'sku') || '',
+          articleDescription: getValue(row, 'article description', 'Article Description', 'ArticleDescription', 'Description', 'Product', 'Product Name') || 'No Description',
+          dcSoh: getValue(row, 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh') || '0',
+          storeSoh: getValue(row, 'Store SOH', 'STORE_SOH', 'StoreSoh', 'store_soh') || '0',
+          p4WeekSales: getValue(row, 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales') || '0',
+          missedSales: getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales') || '0',
+          storeWfc: getValue(row, 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc', 'WFC') || '0',
+          stockClassification: getValue(row, 'Stock Classification (This Week)', 'Stock Classification', 'StockClassification', 'stock_classification') || '',
+          action: getValue(row, 'Action', 'ACTION', 'action', 'Task', 'Required Action') || 'Review stock',
+          actionDate: getValue(row, 'Action Date', 'ActionDate', 'action_date', 'Due Date', 'Date') || new Date().toISOString().split('T')[0],
+          actionStatus: getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status') || 'Pending',
+          systemImage: getValue(row, 'System Image', 'SystemImage', 'system_image', 'Image') || '',
+        };
+        return task;
+      });
+
+      console.log("Excel import - Mapped tasks:", mappedTasks.length);
+      if (mappedTasks.length > 0) {
+        console.log("Excel import - Sample task:", JSON.stringify(mappedTasks[0], null, 2));
+      }
+
+      // Filter out tasks without barcode (required field)
+      const validTasks = mappedTasks.filter((task: any) => task.barcode && task.barcode !== '');
+      console.log("Excel import - Valid tasks with barcode:", validTasks.length);
+
+      if (validTasks.length === 0) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ 
+          error: "No valid tasks found. Make sure your Excel file has a 'Barcode' column.",
+          columns: data.length > 0 ? Object.keys(data[0] as object) : []
+        });
+      }
 
       // Validate and insert tasks
-      const validatedTasks = tasks
-        .filter((task: any) => task.uniqueId && task.barcode)
-        .map((task: any) => insertTaskSchema.parse(task));
-
+      const validatedTasks = validTasks.map((task: any) => insertTaskSchema.parse(task));
       const created = await storage.bulkCreateTasks(validatedTasks);
 
       // Clean up uploaded file
@@ -169,7 +208,7 @@ export async function registerRoutes(
       if (req.file?.path && fs.existsSync(req.file.path)) {
         fs.unlinkSync(req.file.path);
       }
-      res.status(500).json({ error: "Failed to import tasks" });
+      res.status(500).json({ error: "Failed to import tasks: " + (error instanceof Error ? error.message : 'Unknown error') });
     }
   });
 
