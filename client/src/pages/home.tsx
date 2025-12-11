@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ClipboardList, CheckCircle2, Clock, Store, 
-  ArrowRight, BarChart3, Upload, Users, Building2, TrendingUp, Layers, Filter, MapPin
+  ArrowRight, BarChart3, Upload, Users, Building2, TrendingUp, Layers, Filter, MapPin, Play
 } from "lucide-react";
 import { useUserRole } from "@/hooks/use-user-role";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -344,8 +344,8 @@ export default function Home() {
           <CardContent className="space-y-3">
             {stats.topStores.length > 0 ? (
               stats.topStores.map((store, index) => (
-                <div key={store.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
+                <div key={store.name} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div 
                       className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
                       style={{ backgroundColor: COLORS[index % COLORS.length] }}
@@ -354,9 +354,17 @@ export default function Home() {
                     </div>
                     <span className="text-sm font-medium truncate">{store.name}</span>
                   </div>
-                  <span className="text-sm font-bold text-muted-foreground shrink-0 ml-2">
-                    {store.count.toLocaleString()}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-bold text-muted-foreground">
+                      {store.count.toLocaleString()}
+                    </span>
+                    <Link href={`/tasks?store=${encodeURIComponent(store.name)}`}>
+                      <Button size="sm" variant="secondary" className="h-7 px-2">
+                        <Play className="h-3 w-3 mr-1" />
+                        Start
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               ))
             ) : (
@@ -375,8 +383,8 @@ export default function Home() {
           <CardContent className="space-y-3">
             {stats.topReps.length > 0 ? (
               stats.topReps.map((rep, index) => (
-                <div key={rep.name} className="flex items-center justify-between">
-                  <div className="flex items-center gap-3 min-w-0">
+                <div key={rep.name} className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div 
                       className="h-8 w-8 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
                       style={{ backgroundColor: COLORS[index % COLORS.length] }}
@@ -385,9 +393,17 @@ export default function Home() {
                     </div>
                     <span className="text-sm font-medium truncate">{rep.name}</span>
                   </div>
-                  <span className="text-sm font-bold text-muted-foreground shrink-0 ml-2">
-                    {rep.count.toLocaleString()}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-sm font-bold text-muted-foreground">
+                      {rep.count.toLocaleString()}
+                    </span>
+                    <Link href={`/tasks?rep=${encodeURIComponent(rep.name)}`}>
+                      <Button size="sm" variant="secondary" className="h-7 px-2">
+                        <Play className="h-3 w-3 mr-1" />
+                        Start
+                      </Button>
+                    </Link>
+                  </div>
                 </div>
               ))
             ) : (
