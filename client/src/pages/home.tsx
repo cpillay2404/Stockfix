@@ -261,14 +261,14 @@ export default function Home() {
             {stats.actionBreakdown.length > 0 ? (
               <div className="h-48">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.actionBreakdown.slice(0, 5)} layout="vertical" margin={{ left: 0, right: 20 }}>
+                  <BarChart data={stats.actionBreakdown.slice(0, 5)} layout="vertical" margin={{ left: 10, right: 20 }}>
                     <XAxis type="number" hide />
                     <YAxis 
                       type="category" 
                       dataKey="action" 
-                      width={100} 
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(value) => value.length > 14 ? value.slice(0, 14) + '...' : value}
+                      width={140} 
+                      tick={{ fontSize: 9 }}
+                      tickFormatter={(value) => value.length > 22 ? value.slice(0, 22) + '...' : value}
                     />
                     <Tooltip 
                       formatter={(value: number) => [value.toLocaleString(), 'Tasks']}
