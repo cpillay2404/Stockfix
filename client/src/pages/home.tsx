@@ -358,7 +358,7 @@ export default function Home() {
                     <span className="text-sm font-bold text-muted-foreground">
                       {store.count.toLocaleString()}
                     </span>
-                    <Link href={`/tasks?store=${encodeURIComponent(store.name)}`}>
+                    <Link href={`/store/${encodeURIComponent(store.name)}`}>
                       <Button size="sm" variant="secondary" className="h-7 px-2">
                         <Play className="h-3 w-3 mr-1" />
                         Start

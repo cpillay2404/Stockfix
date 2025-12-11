@@ -8,6 +8,7 @@ export interface TaskFilters {
   store?: string;
   client?: string;
   issue?: string;
+  category?: string;
 }
 
 export interface IStorage {
@@ -88,6 +89,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.issue) {
       conditions.push(eq(tasks.stockClassification, filters.issue));
+    }
+    if (filters?.category) {
+      conditions.push(eq(tasks.category, filters.category));
     }
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

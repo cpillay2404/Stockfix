@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import TaskList from "@/pages/dashboard";
 import TaskDetail from "@/pages/task-detail";
 import ImportData from "@/pages/import-data";
+import StoreSummary from "@/pages/store-summary";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/tasks" component={TaskList} />
       <Route path="/import" component={ImportData} />
       <Route path="/task/:id" component={TaskDetail} />
+      <Route path="/store/:storeName" component={StoreSummary} />
       <Route component={NotFound} />
     </Switch>
   );

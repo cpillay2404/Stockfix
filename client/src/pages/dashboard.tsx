@@ -19,6 +19,7 @@ export default function Dashboard() {
   const storeFilter = urlParams.get('store') || '';
   const clientFilter = urlParams.get('client') || '';
   const issueFilter = urlParams.get('issue') || '';
+  const categoryFilter = urlParams.get('category') || '';
 
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -32,7 +33,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     setPage(1);
-  }, [filter, debouncedSearch, regionFilter, repFilter, storeFilter, clientFilter, issueFilter]);
+  }, [filter, debouncedSearch, regionFilter, repFilter, storeFilter, clientFilter, issueFilter, categoryFilter]);
 
   const activeFilters = [
     regionFilter && { label: `Region: ${regionFilter}`, key: 'region' },
@@ -40,16 +41,18 @@ export default function Dashboard() {
     storeFilter && { label: `Store: ${storeFilter}`, key: 'store' },
     clientFilter && { label: `Client: ${clientFilter}`, key: 'client' },
     issueFilter && { label: `Issue: ${issueFilter}`, key: 'issue' },
+    categoryFilter && { label: `Category: ${categoryFilter}`, key: 'category' },
   ].filter(Boolean) as { label: string; key: string }[];
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["tasks", page, debouncedSearch, filter, regionFilter, repFilter, storeFilter, clientFilter, issueFilter],
+    queryKey: ["tasks", page, debouncedSearch, filter, regionFilter, repFilter, storeFilter, clientFilter, issueFilter, categoryFilter],
     queryFn: () => fetchTasks(page, 50, debouncedSearch, filter, {
       region: regionFilter,
       rep: repFilter,
       store: storeFilter,
       client: clientFilter,
       issue: issueFilter,
+      category: categoryFilter,
     }),
   });
 

@@ -145,6 +145,70 @@ export async function registerRoutes(
     }
   });
 
+  // GET store summary
+  app.get("/api/stores/:storeName/summary", async (req, res) => {
+    try {
+      const storeName = decodeURIComponent(req.params.storeName);
+      const allTasks = await storage.getAllTasks();
+      const storeTasks = allTasks.filter(t => t.storeName === storeName);
+      
+      if (storeTasks.length === 0) {
+        return res.status(404).json({ error: "Store not found" });
+      }
+
+      const pendingTasks = storeTasks.filter(t => t.actionStatus === 'Pending').length;
+      const completedTasks = storeTasks.filter(t => t.actionStatus === 'Completed').length;
+      
+      const totalP4WeekSales = storeTasks.reduce((sum, t) => {
+        const sales = parseFloat(t.p4WeekSalesUnits || '0') || 0;
+        return sum + sales;
+      }, 0);
+      
+      const totalSOH = storeTasks.reduce((sum, t) => {
+        const soh = parseFloat(t.soh || '0') || 0;
+        return sum + soh;
+      }, 0);
+
+      const issueCounts: Record<string, number> = {};
+      storeTasks.forEach(t => {
+        const issue = t.stockClassification || 'Unknown';
+        issueCounts[issue] = (issueCounts[issue] || 0) + 1;
+      });
+      const issueBreakdown = Object.entries(issueCounts)
+        .map(([issue, count]) => ({ issue, count }))
+        .sort((a, b) => b.count - a.count);
+
+      const categories = [...new Set(storeTasks.map(t => t.category).filter(Boolean))].sort();
+      
+      const urgentNoSalesCount = storeTasks.filter(t => 
+        t.stockClassification?.toLowerCase().includes('idle') || 
+        t.stockClassification?.toLowerCase().includes('no sales')
+      ).length;
+      
+      const outOfStockCount = storeTasks.filter(t => 
+        t.stockClassification?.toLowerCase().includes('out of stock') ||
+        t.stockClassification?.toLowerCase().includes('oos')
+      ).length;
+
+      res.json({
+        storeName,
+        region: storeTasks[0]?.region || '',
+        totalTasks: storeTasks.length,
+        pendingTasks,
+        completedTasks,
+        totalP4WeekSales: Math.round(totalP4WeekSales),
+        totalSOH: Math.round(totalSOH),
+        issueBreakdown,
+        categories,
+        urgentNoSalesCount,
+        outOfStockCount,
+      });
+    } catch (error) {
+      console.error("Error fetching store summary:", error);
+      res.status(500).json({ error: "Failed to fetch store summary" });
+    }
+  });
+
   // GET all tasks with pagination
   app.get("/api/tasks", async (req, res) => {
     try {
@@ -158,6 +222,7 @@ export async function registerRoutes(
         store: (req.query.store as string) || '',
         client: (req.query.client as string) || '',
         issue: (req.query.issue as string) || '',
+        category: (req.query.category as string) || '',
       };
       
       const result = await storage.getTasksPaginated(page, limit, search, status, filters);
