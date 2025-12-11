@@ -169,16 +169,28 @@ export async function registerRoutes(
         return sum + soh;
       }, 0);
 
-      const issueCounts: Record<string, number> = {};
+      // Group by client with issue breakdown
+      const clientMap: Record<string, { totalIssues: number; urgentCount: number; oosCount: number; noSalesCount: number }> = {};
       storeTasks.forEach(t => {
-        const issue = t.stockClassification || 'Unknown';
-        issueCounts[issue] = (issueCounts[issue] || 0) + 1;
+        const client = t.client || 'Unknown';
+        if (!clientMap[client]) {
+          clientMap[client] = { totalIssues: 0, urgentCount: 0, oosCount: 0, noSalesCount: 0 };
+        }
+        clientMap[client].totalIssues++;
+        
+        const classification = t.stockClassification?.toLowerCase() || '';
+        if (classification.includes('idle') || classification.includes('no sales')) {
+          clientMap[client].urgentCount++;
+          clientMap[client].noSalesCount++;
+        }
+        if (classification.includes('out of stock') || classification.includes('oos')) {
+          clientMap[client].oosCount++;
+        }
       });
-      const issueBreakdown = Object.entries(issueCounts)
-        .map(([issue, count]) => ({ issue, count }))
-        .sort((a, b) => b.count - a.count);
-
-      const categories = [...new Set(storeTasks.map(t => t.category).filter(Boolean))].sort();
+      
+      const clients = Object.entries(clientMap)
+        .map(([name, data]) => ({ name, ...data }))
+        .sort((a, b) => b.totalIssues - a.totalIssues);
       
       const urgentNoSalesCount = storeTasks.filter(t => 
         t.stockClassification?.toLowerCase().includes('idle') || 
@@ -190,18 +202,23 @@ export async function registerRoutes(
         t.stockClassification?.toLowerCase().includes('oos')
       ).length;
 
+      const negativeSOHCount = storeTasks.filter(t => 
+        t.stockClassification?.toLowerCase().includes('negative')
+      ).length;
+
       res.json({
         storeName,
         region: storeTasks[0]?.region || '',
+        repName: storeTasks[0]?.repName || '',
         totalTasks: storeTasks.length,
         pendingTasks,
         completedTasks,
         totalP4WeekSales: Math.round(totalP4WeekSales),
         totalSOH: Math.round(totalSOH),
-        issueBreakdown,
-        categories,
+        clients,
         urgentNoSalesCount,
         outOfStockCount,
+        negativeSOHCount,
       });
     } catch (error) {
       console.error("Error fetching store summary:", error);
