@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
@@ -6,40 +6,32 @@ import { fetchTasks } from "@/lib/api";
 import { TaskCard } from "@/components/task-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [page, setPage] = useState(1);
 
-  const { data: tasks = [], isLoading, error } = useQuery({
-    queryKey: ["tasks"],
-    queryFn: fetchTasks,
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, debouncedSearch]);
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["tasks", page, debouncedSearch, filter],
+    queryFn: () => fetchTasks(page, 50, debouncedSearch, filter),
   });
 
-  // Sort tasks by Store, then by Missed Sales (High first)
-  const sortedTasks = [...tasks].sort((a, b) => {
-    if (a.storeName !== b.storeName) return a.storeName.localeCompare(b.storeName);
-    return parseFloat(b.missedSales) - parseFloat(a.missedSales);
-  });
-
-  const filteredTasks = sortedTasks.filter(task => {
-    const matchesFilter = filter === "all" ? true : 
-                          filter === "pending" ? task.actionStatus === 'Pending' :
-                          task.actionStatus === 'Completed';
-    
-    const matchesSearch = 
-      task.articleDescription.toLowerCase().includes(search.toLowerCase()) ||
-      task.storeName.toLowerCase().includes(search.toLowerCase()) ||
-      task.barcode.toLowerCase().includes(search.toLowerCase()) ||
-      task.client.toLowerCase().includes(search.toLowerCase());
-      
-    return matchesFilter && matchesSearch;
-  });
-
-  const pendingCount = tasks.filter(t => t.actionStatus === 'Pending').length;
-  const completedCount = tasks.filter(t => t.actionStatus === 'Completed').length;
+  const tasks = data?.tasks || [];
+  const total = data?.total || 0;
+  const totalPages = data?.totalPages || 1;
 
   if (error) {
     return (
@@ -61,7 +53,7 @@ export default function Dashboard() {
               <Skeleton className="h-5 w-48" />
             ) : (
               <p className="text-muted-foreground">
-                You have <span className="font-semibold text-foreground">{pendingCount}</span> pending actions.
+                Showing <span className="font-semibold text-foreground">{tasks.length}</span> of {total.toLocaleString()} tasks
               </p>
             )}
           </div>
@@ -97,7 +89,7 @@ export default function Dashboard() {
               onClick={() => setFilter("pending")}
               className="rounded-full"
             >
-              Pending ({pendingCount})
+              Pending
             </Button>
             <Button 
               variant={filter === "completed" ? "default" : "outline"}
@@ -105,40 +97,66 @@ export default function Dashboard() {
               onClick={() => setFilter("completed")}
               className="rounded-full"
             >
-              Completed ({completedCount})
+              Completed
             </Button>
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4">
           {isLoading ? (
             <div className="grid gap-4">
               {[1, 2, 3].map(i => (
                 <Skeleton key={i} className="h-32 w-full" />
               ))}
             </div>
-          ) : filteredTasks.length === 0 ? (
+          ) : tasks.length === 0 ? (
             <div className="text-center py-12 text-muted-foreground">
               <p>No tasks found matching your criteria.</p>
             </div>
           ) : (
             <div className="grid gap-4">
-               {filteredTasks.map((task, index) => {
-                 const showStoreHeader = index === 0 || task.storeName !== filteredTasks[index - 1].storeName;
-                 return (
-                   <div key={task.uniqueId} className="space-y-2">
-                     {showStoreHeader && !search && filter === 'all' && (
-                       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 pl-1 truncate">
-                         {task.storeName}
-                       </h3>
-                     )}
-                     <TaskCard task={task} />
-                   </div>
-                 );
-               })}
+              {tasks.map((task, index) => {
+                const showStoreHeader = index === 0 || task.storeName !== tasks[index - 1].storeName;
+                return (
+                  <div key={task.uniqueId} className="space-y-2">
+                    {showStoreHeader && !debouncedSearch && filter === 'all' && (
+                      <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mt-4 mb-2 pl-1 truncate">
+                        {task.storeName}
+                      </h3>
+                    )}
+                    <TaskCard task={task} />
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between pt-4 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={page === 1 || isLoading}
+            >
+              <ChevronLeft className="h-4 w-4 mr-1" />
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {page} of {totalPages}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={page === totalPages || isLoading}
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-1" />
+            </Button>
+          </div>
+        )}
       </div>
     </Layout>
   );

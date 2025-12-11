@@ -1,6 +1,6 @@
 import { users, tasks, type User, type InsertUser, type Task, type InsertTask } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, ilike, or, and, sql, count } from "drizzle-orm";
 
 export interface IStorage {
   // User operations
@@ -10,6 +10,7 @@ export interface IStorage {
   
   // Task operations
   getAllTasks(): Promise<Task[]>;
+  getTasksPaginated(page: number, limit: number, search?: string, status?: string): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }>;
   getTaskById(id: number): Promise<Task | undefined>;
   getTaskByUniqueId(uniqueId: string): Promise<Task | undefined>;
   createTask(task: InsertTask): Promise<Task>;
@@ -42,6 +43,51 @@ export class DatabaseStorage implements IStorage {
   // Task operations
   async getAllTasks(): Promise<Task[]> {
     return await db.select().from(tasks).orderBy(desc(tasks.createdAt));
+  }
+
+  async getTasksPaginated(page: number, limit: number, search?: string, status?: string): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }> {
+    const offset = (page - 1) * limit;
+    
+    let conditions = [];
+    
+    if (search) {
+      conditions.push(
+        or(
+          ilike(tasks.articleDescription, `%${search}%`),
+          ilike(tasks.storeName, `%${search}%`),
+          ilike(tasks.barcode, `%${search}%`),
+          ilike(tasks.client, `%${search}%`)
+        )
+      );
+    }
+    
+    if (status && status !== 'all') {
+      conditions.push(eq(tasks.actionStatus, status === 'pending' ? 'Pending' : 'Completed'));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const [countResult] = await db
+      .select({ count: count() })
+      .from(tasks)
+      .where(whereClause);
+    
+    const total = countResult?.count || 0;
+    
+    const taskResults = await db
+      .select()
+      .from(tasks)
+      .where(whereClause)
+      .orderBy(tasks.storeName, desc(sql`CAST(${tasks.missedSales} AS NUMERIC)`))
+      .limit(limit)
+      .offset(offset);
+    
+    return {
+      tasks: taskResults,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit)
+    };
   }
 
   async getTaskById(id: number): Promise<Task | undefined> {

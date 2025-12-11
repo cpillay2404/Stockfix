@@ -22,8 +22,21 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   return res.json();
 }
 
-export async function fetchTasks(): Promise<Task[]> {
-  const res = await fetch(`${API_BASE}/tasks`);
+export interface TasksResponse {
+  tasks: Task[];
+  total: number;
+  page: number;
+  totalPages: number;
+}
+
+export async function fetchTasks(page = 1, limit = 50, search = '', status = ''): Promise<TasksResponse> {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    ...(search && { search }),
+    ...(status && { status }),
+  });
+  const res = await fetch(`${API_BASE}/tasks?${params}`);
   if (!res.ok) throw new Error("Failed to fetch tasks");
   return res.json();
 }

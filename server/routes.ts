@@ -131,11 +131,16 @@ export async function registerRoutes(
     }
   });
 
-  // GET all tasks
+  // GET all tasks with pagination
   app.get("/api/tasks", async (req, res) => {
     try {
-      const tasks = await storage.getAllTasks();
-      res.json(tasks);
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const search = (req.query.search as string) || '';
+      const status = (req.query.status as string) || '';
+      
+      const result = await storage.getTasksPaginated(page, limit, search, status);
+      res.json(result);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       res.status(500).json({ error: "Failed to fetch tasks" });
