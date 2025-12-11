@@ -97,12 +97,30 @@ export async function registerRoutes(
         .sort((a, b) => b[1] - a[1])
         .map(([action, count]) => ({ action, count }));
       
+      // Stock classification counts
+      const stockClassificationCounts: Record<string, number> = {};
+      let totalP4WeekSales = 0;
+      
+      tasks.forEach(task => {
+        if (task.stockClassification) {
+          stockClassificationCounts[task.stockClassification] = (stockClassificationCounts[task.stockClassification] || 0) + 1;
+        }
+        totalP4WeekSales += parseFloat(task.p4WeekSales) || 0;
+      });
+      
+      const stockClassifications = Object.entries(stockClassificationCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([classification, count]) => ({ classification, count }));
+      
       res.json({
         totalTasks: tasks.length,
+        totalStores: Object.keys(storeCounts).length,
         pendingCount: statusCounts['Pending'] || 0,
         completedCount: statusCounts['Completed'] || 0,
+        totalP4WeekSales,
         statusCounts,
         actionBreakdown,
+        stockClassifications,
         topStores,
         topReps,
         clients,

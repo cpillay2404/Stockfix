@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { 
   ClipboardList, CheckCircle2, Clock, Store, 
-  ArrowRight, BarChart3, Upload, Users, Building2
+  ArrowRight, BarChart3, Upload, Users, Building2, TrendingUp, Layers
 } from "lucide-react";
 import { useUserRole } from "@/hooks/use-user-role";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -86,6 +86,18 @@ export default function Home() {
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
+                <Store className="h-4 w-4" />
+                Total Stores
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600">{stats.totalStores.toLocaleString()}</div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
                 <Clock className="h-4 w-4" />
                 Pending
               </CardTitle>
@@ -107,15 +119,17 @@ export default function Home() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card className="col-span-2">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <BarChart3 className="h-4 w-4" />
-                Completion
+                <TrendingUp className="h-4 w-4" />
+                P4 Week Sales Total
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{completionRate}%</div>
+              <div className="text-2xl font-bold text-green-600">
+                {stats.totalP4WeekSales.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+              </div>
             </CardContent>
           </Card>
         </div>
@@ -154,6 +168,44 @@ export default function Home() {
               </div>
             ) : (
               <p className="text-muted-foreground text-sm text-center py-8">No action data available</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Layers className="h-5 w-5" />
+              Stock Classification (This Week)
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {stats.stockClassifications.length > 0 ? (
+              <div className="h-48">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.stockClassifications.slice(0, 6)} layout="vertical" margin={{ left: 0, right: 20 }}>
+                    <XAxis type="number" hide />
+                    <YAxis 
+                      type="category" 
+                      dataKey="classification" 
+                      width={120} 
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value) => value.length > 18 ? value.slice(0, 18) + '...' : value}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => [value.toLocaleString(), 'Items']}
+                      contentStyle={{ fontSize: 12 }}
+                    />
+                    <Bar dataKey="count" radius={[0, 4, 4, 0]}>
+                      {stats.stockClassifications.slice(0, 6).map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm text-center py-8">No classification data available</p>
             )}
           </CardContent>
         </Card>
