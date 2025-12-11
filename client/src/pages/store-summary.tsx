@@ -1,13 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link, useParams } from "wouter";
+import { Link, useParams, useLocation } from "wouter";
 import { Layout } from "@/components/layout";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Badge } from "@/components/ui/badge";
 import { 
-  ArrowLeft, Store, AlertTriangle, Package, List, 
-  ClipboardList, TrendingUp, User, MapPin, ArrowRight
+  ArrowLeft, Store, AlertTriangle, Package, 
+  User, MapPin, ChevronRight, Zap, TrendingDown, XCircle
 } from "lucide-react";
 
 interface ClientData {
@@ -33,14 +31,9 @@ interface StoreData {
   negativeSOHCount: number;
 }
 
-const SEVERITY_COLORS = {
-  urgent: 'bg-red-500',
-  risk: 'bg-orange-500',
-  stable: 'bg-green-500',
-};
-
 export default function StoreSummaryPage() {
   const params = useParams<{ storeName: string }>();
+  const [, setLocation] = useLocation();
   const storeName = decodeURIComponent(params.storeName || "");
 
   const { data: store, isLoading } = useQuery<StoreData>({
@@ -57,7 +50,7 @@ export default function StoreSummaryPage() {
     return (
       <Layout>
         <div className="space-y-4">
-          <Skeleton className="h-32" />
+          <Skeleton className="h-32 bg-slate-700" />
           <div className="grid grid-cols-2 gap-3">
             {[1, 2, 3, 4].map(i => <Skeleton key={i} className="h-20" />)}
           </div>
@@ -77,252 +70,288 @@ export default function StoreSummaryPage() {
               Back to Dashboard
             </Button>
           </Link>
-          <div className="text-center py-12 text-muted-foreground">
-            Store not found
+          <div className="text-center py-12">
+            <Store className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+            <h2 className="text-lg font-semibold">Store not found</h2>
+            <p className="text-muted-foreground">No data available for this store</p>
           </div>
         </div>
       </Layout>
     );
   }
 
-  const completionRate = store.totalTasks > 0 
-    ? Math.round((store.completedTasks / store.totalTasks) * 100) 
-    : 0;
+  const getSeverityColor = (client: ClientData) => {
+    if (client.urgentCount > 0) return 'border-l-red-500';
+    if (client.oosCount > 0) return 'border-l-orange-500';
+    return 'border-l-green-500';
+  };
 
-  const topUrgentClients = store.clients
-    .filter(c => c.urgentCount > 0)
+  const getSeverityBg = (client: ClientData) => {
+    if (client.urgentCount > 0) return 'bg-red-50';
+    if (client.oosCount > 0) return 'bg-orange-50';
+    return 'bg-green-50';
+  };
+
+  const topUrgentClients = [...store.clients]
     .sort((a, b) => b.urgentCount - a.urgentCount)
+    .filter(c => c.urgentCount > 0)
     .slice(0, 5);
 
-  const topOOSClients = store.clients
-    .filter(c => c.oosCount > 0)
+  const topOOSClients = [...store.clients]
     .sort((a, b) => b.oosCount - a.oosCount)
+    .filter(c => c.oosCount > 0)
     .slice(0, 5);
 
-  const topNoSalesClients = store.clients
-    .filter(c => c.noSalesCount > 0)
+  const topNoSalesClients = [...store.clients]
     .sort((a, b) => b.noSalesCount - a.noSalesCount)
+    .filter(c => c.noSalesCount > 0)
     .slice(0, 5);
 
   return (
     <Layout>
-      <div className="space-y-4">
-        <Card className="bg-primary text-primary-foreground">
-          <CardContent className="pt-4 pb-4">
-            <div className="flex items-start justify-between mb-3">
-              <Link href="/">
-                <Button variant="ghost" size="sm" className="pl-0 text-primary-foreground/80 hover:text-primary-foreground hover:bg-primary-foreground/10">
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Dashboard
-                </Button>
-              </Link>
+      <div className="space-y-4 -mx-4 sm:-mx-6">
+        {/* IZON HEADER BAND - Store Details */}
+        <div className="bg-[#1e3a5f] text-white px-4 py-4">
+          <Link href="/">
+            <Button variant="ghost" size="sm" className="text-blue-200 hover:text-white hover:bg-white/10 pl-0 mb-2">
+              <ArrowLeft className="mr-1 h-4 w-4" />
+              Dashboard
+            </Button>
+          </Link>
+          
+          <h1 className="text-lg font-bold leading-tight mb-2">{store.storeName}</h1>
+          
+          <div className="flex flex-wrap gap-3 text-sm text-blue-200">
+            <span className="flex items-center gap-1">
+              <MapPin className="h-3 w-3" />
+              {store.region}
+            </span>
+            <span className="flex items-center gap-1">
+              <User className="h-3 w-3" />
+              {store.repName}
+            </span>
+          </div>
+
+          {/* Key Stats in Header */}
+          <div className="grid grid-cols-3 gap-2 mt-4">
+            <div className="bg-white/10 rounded-lg p-2 text-center">
+              <div className="text-2xl font-bold font-mono">{store.totalTasks}</div>
+              <div className="text-xs text-blue-200">Total</div>
             </div>
-            
-            <h1 className="text-xl font-bold flex items-center gap-2 mb-2">
-              <Store className="h-5 w-5" />
-              {store.storeName}
-            </h1>
-            
-            <div className="flex flex-wrap gap-3 text-sm opacity-90 mb-4">
-              <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                {store.region}
-              </span>
-              {store.repName && (
-                <span className="flex items-center gap-1">
-                  <User className="h-4 w-4" />
-                  {store.repName}
-                </span>
-              )}
-              <span className="flex items-center gap-1">
-                <ClipboardList className="h-4 w-4" />
-                {store.totalTasks} Tasks
-              </span>
+            <div className="bg-white/10 rounded-lg p-2 text-center">
+              <div className="text-2xl font-bold font-mono text-orange-300">{store.pendingTasks}</div>
+              <div className="text-xs text-blue-200">Pending</div>
             </div>
-
-            <div className="grid grid-cols-4 gap-2 text-center">
-              <div className="bg-primary-foreground/10 rounded-lg p-2">
-                <div className="text-lg font-bold">{store.totalTasks}</div>
-                <div className="text-xs opacity-80">Total</div>
-              </div>
-              <div className="bg-primary-foreground/10 rounded-lg p-2">
-                <div className="text-lg font-bold">{store.pendingTasks}</div>
-                <div className="text-xs opacity-80">Pending</div>
-              </div>
-              <div className="bg-primary-foreground/10 rounded-lg p-2">
-                <div className="text-lg font-bold">{store.completedTasks}</div>
-                <div className="text-xs opacity-80">Done</div>
-              </div>
-              <div className="bg-primary-foreground/10 rounded-lg p-2">
-                <div className="text-lg font-bold">{completionRate}%</div>
-                <div className="text-xs opacity-80">Complete</div>
-              </div>
+            <div className="bg-white/10 rounded-lg p-2 text-center">
+              <div className="text-2xl font-bold font-mono text-green-300">{store.completedTasks}</div>
+              <div className="text-xs text-blue-200">Done</div>
             </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Client Breakdown
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {store.clients.length > 0 ? (
-              <div className="grid grid-cols-2 gap-2">
-                {store.clients.sort((a, b) => b.totalIssues - a.totalIssues).map((client) => {
-                  const severity = client.urgentCount > 0 ? 'urgent' : client.oosCount > 0 ? 'risk' : 'stable';
-                  return (
-                    <Link 
-                      key={client.name} 
-                      href={`/tasks?store=${encodeURIComponent(storeName)}&client=${encodeURIComponent(client.name)}`}
-                    >
-                      <Card className="cursor-pointer hover:shadow-md transition-shadow border-l-4" style={{ borderLeftColor: severity === 'urgent' ? '#ef4444' : severity === 'risk' ? '#f97316' : '#22c55e' }}>
-                        <CardContent className="p-3">
-                          <div className="font-semibold text-sm truncate">{client.name}</div>
-                          <div className="text-lg font-bold">{client.totalIssues}</div>
-                          <div className="text-xs text-muted-foreground">issues</div>
-                        </CardContent>
-                      </Card>
-                    </Link>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-muted-foreground text-sm text-center py-4">No client data</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <div className="grid grid-cols-1 gap-3">
-          {topUrgentClients.length > 0 && (
-            <Card className="border-l-4 border-l-red-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-red-600">
-                  <AlertTriangle className="h-4 w-4" />
-                  Urgent / No Sales (Top Clients)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1">
-                {topUrgentClients.map((client) => (
-                  <Link 
-                    key={client.name}
-                    href={`/tasks?store=${encodeURIComponent(storeName)}&client=${encodeURIComponent(client.name)}&issue=${encodeURIComponent('No Sales (Idle Stock)')}`}
-                  >
-                    <div className="flex justify-between items-center py-1.5 px-2 rounded hover:bg-muted cursor-pointer">
-                      <span className="text-sm font-medium">{client.name}</span>
-                      <Badge variant="destructive" className="text-xs">{client.urgentCount}</Badge>
-                    </div>
-                  </Link>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {topOOSClients.length > 0 && (
-            <Card className="border-l-4 border-l-orange-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-orange-600">
-                  <Package className="h-4 w-4" />
-                  Out of Stock (Top Clients)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1">
-                {topOOSClients.map((client) => (
-                  <Link 
-                    key={client.name}
-                    href={`/tasks?store=${encodeURIComponent(storeName)}&client=${encodeURIComponent(client.name)}&issue=${encodeURIComponent('Out of Stock')}`}
-                  >
-                    <div className="flex justify-between items-center py-1.5 px-2 rounded hover:bg-muted cursor-pointer">
-                      <span className="text-sm font-medium">{client.name}</span>
-                      <Badge className="text-xs bg-orange-500">{client.oosCount}</Badge>
-                    </div>
-                  </Link>
-                ))}
-              </CardContent>
-            </Card>
-          )}
-
-          {topNoSalesClients.length > 0 && (
-            <Card className="border-l-4 border-l-amber-500">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm flex items-center gap-2 text-amber-600">
-                  <TrendingUp className="h-4 w-4" />
-                  Idle Stock (Top Clients)
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-1">
-                {topNoSalesClients.map((client) => (
-                  <Link 
-                    key={client.name}
-                    href={`/tasks?store=${encodeURIComponent(storeName)}&client=${encodeURIComponent(client.name)}&issue=${encodeURIComponent('No Sales (Idle Stock)')}`}
-                  >
-                    <div className="flex justify-between items-center py-1.5 px-2 rounded hover:bg-muted cursor-pointer">
-                      <span className="text-sm font-medium">{client.name}</span>
-                      <Badge className="text-xs bg-amber-500">{client.noSalesCount}</Badge>
-                    </div>
-                  </Link>
-                ))}
-              </CardContent>
-            </Card>
-          )}
+          </div>
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Quick Filters
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        <div className="px-4 space-y-4">
+          {/* Quick Action Buttons */}
+          <div className="grid grid-cols-2 gap-2">
+            <Button 
+              variant="outline" 
+              className="h-auto py-3 border-red-200 text-red-700 hover:bg-red-50"
+              onClick={() => setLocation(`/tasks?store=${encodeURIComponent(storeName)}&issue=Urgent`)}
+              data-testid="button-urgent-only"
+            >
+              <AlertTriangle className="mr-2 h-4 w-4" />
+              Urgent Only
+            </Button>
+            <Button 
+              variant="outline"
+              className="h-auto py-3 border-orange-200 text-orange-700 hover:bg-orange-50"
+              onClick={() => setLocation(`/tasks?store=${encodeURIComponent(storeName)}&issue=Out of Stock`)}
+              data-testid="button-oos-only"
+            >
+              <Package className="mr-2 h-4 w-4" />
+              OOS Only
+            </Button>
+          </div>
+
+          {/* SECTION 1 - Client Breakdown Grid (IZON Style) */}
+          <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+            <h2 className="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+              <Store className="h-4 w-4" />
+              Client Breakdown
+            </h2>
+            
+            {store.clients.length > 0 ? (
+              <div className="grid grid-cols-2 gap-2">
+                {store.clients.map((client) => (
+                  <Link 
+                    key={client.name} 
+                    href={`/tasks?store=${encodeURIComponent(storeName)}&client=${encodeURIComponent(client.name)}`}
+                  >
+                    <div 
+                      className={`p-3 rounded-lg border-l-4 ${getSeverityColor(client)} ${getSeverityBg(client)} hover:shadow-md transition-all cursor-pointer`}
+                      data-testid={`client-card-${client.name}`}
+                    >
+                      <div className="text-xs text-gray-600 uppercase tracking-wide font-medium truncate">{client.name}</div>
+                      <div className="text-xl font-bold text-[#1e3a5f] font-mono">{client.totalIssues}</div>
+                      <div className="flex gap-2 mt-1 text-xs">
+                        {client.urgentCount > 0 && (
+                          <span className="text-red-600 font-medium">{client.urgentCount} urgent</span>
+                        )}
+                        {client.oosCount > 0 && (
+                          <span className="text-orange-600 font-medium">{client.oosCount} OOS</span>
+                        )}
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground text-sm text-center py-4">No client data available</p>
+            )}
+          </div>
+
+          {/* SECTION 2 - Top 5 Clients by Issue Type */}
+          <div className="grid grid-cols-1 gap-3">
+            {/* Urgent Issues */}
+            {topUrgentClients.length > 0 && (
+              <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100 border-l-4 border-l-red-500">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-red-500" />
+                  Urgent Issues (Top Clients)
+                </h3>
+                <div className="space-y-1">
+                  {topUrgentClients.map((client, idx) => (
+                    <Link 
+                      key={client.name}
+                      href={`/tasks?store=${encodeURIComponent(storeName)}&client=${encodeURIComponent(client.name)}&issue=Urgent`}
+                    >
+                      <div className="flex items-center justify-between p-2 rounded hover:bg-red-50 cursor-pointer group">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 w-4">{idx + 1}.</span>
+                          <span className="text-sm text-gray-700">{client.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-bold text-red-600 font-mono">{client.urgentCount}</span>
+                          <ChevronRight className="h-3 w-3 text-gray-400 group-hover:text-red-500" />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Out of Stock */}
+            {topOOSClients.length > 0 && (
+              <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100 border-l-4 border-l-orange-500">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <XCircle className="h-4 w-4 text-orange-500" />
+                  Out of Stock (Top Clients)
+                </h3>
+                <div className="space-y-1">
+                  {topOOSClients.map((client, idx) => (
+                    <Link 
+                      key={client.name}
+                      href={`/tasks?store=${encodeURIComponent(storeName)}&client=${encodeURIComponent(client.name)}&issue=Out of Stock`}
+                    >
+                      <div className="flex items-center justify-between p-2 rounded hover:bg-orange-50 cursor-pointer group">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 w-4">{idx + 1}.</span>
+                          <span className="text-sm text-gray-700">{client.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-bold text-orange-600 font-mono">{client.oosCount}</span>
+                          <ChevronRight className="h-3 w-3 text-gray-400 group-hover:text-orange-500" />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* No Sales */}
+            {topNoSalesClients.length > 0 && (
+              <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100 border-l-4 border-l-amber-500">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <TrendingDown className="h-4 w-4 text-amber-500" />
+                  No Sales / Idle (Top Clients)
+                </h3>
+                <div className="space-y-1">
+                  {topNoSalesClients.map((client, idx) => (
+                    <Link 
+                      key={client.name}
+                      href={`/tasks?store=${encodeURIComponent(storeName)}&client=${encodeURIComponent(client.name)}&issue=No Sales`}
+                    >
+                      <div className="flex items-center justify-between p-2 rounded hover:bg-amber-50 cursor-pointer group">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 w-4">{idx + 1}.</span>
+                          <span className="text-sm text-gray-700">{client.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-bold text-amber-600 font-mono">{client.noSalesCount}</span>
+                          <ChevronRight className="h-3 w-3 text-gray-400 group-hover:text-amber-500" />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SECTION 3 - Quick Filter Chips */}
+          <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">Quick Filters</h3>
             <div className="flex flex-wrap gap-2">
-              <Link href={`/tasks?store=${encodeURIComponent(storeName)}&issue=${encodeURIComponent('No Sales (Idle Stock)')}`}>
-                <Badge variant="outline" className="cursor-pointer hover:bg-red-50 border-red-300 text-red-700 px-3 py-1.5">
-                  <AlertTriangle className="h-3 w-3 mr-1" />
-                  Urgent ({store.urgentNoSalesCount})
-                </Badge>
-              </Link>
-              <Link href={`/tasks?store=${encodeURIComponent(storeName)}&issue=${encodeURIComponent('Out of Stock')}`}>
-                <Badge variant="outline" className="cursor-pointer hover:bg-orange-50 border-orange-300 text-orange-700 px-3 py-1.5">
-                  <Package className="h-3 w-3 mr-1" />
-                  Out of Stock ({store.outOfStockCount})
-                </Badge>
-              </Link>
-              <Link href={`/tasks?store=${encodeURIComponent(storeName)}&issue=${encodeURIComponent('Negative SOH')}`}>
-                <Badge variant="outline" className="cursor-pointer hover:bg-purple-50 border-purple-300 text-purple-700 px-3 py-1.5">
-                  Negative SOH ({store.negativeSOHCount})
-                </Badge>
-              </Link>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="rounded-full border-red-200 text-red-700 hover:bg-red-100"
+                onClick={() => setLocation(`/tasks?store=${encodeURIComponent(storeName)}&issue=Urgent`)}
+                data-testid="chip-urgent"
+              >
+                Urgent
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="rounded-full border-orange-200 text-orange-700 hover:bg-orange-100"
+                onClick={() => setLocation(`/tasks?store=${encodeURIComponent(storeName)}&issue=Out of Stock`)}
+                data-testid="chip-oos"
+              >
+                Out of Stock
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="rounded-full border-amber-200 text-amber-700 hover:bg-amber-100"
+                onClick={() => setLocation(`/tasks?store=${encodeURIComponent(storeName)}&issue=No Sales`)}
+                data-testid="chip-no-sales"
+              >
+                No Sales
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="rounded-full border-purple-200 text-purple-700 hover:bg-purple-100"
+                onClick={() => setLocation(`/tasks?store=${encodeURIComponent(storeName)}&issue=Negative`)}
+                data-testid="chip-negative"
+              >
+                Negative SOH
+              </Button>
             </div>
-          </CardContent>
-        </Card>
+          </div>
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-              Sales & Stock Summary
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="text-center p-3 bg-muted rounded-lg">
-                <div className="text-xl font-bold font-mono">R{store.totalP4WeekSales.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">P4 Week Sales</div>
-              </div>
-              <div className="text-center p-3 bg-muted rounded-lg">
-                <div className="text-xl font-bold font-mono">{store.totalSOH.toLocaleString()}</div>
-                <div className="text-xs text-muted-foreground">Stock on Hand</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Link href={`/tasks?store=${encodeURIComponent(storeName)}`}>
-          <Button className="w-full" size="lg">
+          {/* SECTION 4 - Main CTA Button */}
+          <Button 
+            className="w-full bg-[#1e3a5f] hover:bg-[#2d4a6f] h-14 text-base"
+            onClick={() => setLocation(`/tasks?store=${encodeURIComponent(storeName)}`)}
+            data-testid="button-go-to-task-list"
+          >
             Go to Store Task List
-            <ArrowRight className="ml-2 h-5 w-5" />
+            <ChevronRight className="ml-2 h-5 w-5" />
           </Button>
-        </Link>
+        </div>
       </div>
     </Layout>
   );

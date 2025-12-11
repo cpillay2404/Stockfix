@@ -1,0 +1,224 @@
+Clean boxed layouts
+
+Cards with shadows, rounded corners, subtle gradients.
+
+✔ High contrast headers & monospace numbers
+
+(Big numeric KPIs; crisp typography.)
+
+✔ Clickable tiles for navigation
+
+The tile is the button.
+
+✔ Drill-down pages with structured, predictable sections
+
+You always know where to look: KPIs → filters → priority lists.
+
+✔ Soft neutral backgrounds
+
+White cards on light-grey page background.
+
+✔ Accent colours for priority
+
+Red = Urgent
+
+Amber = OOS / Risk
+
+Green = Healthy or Complete
+
+You can absolutely replicate this in a simple Replit web UI.
+
+🏠 2. FRONT PAGE (Dashboard) — IZON Inspired
+
+Your current metrics convert beautifully into an IZON layout:
+
+Z1 — Header (Fixed)
+
+A minimalist bar:
+
+MG Inventory | Dashboard   [Search bar]   Export | Import | Profile
+
+Z2 — KPI BAND (4 big metric cards)
+
+Centered, clean, wide cards:
+
+Total Tasks	Pending	Completed	P4 Sales
+
+Each card = clickable.
+
+IZON uses large numbers + icons:
+
+38,257
+Total Tasks
+
+Z3 — ACTIONS BY TYPE (Horizontal Bar Chart)
+
+Modern, bold bars — clicking filters the task list.
+
+Z4 — TOP 5 STORES (Clickable Tiles)
+
+In IZON style:
+
+CHECKERS DAINFERN →   168
+CHECKERS PAARL →      152
+CHECKERS LA LUCIA →   140
+...
+
+
+Each tile is clickable and leads to your new STORE LANDING PAGE.
+
+Z5 — TOP 5 REPS (Clickable Tiles)
+
+Same clean tile layout.
+
+Z6 — CLIENT OVERVIEW (Card Grid)
+
+Small client cards with task counts.
+
+🤝 3. NEW NAVIGATION FLOW (IZON Style)
+User clicks store tile → Goes to Store Landing Page
+
+Not straight to tasks.
+Not to SKU level.
+
+This is exactly how IZON does its drill-downs.
+
+🏪 4. STORE LANDING PAGE (IZON Style)
+
+This is the page you asked for:
+“When clicking a store, the page must show issues by client + top clients by issue.”
+
+Here’s the full structure:
+
+🟦 HEADER BAND — Store Details
+
+Large, clean header:
+
+CHECKERS FX DAINFERN  
+Region: GAUTENG | Rep: DAMIAN BRUYNS | Total Tasks: 168
+
+
+Buttons on right:
+
+“View All Tasks”
+
+“Urgent Only”
+
+“OOS Only”
+
+“Back to Dashboard”
+
+IZON style: large, flat buttons with light gradients.
+
+🟩 SECTION 1 — Client Breakdown (IZON Grid)
+
+Grid of client cards sorted by issue count:
+
+ASPEN        48 Issues
+LINDT        32 Issues
+AQUALLE      21 Issues
+DURACELL     19 Issues
+P&G          12 Issues
+...
+
+
+Each card shows:
+
+Issue count
+
+Severity colours
+
+Clickable → takes you to TASK LIST filtered by that client & store
+
+IZON always uses colour-coded severity indicators like:
+
+🟥 urgent
+🟧 risk
+🟩 stable
+
+🟥 SECTION 2 — TOP 5 CLIENTS BY ISSUE TYPE
+
+A mini-dashboard:
+
+Urgent Issues (Top Clients)
+
+Aspen – 12
+
+Lindt – 9
+
+Duracell – 6
+
+Out of Stock (Top Clients)
+
+AQuelle – 7
+
+P&G – 4
+
+No Sales (Top Clients)
+
+Anchor – 5
+
+Wilmar – 3
+
+Each line is clickable → filtered task list
+
+This gives the store page meaning and helps the rep prioritise.
+
+🟨 SECTION 3 — Quick Filters (Chips / Pills)
+
+Horizontal scrollable chips:
+
+Urgent
+
+Out of Stock
+
+Idle / No Sales
+
+Negative SOH
+
+Low SOH
+
+When selected → task list filters instantly.
+
+IZON uses chips everywhere for fast targeting.
+
+🟦 SECTION 4 — Detailed View Button
+
+One clean button:
+
+➡️ Go to Store Task List
+
+
+Large and central.
+
+🧩 5. Visual Layout (IZON Format with Zones)
+┌───────────────────────────────────────────────┐
+│ STORE HEADER (Store Name, Key Stats, Buttons)│
+├───────────────────────────────────────────────┤
+│ CLIENT BREAKDOWN GRID                         │
+├───────────────────────────────────────────────┤
+│ TOP 5 CLIENTS BY ISSUE TYPE (subcharts)       │
+├───────────────────────────────────────────────┤
+│ QUICK FILTER CHIPS (Urgent | OOS | …)         │
+├───────────────────────────────────────────────┤
+│ BUTTON: “Go To Store Task List”               │
+└───────────────────────────────────────────────┘
+
+
+This replicates IZON’s left-to-right, top-to-bottom clean scanning experience.
+
+🚀 6. Why this is better
+✔ Reps can see immediately:
+
+Which clients are causing the most problems
+
+Which issues are most severe
+
+What to fix next
+
+Where to drill down
+
+✔ Managers get clear visibility
+✔ Reduces click depth
+✔ Strong visual priority cues
+✔ Consistent with modern enterprise UX (IZON, PowerBI, Qlik, Tableau)
