@@ -14,6 +14,13 @@ export interface DashboardStats {
   topStores: { name: string; count: number }[];
   topReps: { name: string; count: number }[];
   clients: { name: string; count: number }[];
+  filters: {
+    regions: string[];
+    reps: string[];
+    stores: string[];
+    clients: string[];
+    issueTypes: string[];
+  };
 }
 
 export async function fetchDashboardStats(): Promise<DashboardStats> {
@@ -29,12 +36,25 @@ export interface TasksResponse {
   totalPages: number;
 }
 
-export async function fetchTasks(page = 1, limit = 50, search = '', status = ''): Promise<TasksResponse> {
+export interface TaskFilters {
+  region?: string;
+  rep?: string;
+  store?: string;
+  client?: string;
+  issue?: string;
+}
+
+export async function fetchTasks(page = 1, limit = 50, search = '', status = '', filters: TaskFilters = {}): Promise<TasksResponse> {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     ...(search && { search }),
     ...(status && { status }),
+    ...(filters.region && { region: filters.region }),
+    ...(filters.rep && { rep: filters.rep }),
+    ...(filters.store && { store: filters.store }),
+    ...(filters.client && { client: filters.client }),
+    ...(filters.issue && { issue: filters.issue }),
   });
   const res = await fetch(`${API_BASE}/tasks?${params}`);
   if (!res.ok) throw new Error("Failed to fetch tasks");

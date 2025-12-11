@@ -2,6 +2,14 @@ import { users, tasks, type User, type InsertUser, type Task, type InsertTask } 
 import { db } from "./db";
 import { eq, desc, ilike, or, and, sql, count } from "drizzle-orm";
 
+export interface TaskFilters {
+  region?: string;
+  rep?: string;
+  store?: string;
+  client?: string;
+  issue?: string;
+}
+
 export interface IStorage {
   // User operations
   getUser(id: string): Promise<User | undefined>;
@@ -10,7 +18,7 @@ export interface IStorage {
   
   // Task operations
   getAllTasks(): Promise<Task[]>;
-  getTasksPaginated(page: number, limit: number, search?: string, status?: string): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }>;
+  getTasksPaginated(page: number, limit: number, search?: string, status?: string, filters?: TaskFilters): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }>;
   getTaskById(id: number): Promise<Task | undefined>;
   getTaskByUniqueId(uniqueId: string): Promise<Task | undefined>;
   createTask(task: InsertTask): Promise<Task>;
@@ -45,7 +53,7 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(tasks).orderBy(desc(tasks.createdAt));
   }
 
-  async getTasksPaginated(page: number, limit: number, search?: string, status?: string): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }> {
+  async getTasksPaginated(page: number, limit: number, search?: string, status?: string, filters?: TaskFilters): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }> {
     const offset = (page - 1) * limit;
     
     let conditions = [];
@@ -63,6 +71,23 @@ export class DatabaseStorage implements IStorage {
     
     if (status && status !== 'all') {
       conditions.push(eq(tasks.actionStatus, status === 'pending' ? 'Pending' : 'Completed'));
+    }
+    
+    // Apply additional filters
+    if (filters?.region) {
+      conditions.push(eq(tasks.region, filters.region));
+    }
+    if (filters?.rep) {
+      conditions.push(eq(tasks.repName, filters.rep));
+    }
+    if (filters?.store) {
+      conditions.push(eq(tasks.storeName, filters.store));
+    }
+    if (filters?.client) {
+      conditions.push(eq(tasks.client, filters.client));
+    }
+    if (filters?.issue) {
+      conditions.push(eq(tasks.stockClassification, filters.issue));
     }
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

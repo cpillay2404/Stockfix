@@ -112,6 +112,13 @@ export async function registerRoutes(
         .sort((a, b) => b[1] - a[1])
         .map(([classification, count]) => ({ classification, count }));
       
+      // Get unique filter values
+      const regions = [...new Set(tasks.map(t => t.region).filter(Boolean))].sort();
+      const reps = [...new Set(tasks.map(t => t.repName).filter(Boolean))].sort();
+      const stores = [...new Set(tasks.map(t => t.storeName).filter(Boolean))].sort();
+      const clientList = [...new Set(tasks.map(t => t.client).filter(Boolean))].sort();
+      const issueTypes = [...new Set(tasks.map(t => t.stockClassification).filter(Boolean))].sort();
+      
       res.json({
         totalTasks: tasks.length,
         totalStores: Object.keys(storeCounts).length,
@@ -124,6 +131,13 @@ export async function registerRoutes(
         topStores,
         topReps,
         clients,
+        filters: {
+          regions,
+          reps,
+          stores,
+          clients: clientList,
+          issueTypes,
+        },
       });
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
@@ -138,8 +152,15 @@ export async function registerRoutes(
       const limit = parseInt(req.query.limit as string) || 50;
       const search = (req.query.search as string) || '';
       const status = (req.query.status as string) || '';
+      const filters = {
+        region: (req.query.region as string) || '',
+        rep: (req.query.rep as string) || '',
+        store: (req.query.store as string) || '',
+        client: (req.query.client as string) || '',
+        issue: (req.query.issue as string) || '',
+      };
       
-      const result = await storage.getTasksPaginated(page, limit, search, status);
+      const result = await storage.getTasksPaginated(page, limit, search, status, filters);
       res.json(result);
     } catch (error) {
       console.error("Error fetching tasks:", error);

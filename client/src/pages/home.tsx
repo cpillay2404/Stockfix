@@ -1,13 +1,15 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/layout";
 import { fetchDashboardStats } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ClipboardList, CheckCircle2, Clock, Store, 
-  ArrowRight, BarChart3, Upload, Users, Building2, TrendingUp, Layers
+  ArrowRight, BarChart3, Upload, Users, Building2, TrendingUp, Layers, Filter, MapPin
 } from "lucide-react";
 import { useUserRole } from "@/hooks/use-user-role";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
@@ -16,11 +18,38 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 export default function Home() {
   const { role } = useUserRole();
+  const [, setLocation] = useLocation();
+  
+  const [selectedRegion, setSelectedRegion] = useState("");
+  const [selectedRep, setSelectedRep] = useState("");
+  const [selectedStore, setSelectedStore] = useState("");
+  const [selectedClient, setSelectedClient] = useState("");
+  const [selectedIssueType, setSelectedIssueType] = useState("");
   
   const { data: stats, isLoading } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: fetchDashboardStats,
   });
+
+  const handleFilterApply = () => {
+    const params = new URLSearchParams();
+    if (selectedRegion) params.set('region', selectedRegion);
+    if (selectedRep) params.set('rep', selectedRep);
+    if (selectedStore) params.set('store', selectedStore);
+    if (selectedClient) params.set('client', selectedClient);
+    if (selectedIssueType) params.set('issue', selectedIssueType);
+    setLocation(`/tasks?${params.toString()}`);
+  };
+
+  const hasActiveFilters = selectedRegion || selectedRep || selectedStore || selectedClient || selectedIssueType;
+
+  const clearFilters = () => {
+    setSelectedRegion("");
+    setSelectedRep("");
+    setSelectedStore("");
+    setSelectedClient("");
+    setSelectedIssueType("");
+  };
 
   if (isLoading) {
     return (
@@ -77,6 +106,93 @@ export default function Home() {
             </div>
           )}
         </div>
+
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base flex items-center gap-2">
+              <Filter className="h-5 w-5" />
+              Quick Filters
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Select value={selectedRegion || "__all__"} onValueChange={(v) => setSelectedRegion(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Region" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Regions</SelectItem>
+                  {stats?.filters?.regions?.map(region => (
+                    <SelectItem key={region} value={region}>{region}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedRep || "__all__"} onValueChange={(v) => setSelectedRep(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Rep" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Reps</SelectItem>
+                  {stats?.filters?.reps?.map(rep => (
+                    <SelectItem key={rep} value={rep}>{rep}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedStore || "__all__"} onValueChange={(v) => setSelectedStore(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Store" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Stores</SelectItem>
+                  {stats?.filters?.stores?.slice(0, 100).map(store => (
+                    <SelectItem key={store} value={store}>{store}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedClient || "__all__"} onValueChange={(v) => setSelectedClient(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="text-sm">
+                  <SelectValue placeholder="Client" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Clients</SelectItem>
+                  {stats?.filters?.clients?.map(client => (
+                    <SelectItem key={client} value={client}>{client}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={selectedIssueType || "__all__"} onValueChange={(v) => setSelectedIssueType(v === "__all__" ? "" : v)}>
+                <SelectTrigger className="text-sm col-span-2">
+                  <SelectValue placeholder="Issue Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all__">All Issue Types</SelectItem>
+                  {stats?.filters?.issueTypes?.map(issue => (
+                    <SelectItem key={issue} value={issue}>{issue}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button 
+                onClick={handleFilterApply} 
+                className="flex-1"
+                disabled={!hasActiveFilters}
+              >
+                Apply Filters
+              </Button>
+              {hasActiveFilters && (
+                <Button variant="outline" onClick={clearFilters}>
+                  Clear
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         <div className="grid grid-cols-2 gap-4">
           <Card>

@@ -1,15 +1,25 @@
-import { useState, useEffect } from "react";
-import { Link } from "wouter";
+import { useState, useEffect, useMemo } from "react";
+import { Link, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { fetchTasks } from "@/lib/api";
 import { TaskCard } from "@/components/task-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Search, ChevronLeft, ChevronRight, ArrowLeft, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
+  const searchString = useSearch();
+  const urlParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
+  
+  const regionFilter = urlParams.get('region') || '';
+  const repFilter = urlParams.get('rep') || '';
+  const storeFilter = urlParams.get('store') || '';
+  const clientFilter = urlParams.get('client') || '';
+  const issueFilter = urlParams.get('issue') || '';
+
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -22,11 +32,25 @@ export default function Dashboard() {
 
   useEffect(() => {
     setPage(1);
-  }, [filter, debouncedSearch]);
+  }, [filter, debouncedSearch, regionFilter, repFilter, storeFilter, clientFilter, issueFilter]);
+
+  const activeFilters = [
+    regionFilter && { label: `Region: ${regionFilter}`, key: 'region' },
+    repFilter && { label: `Rep: ${repFilter}`, key: 'rep' },
+    storeFilter && { label: `Store: ${storeFilter}`, key: 'store' },
+    clientFilter && { label: `Client: ${clientFilter}`, key: 'client' },
+    issueFilter && { label: `Issue: ${issueFilter}`, key: 'issue' },
+  ].filter(Boolean) as { label: string; key: string }[];
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["tasks", page, debouncedSearch, filter],
-    queryFn: () => fetchTasks(page, 50, debouncedSearch, filter),
+    queryKey: ["tasks", page, debouncedSearch, filter, regionFilter, repFilter, storeFilter, clientFilter, issueFilter],
+    queryFn: () => fetchTasks(page, 50, debouncedSearch, filter, {
+      region: regionFilter,
+      rep: repFilter,
+      store: storeFilter,
+      client: clientFilter,
+      issue: issueFilter,
+    }),
   });
 
   const tasks = data?.tasks || [];
@@ -65,6 +89,27 @@ export default function Dashboard() {
               )}
             </div>
           </div>
+          {activeFilters.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {activeFilters.map(f => (
+                <Badge key={f.key} variant="secondary" className="text-xs">
+                  {f.label}
+                  <Link href={(() => {
+                    const newParams = new URLSearchParams(searchString);
+                    newParams.delete(f.key);
+                    return `/tasks?${newParams.toString()}`;
+                  })()}>
+                    <X className="ml-1 h-3 w-3 cursor-pointer hover:text-destructive" />
+                  </Link>
+                </Badge>
+              ))}
+              <Link href="/tasks">
+                <Badge variant="outline" className="text-xs cursor-pointer hover:bg-destructive hover:text-destructive-foreground">
+                  Clear All
+                </Badge>
+              </Link>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-4 sticky top-14 bg-gray-50 dark:bg-gray-900 z-40 py-2 -mx-4 px-4 border-b md:static md:bg-transparent md:border-0 md:p-0">
