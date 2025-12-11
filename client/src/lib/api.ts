@@ -2,6 +2,21 @@ import { Task } from "@shared/schema";
 
 const API_BASE = "/api";
 
+export interface DashboardStats {
+  totalTasks: number;
+  pendingCount: number;
+  completedCount: number;
+  statusCounts: Record<string, number>;
+  actionBreakdown: { action: string; count: number }[];
+  topStores: { name: string; count: number }[];
+}
+
+export async function fetchDashboardStats(): Promise<DashboardStats> {
+  const res = await fetch(`${API_BASE}/dashboard/stats`);
+  if (!res.ok) throw new Error("Failed to fetch dashboard stats");
+  return res.json();
+}
+
 export async function fetchTasks(): Promise<Task[]> {
   const res = await fetch(`${API_BASE}/tasks`);
   if (!res.ok) throw new Error("Failed to fetch tasks");

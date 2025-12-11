@@ -41,6 +41,53 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // GET dashboard stats
+  app.get("/api/dashboard/stats", async (req, res) => {
+    try {
+      const tasks = await storage.getAllTasks();
+      
+      // Count by action status
+      const statusCounts: Record<string, number> = {};
+      const actionCounts: Record<string, number> = {};
+      const storeCounts: Record<string, number> = {};
+      
+      tasks.forEach(task => {
+        // Status counts
+        statusCounts[task.actionStatus] = (statusCounts[task.actionStatus] || 0) + 1;
+        
+        // Action type counts
+        const actionType = task.action.split(':')[0].trim();
+        actionCounts[actionType] = (actionCounts[actionType] || 0) + 1;
+        
+        // Store counts
+        storeCounts[task.storeName] = (storeCounts[task.storeName] || 0) + 1;
+      });
+      
+      // Top 5 stores by task count
+      const topStores = Object.entries(storeCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name, count]) => ({ name, count }));
+      
+      // Action breakdown for chart
+      const actionBreakdown = Object.entries(actionCounts)
+        .sort((a, b) => b[1] - a[1])
+        .map(([action, count]) => ({ action, count }));
+      
+      res.json({
+        totalTasks: tasks.length,
+        pendingCount: statusCounts['Pending'] || 0,
+        completedCount: statusCounts['Completed'] || 0,
+        statusCounts,
+        actionBreakdown,
+        topStores,
+      });
+    } catch (error) {
+      console.error("Error fetching dashboard stats:", error);
+      res.status(500).json({ error: "Failed to fetch dashboard stats" });
+    }
+  });
+
   // GET all tasks
   app.get("/api/tasks", async (req, res) => {
     try {

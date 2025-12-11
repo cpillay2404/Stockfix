@@ -6,14 +6,12 @@ import { fetchTasks } from "@/lib/api";
 import { TaskCard } from "@/components/task-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Upload } from "lucide-react";
-import { useUserRole } from "@/hooks/use-user-role";
+import { Search } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const { role } = useUserRole();
 
   const { data: tasks = [], isLoading, error } = useQuery({
     queryKey: ["tasks"],
@@ -67,25 +65,11 @@ export default function Dashboard() {
               </p>
             )}
           </div>
-          {role === 'manager' && (
-            <>
-              <Link href="/import" className="hidden sm:flex">
-                <Button variant="outline" size="sm" asChild>
-                  <span>
-                    <Upload className="mr-2 h-4 w-4" />
-                    Import Excel
-                  </span>
-                </Button>
-              </Link>
-              <Link href="/import" className="sm:hidden">
-                <Button variant="outline" size="icon" asChild>
-                  <span>
-                    <Upload className="h-4 w-4" />
-                  </span>
-                </Button>
-              </Link>
-            </>
-          )}
+          <Link href="/">
+            <Button variant="ghost" size="sm">
+              Dashboard
+            </Button>
+          </Link>
         </div>
 
         <div className="flex flex-col gap-4 sticky top-14 bg-gray-50 dark:bg-gray-900 z-40 py-2 -mx-4 px-4 border-b md:static md:bg-transparent md:border-0 md:p-0">
