@@ -61,12 +61,20 @@ export default function Home() {
             <p className="text-muted-foreground text-sm">Overview of your inventory actions</p>
           </div>
           {role === 'manager' && (
-            <Link href="/import">
-              <Button variant="outline" size="sm">
-                <Upload className="mr-2 h-4 w-4" />
-                Import
-              </Button>
-            </Link>
+            <div className="flex gap-2">
+              <a href="/api/tasks/export" download>
+                <Button variant="outline" size="sm">
+                  <ArrowRight className="mr-2 h-4 w-4 rotate-90" />
+                  Export
+                </Button>
+              </a>
+              <Link href="/import">
+                <Button variant="outline" size="sm">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import
+                </Button>
+              </Link>
+            </div>
           )}
         </div>
 
