@@ -191,17 +191,27 @@ export async function registerRoutes(
         });
       }
 
-      // Validate and insert tasks
+      // Validate tasks
       const validatedTasks = validTasks.map((task: any) => insertTaskSchema.parse(task));
-      const created = await storage.bulkCreateTasks(validatedTasks);
+      
+      // Insert in batches of 100 to avoid stack overflow
+      const BATCH_SIZE = 100;
+      let totalCreated = 0;
+      
+      for (let i = 0; i < validatedTasks.length; i += BATCH_SIZE) {
+        const batch = validatedTasks.slice(i, i + BATCH_SIZE);
+        const created = await storage.bulkCreateTasks(batch);
+        totalCreated += created.length;
+        console.log(`Excel import - Batch ${Math.floor(i / BATCH_SIZE) + 1}: inserted ${created.length} tasks`);
+      }
 
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
 
       res.json({ 
         success: true, 
-        count: created.length,
-        message: `Successfully imported ${created.length} tasks` 
+        count: totalCreated,
+        message: `Successfully imported ${totalCreated} tasks` 
       });
     } catch (error) {
       console.error("Error importing tasks:", error);
