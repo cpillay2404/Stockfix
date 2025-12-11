@@ -44,6 +44,19 @@ The database stores users and tasks. Tasks contain comprehensive retail data inc
 
 4. **Excel Import**: Tasks are bulk-imported from Excel files with column mapping, making it easy to integrate with existing retail data systems.
 
+5. **IZON-Inspired Design (Dec 2025)**: The UI follows enterprise dashboard patterns with:
+   - **Color Scheme**: Dark blue primary (#1e3a5f), orange accent (#f97316)
+   - **Dashboard**: Dark blue header band, large KPI cards with monospace numbers, clickable store/rep tiles, client overview grid
+   - **Store Landing Page**: Header with store stats, client breakdown grid with severity colors (red=urgent, orange=OOS, green=stable), Top 5 clients by issue type sections, quick filter chips
+   - **Navigation Flow**: Dashboard → Store Landing Page → Task List (drill-down pattern)
+
+### Recent Changes (Dec 11, 2025)
+
+- Implemented full IZON-inspired layout for Dashboard (`client/src/pages/home.tsx`)
+- Created Store Summary page with client breakdown and Top 5 issue sections (`client/src/pages/store-summary.tsx`)
+- Applied corporate color scheme: dark blue headers, orange accents, white cards on light grey backgrounds
+- Added clickable tiles for stores, reps, and clients that navigate to filtered views
+
 ## External Dependencies
 
 ### Database
