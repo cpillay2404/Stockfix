@@ -6,11 +6,13 @@ import { TaskCard } from "@/components/task-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, Upload } from "lucide-react";
+import { useUserRole } from "@/hooks/use-user-role";
 
 export default function Dashboard() {
   const [tasks] = useState<Task[]>(mockTasks);
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const { role } = useUserRole();
 
   // Sort tasks by Store, then by Priority (High first), then by ProductName
   const sortedTasks = [...tasks].sort((a, b) => {
@@ -42,17 +44,21 @@ export default function Dashboard() {
               You have <span className="font-semibold text-foreground">{pendingCount}</span> pending tasks to action.
             </p>
           </div>
-          <Link href="/import">
-            <Button variant="outline" size="sm" className="hidden sm:flex">
-              <Upload className="mr-2 h-4 w-4" />
-              Import Excel
-            </Button>
-          </Link>
-          <Link href="/import">
-            <Button variant="outline" size="icon" className="sm:hidden">
-              <Upload className="h-4 w-4" />
-            </Button>
-          </Link>
+          {role === 'manager' && (
+            <>
+              <Link href="/import">
+                <Button variant="outline" size="sm" className="hidden sm:flex">
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import Excel
+                </Button>
+              </Link>
+              <Link href="/import">
+                <Button variant="outline" size="icon" className="sm:hidden">
+                  <Upload className="h-4 w-4" />
+                </Button>
+              </Link>
+            </>
+          )}
         </div>
 
         <div className="flex flex-col gap-4 sticky top-14 bg-gray-50 dark:bg-gray-900 z-40 py-2 -mx-4 px-4 border-b md:static md:bg-transparent md:border-0 md:p-0">
