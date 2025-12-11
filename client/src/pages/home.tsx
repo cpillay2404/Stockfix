@@ -2,16 +2,14 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { Layout } from "@/components/layout";
-import { fetchDashboardStats } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   ClipboardList, CheckCircle2, Clock, Store, 
-  ArrowRight, BarChart3, Upload, Users, Building2, TrendingUp, Filter, ChevronRight
+  ArrowRight, BarChart3, Upload, Users, Building2, TrendingUp, Filter, ChevronRight, X
 } from "lucide-react";
 import { useUserRole } from "@/hooks/use-user-role";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const CHART_COLORS = ['#f97316', '#3b82f6', '#10b981', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -20,34 +18,25 @@ export default function Home() {
   const [, setLocation] = useLocation();
   
   const [selectedRegion, setSelectedRegion] = useState("");
-  const [selectedRep, setSelectedRep] = useState("");
-  const [selectedStore, setSelectedStore] = useState("");
   const [selectedClient, setSelectedClient] = useState("");
-  const [selectedIssueType, setSelectedIssueType] = useState("");
   
   const { data: stats, isLoading } = useQuery({
-    queryKey: ["dashboard-stats"],
-    queryFn: fetchDashboardStats,
+    queryKey: ["dashboard-stats", selectedRegion, selectedClient],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (selectedRegion) params.set('region', selectedRegion);
+      if (selectedClient) params.set('client', selectedClient);
+      const res = await fetch(`/api/dashboard/stats?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch stats");
+      return res.json();
+    },
   });
 
-  const handleFilterApply = () => {
-    const params = new URLSearchParams();
-    if (selectedRegion) params.set('region', selectedRegion);
-    if (selectedRep) params.set('rep', selectedRep);
-    if (selectedStore) params.set('store', selectedStore);
-    if (selectedClient) params.set('client', selectedClient);
-    if (selectedIssueType) params.set('issue', selectedIssueType);
-    setLocation(`/tasks?${params.toString()}`);
-  };
-
-  const hasActiveFilters = selectedRegion || selectedRep || selectedStore || selectedClient || selectedIssueType;
+  const hasActiveFilters = selectedRegion || selectedClient;
 
   const clearFilters = () => {
     setSelectedRegion("");
-    setSelectedRep("");
-    setSelectedStore("");
     setSelectedClient("");
-    setSelectedIssueType("");
   };
 
   if (isLoading) {
@@ -162,11 +151,19 @@ export default function Home() {
 
           {/* Quick Filters */}
           <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
-            <div className="flex items-center gap-2 text-gray-700 mb-3">
-              <Filter className="h-4 w-4" />
-              <span className="text-sm font-semibold">Quick Filters</span>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 text-gray-700">
+                <Filter className="h-4 w-4" />
+                <span className="text-sm font-semibold">Quick Filters</span>
+              </div>
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="h-7 px-2 text-gray-500">
+                  <X className="h-3 w-3 mr-1" />
+                  Clear
+                </Button>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <Select value={selectedRegion || "__all__"} onValueChange={(v) => setSelectedRegion(v === "__all__" ? "" : v)}>
                 <SelectTrigger className="text-sm h-9">
                   <SelectValue placeholder="Region" />
@@ -175,37 +172,6 @@ export default function Home() {
                   <SelectItem value="__all__">All Regions</SelectItem>
                   {stats?.filters?.regions?.map(region => (
                     <SelectItem key={region} value={region}>{region}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={selectedRep || "__all__"} onValueChange={(v) => setSelectedRep(v === "__all__" ? "" : v)}>
-                <SelectTrigger className="text-sm h-9">
-                  <SelectValue placeholder="Rep" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">All Reps</SelectItem>
-                  {stats?.filters?.reps?.map(rep => (
-                    <SelectItem key={rep} value={rep}>{rep}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select 
-                value="__all__" 
-                onValueChange={(v) => {
-                  if (v !== "__all__") {
-                    setLocation(`/store/${encodeURIComponent(v)}`);
-                  }
-                }}
-              >
-                <SelectTrigger className="text-sm h-9">
-                  <SelectValue placeholder="Store" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__all__">Select Store</SelectItem>
-                  {stats?.filters?.stores?.slice(0, 100).map(store => (
-                    <SelectItem key={store} value={store}>{store}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -222,33 +188,24 @@ export default function Home() {
                 </SelectContent>
               </Select>
 
-              <Select value={selectedIssueType || "__all__"} onValueChange={(v) => setSelectedIssueType(v === "__all__" ? "" : v)}>
-                <SelectTrigger className="text-sm h-9 col-span-2">
-                  <SelectValue placeholder="Issue Type" />
+              <Select 
+                value="__all__" 
+                onValueChange={(v) => {
+                  if (v !== "__all__") {
+                    setLocation(`/store/${encodeURIComponent(v)}`);
+                  }
+                }}
+              >
+                <SelectTrigger className="text-sm h-9">
+                  <SelectValue placeholder="Store →" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="__all__">All Issue Types</SelectItem>
-                  {stats?.filters?.issueTypes?.map(issue => (
-                    <SelectItem key={issue} value={issue}>{issue}</SelectItem>
+                  <SelectItem value="__all__">Select Store</SelectItem>
+                  {stats?.filters?.stores?.slice(0, 100).map(store => (
+                    <SelectItem key={store} value={store}>{store}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="flex gap-2 mt-3">
-              <Button 
-                onClick={handleFilterApply} 
-                className="flex-1 bg-orange-500 hover:bg-orange-600"
-                disabled={!hasActiveFilters}
-                data-testid="button-apply-filters"
-              >
-                Apply Filters
-              </Button>
-              {hasActiveFilters && (
-                <Button variant="outline" onClick={clearFilters} data-testid="button-clear-filters">
-                  Clear
-                </Button>
-              )}
             </div>
           </div>
 

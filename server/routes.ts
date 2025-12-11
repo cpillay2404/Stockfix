@@ -44,7 +44,18 @@ export async function registerRoutes(
   // GET dashboard stats
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
-      const tasks = await storage.getAllTasks();
+      const regionFilter = req.query.region as string | undefined;
+      const clientFilter = req.query.client as string | undefined;
+      
+      let tasks = await storage.getAllTasks();
+      
+      // Apply filters if provided
+      if (regionFilter) {
+        tasks = tasks.filter(t => t.region === regionFilter);
+      }
+      if (clientFilter) {
+        tasks = tasks.filter(t => t.client === clientFilter);
+      }
       
       // Count by action status
       const statusCounts: Record<string, number> = {};
