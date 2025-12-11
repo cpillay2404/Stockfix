@@ -180,22 +180,37 @@ export async function registerRoutes(
         return sum + soh;
       }, 0);
 
-      // Group by client with issue breakdown
-      const clientMap: Record<string, { totalIssues: number; urgentCount: number; oosCount: number; noSalesCount: number }> = {};
+      // Group by client with issue breakdown based on actual data:
+      // - urgentCount: tasks with action starting with "Urgent:"
+      // - oosCount: tasks with stock_classification = "Out of Stock"
+      // - noSalesCount: tasks with stock_classification = "No Sales (Idle Stock)"
+      // - negativeCount: tasks with stock_classification = "Negative SOH"
+      const clientMap: Record<string, { totalIssues: number; urgentCount: number; oosCount: number; noSalesCount: number; negativeCount: number }> = {};
       storeTasks.forEach(t => {
         const client = t.client || 'Unknown';
         if (!clientMap[client]) {
-          clientMap[client] = { totalIssues: 0, urgentCount: 0, oosCount: 0, noSalesCount: 0 };
+          clientMap[client] = { totalIssues: 0, urgentCount: 0, oosCount: 0, noSalesCount: 0, negativeCount: 0 };
         }
         clientMap[client].totalIssues++;
         
-        const classification = t.stockClassification?.toLowerCase() || '';
-        if (classification.includes('idle') || classification.includes('no sales')) {
+        const action = t.action?.toLowerCase() || '';
+        const classification = t.stockClassification || '';
+        
+        // Urgent = action starts with "Urgent:"
+        if (action.startsWith('urgent')) {
           clientMap[client].urgentCount++;
+        }
+        // Out of Stock
+        if (classification === 'Out of Stock') {
+          clientMap[client].oosCount++;
+        }
+        // No Sales (Idle Stock)  
+        if (classification === 'No Sales (Idle Stock)') {
           clientMap[client].noSalesCount++;
         }
-        if (classification.includes('out of stock') || classification.includes('oos')) {
-          clientMap[client].oosCount++;
+        // Negative SOH
+        if (classification === 'Negative SOH') {
+          clientMap[client].negativeCount++;
         }
       });
       

@@ -14,6 +14,7 @@ interface ClientData {
   urgentCount: number;
   oosCount: number;
   noSalesCount: number;
+  negativeCount: number;
 }
 
 interface StoreData {
@@ -105,6 +106,11 @@ export default function StoreSummaryPage() {
   const topNoSalesClients = [...store.clients]
     .sort((a, b) => b.noSalesCount - a.noSalesCount)
     .filter(c => c.noSalesCount > 0)
+    .slice(0, 5);
+
+  const topNegativeClients = [...store.clients]
+    .sort((a, b) => (b.negativeCount || 0) - (a.negativeCount || 0))
+    .filter(c => (c.negativeCount || 0) > 0)
     .slice(0, 5);
 
   return (
@@ -211,12 +217,12 @@ export default function StoreSummaryPage() {
 
           {/* SECTION 2 - Top 5 Clients by Issue Type */}
           <div className="grid grid-cols-1 gap-3">
-            {/* Urgent Issues */}
+            {/* Urgent: Place Order */}
             {topUrgentClients.length > 0 && (
               <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100 border-l-4 border-l-red-500">
                 <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                   <Zap className="h-4 w-4 text-red-500" />
-                  Urgent Issues (Top Clients)
+                  Urgent: Place Order (Top Clients)
                 </h3>
                 <div className="space-y-1">
                   {topUrgentClients.map((client, idx) => (
@@ -269,12 +275,12 @@ export default function StoreSummaryPage() {
               </div>
             )}
 
-            {/* No Sales */}
+            {/* No Sales (Idle Stock) */}
             {topNoSalesClients.length > 0 && (
               <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100 border-l-4 border-l-amber-500">
                 <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                   <TrendingDown className="h-4 w-4 text-amber-500" />
-                  No Sales / Idle (Top Clients)
+                  No Sales (Idle Stock) (Top Clients)
                 </h3>
                 <div className="space-y-1">
                   {topNoSalesClients.map((client, idx) => (
@@ -290,6 +296,35 @@ export default function StoreSummaryPage() {
                         <div className="flex items-center gap-1">
                           <span className="text-sm font-bold text-amber-600 font-mono">{client.noSalesCount}</span>
                           <ChevronRight className="h-3 w-3 text-gray-400 group-hover:text-amber-500" />
+                        </div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Negative SOH */}
+            {topNegativeClients.length > 0 && (
+              <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100 border-l-4 border-l-purple-500">
+                <h3 className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-purple-500" />
+                  Negative SOH (Top Clients)
+                </h3>
+                <div className="space-y-1">
+                  {topNegativeClients.map((client, idx) => (
+                    <Link 
+                      key={client.name}
+                      href={`/tasks?store=${encodeURIComponent(storeName)}&client=${encodeURIComponent(client.name)}&issue=Negative`}
+                    >
+                      <div className="flex items-center justify-between p-2 rounded hover:bg-purple-50 cursor-pointer group">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 w-4">{idx + 1}.</span>
+                          <span className="text-sm text-gray-700">{client.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-sm font-bold text-purple-600 font-mono">{client.negativeCount}</span>
+                          <ChevronRight className="h-3 w-3 text-gray-400 group-hover:text-purple-500" />
                         </div>
                       </div>
                     </Link>
