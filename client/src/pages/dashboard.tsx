@@ -6,7 +6,7 @@ import { fetchTasks } from "@/lib/api";
 import { TaskCard } from "@/components/task-card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { Search, ChevronLeft, ChevronRight, ArrowLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Dashboard() {
@@ -46,22 +46,25 @@ export default function Dashboard() {
   return (
     <Layout>
       <div className="space-y-6">
-        <div className="flex items-start justify-between">
-          <div className="flex flex-col gap-2">
-            <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
-            {isLoading ? (
-              <Skeleton className="h-5 w-48" />
-            ) : (
-              <p className="text-muted-foreground">
-                Showing <span className="font-semibold text-foreground">{tasks.length}</span> of {total.toLocaleString()} tasks
-              </p>
-            )}
-          </div>
+        <div className="space-y-4">
           <Link href="/">
-            <Button variant="ghost" size="sm">
-              Dashboard
+            <Button variant="ghost" size="sm" className="pl-0 hover:bg-transparent text-muted-foreground hover:text-foreground">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Dashboard
             </Button>
           </Link>
+          <div className="flex items-start justify-between">
+            <div className="flex flex-col gap-2">
+              <h1 className="text-2xl font-bold tracking-tight">Tasks</h1>
+              {isLoading ? (
+                <Skeleton className="h-5 w-48" />
+              ) : (
+                <p className="text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">{tasks.length}</span> of {total.toLocaleString()} tasks
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-4 sticky top-14 bg-gray-50 dark:bg-gray-900 z-40 py-2 -mx-4 px-4 border-b md:static md:bg-transparent md:border-0 md:p-0">
