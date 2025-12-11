@@ -284,16 +284,31 @@ export async function registerRoutes(
       // Validate tasks
       const validatedTasks = validTasks.map((task: any) => insertTaskSchema.parse(task));
       
-      // Insert in batches of 100 to avoid stack overflow
+      // Insert in batches of 100, skip duplicates
       const BATCH_SIZE = 100;
       let totalCreated = 0;
+      let totalSkipped = 0;
       
       for (let i = 0; i < validatedTasks.length; i += BATCH_SIZE) {
         const batch = validatedTasks.slice(i, i + BATCH_SIZE);
-        const created = await storage.bulkCreateTasks(batch);
-        totalCreated += created.length;
-        console.log(`Excel import - Batch ${Math.floor(i / BATCH_SIZE) + 1}: inserted ${created.length} tasks`);
+        try {
+          const created = await storage.bulkCreateTasksIgnoreDuplicates(batch);
+          totalCreated += created.length;
+          console.log(`Excel import - Batch ${Math.floor(i / BATCH_SIZE) + 1}: inserted ${created.length} tasks`);
+        } catch (err) {
+          // If bulk fails, try one by one
+          for (const task of batch) {
+            try {
+              await storage.createTask(task);
+              totalCreated++;
+            } catch {
+              totalSkipped++;
+            }
+          }
+        }
       }
+      
+      console.log(`Excel import - Total created: ${totalCreated}, skipped: ${totalSkipped}`);
 
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
