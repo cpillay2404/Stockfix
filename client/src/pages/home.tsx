@@ -252,35 +252,35 @@ export default function Home() {
             </div>
           </div>
 
-          {/* Z3 - Actions by Type Bar Chart */}
+          {/* Z3 - Actions by Type */}
           <div className="bg-white rounded-xl shadow-md p-4 border border-gray-100">
             <div className="flex items-center gap-2 text-gray-700 mb-3">
               <BarChart3 className="h-4 w-4" />
               <span className="text-sm font-semibold">Actions by Type</span>
             </div>
             {stats.actionBreakdown.length > 0 ? (
-              <div className="h-48">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats.actionBreakdown.slice(0, 5)} layout="vertical" margin={{ left: 10, right: 20 }}>
-                    <XAxis type="number" hide />
-                    <YAxis 
-                      type="category" 
-                      dataKey="action" 
-                      width={140} 
-                      tick={{ fontSize: 9 }}
-                      tickFormatter={(value) => value.length > 22 ? value.slice(0, 22) + '...' : value}
-                    />
-                    <Tooltip 
-                      formatter={(value: number) => [value.toLocaleString(), 'Tasks']}
-                      contentStyle={{ fontSize: 12 }}
-                    />
-                    <Bar dataKey="count" radius={[0, 6, 6, 0]}>
-                      {stats.actionBreakdown.slice(0, 5).map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="space-y-2">
+                {stats.actionBreakdown.slice(0, 6).map((item, index) => {
+                  const maxCount = Math.max(...stats.actionBreakdown.slice(0, 6).map(a => a.count));
+                  const percentage = (item.count / maxCount) * 100;
+                  return (
+                    <div key={item.action} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-700 font-medium">{item.action}</span>
+                        <span className="text-orange-600 font-bold font-mono">{item.count.toLocaleString()}</span>
+                      </div>
+                      <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full rounded-full transition-all"
+                          style={{ 
+                            width: `${percentage}%`,
+                            backgroundColor: CHART_COLORS[index % CHART_COLORS.length]
+                          }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <p className="text-muted-foreground text-sm text-center py-8">No action data available</p>
