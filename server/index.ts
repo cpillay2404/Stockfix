@@ -2,8 +2,12 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
+import path from "path";
 
 const app = express();
+
+// Serve uploaded images from public/images
+app.use('/images', express.static(path.join(process.cwd(), 'public/images')));
 const httpServer = createServer(app);
 
 declare module "http" {
