@@ -91,15 +91,31 @@ export async function updateTask(
 }
 
 export async function uploadImage(file: File): Promise<{ url: string }> {
-  const formData = new FormData();
-  formData.append("image", file);
-  
-  const res = await fetch(`${API_BASE}/tasks/upload-image`, {
+  // Step 1: Request presigned URL from backend
+  const requestRes = await fetch(`${API_BASE}/uploads/request-url`, {
     method: "POST",
-    body: formData,
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: file.name,
+      size: file.size,
+      contentType: file.type,
+    }),
   });
-  if (!res.ok) throw new Error("Failed to upload image");
-  return res.json();
+  
+  if (!requestRes.ok) throw new Error("Failed to get upload URL");
+  const { uploadURL, objectPath } = await requestRes.json();
+  
+  // Step 2: Upload file directly to cloud storage
+  const uploadRes = await fetch(uploadURL, {
+    method: "PUT",
+    body: file,
+    headers: { "Content-Type": file.type },
+  });
+  
+  if (!uploadRes.ok) throw new Error("Failed to upload image");
+  
+  // Return the public URL path
+  return { url: `/objects/${objectPath}` };
 }
 
 export async function importExcel(file: File): Promise<{ success: boolean; count: number; message: string }> {

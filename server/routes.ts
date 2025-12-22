@@ -7,6 +7,7 @@ import multer from "multer";
 import XLSX from "xlsx";
 import path from "path";
 import fs from "fs";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -49,6 +50,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  
+  // Register object storage routes for persistent file uploads
+  registerObjectStorageRoutes(app);
   
   // GET dashboard stats
   app.get("/api/dashboard/stats", async (req, res) => {
