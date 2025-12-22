@@ -496,6 +496,18 @@ export async function registerRoutes(
     try {
       const allTasks = await storage.getAllTasks();
       
+      // Build full URL for images
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+      const baseUrl = `${protocol}://${host}`;
+      
+      // Helper to make image URL full path
+      const getFullImageUrl = (imagePath: string | null | undefined): string => {
+        if (!imagePath) return '';
+        if (imagePath.startsWith('http')) return imagePath;
+        return `${baseUrl}${imagePath}`;
+      };
+      
       // Transform data to match Excel columns
       const exportData = allTasks.map(task => ({
         'Unique Id': task.uniqueId,
@@ -522,8 +534,8 @@ export async function registerRoutes(
         'Action Taken Comment': task.actionTakenComment || '',
         'Feedback': task.feedback || '',
         'Capture Date': task.captureDate || '',
-        'Image 1': task.image1 || '',
-        'Image 2': task.image2 || '',
+        'Image 1': getFullImageUrl(task.image1),
+        'Image 2': getFullImageUrl(task.image2),
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
