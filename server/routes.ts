@@ -15,31 +15,7 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-// Configure multer for image uploads with proper file extension
-const imageStorage = multer.diskStorage({
-  destination: 'public/images/',
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const ext = path.extname(file.originalname).toLowerCase();
-    cb(null, uniqueSuffix + ext);
-  }
-});
-
-const imageUpload = multer({
-  storage: imageStorage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB limit
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
-    
-    if (mimetype && extname) {
-      return cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'));
-    }
-  }
-});
+// Image uploads now use cloud storage via object storage integration
 
 // Ensure directories exist
 if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
@@ -351,20 +327,7 @@ export async function registerRoutes(
     }
   });
 
-  // POST upload image
-  app.post("/api/tasks/upload-image", imageUpload.single('image'), async (req, res) => {
-    try {
-      if (!req.file) {
-        return res.status(400).json({ error: "No image file provided" });
-      }
-
-      const imageUrl = `/images/${req.file.filename}`;
-      res.json({ url: imageUrl });
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      res.status(500).json({ error: "Failed to upload image" });
-    }
-  });
+  // Old local image upload endpoint removed - now using cloud storage via /api/uploads/request-url
 
   // POST import Excel file
   app.post("/api/tasks/import", upload.single('file'), async (req, res) => {
