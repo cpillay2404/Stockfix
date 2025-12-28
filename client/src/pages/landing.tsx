@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
+import { Wrench } from "lucide-react";
 import meridianLogo from "@/assets/meridian-logo.png";
 import appBackground from "@/assets/app-background.png";
 
@@ -46,19 +47,26 @@ export default function Landing() {
         backgroundRepeat: 'no-repeat',
       }}
     >
-      <div className="w-full max-w-md flex flex-col items-center">
-        <img 
-          src={meridianLogo} 
-          alt="Meridian Nexus" 
-          className="h-16 mb-8"
-          data-testid="img-meridian-logo"
-        />
-        
+      <div className="absolute inset-0 bg-black/20" />
+      
+      <div className="relative w-full max-w-md">
         <div className="w-full bg-white rounded-2xl shadow-2xl p-8">
+          <div className="flex justify-center mb-6">
+            <img 
+              src={meridianLogo} 
+              alt="Meridian Nexus" 
+              className="h-20"
+              data-testid="img-meridian-logo"
+            />
+          </div>
+          
           <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-[#1e3a5f]" data-testid="text-title">
-              StockFix
-            </h1>
+            <div className="flex items-center justify-center gap-2">
+              <Wrench className="h-7 w-7 text-orange-500" />
+              <h1 className="text-3xl font-bold text-[#1e3a5f]" data-testid="text-title">
+                StockFix
+              </h1>
+            </div>
             <p className="text-gray-500 mt-1" data-testid="text-subtitle">
               Field Inventory Management
             </p>
