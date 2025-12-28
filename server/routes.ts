@@ -372,28 +372,33 @@ export async function registerRoutes(
         return '';
       };
 
-      // Map Excel columns to our schema with flexible matching
+      // Map CSV/Excel columns to our schema with flexible matching
       const mappedTasks = data.map((row: any, index: number) => {
+        // Generate unique ID from store + barcode + week ending
+        const storeVal = getValue(row, 'cleaned store name', 'STORE NAME', 'Store Name', 'StoreName', 'store_name', 'Store');
+        const barcodeVal = getValue(row, 'barcode', 'Barcode', 'BARCODE', 'SKU', 'sku');
+        const weekEndingVal = getValue(row, 'week ending', 'Week Ending', 'WeekEnding', 'week_ending', 'Date');
+        
         const task = {
-          uniqueId: getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID') || `task-${Date.now()}-${index}`,
-          key: getValue(row, 'Key', 'key') || `key-${index}`,
+          uniqueId: `${storeVal}-${barcodeVal}-${weekEndingVal}`.replace(/[^a-zA-Z0-9-]/g, '') || `task-${Date.now()}-${index}`,
+          key: `${storeVal}-${barcodeVal}`.substring(0, 100) || `key-${index}`,
           client: getValue(row, 'client', 'Client', 'CLIENT') || 'Unknown',
           banner: getValue(row, 'BANNER.1', 'BANNER', 'Banner', 'banner') || '',
           region: getValue(row, 'REGION.1', 'REGION', 'Region', 'region') || '',
-          storeName: getValue(row, 'STORE NAME', 'Store Name', 'StoreName', 'store_name', 'Store') || 'Unknown Store',
+          storeName: storeVal || 'Unknown Store',
           repName: getValue(row, 'REP NAME', 'Rep Name', 'RepName', 'rep_name', 'Rep') || '',
           lineManager: getValue(row, 'LINE MANAGER', 'Line Manager', 'LineManager', 'line_manager') || '',
           category: getValue(row, 'Category', 'CATEGORY', 'category') || '',
-          barcode: getValue(row, 'Barcode', 'BARCODE', 'barcode', 'SKU', 'sku') || '',
+          barcode: barcodeVal || '',
           articleDescription: getValue(row, 'article description', 'Article Description', 'ArticleDescription', 'Description', 'Product', 'Product Name') || 'No Description',
-          dcSoh: getValue(row, 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh') || '0',
+          dcSoh: getValue(row, 'Supplying dc soh', 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh', 'Supplying DC SOH') || '0',
           storeSoh: getValue(row, 'Store SOH', 'STORE_SOH', 'StoreSoh', 'store_soh') || '0',
-          p4WeekSales: getValue(row, 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales') || '0',
+          p4WeekSales: getValue(row, 'Sell out p4 weeks', 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales', 'Sell out P4 weeks') || '0',
           missedSales: getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales') || '0',
-          storeWfc: getValue(row, 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc', 'WFC') || '0',
+          storeWfc: getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc') || '0',
           stockClassification: getValue(row, 'Stock Classification (This Week)', 'Stock Classification', 'StockClassification', 'stock_classification') || '',
-          action: getValue(row, 'Action', 'ACTION', 'action', 'Task', 'Required Action') || 'Review stock',
-          actionDate: getValue(row, 'Action Date', 'ActionDate', 'action_date', 'Due Date', 'Date') || new Date().toISOString().split('T')[0],
+          action: getValue(row, 'Action Column', 'Action', 'ACTION', 'action', 'Task', 'Required Action') || 'Review stock',
+          actionDate: weekEndingVal || new Date().toISOString().split('T')[0],
           actionStatus: getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status') || 'Pending',
           systemImage: getValue(row, 'System Image', 'SystemImage', 'system_image', 'Image') || '',
         };
