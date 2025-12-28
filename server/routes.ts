@@ -35,8 +35,17 @@ export async function registerRoutes(
     try {
       const regionFilter = req.query.region as string | undefined;
       const clientFilter = req.query.client as string | undefined;
+      const includeAll = req.query.includeAll === 'true';
       
       let tasks = await storage.getAllTasks();
+      
+      // Filter to latest week ending date unless includeAll is true
+      if (!includeAll) {
+        const latestWeek = await storage.getLatestWeekEndingDate();
+        if (latestWeek) {
+          tasks = tasks.filter(t => t.weekEndingDate === latestWeek);
+        }
+      }
       
       // Apply filters if provided
       if (regionFilter) {
@@ -149,7 +158,18 @@ export async function registerRoutes(
   app.get("/api/stores/:storeName/summary", async (req, res) => {
     try {
       const storeName = decodeURIComponent(req.params.storeName);
-      const allTasks = await storage.getAllTasks();
+      const includeAll = req.query.includeAll === 'true';
+      
+      let allTasks = await storage.getAllTasks();
+      
+      // Filter to latest week ending date unless includeAll is true
+      if (!includeAll) {
+        const latestWeek = await storage.getLatestWeekEndingDate();
+        if (latestWeek) {
+          allTasks = allTasks.filter(t => t.weekEndingDate === latestWeek);
+        }
+      }
+      
       const storeTasks = allTasks.filter(t => t.storeName === storeName);
       
       if (storeTasks.length === 0) {
@@ -258,13 +278,33 @@ export async function registerRoutes(
     }
   });
 
-  // GET all tasks with pagination
+  // GET latest week ending date
+  app.get("/api/tasks/latest-week", async (req, res) => {
+    try {
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      res.json({ latestWeekEndingDate: latestWeek });
+    } catch (error) {
+      console.error("Error fetching latest week:", error);
+      res.status(500).json({ error: "Failed to fetch latest week" });
+    }
+  });
+
+  // GET all tasks with pagination (defaults to latest week only)
   app.get("/api/tasks", async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const search = (req.query.search as string) || '';
       const status = (req.query.status as string) || '';
+      const includeAll = req.query.includeAll === 'true';
+      
+      // Get latest week ending date unless includeAll is true
+      let weekEndingDate = '';
+      if (!includeAll) {
+        const latestWeek = await storage.getLatestWeekEndingDate();
+        weekEndingDate = latestWeek || '';
+      }
+      
       const filters = {
         region: (req.query.region as string) || '',
         rep: (req.query.rep as string) || '',
@@ -272,6 +312,7 @@ export async function registerRoutes(
         client: (req.query.client as string) || '',
         issue: (req.query.issue as string) || '',
         category: (req.query.category as string) || '',
+        weekEndingDate,
       };
       
       const result = await storage.getTasksPaginated(page, limit, search, status, filters);
@@ -381,15 +422,29 @@ export async function registerRoutes(
         return '';
       };
 
+      // Helper to parse date string to ISO format (YYYY-MM-DD)
+      const parseToISODate = (dateStr: string): string => {
+        if (!dateStr) return new Date().toISOString().split('T')[0];
+        try {
+          // Try parsing various formats
+          const parsed = new Date(dateStr);
+          if (!isNaN(parsed.getTime())) {
+            return parsed.toISOString().split('T')[0];
+          }
+        } catch (e) {}
+        return new Date().toISOString().split('T')[0];
+      };
+
       // Map CSV/Excel columns to our schema with flexible matching
       const mappedTasks = data.map((row: any, index: number) => {
         // Generate unique ID from store + barcode + week ending
         const storeVal = getValue(row, 'cleaned store name', 'STORE NAME', 'Store Name', 'StoreName', 'store_name', 'Store');
         const barcodeVal = getValue(row, 'barcode', 'Barcode', 'BARCODE', 'SKU', 'sku');
         const weekEndingVal = getValue(row, 'week ending', 'Week Ending', 'WeekEnding', 'week_ending', 'Date');
+        const weekEndingISO = parseToISODate(weekEndingVal);
         
         const task = {
-          uniqueId: `${storeVal}-${barcodeVal}-${weekEndingVal}`.replace(/[^a-zA-Z0-9-]/g, '') || `task-${Date.now()}-${index}`,
+          uniqueId: `${storeVal}-${barcodeVal}-${weekEndingISO}`.replace(/[^a-zA-Z0-9-]/g, '') || `task-${Date.now()}-${index}`,
           key: `${storeVal}-${barcodeVal}`.substring(0, 100) || `key-${index}`,
           client: getValue(row, 'client', 'Client', 'CLIENT') || 'Unknown',
           banner: getValue(row, 'BANNER.1', 'BANNER', 'Banner', 'banner') || '',
@@ -407,6 +462,7 @@ export async function registerRoutes(
           storeWfc: getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc') || '0',
           stockClassification: getValue(row, 'Stock Classification (This Week)', 'Stock Classification', 'StockClassification', 'stock_classification') || '',
           weekEnding: weekEndingVal || new Date().toISOString().split('T')[0],
+          weekEndingDate: weekEndingISO,
           action: getValue(row, 'Action Column', 'Action', 'ACTION', 'action', 'Task', 'Required Action') || 'Review stock',
           actionDate: null,
           actionStatus: getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status') || 'Pending',

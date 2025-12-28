@@ -47,6 +47,7 @@ export const tasks = pgTable("tasks", {
   
   // Time Series Data
   weekEnding: text("week_ending"),
+  weekEndingDate: text("week_ending_date"),
   
   // Action Required
   action: text("action").notNull(),

@@ -9,6 +9,7 @@ export interface TaskFilters {
   client?: string;
   issue?: string;
   category?: string;
+  weekEndingDate?: string;
 }
 
 export interface IStorage {
@@ -26,6 +27,7 @@ export interface IStorage {
   updateTask(id: number, updates: Partial<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Task | undefined>;
   deleteTask(id: number): Promise<boolean>;
   deleteAllTasks(): Promise<void>;
+  getLatestWeekEndingDate(): Promise<string | null>;
   bulkCreateTasks(tasks: InsertTask[]): Promise<Task[]>;
   bulkCreateTasksIgnoreDuplicates(tasks: InsertTask[]): Promise<Task[]>;
 }
@@ -94,6 +96,9 @@ export class DatabaseStorage implements IStorage {
     if (filters?.category) {
       conditions.push(eq(tasks.category, filters.category));
     }
+    if (filters?.weekEndingDate) {
+      conditions.push(eq(tasks.weekEndingDate, filters.weekEndingDate));
+    }
     
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
     
@@ -154,6 +159,13 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllTasks(): Promise<void> {
     await db.delete(tasks);
+  }
+
+  async getLatestWeekEndingDate(): Promise<string | null> {
+    const [result] = await db
+      .select({ maxDate: sql<string>`MAX(${tasks.weekEndingDate})` })
+      .from(tasks);
+    return result?.maxDate || null;
   }
 
   async bulkCreateTasks(insertTasks: InsertTask[]): Promise<Task[]> {
