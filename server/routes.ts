@@ -329,11 +329,20 @@ export async function registerRoutes(
 
   // Old local image upload endpoint removed - now using cloud storage via /api/uploads/request-url
 
-  // POST import Excel file
+  // POST import Excel/CSV file
   app.post("/api/tasks/import", upload.single('file'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file provided" });
+      }
+
+      // Check if we should clear existing tasks first (full refresh)
+      const clearExisting = req.query.clear === 'true' || req.body?.clear === 'true';
+      
+      if (clearExisting) {
+        console.log("Import - Clearing all existing tasks for full refresh...");
+        await storage.deleteAllTasks();
+        console.log("Import - All existing tasks cleared");
       }
 
       const workbook = XLSX.readFile(req.file.path);

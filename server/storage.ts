@@ -25,6 +25,7 @@ export interface IStorage {
   createTask(task: InsertTask): Promise<Task>;
   updateTask(id: number, updates: Partial<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Task | undefined>;
   deleteTask(id: number): Promise<boolean>;
+  deleteAllTasks(): Promise<void>;
   bulkCreateTasks(tasks: InsertTask[]): Promise<Task[]>;
   bulkCreateTasksIgnoreDuplicates(tasks: InsertTask[]): Promise<Task[]>;
 }
@@ -149,6 +150,10 @@ export class DatabaseStorage implements IStorage {
   async deleteTask(id: number): Promise<boolean> {
     const result = await db.delete(tasks).where(eq(tasks.id, id));
     return result.rowCount ? result.rowCount > 0 : false;
+  }
+
+  async deleteAllTasks(): Promise<void> {
+    await db.delete(tasks);
   }
 
   async bulkCreateTasks(insertTasks: InsertTask[]): Promise<Task[]> {

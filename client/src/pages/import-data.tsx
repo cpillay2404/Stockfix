@@ -3,7 +3,8 @@ import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2 } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -14,10 +15,11 @@ export default function ImportData() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
+  const [clearExisting, setClearExisting] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const importMutation = useMutation({
-    mutationFn: (file: File) => importExcel(file),
+    mutationFn: (file: File) => importExcel(file, clearExisting),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       toast({
@@ -98,6 +100,25 @@ export default function ImportData() {
                 </div>
               </div>
             )}
+
+            <div className="flex items-center space-x-3 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-900/50">
+              <Checkbox 
+                id="clear-existing" 
+                checked={clearExisting}
+                onCheckedChange={(checked) => setClearExisting(checked === true)}
+                disabled={importMutation.isPending}
+                data-testid="checkbox-clear-existing"
+              />
+              <div className="flex-1">
+                <Label htmlFor="clear-existing" className="text-sm font-medium cursor-pointer flex items-center gap-2">
+                  <Trash2 className="h-4 w-4 text-orange-600" />
+                  Full Refresh (Clear all existing tasks before import)
+                </Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Recommended for weekly imports. Images remain safe in cloud storage.
+                </p>
+              </div>
+            </div>
 
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50 flex gap-3">
               <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />

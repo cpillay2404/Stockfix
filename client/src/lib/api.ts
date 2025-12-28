@@ -118,11 +118,12 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   return { url: `/objects/${objectPath}` };
 }
 
-export async function importExcel(file: File): Promise<{ success: boolean; count: number; message: string }> {
+export async function importExcel(file: File, clearExisting = true): Promise<{ success: boolean; count: number; message: string }> {
   const formData = new FormData();
   formData.append("file", file);
   
-  const res = await fetch(`${API_BASE}/tasks/import`, {
+  const url = clearExisting ? `${API_BASE}/tasks/import?clear=true` : `${API_BASE}/tasks/import`;
+  const res = await fetch(url, {
     method: "POST",
     body: formData,
   });
