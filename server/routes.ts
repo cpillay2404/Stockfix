@@ -315,7 +315,16 @@ export async function registerRoutes(
       });
 
       const validated = updateSchema.parse(req.body);
-      const updated = await storage.updateTask(task.id, validated);
+      
+      // Auto-set actionDate when feedback is being submitted (status changes to Complete or feedback is added)
+      const updates: any = { ...validated };
+      if ((validated.actionStatus && validated.actionStatus !== 'Pending') || validated.feedback || validated.reasonCode) {
+        if (!task.actionDate) {
+          updates.actionDate = new Date().toISOString().split('T')[0];
+        }
+      }
+      
+      const updated = await storage.updateTask(task.id, updates);
       
       res.json(updated);
     } catch (error) {
@@ -397,8 +406,9 @@ export async function registerRoutes(
           missedSales: getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales') || '0',
           storeWfc: getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc') || '0',
           stockClassification: getValue(row, 'Stock Classification (This Week)', 'Stock Classification', 'StockClassification', 'stock_classification') || '',
+          weekEnding: weekEndingVal || new Date().toISOString().split('T')[0],
           action: getValue(row, 'Action Column', 'Action', 'ACTION', 'action', 'Task', 'Required Action') || 'Review stock',
-          actionDate: weekEndingVal || new Date().toISOString().split('T')[0],
+          actionDate: null,
           actionStatus: getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status') || 'Pending',
           systemImage: getValue(row, 'System Image', 'SystemImage', 'system_image', 'Image') || '',
         };

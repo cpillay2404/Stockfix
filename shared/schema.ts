@@ -45,9 +45,12 @@ export const tasks = pgTable("tasks", {
   storeWfc: text("store_wfc").notNull(),
   stockClassification: text("stock_classification").notNull(),
   
+  // Time Series Data
+  weekEnding: text("week_ending"),
+  
   // Action Required
   action: text("action").notNull(),
-  actionDate: text("action_date").notNull(),
+  actionDate: text("action_date"),
   
   // Feedback / Result
   feedback: text("feedback"),
