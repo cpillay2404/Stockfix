@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SplashScreen } from "@/components/splash-screen";
 import NotFound from "@/pages/not-found";
+import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import TaskList from "@/pages/dashboard";
 import TaskDetail from "@/pages/task-detail";
@@ -15,7 +16,8 @@ import StoreSummary from "@/pages/store-summary";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Home} />
+      <Route path="/" component={Landing} />
+      <Route path="/dashboard" component={Home} />
       <Route path="/tasks" component={TaskList} />
       <Route path="/import" component={ImportData} />
       <Route path="/task/:id" component={TaskDetail} />
