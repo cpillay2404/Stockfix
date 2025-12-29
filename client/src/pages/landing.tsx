@@ -176,11 +176,11 @@ export default function Landing() {
         </p>
       </div>
 
-      <div style={{ paddingTop: '16px', paddingBottom: '32px' }}>
+      <div style={{ paddingTop: '24px', paddingBottom: '32px' }}>
         <img 
           src={meridianNexusLogo} 
           alt="Meridian Nexus" 
-          style={{ height: '40px' }}
+          style={{ height: '80px' }}
           data-testid="img-meridian-nexus-logo"
         />
       </div>
