@@ -1,0 +1,159 @@
+Implement a NEW “Store Overview” page that appears immediately AFTER the user clicks “START VISIT”.
+This page must be store-visit scoped (rep + store), and must replace the current global dashboard view.
+
+DO NOT redesign other pages. Do not show global / head-office components (Top Stores, Top Reps, national summaries).
+This change is focused on the post-Start Visit experience.
+
+========================================
+1) VISIT CONTEXT (INPUTS)
+========================================
+When the user clicks START VISIT, you already have these values:
+- selectedRep
+- selectedStore
+- selectedClient (optional; default All Clients)
+From now on, the Store Overview must operate ONLY on the data filtered by:
+Rep + Store + (Client if selected) + (Article if selected)
+
+Add an additional filter on this Store Overview page:
+- Article Description dropdown:
+  - label: “Article”
+  - default value: “All Articles”
+  - options: unique article descriptions available for the selected Rep+Store (+Client if selected)
+  - when an article is selected, ALL tiles and ALL graphs must update accordingly
+
+Filter precedence for all calculations:
+1) Rep (locked from visit)
+2) Store (locked from visit)
+3) Client dropdown (optional)
+4) Article dropdown (optional)
+
+========================================
+2) PAGE DESIGN / LAYOUT (MOBILE FIRST)
+========================================
+Background:
+- Page background colour: #003B71 (same as landing page)
+- No gradients, no images, no patterns
+
+Top Header Block (full width, on blue background):
+- Use a solid header area with background #003B71
+- Text in white
+- Content (stacked):
+  Line 1 (Store Name): selectedStore name in ALL CAPS, bold, white
+  Line 2 (Region • Rep): “<REGION> • <REP NAME>” in smaller white text
+- Below the store+rep text, place two dropdowns:
+  - Client dropdown (label: “Client”)
+  - Article dropdown (label: “Article”)
+- These dropdowns must be within the header block and visually consistent with the dark theme.
+- Dropdown text colour: white or very light text, dropdown background darker than header (but still blue theme)
+- Must be usable on mobile (touch scrolling and/or search in dropdown)
+
+Primary Action Button (must be visible near top, do not hide below graphs):
+- Place directly under the header block (still near top of screen)
+- Button text: “VIEW TASKS”
+- Full width button (within content padding)
+- Colour: Meridian orange #F36C21
+- Text: white
+- This button navigates to the Tasks page for the current visit scope:
+  Rep + Store + (Client if selected) + (Article if selected)
+- This is the primary action and must be ABOVE tiles and charts.
+
+Content Card Area (white cards on blue background):
+- Use white rounded cards for tiles and charts
+- Cards: background #FFFFFF, border radius 16px, soft shadow
+- Standard padding: 16–20px inside cards
+- Titles in #003B71
+
+========================================
+3) DATA SCOPING (CRITICAL)
+========================================
+The underlying dataset contains multiple weeks per SKU.
+For ALL tiles on Store Overview:
+- Determine latestWeekEnding = MAX(week ending) within the filtered scope (Rep + Store + optional Client + optional Article)
+- Tiles must use ONLY records from latestWeekEnding (this week only)
+
+For ALL charts:
+- Use the last ~12 weeks (or all available if less than 12) within the same filtered scope
+- Charts must show week ending on the X-axis
+- Charts must be bar charts
+- NO legend on any chart (legend disabled/hidden)
+
+========================================
+4) STORE HEALTH TILES (THIS WEEK ONLY) – LOCKED LOGIC
+========================================
+Tiles must be based on “Stock Classification (This Week)” and must be counted using latestWeekEnding only.
+Count unique SKUs (use barcode as SKU key; if barcode duplicates exist, use barcode + article description).
+
+Create exactly 4 tiles (2 per row on mobile):
+1) “Total SKUs (This Week)”
+   - Count unique SKUs in latestWeekEnding
+
+2) “Action Required (This Week)”
+   - Count unique SKUs where Stock Classification (This Week) != “Optimal”
+
+3) “Understock / OOS (This Week)”
+   - Count unique SKUs where Stock Classification (This Week) is one of:
+     “Understock”, “OOS”, “Out of Stock”
+   - If your dataset uses slightly different labels, match the closest equivalent but do NOT invent new categories.
+
+4) “Overstock (This Week)”
+   - Count unique SKUs where Stock Classification (This Week) == “Overstock”
+
+IMPORTANT:
+- Negative SOH and operational actions are NOT separate tiles.
+- Those are handled on the Tasks page using “Action Column”.
+- Tiles are health-only.
+
+========================================
+5) CHARTS (3 BAR CHARTS, NO LEGENDS)
+========================================
+All charts:
+- Bar charts
+- No legends (disable legend explicitly)
+- Titles must NOT include words like “over time”
+- Titles must be exactly:
+  A) “Store SOH”
+  B) “Sell Out (P4 Weeks)”
+  C) “WFC”
+
+Chart A: “Store SOH”
+- X-axis: week ending
+- Y-axis: aggregated Store SOH (sum) for the filtered scope per week
+- Use bars with a clean style, mobile readable
+- No legend
+
+Chart B: “Sell Out (P4 Weeks)”
+- X-axis: week ending
+- Y-axis: aggregated Sell Out P4 Weeks (sum) for the filtered scope per week
+- No legend
+
+Chart C: “WFC”
+- X-axis: week ending
+- Y-axis: WFC metric aggregated per week for the filtered scope
+- If WFC is per SKU, compute weekly WFC as:
+  - average WFC across SKUs for that week (recommended)
+  (Do not sum WFC; average is more meaningful.)
+- No legend
+
+========================================
+6) REMOVE / HIDE GLOBAL DASHBOARD COMPONENTS
+========================================
+When in Store Overview (post Start Visit), do NOT show:
+- Top 5 Stores by Tasks
+- Top 5 Reps by Tasks
+- Clients Overview national cards
+- Global Region filters
+- Any global totals across all reps/stores
+
+This Store Overview is strictly scoped to the visit store.
+
+========================================
+7) PERFORMANCE / UX REQUIREMENTS
+========================================
+- Dropdowns must be touch-friendly on mobile (scrollable and/or searchable)
+- View Tasks must be visible without scrolling too far
+- Charts must be readable on mobile
+- No legends
+- No extra text, no duplicated labels
+
+Build exactly as specified. Do not redesign. Do not add extra sections.
+If something is missing, keep it minimal rather than inventing UI.

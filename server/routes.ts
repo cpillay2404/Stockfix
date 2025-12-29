@@ -181,6 +181,138 @@ export async function registerRoutes(
     }
   });
 
+  // GET store overview (scoped to rep+store for Store Overview page)
+  app.get("/api/store-overview", async (req, res) => {
+    try {
+      const rep = req.query.rep as string;
+      const store = req.query.store as string;
+      const client = req.query.client as string | undefined;
+      const article = req.query.article as string | undefined;
+      
+      if (!rep || !store) {
+        return res.status(400).json({ error: "Rep and store are required" });
+      }
+      
+      const allTasks = await storage.getAllTasks();
+      
+      // Filter by rep and store
+      let scopedTasks = allTasks.filter(t => 
+        t.repName === rep && t.storeName === store
+      );
+      
+      // Apply optional client filter
+      if (client && client !== 'All Clients') {
+        scopedTasks = scopedTasks.filter(t => t.client === client);
+      }
+      
+      // Apply optional article filter
+      if (article && article !== 'All Articles') {
+        scopedTasks = scopedTasks.filter(t => t.articleDescription === article);
+      }
+      
+      if (scopedTasks.length === 0) {
+        return res.json({
+          storeName: store,
+          region: '',
+          repName: rep,
+          tiles: { totalSKUs: 0, actionRequired: 0, understockOOS: 0, overstock: 0 },
+          charts: { storeSoh: [], sellOutP4: [], wfc: [] },
+          filters: { clients: [], articles: [] },
+          latestWeekEnding: null,
+        });
+      }
+      
+      // Get unique week endings sorted descending
+      const weekEndings = [...new Set(scopedTasks.map(t => t.weekEndingDate).filter(Boolean))].sort().reverse();
+      const latestWeekEnding = weekEndings[0] || null;
+      
+      // Filter for latest week only (for tiles)
+      const latestWeekTasks = latestWeekEnding 
+        ? scopedTasks.filter(t => t.weekEndingDate === latestWeekEnding)
+        : scopedTasks;
+      
+      // Count unique SKUs (barcode + article description)
+      const getSkuKey = (t: any) => `${t.barcode}|${t.articleDescription}`;
+      const uniqueSkus = new Set(latestWeekTasks.map(getSkuKey));
+      const totalSKUs = uniqueSkus.size;
+      
+      // Action Required: Stock Classification != "Optimal"
+      const actionRequiredSkus = new Set(
+        latestWeekTasks
+          .filter(t => t.stockClassification !== 'Optimal')
+          .map(getSkuKey)
+      );
+      const actionRequired = actionRequiredSkus.size;
+      
+      // Understock/OOS: Understock, OOS, Out of Stock
+      const understockOosSkus = new Set(
+        latestWeekTasks
+          .filter(t => ['Understock', 'OOS', 'Out of Stock'].includes(t.stockClassification || ''))
+          .map(getSkuKey)
+      );
+      const understockOOS = understockOosSkus.size;
+      
+      // Overstock
+      const overstockSkus = new Set(
+        latestWeekTasks
+          .filter(t => t.stockClassification === 'Overstock')
+          .map(getSkuKey)
+      );
+      const overstock = overstockSkus.size;
+      
+      // Charts: last 12 weeks of data
+      const last12Weeks = weekEndings.slice(0, 12).reverse();
+      
+      // Store SOH per week (sum)
+      const storeSohData = last12Weeks.map(week => {
+        const weekTasks = scopedTasks.filter(t => t.weekEndingDate === week);
+        const sum = weekTasks.reduce((acc, t) => acc + (parseFloat(t.storeSoh) || 0), 0);
+        return { weekEnding: week, value: Math.round(sum) };
+      });
+      
+      // Sell Out P4 Weeks per week (sum)
+      const sellOutP4Data = last12Weeks.map(week => {
+        const weekTasks = scopedTasks.filter(t => t.weekEndingDate === week);
+        const sum = weekTasks.reduce((acc, t) => acc + (parseFloat(t.p4WeekSales) || 0), 0);
+        return { weekEnding: week, value: Math.round(sum) };
+      });
+      
+      // WFC per week (average)
+      const wfcData = last12Weeks.map(week => {
+        const weekTasks = scopedTasks.filter(t => t.weekEndingDate === week);
+        if (weekTasks.length === 0) return { weekEnding: week, value: 0 };
+        const sum = weekTasks.reduce((acc, t) => acc + (parseFloat(t.storeWfc) || 0), 0);
+        const avg = sum / weekTasks.length;
+        return { weekEnding: week, value: Math.round(avg * 10) / 10 };
+      });
+      
+      // Get filter options (unique clients and articles within scope before article filter)
+      const baseFilteredTasks = allTasks.filter(t => 
+        t.repName === rep && t.storeName === store && 
+        (!client || client === 'All Clients' || t.client === client)
+      );
+      const clients = [...new Set(scopedTasks.map(t => t.client).filter(Boolean))].sort();
+      const articles = [...new Set(baseFilteredTasks.map(t => t.articleDescription).filter(Boolean))].sort();
+      
+      res.json({
+        storeName: store,
+        region: latestWeekTasks[0]?.region || '',
+        repName: rep,
+        latestWeekEnding,
+        tiles: { totalSKUs, actionRequired, understockOOS, overstock },
+        charts: {
+          storeSoh: storeSohData,
+          sellOutP4: sellOutP4Data,
+          wfc: wfcData,
+        },
+        filters: { clients, articles },
+      });
+    } catch (error) {
+      console.error("Error fetching store overview:", error);
+      res.status(500).json({ error: "Failed to fetch store overview" });
+    }
+  });
+
   // GET store summary
   app.get("/api/stores/:storeName/summary", async (req, res) => {
     try {

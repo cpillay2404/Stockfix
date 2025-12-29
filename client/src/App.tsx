@@ -12,11 +12,13 @@ import TaskList from "@/pages/dashboard";
 import TaskDetail from "@/pages/task-detail";
 import ImportData from "@/pages/import-data";
 import StoreSummary from "@/pages/store-summary";
+import StoreOverview from "@/pages/store-overview";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/store-overview" component={StoreOverview} />
       <Route path="/dashboard" component={Home} />
       <Route path="/tasks" component={TaskList} />
       <Route path="/import" component={ImportData} />

@@ -124,8 +124,8 @@ export default function Landing() {
     const params = new URLSearchParams();
     if (selectedRep) params.set('rep', selectedRep);
     if (selectedStore) params.set('store', selectedStore);
-    if (selectedClient && selectedClient !== 'all') params.set('client', selectedClient);
-    setLocation(`/dashboard?${params.toString()}`);
+    if (selectedClient && selectedClient !== 'All Clients' && selectedClient) params.set('client', selectedClient);
+    setLocation(`/store-overview?${params.toString()}`);
   };
 
   return (
