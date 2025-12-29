@@ -171,12 +171,12 @@ export default function Landing() {
           START VISIT
         </Button>
 
-        <p style={{ fontSize: '12px', color: '#003B71', textAlign: 'center', marginTop: '16px' }} data-testid="text-powered-by">
-          Powered by
-        </p>
       </div>
 
-      <div style={{ paddingTop: '24px', paddingBottom: '32px' }}>
+      <div style={{ paddingTop: '24px', paddingBottom: '32px', textAlign: 'center' }}>
+        <p style={{ fontSize: '12px', color: '#FFFFFF', marginBottom: '8px' }} data-testid="text-powered-by">
+          Powered by
+        </p>
         <img 
           src={meridianNexusLogo} 
           alt="Meridian Nexus" 
