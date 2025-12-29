@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, ChevronDown, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 
@@ -219,6 +219,25 @@ export default function StoreOverview() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#003B71' }}>
       <div style={{ padding: '20px 16px' }}>
+        <button
+          onClick={() => setLocation('/')}
+          data-testid="button-back"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            color: 'rgba(255,255,255,0.8)',
+            fontSize: '14px',
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 0,
+            marginBottom: '12px',
+          }}
+        >
+          <ArrowLeft style={{ width: '18px', height: '18px' }} />
+          <span>Back</span>
+        </button>
         <div style={{ marginBottom: '8px' }}>
           <h1 
             style={{ 
