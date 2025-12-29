@@ -1,11 +1,88 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Wrench } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
+import { Check, ChevronDown, Wrench } from "lucide-react";
+import { cn } from "@/lib/utils";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
+
+interface SearchableSelectProps {
+  value: string;
+  onValueChange: (value: string) => void;
+  options: string[];
+  placeholder: string;
+  disabled?: boolean;
+  testId: string;
+}
+
+function SearchableSelect({ value, onValueChange, options, placeholder, disabled, testId }: SearchableSelectProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          data-testid={testId}
+          style={{
+            width: '100%',
+            height: '44px',
+            borderRadius: '8px',
+            border: '1px solid #D1D5DB',
+            fontSize: '14px',
+            color: value ? '#003B71' : '#9CA3AF',
+            backgroundColor: disabled ? '#F3F4F6' : '#FFFFFF',
+            padding: '0 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: disabled ? 'not-allowed' : 'pointer',
+            opacity: disabled ? 0.6 : 1,
+          }}
+        >
+          <span>{value || placeholder}</span>
+          <ChevronDown style={{ width: '16px', height: '16px', opacity: 0.5 }} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent 
+        className="p-0" 
+        style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '300px' }}
+        align="start"
+      >
+        <Command>
+          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} />
+          <CommandList style={{ maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+            <CommandEmpty>No results found.</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option}
+                  value={option}
+                  onSelect={() => {
+                    onValueChange(option);
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value === option ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option}
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export default function Landing() {
   const [, setLocation] = useLocation();
@@ -22,9 +99,24 @@ export default function Landing() {
     },
   });
 
+  const { data: repStoresData } = useQuery({
+    queryKey: ["rep-stores", selectedRep],
+    queryFn: async () => {
+      if (!selectedRep) return { stores: [] };
+      const res = await fetch(`/api/reps/${encodeURIComponent(selectedRep)}/stores`);
+      if (!res.ok) throw new Error("Failed to fetch stores");
+      return res.json();
+    },
+    enabled: !!selectedRep,
+  });
+
   const reps = stats?.filters?.reps || [];
-  const stores = stats?.filters?.stores || [];
+  const stores = repStoresData?.stores || [];
   const clients = stats?.filters?.clients || [];
+
+  useEffect(() => {
+    setSelectedStore("");
+  }, [selectedRep]);
 
   const canStart = selectedRep && selectedStore;
 
@@ -78,76 +170,40 @@ export default function Landing() {
             <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '4px', display: 'block' }}>
               Select Rep <span style={{ color: '#F36C21' }}>*</span>
             </label>
-            <Select value={selectedRep} onValueChange={setSelectedRep}>
-              <SelectTrigger 
-                data-testid="select-rep"
-                style={{ 
-                  height: '44px', 
-                  borderRadius: '8px', 
-                  borderColor: '#D1D5DB',
-                  fontSize: '14px',
-                  color: '#003B71'
-                }}
-              >
-                <SelectValue placeholder="Select Rep" />
-              </SelectTrigger>
-              <SelectContent>
-                {reps.map((rep: string) => (
-                  <SelectItem key={rep} value={rep}>{rep}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedRep}
+              onValueChange={setSelectedRep}
+              options={reps}
+              placeholder="Select Rep"
+              testId="select-rep"
+            />
           </div>
 
           <div>
             <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '4px', display: 'block' }}>
               Select Store <span style={{ color: '#F36C21' }}>*</span>
             </label>
-            <Select value={selectedStore} onValueChange={setSelectedStore}>
-              <SelectTrigger 
-                data-testid="select-store"
-                style={{ 
-                  height: '44px', 
-                  borderRadius: '8px', 
-                  borderColor: '#D1D5DB',
-                  fontSize: '14px',
-                  color: '#003B71'
-                }}
-              >
-                <SelectValue placeholder="Select Store" />
-              </SelectTrigger>
-              <SelectContent>
-                {stores.map((store: string) => (
-                  <SelectItem key={store} value={store}>{store}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedStore}
+              onValueChange={setSelectedStore}
+              options={stores}
+              placeholder={selectedRep ? "Select Store" : "Select a Rep first"}
+              disabled={!selectedRep}
+              testId="select-store"
+            />
           </div>
 
           <div>
             <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '4px', display: 'block' }}>
               All Clients
             </label>
-            <Select value={selectedClient} onValueChange={setSelectedClient}>
-              <SelectTrigger 
-                data-testid="select-client"
-                style={{ 
-                  height: '44px', 
-                  borderRadius: '8px', 
-                  borderColor: '#D1D5DB',
-                  fontSize: '14px',
-                  color: '#003B71'
-                }}
-              >
-                <SelectValue placeholder="All Clients" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Clients</SelectItem>
-                {clients.map((client: string) => (
-                  <SelectItem key={client} value={client}>{client}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect
+              value={selectedClient}
+              onValueChange={setSelectedClient}
+              options={['All Clients', ...clients]}
+              placeholder="All Clients"
+              testId="select-client"
+            />
           </div>
         </div>
 

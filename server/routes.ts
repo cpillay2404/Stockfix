@@ -154,6 +154,33 @@ export async function registerRoutes(
     }
   });
 
+  // GET stores for a specific rep
+  app.get("/api/reps/:repName/stores", async (req, res) => {
+    try {
+      const repName = decodeURIComponent(req.params.repName);
+      const includeAll = req.query.includeAll === 'true';
+      
+      let allTasks = await storage.getAllTasks();
+      
+      // Filter to latest week ending date unless includeAll is true
+      if (!includeAll) {
+        const latestWeek = await storage.getLatestWeekEndingDate();
+        if (latestWeek) {
+          allTasks = allTasks.filter(t => t.weekEndingDate === latestWeek);
+        }
+      }
+      
+      // Get unique stores for this rep
+      const repTasks = allTasks.filter(t => t.repName === repName);
+      const stores = [...new Set(repTasks.map(t => t.storeName).filter(Boolean))].sort();
+      
+      res.json({ stores });
+    } catch (error) {
+      console.error("Error fetching rep stores:", error);
+      res.status(500).json({ error: "Failed to fetch rep stores" });
+    }
+  });
+
   // GET store summary
   app.get("/api/stores/:storeName/summary", async (req, res) => {
     try {
