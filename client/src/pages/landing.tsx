@@ -173,8 +173,8 @@ export default function Landing() {
 
       </div>
 
-      <div style={{ paddingTop: '24px', paddingBottom: '32px', textAlign: 'center' }}>
-        <p style={{ fontSize: '12px', color: '#FFFFFF', marginBottom: '8px' }} data-testid="text-powered-by">
+      <div style={{ paddingTop: '32px', paddingBottom: '32px', textAlign: 'center' }}>
+        <p style={{ fontSize: '12px', color: '#FFFFFF', marginBottom: '4px' }} data-testid="text-powered-by">
           Powered by
         </p>
         <img 
