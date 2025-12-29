@@ -1,0 +1,126 @@
+Implement the landing page EXACTLY as specified below.
+Do not infer, redesign, simplify, restyle, or substitute anything.
+If something is not explicitly listed, do not add it.
+
+====================================
+GLOBAL
+====================================
+- Page background colour: #003B71
+- No gradients
+- No images
+- No patterns
+- No overlays
+- Page layout is vertical, centered
+
+====================================
+TOP SECTION (ON BLUE BACKGROUND)
+====================================
+- Element: Meridian Group logo
+- Logo file: original Meridian Group logo (unchanged)
+- Colour: white/orange as per original
+- Alignment: centered horizontally
+- Position: top section of the page
+- Padding-top: 32px
+- Padding-bottom: 32px
+
+Do NOT:
+- Combine with any other logo
+- Resize disproportionately
+- Apply opacity
+- Place inside a card
+
+====================================
+CENTER SECTION (WHITE CARD)
+====================================
+- Single white card
+- Background colour: #FFFFFF
+- Width: 420px
+- Border radius: 16px
+- Padding: 32px
+- Shadow: 0px 16px 40px rgba(0,0,0,0.25)
+- Alignment: centered horizontally
+
+------------------------------------
+CARD CONTENT (TOP → BOTTOM)
+------------------------------------
+
+1) StockFix branding
+- Icon: tool/wrench icon
+- Icon colour: Meridian orange (#F36C21)
+- Icon size: 24px
+- Text: "StockFix"
+- Font size: 28px
+- Font weight: 600
+- Font colour: #003B71
+- Icon and text on the same line, horizontally aligned
+- Spacing below: 8px
+
+2) Subtitle
+- Text: "Field Inventory Management"
+- Font size: 14px
+- Font colour: #6B7280
+- Alignment: center
+- Spacing below: 24px
+
+3) Form fields (stacked)
+For ALL dropdowns:
+- Height: 44px
+- Border radius: 8px
+- Border colour: #D1D5DB
+- Font size: 14px
+- Text colour: #003B71
+
+Fields in this exact order:
+- Select Rep (required, asterisk in #F36C21)
+- Select Store (required, asterisk in #F36C21)
+- All Clients (optional)
+
+Spacing between fields: 16px
+
+4) Primary action button
+- Text: "START VISIT"
+- Height: 48px
+- Background colour: #F36C21
+- Text colour: #FFFFFF
+- Font size: 16px
+- Font weight: 600
+- Border radius: 10px
+- Spacing above button: 24px
+
+Button MUST look active.
+Do NOT reduce opacity.
+Do NOT use pastel tones.
+
+5) Powered by text
+- Text: "Powered by"
+- Font size: 12px
+- Font colour: #003B71
+- Alignment: center
+- Spacing above: 16px
+
+====================================
+BOTTOM SECTION (ON BLUE BACKGROUND)
+====================================
+- Element: Meridian Nexus logo
+- Logo file: original Meridian Nexus logo (unchanged)
+- Colour: white/orange as per original
+- Alignment: centered horizontally
+- Padding-top: 16px
+- Padding-bottom: 32px
+
+Do NOT:
+- Add text next to the logo
+- Repeat the words "Powered by Meridian Nexus"
+- Place the logo inside the white card
+
+====================================
+ABSOLUTE RULES
+====================================
+- Never merge logos
+- Never repeat branding text
+- Never move logos to a white background if the logo is white
+- Never add extra UI elements
+- Never add headings or instructions
+- Never reinterpret hierarchy
+
+Build exactly as specified
