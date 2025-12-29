@@ -230,14 +230,14 @@ export default function Landing() {
       </div>
 
       <div style={{ paddingTop: '32px', paddingBottom: '32px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: 0, lineHeight: 1 }}>
-          <p style={{ fontSize: '12px', color: '#FFFFFF', margin: 0 }} data-testid="text-powered-by">
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <p style={{ fontSize: '12px', color: '#FFFFFF', margin: 0, marginBottom: '2px', textAlign: 'center' }} data-testid="text-powered-by">
             Powered by
           </p>
           <img 
             src={meridianNexusLogo} 
             alt="Meridian Nexus" 
-            style={{ height: '80px', margin: 0 }}
+            style={{ height: '80px', display: 'block' }}
             data-testid="img-meridian-nexus-logo"
           />
         </div>
