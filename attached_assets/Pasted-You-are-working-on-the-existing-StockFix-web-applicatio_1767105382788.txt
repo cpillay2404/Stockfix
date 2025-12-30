@@ -1,0 +1,256 @@
+You are working on the existing StockFix web application.
+This task is only to refine and implement the Tasks page that opens after clicking “View Tasks” from the Store Overview.
+
+Do NOT redesign the app.
+Do NOT change existing routing except where explicitly stated.
+
+The app is mobile-first and used by field reps on phones and tablets.
+
+BRANDING & BACKGROUND (LOCKED)
+
+Page background colour must remain Meridian Blue: #003B71
+
+Task cards, search, filters, and controls must appear as white cards on top of the blue background
+
+Do NOT introduce gradients, shadows, or new colours
+
+Keep existing StockFix typography and spacing conventions
+
+NAVIGATION (CRITICAL)
+
+Implement two separate navigation actions:
+
+1) In-flow Back
+
+Back arrow (←) top-left
+
+Navigates back one page only
+
+Preserves visit context (Rep, Store, Client)
+
+Examples:
+
+Task Detail → Tasks
+
+Tasks → Store Overview
+
+Must NOT return to Landing page
+
+2) Exit Visit
+
+Appears top-right
+
+Label: “Exit Visit”
+
+Navigates back to Landing page
+
+Clears visit context
+
+Must NOT be triggered by back arrow
+
+PAGE HEADER
+
+Display at the top:
+
+Title: Tasks
+
+Sub-line: Week Ending: DD/MM/YYYY (current week only)
+
+Context chips (read-only):
+
+Rep: {Rep Name}
+
+Store: {Store Name}
+
+SEARCH & STATUS FILTERS
+
+Below the header:
+
+Search bar
+
+Placeholder: “Search article, barcode, client…”
+
+Filters task list live
+
+Status toggle
+
+Pills:
+
+Pending (default active)
+
+Completed
+
+Switching updates the task list immediately
+
+ACTION FILTERS (STRICT RULES)
+STRUCTURE
+
+Each action appears on its own full-width line
+
+One action per row
+
+No wrapping
+
+No dropdown
+
+No horizontal scrolling
+
+TEXT (FULL, EXACT — DO NOT SHORTEN)
+
+Each action must appear exactly as written:
+
+Fix Counts: Negative SOH
+
+Urgent: DC OOS
+
+Urgent: Place Order – DC has stock
+
+Review: Risk of OOS
+
+OOS – Stock on Order
+
+Check Count: No Sales in 30 Days
+
+Monitor: Possible Overstock
+
+Optimal (optional / lowest priority)
+
+COLOUR CODING (URGENCY)
+
+🔴 Fix Counts / Urgent actions
+
+🟠 Review / OOS risk
+
+🟡 Check Count
+
+🔵 Monitor
+
+⚪ Optimal (muted)
+
+Rules:
+
+Solid background colour
+
+White text
+
+Rounded corners
+
+Full-width
+
+Clearly clickable / touchable
+
+BEHAVIOUR
+
+Tapping an action:
+
+Filters the task list to only that action
+
+Highlights the selected action
+
+Tapping the same action again clears the filter
+
+Only one action filter active at a time
+
+Default: no action selected = show all actions
+
+TASK SORTING (NON-NEGOTIABLE)
+
+Default order must always be:
+
+Fix Counts
+
+Urgent
+
+Review
+
+Check Count
+
+Monitor
+
+Optimal
+
+TASK CARD DESIGN (ACTION FIRST)
+
+Each task card must follow this exact hierarchy:
+
+ACTION INSTRUCTION (PRIMARY)
+
+Topmost element
+
+Bold
+
+Colour matches urgency
+
+Example: “Urgent: Place Order – DC has stock”
+
+ARTICLE DESCRIPTION
+
+Example: “ALPEN NUTRIFIC 450GR”
+
+BARCODE
+
+Must always be visible
+
+METADATA ROW
+
+Client name
+
+WFC value (right-aligned, small)
+
+STATUS BADGE
+
+“Pending” or “Completed”
+
+Visually secondary
+
+Optional:
+
+Thin left border on card matching urgency colour
+
+DATA LOGIC
+
+All data reflects current week only
+
+Counts and filters use Stock Classification (This Week)
+
+Negative SOH must always map to:
+
+Fix Counts: Negative SOH
+
+UX & PERFORMANCE RULES
+
+Fully scrollable on mobile
+
+Finger-friendly touch targets
+
+No unnecessary animations
+
+No modal overload
+
+Preserve existing app performance
+
+DO NOT DO
+
+Do NOT redesign the app
+
+Do NOT shorten action text
+
+Do NOT replace filters with dropdowns
+
+Do NOT remove barcodes
+
+Do NOT remove Meridian blue background
+
+Do NOT change Landing or Store Overview pages
+
+SUCCESS CRITERIA
+
+A field rep must be able to:
+
+Instantly see what action is required
+
+Filter tasks by clear, colour-coded actions
+
+Navigate without losing context
+
+Work tasks in priority order with minimal thinking

@@ -46,18 +46,32 @@ interface TaskCardProps {
   contextParams: string;
 }
 
+const getActionColor = (action: string) => {
+  if (action.includes('Fix Counts')) return '#DC2626';
+  if (action.includes('Urgent')) return '#DC2626';
+  if (action.includes('OOS') || action.includes('Risk')) return '#EA580C';
+  if (action.includes('Check')) return '#CA8A04';
+  if (action.includes('Monitor')) return '#003B71';
+  if (action === 'Optimal') return '#9CA3AF';
+  return '#6B7280';
+};
+
+const FULL_ACTION_LIST = [
+  "Fix Counts: Negative SOH",
+  "Urgent: DC OOS",
+  "Urgent: Place Order - DC has stock",
+  "OOS – Stock on Order",
+  "Review: Risk of OOS",
+  "Check Count: No Sales in 30 Days",
+  "Monitor: Possible Overstock",
+  "Optimal",
+];
+
 function TaskCard({ task, contextParams }: TaskCardProps) {
   const isPending = task.actionStatus === 'Pending';
   const wfc = parseFloat(task.storeWfc);
   const hasWfc = !isNaN(wfc) && wfc > 0;
-  
-  const getActionColor = (action: string) => {
-    if (action.includes('Urgent') || action.includes('Fix Counts')) return '#DC2626';
-    if (action.includes('OOS') || action.includes('Risk')) return '#EA580C';
-    if (action.includes('Monitor') || action.includes('Check')) return '#CA8A04';
-    if (action === 'Optimal') return '#16A34A';
-    return '#6B7280';
-  };
+  const actionColor = getActionColor(task.action);
 
   const taskUrl = contextParams ? `/task/${task.uniqueId}?${contextParams}` : `/task/${task.uniqueId}`;
 
@@ -68,24 +82,18 @@ function TaskCard({ task, contextParams }: TaskCardProps) {
           backgroundColor: '#FFFFFF',
           borderRadius: '12px',
           padding: '14px 16px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          borderLeft: `4px solid ${isPending ? getActionColor(task.action) : '#16A34A'}`,
+          borderLeft: `4px solid ${isPending ? actionColor : '#16A34A'}`,
           cursor: 'pointer',
         }}
       >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
-          <Badge 
-            variant={isPending ? 'outline' : 'secondary'}
-            style={{
-              fontSize: '11px',
-              backgroundColor: isPending ? 'transparent' : '#DCFCE7',
-              color: isPending ? '#6B7280' : '#16A34A',
-              border: isPending ? '1px solid #D1D5DB' : 'none',
-            }}
-          >
-            {task.actionStatus}
-          </Badge>
-          {!isPending && <CheckCircle2 style={{ width: '18px', height: '18px', color: '#16A34A' }} />}
+        <div style={{ 
+          fontSize: '14px', 
+          fontWeight: 700,
+          color: actionColor,
+          marginBottom: '8px',
+          lineHeight: 1.3,
+        }}>
+          {task.action}
         </div>
         
         <h3 style={{ 
@@ -115,20 +123,7 @@ function TaskCard({ task, contextParams }: TaskCardProps) {
           {task.barcode}
         </div>
         
-        <div style={{ 
-          fontSize: '13px', 
-          color: getActionColor(task.action),
-          fontWeight: 500,
-          marginBottom: '8px',
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}>
-          {task.action}
-        </div>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
           <span style={{ fontSize: '12px', color: '#6B7280' }}>
             {task.client}
           </span>
@@ -137,6 +132,21 @@ function TaskCard({ task, contextParams }: TaskCardProps) {
               WFC: {wfc.toFixed(1)}
             </span>
           )}
+        </div>
+        
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Badge 
+            variant={isPending ? 'outline' : 'secondary'}
+            style={{
+              fontSize: '10px',
+              backgroundColor: isPending ? 'transparent' : '#DCFCE7',
+              color: isPending ? '#6B7280' : '#16A34A',
+              border: isPending ? '1px solid #D1D5DB' : 'none',
+            }}
+          >
+            {task.actionStatus}
+          </Badge>
+          {!isPending && <CheckCircle2 style={{ width: '16px', height: '16px', color: '#16A34A' }} />}
         </div>
       </div>
     </Link>
@@ -395,68 +405,51 @@ export default function Dashboard() {
 
           <div style={{ 
             display: 'flex', 
-            flexWrap: 'wrap', 
+            flexDirection: 'column',
             gap: '6px',
-            maxHeight: '120px',
-            overflowY: 'auto',
           }}>
-            <button
-              onClick={() => setActionFilter("all")}
-              data-testid="chip-all"
-              style={{
-                padding: '6px 10px',
-                borderRadius: '16px',
-                fontSize: '11px',
-                fontWeight: 500,
-                border: actionFilter === "all" ? 'none' : '1px solid #D1D5DB',
-                backgroundColor: actionFilter === "all" ? '#003B71' : '#FFFFFF',
-                color: actionFilter === "all" ? '#FFFFFF' : '#374151',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              All
-            </button>
-            {actionChips.map(({ action, count }) => (
-              <button
-                key={action}
-                onClick={() => setActionFilter(action)}
-                data-testid={`chip-${action.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
-                style={{
-                  padding: '6px 10px',
-                  borderRadius: '16px',
-                  fontSize: '11px',
-                  fontWeight: 500,
-                  border: actionFilter === action ? 'none' : '1px solid #D1D5DB',
-                  backgroundColor: actionFilter === action ? '#003B71' : '#FFFFFF',
-                  color: actionFilter === action ? '#FFFFFF' : '#374151',
-                  cursor: count > 0 ? 'pointer' : 'default',
-                  opacity: count > 0 ? 1 : 0.5,
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px',
-                }}
-                disabled={count === 0}
-              >
-                <span style={{ 
-                  display: '-webkit-box',
-                  WebkitLineClamp: 1,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                  maxWidth: '140px',
-                }}>
-                  {action}
-                </span>
-                <span style={{
-                  backgroundColor: actionFilter === action ? 'rgba(255,255,255,0.2)' : '#F3F4F6',
-                  padding: '1px 5px',
-                  borderRadius: '10px',
-                  fontSize: '10px',
-                }}>
-                  {count}
-                </span>
-              </button>
-            ))}
+            {FULL_ACTION_LIST.map((action) => {
+              const counts = filter === "pending" 
+                ? (summary?.pendingActionCounts || {}) 
+                : (summary?.completedActionCounts || {});
+              const count = counts[action] || 0;
+              const bgColor = getActionColor(action);
+              const isSelected = actionFilter === action;
+              return (
+                <button
+                  key={action}
+                  onClick={() => setActionFilter(actionFilter === action ? "all" : action)}
+                  data-testid={`action-filter-${action.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: 600,
+                    border: isSelected ? '3px solid #FFFFFF' : 'none',
+                    backgroundColor: bgColor,
+                    color: '#FFFFFF',
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    opacity: count > 0 ? 1 : 0.5,
+                  }}
+                >
+                  <span>{action}</span>
+                  <span style={{ 
+                    fontSize: '12px', 
+                    fontWeight: 500,
+                    backgroundColor: 'rgba(255,255,255,0.2)',
+                    padding: '2px 10px',
+                    borderRadius: '10px',
+                  }}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
