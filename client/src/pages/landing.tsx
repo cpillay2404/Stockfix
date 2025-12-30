@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronDown, Wrench, Hammer } from "lucide-react";
+import { Check, ChevronDown, Wrench } from "lucide-react";
 import { cn } from "@/lib/utils";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
@@ -153,31 +153,8 @@ export default function Landing() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            <div style={{ position: 'relative', width: '28px', height: '28px' }}>
-              <Wrench 
-                style={{ 
-                  position: 'absolute',
-                  width: '22px', 
-                  height: '22px', 
-                  color: '#F36C21',
-                  transform: 'rotate(-45deg)',
-                  top: '3px',
-                  left: '0px',
-                }} 
-              />
-              <Hammer 
-                style={{ 
-                  position: 'absolute',
-                  width: '22px', 
-                  height: '22px', 
-                  color: '#F36C21',
-                  transform: 'rotate(45deg) scaleX(-1)',
-                  top: '3px',
-                  right: '0px',
-                }} 
-              />
-            </div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+            <Wrench style={{ width: '24px', height: '24px', color: '#F36C21' }} />
             <span style={{ fontSize: '28px', fontWeight: 700, color: '#003B71' }} data-testid="text-title">
               StockFix
             </span>
