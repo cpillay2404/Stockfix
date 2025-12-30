@@ -448,6 +448,69 @@ export async function registerRoutes(
     }
   });
 
+  // GET task summary with action counts for a specific scope
+  app.get("/api/tasks/summary", async (req, res) => {
+    try {
+      const rep = req.query.rep as string;
+      const store = req.query.store as string;
+      const client = req.query.client as string | undefined;
+      const article = req.query.article as string | undefined;
+      
+      let allTasks = await storage.getAllTasks();
+      
+      // Get latest week ending for the scope
+      const weekEndings = [...new Set(allTasks.map(t => t.weekEndingDate).filter(Boolean))].sort().reverse();
+      const latestWeekEnding = weekEndings[0] || null;
+      
+      // Filter to latest week and scope
+      let scopedTasks = allTasks.filter(t => t.weekEndingDate === latestWeekEnding);
+      
+      if (rep) scopedTasks = scopedTasks.filter(t => t.repName === rep);
+      if (store) scopedTasks = scopedTasks.filter(t => t.storeName === store);
+      if (client && client !== 'All Clients') scopedTasks = scopedTasks.filter(t => t.client === client);
+      if (article && article !== 'All Articles') scopedTasks = scopedTasks.filter(t => t.articleDescription === article);
+      
+      // Count by action type (separate for pending and completed)
+      const pendingActionCounts: Record<string, number> = {};
+      const completedActionCounts: Record<string, number> = {};
+      let pendingCount = 0;
+      let pendingCountExcludingOptimal = 0;
+      let completedCount = 0;
+      
+      scopedTasks.forEach(task => {
+        const action = task.action || 'Unknown';
+        
+        if (task.actionStatus === 'Pending') {
+          pendingCount++;
+          pendingActionCounts[action] = (pendingActionCounts[action] || 0) + 1;
+          if (action !== 'Optimal') {
+            pendingCountExcludingOptimal++;
+          }
+        } else {
+          completedCount++;
+          completedActionCounts[action] = (completedActionCounts[action] || 0) + 1;
+        }
+      });
+      
+      // Get unique articles for filter dropdown
+      const articles = [...new Set(scopedTasks.map(t => t.articleDescription).filter(Boolean))].sort();
+      
+      res.json({
+        latestWeekEnding,
+        totalTasks: scopedTasks.length,
+        pendingCount,
+        pendingCountExcludingOptimal,
+        completedCount,
+        pendingActionCounts,
+        completedActionCounts,
+        articles,
+      });
+    } catch (error) {
+      console.error("Error fetching task summary:", error);
+      res.status(500).json({ error: "Failed to fetch task summary" });
+    }
+  });
+
   // GET all tasks with pagination (defaults to latest week only)
   app.get("/api/tasks", async (req, res) => {
     try {
@@ -464,13 +527,17 @@ export async function registerRoutes(
         weekEndingDate = latestWeek || '';
       }
       
+      const clientVal = (req.query.client as string) || '';
+      const articleVal = (req.query.article as string) || '';
+      
       const filters = {
         region: (req.query.region as string) || '',
         rep: (req.query.rep as string) || '',
         store: (req.query.store as string) || '',
-        client: (req.query.client as string) || '',
+        client: clientVal === 'All Clients' ? '' : clientVal,
         issue: (req.query.issue as string) || '',
         category: (req.query.category as string) || '',
+        article: articleVal === 'All Articles' ? '' : articleVal,
         weekEndingDate,
       };
       

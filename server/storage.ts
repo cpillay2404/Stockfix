@@ -9,6 +9,7 @@ export interface TaskFilters {
   client?: string;
   issue?: string;
   category?: string;
+  article?: string;
   weekEndingDate?: string;
 }
 
@@ -95,6 +96,9 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.category) {
       conditions.push(eq(tasks.category, filters.category));
+    }
+    if (filters?.article) {
+      conditions.push(eq(tasks.articleDescription, filters.article));
     }
     if (filters?.weekEndingDate) {
       conditions.push(eq(tasks.weekEndingDate, filters.weekEndingDate));

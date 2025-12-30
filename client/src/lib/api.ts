@@ -43,6 +43,7 @@ export interface TaskFilters {
   client?: string;
   issue?: string;
   category?: string;
+  article?: string;
 }
 
 export async function fetchTasks(page = 1, limit = 50, search = '', status = '', filters: TaskFilters = {}): Promise<TasksResponse> {
@@ -57,6 +58,7 @@ export async function fetchTasks(page = 1, limit = 50, search = '', status = '',
     ...(filters.client && { client: filters.client }),
     ...(filters.issue && { issue: filters.issue }),
     ...(filters.category && { category: filters.category }),
+    ...(filters.article && { article: filters.article }),
   });
   const res = await fetch(`${API_BASE}/tasks?${params}`);
   if (!res.ok) throw new Error("Failed to fetch tasks");
