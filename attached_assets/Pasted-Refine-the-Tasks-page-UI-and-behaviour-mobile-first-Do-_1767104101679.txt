@@ -1,0 +1,132 @@
+Refine the “Tasks” page UI and behaviour (mobile-first). Do NOT redesign other pages.
+
+GOAL
+This page is used by field reps. It must quickly show what to do, prioritized by action type, with correct counts and quick filtering.
+
+========================================================
+1) HEADER + CONTEXT
+========================================================
+Under the “Tasks” title, display the current week ending for the task list (based on the same scoping used in Store Overview):
+- Determine latestWeekEnding = MAX(week ending) within the selected visit scope (Rep + Store + optional Client + optional Article).
+- Show it under the title as: “Week Ending: <formatted date>”
+
+Keep the existing filter chips that show:
+- Rep: <rep name>
+- Store: <store name>
+- Client: <client name or All Clients>
+
+========================================================
+2) SEARCH BAR (keep, but define purpose)
+========================================================
+Keep the search bar, but ensure it searches across:
+- Article description
+- Barcode
+- Store name (if shown)
+- Client name
+The search should filter the visible task list in real time.
+
+(If search is currently unused, make it functional as above.)
+
+========================================================
+3) TASK SCOPE + DATA RULES (CRITICAL)
+========================================================
+The Tasks page must show tasks for the selected scope:
+- Rep + Store + (Client if selected) + (Article if selected)
+AND must default to latestWeekEnding only (this week tasks).
+Do not mix weeks.
+
+Pending/Completed logic:
+- “Pending” tab shows tasks not yet submitted as completed for latestWeekEnding.
+- “Completed” tab shows tasks marked completed for latestWeekEnding.
+
+========================================================
+4) ACTION FILTER CHIPS (FULL ACTION TEXT + COUNTS)
+========================================================
+Replace abbreviated action chips with chips that show the FULL Action Column text (exact values).
+These chips must show counts and filter the list.
+
+Create chips for these action types (use exact text):
+- Optimal
+- Monitor: Possible Overstock
+- Review: Risk of OOS
+- Urgent: Place Order - DC has stock
+- Check Count: No Sales in 30 Days
+- Fix Counts: Negative SOH
+- Urgent: DC OOS
+- OOS – Stock on Order
+
+Rules:
+- Default selected chip = “All” (or show all actions combined). Keep your existing All/Pending/Completed toggle if it exists.
+- When a chip is selected, filter tasks to ONLY that Action Column value.
+- Each chip shows a count badge = number of tasks for that action within latestWeekEnding and within current scope.
+- If an action type has zero tasks, either hide it or show disabled with 0 (choose whichever looks cleaner on mobile).
+
+========================================================
+5) DEFAULT SORT ORDER (PENDING)
+========================================================
+When viewing Pending tasks, sort tasks in this priority order:
+1) Fix Counts: Negative SOH
+2) Urgent: DC OOS
+3) Urgent: Place Order - DC has stock
+4) OOS – Stock on Order
+5) Review: Risk of OOS
+6) Check Count: No Sales in 30 Days
+7) Monitor: Possible Overstock
+8) Optimal (should normally be excluded from Pending tasks list; only show if user explicitly filters to Optimal)
+
+Within each action group, sort by:
+- Lowest WFC first (if available)
+- If WFC is missing, sort by lowest Store SOH first
+- If still tied, sort alphabetically by article description
+
+========================================================
+6) TASK CARD DESIGN (MAKE IT ACTIONABLE)
+========================================================
+Update each task card to include:
+
+A) Status pill (existing):
+- Pending / Completed
+
+B) Article description (existing, bold)
+
+C) Barcode (MUST show clearly):
+- Display barcode as a secondary line (not hidden)
+
+D) Action instruction line (NEW):
+- Show the Action Column text in a clear line under the article/barcode.
+- This must be visible without opening the task.
+
+E) Optional WFC mini value (YES add):
+- Display “WFC: <value>” on the card (small, right-aligned or under barcode).
+- Only show if WFC exists; otherwise hide.
+
+Also keep store name + client if currently shown, but the priority is:
+Article → Barcode → Action → WFC.
+
+========================================================
+7) OPTIMAL RULE
+========================================================
+By default, the Tasks list should exclude “Optimal” tasks (because they do not require action),
+BUT allow the user to view them if they click the “Optimal” chip filter.
+
+========================================================
+8) NAVIGATION
+========================================================
+Clicking a task card must open the Task Detail page for that exact record (barcode/article/store/week),
+so the rep can submit action feedback.
+
+Do not change the Task Detail page yet. Only ensure navigation still works.
+
+========================================================
+9) UI STYLE
+========================================================
+Keep the existing StockFix look and feel.
+Do not change branding colours or overall layout.
+This update is focused on adding:
+- Week ending display
+- Full action chips with counts
+- Correct sorting
+- Card improvements (barcode + action line + WFC)
+- Search functionality
+
+Do not add extra sections or global dashboards.
