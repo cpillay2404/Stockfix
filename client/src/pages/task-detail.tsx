@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useRoute, useLocation } from "wouter";
+import { useRoute, useLocation, useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Layout } from "@/components/layout";
 import { fetchTask, updateTask, uploadImage } from "@/lib/api";
@@ -9,7 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { 
   ArrowLeft, Camera, CheckCircle2, AlertCircle, MapPin, 
-  Calendar, Layers, Info, Loader2
+  Calendar, Layers, Info, Loader2, LogOut
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function TaskDetail() {
   const [match, params] = useRoute("/task/:id");
   const [, setLocation] = useLocation();
+  const search = useSearch();
+  const urlParams = new URLSearchParams(search);
+  const repFilter = urlParams.get('rep') || '';
+  const storeFilter = urlParams.get('store') || '';
+  const clientFilter = urlParams.get('client') || '';
+  const articleFilter = urlParams.get('article') || '';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -46,7 +52,7 @@ export default function TaskDetail() {
         title: "Action Captured",
         description: "Task updated successfully.",
       });
-      setLocation("/");
+      handleBackToTasks();
     },
     onError: () => {
       toast({
@@ -65,6 +71,19 @@ export default function TaskDetail() {
       setImage2(task.image2 || null);
     }
   }, [task]);
+
+  const handleBackToTasks = () => {
+    const params = new URLSearchParams();
+    if (repFilter) params.set('rep', repFilter);
+    if (storeFilter) params.set('store', storeFilter);
+    if (clientFilter) params.set('client', clientFilter);
+    if (articleFilter) params.set('article', articleFilter);
+    setLocation(`/tasks?${params.toString()}`);
+  };
+
+  const handleExitVisit = () => {
+    setLocation('/');
+  };
 
   if (!params?.id) return null;
 
@@ -171,14 +190,26 @@ export default function TaskDetail() {
           disabled={isCompleted}
         />
 
-        <Button 
-          variant="ghost" 
-          className="pl-0 hover:bg-transparent text-muted-foreground hover:text-foreground"
-          onClick={() => setLocation("/")}
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Tasks
-        </Button>
+        <div className="flex items-center justify-between">
+          <Button 
+            variant="ghost" 
+            className="pl-0 hover:bg-transparent text-muted-foreground hover:text-foreground"
+            onClick={handleBackToTasks}
+            data-testid="button-back"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <Button
+            variant="ghost"
+            className="text-muted-foreground hover:text-foreground"
+            onClick={handleExitVisit}
+            data-testid="button-exit-visit"
+          >
+            <LogOut className="mr-2 h-4 w-4" />
+            Exit Visit
+          </Button>
+        </div>
 
         <div className="space-y-4">
           <div className="flex items-start justify-between">

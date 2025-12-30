@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronDown, ArrowLeft } from "lucide-react";
+import { Check, ChevronDown, ArrowLeft, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList } from "recharts";
 
@@ -223,9 +223,10 @@ export default function StoreOverview() {
   const rep = params.get('rep') || '';
   const store = params.get('store') || '';
   const initialClient = params.get('client') || 'All Clients';
+  const initialArticle = params.get('article') || 'All Articles';
   
   const [selectedClient, setSelectedClient] = useState(initialClient);
-  const [selectedArticle, setSelectedArticle] = useState('All Articles');
+  const [selectedArticle, setSelectedArticle] = useState(initialArticle);
 
   const { data, isLoading } = useQuery({
     queryKey: ["store-overview", rep, store, selectedClient, selectedArticle],
@@ -263,28 +264,51 @@ export default function StoreOverview() {
   const tiles = data?.tiles || { totalSKUs: 0, actionRequired: 0, understockOOS: 0, overstock: 0 };
   const charts = data?.charts || { storeSoh: [], sellOutP4: [], wfc: [] };
 
+  const handleExitVisit = () => {
+    setLocation('/');
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#003B71' }}>
       <div style={{ padding: '20px 16px' }}>
-        <button
-          onClick={() => setLocation('/')}
-          data-testid="button-back"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            color: 'rgba(255,255,255,0.8)',
-            fontSize: '14px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-            marginBottom: '12px',
-          }}
-        >
-          <ArrowLeft style={{ width: '18px', height: '18px' }} />
-          <span>Back</span>
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <button
+            onClick={() => setLocation('/')}
+            data-testid="button-back"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: '14px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            <ArrowLeft style={{ width: '18px', height: '18px' }} />
+            <span>Back</span>
+          </button>
+          <button
+            onClick={handleExitVisit}
+            data-testid="button-exit-visit"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: '14px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            <LogOut style={{ width: '16px', height: '16px' }} />
+            <span>Exit Visit</span>
+          </button>
+        </div>
         <div style={{ marginBottom: '8px' }}>
           <h1 
             style={{ 

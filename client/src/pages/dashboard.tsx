@@ -5,7 +5,7 @@ import { fetchTasks } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { Search, ArrowLeft, CheckCircle2, LogOut } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@shared/schema";
 
@@ -43,9 +43,10 @@ function sortTasks(tasks: Task[], filter: string): Task[] {
 
 interface TaskCardProps {
   task: Task;
+  contextParams: string;
 }
 
-function TaskCard({ task }: TaskCardProps) {
+function TaskCard({ task, contextParams }: TaskCardProps) {
   const isPending = task.actionStatus === 'Pending';
   const wfc = parseFloat(task.storeWfc);
   const hasWfc = !isNaN(wfc) && wfc > 0;
@@ -58,8 +59,10 @@ function TaskCard({ task }: TaskCardProps) {
     return '#6B7280';
   };
 
+  const taskUrl = contextParams ? `/task/${task.uniqueId}?${contextParams}` : `/task/${task.uniqueId}`;
+
   return (
-    <Link href={`/task/${task.uniqueId}`} data-testid={`task-card-${task.uniqueId}`}>
+    <Link href={taskUrl} data-testid={`task-card-${task.uniqueId}`}>
       <div
         style={{
           backgroundColor: '#FFFFFF',
@@ -247,31 +250,64 @@ export default function Dashboard() {
     if (repFilter) params.set('rep', repFilter);
     if (storeFilter) params.set('store', storeFilter);
     if (clientFilter) params.set('client', clientFilter);
+    if (articleFilter) params.set('article', articleFilter);
     setLocation(`/store-overview?${params.toString()}`);
   };
+
+  const handleExitVisit = () => {
+    setLocation('/');
+  };
+
+  const contextParams = useMemo(() => {
+    const params = new URLSearchParams();
+    if (repFilter) params.set('rep', repFilter);
+    if (storeFilter) params.set('store', storeFilter);
+    if (clientFilter) params.set('client', clientFilter);
+    if (articleFilter) params.set('article', articleFilter);
+    return params.toString();
+  }, [repFilter, storeFilter, clientFilter, articleFilter]);
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#003B71' }}>
       <div style={{ padding: '16px' }}>
-        <button
-          onClick={handleBack}
-          data-testid="button-back"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            color: 'rgba(255,255,255,0.8)',
-            fontSize: '14px',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-            marginBottom: '12px',
-          }}
-        >
-          <ArrowLeft style={{ width: '18px', height: '18px' }} />
-          <span>Back</span>
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+          <button
+            onClick={handleBack}
+            data-testid="button-back"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: '14px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            <ArrowLeft style={{ width: '18px', height: '18px' }} />
+            <span>Back</span>
+          </button>
+          <button
+            onClick={handleExitVisit}
+            data-testid="button-exit-visit"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              color: 'rgba(255,255,255,0.8)',
+              fontSize: '14px',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            <LogOut style={{ width: '16px', height: '16px' }} />
+            <span>Exit Visit</span>
+          </button>
+        </div>
 
         <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>
           Tasks
@@ -447,7 +483,7 @@ export default function Dashboard() {
             </div>
           ) : (
             filteredTasks.map((task) => (
-              <TaskCard key={task.uniqueId} task={task} />
+              <TaskCard key={task.uniqueId} task={task} contextParams={contextParams} />
             ))
           )}
         </div>
