@@ -37,11 +37,21 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId }
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
+            gap: '8px',
             cursor: 'pointer',
+            overflow: 'hidden',
           }}
         >
-          <span>{value || placeholder}</span>
-          <ChevronDown style={{ width: '16px', height: '16px', opacity: 0.7 }} />
+          <span style={{
+            flex: 1,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            textAlign: 'left',
+          }}>
+            {value || placeholder}
+          </span>
+          <ChevronDown style={{ width: '16px', height: '16px', opacity: 0.7, flexShrink: 0 }} />
         </button>
       </PopoverTrigger>
       <PopoverContent 
@@ -62,14 +72,28 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId }
                     onValueChange(option);
                     setOpen(false);
                   }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    padding: '8px',
+                    lineHeight: '1.4',
+                  }}
                 >
                   <Check
                     className={cn(
-                      "mr-2 h-4 w-4",
+                      "mr-2 h-4 w-4 flex-shrink-0 mt-0.5",
                       value === option ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  {option}
+                  <span style={{
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    wordBreak: 'break-word',
+                  }}>
+                    {option}
+                  </span>
                 </CommandItem>
               ))}
             </CommandGroup>
