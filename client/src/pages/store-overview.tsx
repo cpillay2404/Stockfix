@@ -6,7 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Check, ChevronDown, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList } from "recharts";
 
 interface SearchableSelectProps {
   value: string;
@@ -127,6 +127,13 @@ function ChartCard({ title, data, testId }: ChartCardProps) {
     return dateStr;
   };
 
+  const formatValue = (val: number) => {
+    if (val >= 1000) {
+      return `${(val / 1000).toFixed(1)}k`;
+    }
+    return val.toString();
+  };
+
   return (
     <div
       data-testid={testId}
@@ -141,9 +148,9 @@ function ChartCard({ title, data, testId }: ChartCardProps) {
       <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
         {title}
       </h3>
-      <div style={{ height: '160px' }}>
+      <div style={{ height: '180px' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 5, right: 5, left: -15, bottom: 5 }}>
+          <ComposedChart data={data} margin={{ top: 20, right: 5, left: -15, bottom: 5 }}>
             <XAxis 
               dataKey="weekEnding" 
               tick={{ fontSize: 10, fill: '#6B7280' }}
@@ -160,8 +167,24 @@ function ChartCard({ title, data, testId }: ChartCardProps) {
               labelFormatter={(label) => `Week: ${label}`}
               formatter={(value: number) => [value.toLocaleString(), '']}
             />
-            <Bar dataKey="value" fill="#003B71" radius={[4, 4, 0, 0]} />
-          </BarChart>
+            <Bar dataKey="value" fill="#003B71" radius={[4, 4, 0, 0]}>
+              <LabelList 
+                dataKey="value" 
+                position="inside" 
+                fill="#FFFFFF" 
+                fontSize={9}
+                fontWeight={600}
+                formatter={formatValue}
+              />
+            </Bar>
+            <Line 
+              type="monotone" 
+              dataKey="value" 
+              stroke="#F36C21" 
+              strokeWidth={2}
+              dot={false}
+            />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
