@@ -44,64 +44,70 @@ const requiresPhysicalCountForAction = (action: string): boolean => {
   );
 };
 
-function MicroSparkline({ data, color = "#003B71" }: { data: number[]; color?: string }) {
-  if (!data || data.length === 0) {
-    return <div className="h-12 flex items-center justify-center text-xs text-gray-400">No data</div>;
-  }
+function MicroTrendBarChart({ label, data }: { label: string; data: number[] }) {
+  const displayData = (!data || data.length === 0) ? [0, 0, 0, 0] : data.slice(-6);
+  const max = Math.max(...displayData, 1);
   
-  const max = Math.max(...data, 1);
-  const min = Math.min(...data, 0);
-  const range = max - min || 1;
+  const barAreaHeight = 28;
+  const labelHeight = 12;
+  const totalHeight = barAreaHeight + labelHeight + 4;
+  const barWidth = 100 / displayData.length;
+  const barColor = "#6b8cae";
+  const trendColor = "#4a6785";
   
-  const width = 100;
-  const height = 40;
-  const padding = 4;
-  
-  const points = data.map((value, index) => {
-    const x = padding + (index / (data.length - 1 || 1)) * (width - padding * 2);
-    const y = height - padding - ((value - min) / range) * (height - padding * 2);
+  const trendPoints = displayData.map((value, index) => {
+    const x = index * barWidth + barWidth / 2;
+    const barHeight = Math.max((value / max) * barAreaHeight, 2);
+    const y = labelHeight + 2 + (barAreaHeight - barHeight);
     return `${x},${y}`;
   }).join(' ');
 
-  return (
-    <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-12">
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
+  const formatValue = (val: number) => {
+    if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
+    if (val % 1 !== 0) return val.toFixed(1);
+    return val.toString();
+  };
 
-function MicroBarChart({ data, color = "#003B71" }: { data: number[]; color?: string }) {
-  if (!data || data.length === 0) {
-    return <div className="h-12 flex items-center justify-center text-xs text-gray-400">No data</div>;
-  }
-  
-  const max = Math.max(...data, 1);
-  const barWidth = 100 / data.length;
-  
   return (
-    <svg viewBox="0 0 100 40" className="w-full h-12">
-      {data.map((value, index) => {
-        const barHeight = (value / max) * 32;
-        return (
-          <rect
-            key={index}
-            x={index * barWidth + 1}
-            y={40 - barHeight - 4}
-            width={barWidth - 2}
-            height={barHeight}
-            fill={color}
-            rx="1"
-          />
-        );
-      })}
-    </svg>
+    <div className="flex items-center gap-2">
+      <span className="text-[10px] text-gray-600 w-12 shrink-0">{label}</span>
+      <svg viewBox={`0 0 100 ${totalHeight}`} className="flex-1 h-10">
+        {displayData.map((value, index) => {
+          const barHeight = Math.max((value / max) * barAreaHeight, 2);
+          const x = index * barWidth + 2;
+          const y = labelHeight + 2 + (barAreaHeight - barHeight);
+          return (
+            <g key={index}>
+              <rect
+                x={x}
+                y={y}
+                width={barWidth - 4}
+                height={barHeight}
+                fill={barColor}
+                rx="1"
+              />
+              <text
+                x={x + (barWidth - 4) / 2}
+                y={y - 2}
+                textAnchor="middle"
+                className="fill-gray-600"
+                fontSize="6"
+              >
+                {formatValue(value)}
+              </text>
+            </g>
+          );
+        })}
+        <polyline
+          points={trendPoints}
+          fill="none"
+          stroke={trendColor}
+          strokeWidth="1"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </div>
   );
 }
 
@@ -415,22 +421,11 @@ export default function TaskDetail() {
           </div>
         </div>
 
-        {/* Section 2: Compact Micro-graphs (3 graphs: SOH, Sell Out, WFC) */}
-        <div className="bg-white rounded-xl p-3 shadow-sm">
-          <div className="grid grid-cols-3 gap-3">
-            <div className="text-center">
-              <div className="text-[9px] text-gray-500 uppercase tracking-wide mb-1">SOH</div>
-              <MicroSparkline data={trendData?.storeSoh || []} color="#6b7280" />
-            </div>
-            <div className="text-center">
-              <div className="text-[9px] text-gray-500 uppercase tracking-wide mb-1">Sell Out</div>
-              <MicroBarChart data={trendData?.p4Sales || []} color="#6b7280" />
-            </div>
-            <div className="text-center">
-              <div className="text-[9px] text-gray-500 uppercase tracking-wide mb-1">WFC</div>
-              <MicroSparkline data={trendData?.wfc || []} color="#6b7280" />
-            </div>
-          </div>
+        {/* Section 2: Compact Trend Graphs (SOH, Sell Out, WFC) */}
+        <div className="bg-white rounded-xl px-3 py-2 shadow-sm space-y-1">
+          <MicroTrendBarChart label="SOH" data={trendData?.storeSoh || []} />
+          <MicroTrendBarChart label="Sell Out" data={trendData?.p4Sales || []} />
+          <MicroTrendBarChart label="WFC" data={trendData?.wfc || []} />
         </div>
 
         {/* Section 3: Feedback Form Card */}
