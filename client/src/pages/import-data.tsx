@@ -19,35 +19,25 @@ export default function ImportData() {
   const [isExporting, setIsExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleExport = async () => {
+  const handleExport = () => {
     setIsExporting(true);
-    try {
-      const response = await fetch('/api/tasks/export');
-      if (!response.ok) throw new Error('Export failed');
-      
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'stockfix_export.xlsx';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      toast({
-        title: "Export Successful",
-        description: "Your data has been downloaded.",
-      });
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "Failed to export data. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
+    toast({
+      title: "Export Started",
+      description: "Your download will begin shortly. This may take a moment for large datasets.",
+    });
+    
+    // Use direct link download for large files - more reliable than fetch
+    const link = document.createElement('a');
+    link.href = '/api/tasks/export';
+    link.download = 'stockfix_export.xlsx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    // Reset button after a delay since we can't track download completion
+    setTimeout(() => {
       setIsExporting(false);
-    }
+    }, 3000);
   };
 
   const importMutation = useMutation({
