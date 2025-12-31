@@ -108,27 +108,44 @@ interface TileProps {
   label: string;
   value: number;
   testId: string;
+  accentColor: string;
+  valueColor: string;
 }
 
-function Tile({ label, value, testId }: TileProps) {
+function Tile({ label, value, testId, accentColor, valueColor }: TileProps) {
   return (
     <div
       data-testid={testId}
       style={{
         backgroundColor: '#FFFFFF',
-        borderRadius: '10px',
-        padding: '12px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        borderRadius: '8px',
+        padding: '8px 6px',
+        height: '52px',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+        border: '1px solid #E5E7EB',
+        borderTop: `3px solid ${accentColor}`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
+        flex: 1,
+        minWidth: 0,
       }}
     >
-      <span style={{ fontSize: '24px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>
+      <span style={{ fontSize: '18px', fontWeight: 700, color: valueColor, fontFamily: 'monospace', lineHeight: 1 }}>
         {value}
       </span>
-      <span style={{ fontSize: '10px', color: '#6B7280', textAlign: 'center', marginTop: '2px' }}>
+      <span style={{ 
+        fontSize: '8px', 
+        color: '#6B7280', 
+        textAlign: 'center', 
+        marginTop: '3px',
+        lineHeight: 1.1,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        maxWidth: '100%',
+      }}>
         {label}
       </span>
     </div>
@@ -402,12 +419,36 @@ export default function StoreOverview() {
 
       {/* Content Section - Grey Background */}
       <div style={{ padding: '16px' }}>
-        {/* KPI Tiles */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-          <Tile label="Total SKUs" value={tiles.totalSKUs} testId="tile-total-skus" />
-          <Tile label="Action Required" value={tiles.actionRequired} testId="tile-action-required" />
-          <Tile label="Understock / OOS" value={tiles.understockOOS} testId="tile-understock-oos" />
-          <Tile label="Overstock" value={tiles.overstock} testId="tile-overstock" />
+        {/* KPI Tiles - Single Horizontal Row */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
+          <Tile 
+            label="Total SKUs" 
+            value={tiles.totalSKUs} 
+            testId="tile-total-skus" 
+            accentColor="#94A3B8"
+            valueColor="#003B71"
+          />
+          <Tile 
+            label="Action Required" 
+            value={tiles.actionRequired} 
+            testId="tile-action-required" 
+            accentColor="#F36C21"
+            valueColor="#F36C21"
+          />
+          <Tile 
+            label="Understock / OOS" 
+            value={tiles.understockOOS} 
+            testId="tile-understock-oos" 
+            accentColor="#F59E0B"
+            valueColor="#D97706"
+          />
+          <Tile 
+            label="Overstock" 
+            value={tiles.overstock} 
+            testId="tile-overstock" 
+            accentColor="#3B82F6"
+            valueColor="#003B71"
+          />
         </div>
 
         {/* Charts Section */}
