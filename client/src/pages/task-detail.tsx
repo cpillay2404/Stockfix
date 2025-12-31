@@ -16,6 +16,7 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 
 const REASON_CODES = [
   "Awaiting delivery / stock not received",
@@ -44,89 +45,70 @@ const requiresPhysicalCountForAction = (action: string): boolean => {
   );
 };
 
-interface TrendPoint {
-  weekLabel: string;
+interface ChartDataPoint {
+  weekEnding: string;
   value: number;
 }
 
-function MiniTrendChart({ title, data }: { title: string; data: TrendPoint[] }) {
+function MiniChartCard({ title, data }: { title: string; data: ChartDataPoint[] }) {
   const displayData = (!data || data.length === 0) 
-    ? [{ weekLabel: '', value: 0 }] 
-    : data.slice(-4);
-  const max = Math.max(...displayData.map(d => d.value), 1);
+    ? [{ weekEnding: '', value: 0 }] 
+    : data;
   
-  const chartHeight = 50;
-  const labelHeight = 12;
-  const totalHeight = chartHeight + labelHeight;
-  const barWidth = 100 / displayData.length;
-  const barColor = "#003B71";
-  const trendColor = "#F36C21";
-  
-  const trendPoints = displayData.map((point, index) => {
-    const x = index * barWidth + barWidth / 2;
-    const barHeight = Math.max((point.value / max) * (chartHeight - 8), 4);
-    const y = chartHeight - barHeight;
-    return `${x},${y}`;
-  }).join(' ');
+  const formatWeekLabel = (dateStr: string) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[1]}/${parts[2]}`;
+    }
+    return dateStr;
+  };
 
   const formatValue = (val: number) => {
-    if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
+    if (val >= 1000) return `${(val / 1000).toFixed(1)}k`;
     if (val % 1 !== 0) return val.toFixed(1);
     return val.toString();
   };
 
   return (
     <div className="bg-[#003B71] rounded-lg p-2 flex-1">
-      <div className="text-[10px] text-white/80 mb-1 font-medium">{title}</div>
-      <svg viewBox={`0 0 100 ${totalHeight}`} className="w-full h-14" preserveAspectRatio="xMidYMid meet">
-        {displayData.map((point, index) => {
-          const barHeight = Math.max((point.value / max) * (chartHeight - 8), 4);
-          const x = index * barWidth + 4;
-          const y = chartHeight - barHeight;
-          const textY = y + barHeight / 2 + 3;
-          return (
-            <g key={index}>
-              <rect
-                x={x}
-                y={y}
-                width={barWidth - 8}
-                height={barHeight}
-                fill={barColor}
-                stroke="#5a7a9a"
-                strokeWidth="1"
-                rx="2"
-                className="fill-[#4a6a8a]"
+      <div className="text-[10px] text-white/90 mb-1 font-semibold">{title}</div>
+      <div style={{ height: '80px' }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <ComposedChart data={displayData} margin={{ top: 15, right: 2, left: -20, bottom: 2 }}>
+            <XAxis 
+              dataKey="weekEnding" 
+              tick={{ fontSize: 7, fill: '#ffffff99' }}
+              tickFormatter={formatWeekLabel}
+              axisLine={false}
+              tickLine={false}
+            />
+            <YAxis 
+              tick={{ fontSize: 7, fill: '#ffffff99' }}
+              axisLine={false}
+              tickLine={false}
+              width={25}
+            />
+            <Bar dataKey="value" fill="#4a6a8a" radius={[3, 3, 0, 0]}>
+              <LabelList 
+                dataKey="value" 
+                position="top" 
+                fill="#F36C21" 
+                fontSize={8}
+                fontWeight={700}
+                formatter={formatValue}
               />
-              <text
-                x={x + (barWidth - 8) / 2}
-                y={textY}
-                textAnchor="middle"
-                className="fill-white font-medium"
-                fontSize="7"
-              >
-                {formatValue(point.value)}
-              </text>
-              <text
-                x={x + (barWidth - 8) / 2}
-                y={totalHeight - 1}
-                textAnchor="middle"
-                className="fill-white/70"
-                fontSize="5"
-              >
-                {point.weekLabel}
-              </text>
-            </g>
-          );
-        })}
-        <polyline
-          points={trendPoints}
-          fill="none"
-          stroke={trendColor}
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
+            </Bar>
+            <Line 
+              type="monotone" 
+              dataKey="value" 
+              stroke="#F36C21" 
+              strokeWidth={2}
+              dot={false}
+            />
+          </ComposedChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }
@@ -162,39 +144,32 @@ export default function TaskDetail() {
   });
 
   const { data: trendData } = useQuery({
-    queryKey: ["taskTrends", task?.repName, task?.storeName, task?.client, task?.barcode],
+    queryKey: ["taskTrends", task?.repName, task?.storeName, task?.barcode],
     queryFn: async () => {
       if (!task) return null;
-      const response = await fetchTasks(1, 200, '', '', {
-        rep: task.repName,
+      const response = await fetchTasks(1, 500, '', '', {
         store: task.storeName,
       });
       const filtered = response.tasks
         .filter(t => t.barcode === task.barcode)
         .sort((a, b) => {
-          const dateA = a.weekEnding ? new Date(a.weekEnding).getTime() : 0;
-          const dateB = b.weekEnding ? new Date(b.weekEnding).getTime() : 0;
+          const dateA = a.weekEndingDate ? new Date(a.weekEndingDate).getTime() : 0;
+          const dateB = b.weekEndingDate ? new Date(b.weekEndingDate).getTime() : 0;
           return dateA - dateB;
         })
         .slice(-4);
       
-      const formatWeekLabel = (dateStr: string | null) => {
-        if (!dateStr) return '';
-        const date = new Date(dateStr);
-        return `${date.getMonth() + 1}/${date.getDate()}`;
-      };
-      
       return {
         storeSoh: filtered.map(t => ({ 
-          weekLabel: formatWeekLabel(t.weekEnding), 
+          weekEnding: t.weekEndingDate || '', 
           value: parseFloat(t.storeSoh || '0') || 0 
         })),
         p4Sales: filtered.map(t => ({ 
-          weekLabel: formatWeekLabel(t.weekEnding), 
+          weekEnding: t.weekEndingDate || '', 
           value: parseFloat(t.p4WeekSales || '0') || 0 
         })),
         wfc: filtered.map(t => ({ 
-          weekLabel: formatWeekLabel(t.weekEnding), 
+          weekEnding: t.weekEndingDate || '', 
           value: parseFloat(t.storeWfc || '0') || 0 
         })),
       };
@@ -460,9 +435,9 @@ export default function TaskDetail() {
 
         {/* Section 2: SKU Trends - 3 mini charts in a row */}
         <div className="grid grid-cols-3 gap-2">
-          <MiniTrendChart title="Store SOH" data={trendData?.storeSoh || []} />
-          <MiniTrendChart title="Sell Out" data={trendData?.p4Sales || []} />
-          <MiniTrendChart title="WFC" data={trendData?.wfc || []} />
+          <MiniChartCard title="Store SOH" data={trendData?.storeSoh || []} />
+          <MiniChartCard title="Sell Out" data={trendData?.p4Sales || []} />
+          <MiniChartCard title="WFC" data={trendData?.wfc || []} />
         </div>
 
         {/* Section 3: Feedback Form Card */}
