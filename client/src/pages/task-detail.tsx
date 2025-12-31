@@ -71,7 +71,7 @@ function MiniChartCard({ title, data }: { title: string; data: ChartDataPoint[] 
   };
 
   return (
-    <div className="bg-[#003B71] rounded-lg p-2 flex-1">
+    <div className="bg-[#003B71] rounded-lg p-2 flex-1 border-2 border-[#002347]">
       <div className="text-[10px] text-white/90 mb-1 font-semibold">{title}</div>
       <div style={{ height: '80px' }}>
         <ResponsiveContainer width="100%" height="100%">
