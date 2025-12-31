@@ -44,65 +44,48 @@ const requiresPhysicalCountForAction = (action: string): boolean => {
   );
 };
 
-function MicroTrendBarChart({ label, data }: { label: string; data: number[] }) {
+function MicroChartPanel({ title, data }: { title: string; data: number[] }) {
   const displayData = (!data || data.length === 0) ? [0, 0, 0, 0] : data.slice(-6);
   const max = Math.max(...displayData, 1);
   
-  const barAreaHeight = 28;
-  const labelHeight = 12;
-  const totalHeight = barAreaHeight + labelHeight + 4;
+  const chartHeight = 32;
   const barWidth = 100 / displayData.length;
-  const barColor = "#6b8cae";
-  const trendColor = "#4a6785";
+  const barColor = "#7a9cbf";
+  const trendColor = "#5a7a9a";
   
   const trendPoints = displayData.map((value, index) => {
     const x = index * barWidth + barWidth / 2;
-    const barHeight = Math.max((value / max) * barAreaHeight, 2);
-    const y = labelHeight + 2 + (barAreaHeight - barHeight);
+    const barHeight = Math.max((value / max) * chartHeight, 2);
+    const y = chartHeight - barHeight;
     return `${x},${y}`;
   }).join(' ');
 
-  const formatValue = (val: number) => {
-    if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
-    if (val % 1 !== 0) return val.toFixed(1);
-    return val.toString();
-  };
-
   return (
-    <div className="flex items-center gap-2">
-      <span className="text-[10px] text-gray-600 w-12 shrink-0">{label}</span>
-      <svg viewBox={`0 0 100 ${totalHeight}`} className="flex-1 h-10">
+    <div className="bg-[#F7F8FA] border border-gray-200 rounded-md p-2 min-w-[90px] flex-1">
+      <div className="text-[9px] text-gray-500 mb-1">{title}</div>
+      <svg viewBox={`0 0 100 ${chartHeight}`} className="w-full h-9">
+        <line x1="0" y1={chartHeight} x2="100" y2={chartHeight} stroke="#e5e7eb" strokeWidth="0.5" />
         {displayData.map((value, index) => {
-          const barHeight = Math.max((value / max) * barAreaHeight, 2);
+          const barHeight = Math.max((value / max) * chartHeight, 2);
           const x = index * barWidth + 2;
-          const y = labelHeight + 2 + (barAreaHeight - barHeight);
+          const y = chartHeight - barHeight;
           return (
-            <g key={index}>
-              <rect
-                x={x}
-                y={y}
-                width={barWidth - 4}
-                height={barHeight}
-                fill={barColor}
-                rx="1"
-              />
-              <text
-                x={x + (barWidth - 4) / 2}
-                y={y - 2}
-                textAnchor="middle"
-                className="fill-gray-600"
-                fontSize="6"
-              >
-                {formatValue(value)}
-              </text>
-            </g>
+            <rect
+              key={index}
+              x={x}
+              y={y}
+              width={barWidth - 4}
+              height={barHeight}
+              fill={barColor}
+              rx="1"
+            />
           );
         })}
         <polyline
           points={trendPoints}
           fill="none"
           stroke={trendColor}
-          strokeWidth="1"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -421,11 +404,13 @@ export default function TaskDetail() {
           </div>
         </div>
 
-        {/* Section 2: Compact Trend Graphs (SOH, Sell Out, WFC) */}
-        <div className="bg-white rounded-xl px-3 py-2 shadow-sm space-y-1">
-          <MicroTrendBarChart label="SOH" data={trendData?.storeSoh || []} />
-          <MicroTrendBarChart label="Sell Out" data={trendData?.p4Sales || []} />
-          <MicroTrendBarChart label="WFC" data={trendData?.wfc || []} />
+        {/* Section 2: SKU Trends - Horizontal Strip (3 panels) */}
+        <div className="overflow-x-auto">
+          <div className="flex gap-2 min-w-max">
+            <MicroChartPanel title="SOH" data={trendData?.storeSoh || []} />
+            <MicroChartPanel title="Sell Out" data={trendData?.p4Sales || []} />
+            <MicroChartPanel title="WFC" data={trendData?.wfc || []} />
+          </div>
         </div>
 
         {/* Section 3: Feedback Form Card */}
