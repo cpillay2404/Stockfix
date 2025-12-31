@@ -60,6 +60,11 @@ export const tasks = pgTable("tasks", {
   reasonCode: text("reason_code"),
   actionTakenComment: text("action_taken_comment"),
   
+  // Physical Count Fields (rep captured)
+  physicalCount: text("physical_count"),
+  variance: text("variance"),
+  systemAdjusted: text("system_adjusted"),
+  
   // Images
   image1: text("image1"),
   image2: text("image2"),
