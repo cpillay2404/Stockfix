@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2 } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,7 +16,39 @@ export default function ImportData() {
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [clearExisting, setClearExisting] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    try {
+      const response = await fetch('/api/tasks/export');
+      if (!response.ok) throw new Error('Export failed');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'stockfix_export.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Export Successful",
+        description: "Your data has been downloaded.",
+      });
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const importMutation = useMutation({
     mutationFn: (file: File) => importExcel(file, clearExisting),
@@ -148,6 +180,41 @@ export default function ImportData() {
                 <>
                   <Upload className="mr-2 h-4 w-4" />
                   Import Tasks
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Export Data</CardTitle>
+            <CardDescription>
+              Download all task data including rep feedback and image URLs as an Excel file.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-100 dark:border-green-900/50">
+              <p className="text-sm text-green-900 dark:text-green-100">
+                The export includes all columns plus rep-captured data: Reason Code, Action Taken Comment, Feedback, Capture Date, and clickable Image URLs.
+              </p>
+            </div>
+            <Button 
+              className="w-full sm:w-auto" 
+              variant="outline"
+              onClick={handleExport} 
+              disabled={isExporting}
+              data-testid="button-export"
+            >
+              {isExporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export to Excel
                 </>
               )}
             </Button>
