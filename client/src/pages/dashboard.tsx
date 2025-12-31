@@ -47,12 +47,14 @@ interface TaskCardProps {
 }
 
 const getActionColor = (action: string) => {
-  if (action.includes('Fix Counts')) return '#DC2626';
-  if (action.includes('Urgent')) return '#DC2626';
-  if (action.includes('OOS') || action.includes('Risk')) return '#EA580C';
-  if (action.includes('Check')) return '#CA8A04';
-  if (action.includes('Monitor')) return '#003B71';
-  if (action === 'Optimal') return '#9CA3AF';
+  if (action === 'Fix Counts: Negative SOH') return '#DC2626';
+  if (action === 'Urgent: DC OOS') return '#EA580C';
+  if (action === 'Urgent: Place Order - DC has stock') return '#DC2626';
+  if (action === 'Review: Risk of OOS') return '#EA580C';
+  if (action === 'OOS – Stock on Order') return '#EA580C';
+  if (action === 'Check Count: No Sales in 30 Days') return '#DC2626';
+  if (action === 'Monitor: Possible Overstock') return '#60A5FA';
+  if (action === 'Optimal') return '#16A34A';
   return '#6B7280';
 };
 
