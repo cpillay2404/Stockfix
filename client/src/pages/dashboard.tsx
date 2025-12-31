@@ -248,15 +248,6 @@ export default function Dashboard() {
   
   const displayedPendingCount = summary?.pendingCountExcludingOptimal ?? summary?.pendingCount ?? 0;
 
-  const formatWeekEnding = (dateStr: string | null) => {
-    if (!dateStr) return '';
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      return `${parts[2]}/${parts[1]}/${parts[0]}`;
-    }
-    return dateStr;
-  };
-
   const handleBack = () => {
     const params = new URLSearchParams();
     if (repFilter) params.set('rep', repFilter);
@@ -355,11 +346,6 @@ export default function Dashboard() {
           )}
         </div>
         
-        {summary?.latestWeekEnding && (
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>
-            Week Ending: {formatWeekEnding(summary.latestWeekEnding)}
-          </p>
-        )}
       </div>
 
       {/* Content Section - Grey Background */}
