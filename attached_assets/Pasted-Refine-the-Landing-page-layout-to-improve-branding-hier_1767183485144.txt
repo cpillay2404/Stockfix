@@ -1,0 +1,55 @@
+Refine the Landing page layout to improve branding hierarchy and make it look more professional.
+
+GOAL:
+Move the “StockFix” identity (wrench icon + StockFix title + Field Inventory Management subtitle) OUTSIDE the white card so it sits on the blue background and feels like a proper app header.
+
+BACKGROUND (NEW):
+- Replace the flat blue background with a VERY SUBTLE gradient within the Meridian theme:
+  - Use #003B71 as the main color
+  - Blend gently into a slightly darker blue like #002F5A
+  - No bright/light blues, no cyan, no wave textures, no patterns
+  - Example: linear-gradient(180deg, #003B71 0%, #002F5A 100%)
+  - Gradient must be subtle (not high contrast)
+
+KEEP:
+- Meridian Group logo at the top (on blue background)
+- Rep / Store / Client selectors
+- Start Visit button
+- “Powered by” + Meridian Nexus logo at the bottom (on blue background)
+- All existing data logic and navigation
+
+NEW LAYOUT (MUST FOLLOW):
+1) Top Header Area (centered on the blue gradient):
+- Meridian Group logo at top center
+- Below it, add the StockFix identity block (NOT inside the white card):
+  - Wrench icon to the left of “StockFix”
+  - “StockFix” text color WHITE, bold, large (approx 28–32px on mobile)
+  - Subtitle “Field Inventory Management” below StockFix, smaller (approx 14–16px), white with reduced opacity (~70%)
+- Add balanced spacing:
+  - Logo → StockFix block: medium gap
+  - StockFix block → white card: medium gap
+
+2) White Card Area (centered, shorter card):
+- Only contains:
+  - Select Rep *
+  - Select Store * (disabled until rep selected, placeholder “Select a Rep first”)
+  - All Clients (optional filter)
+  - START VISIT button
+- Remove the StockFix title/subtitle from inside the card completely.
+- Keep rounded corners, subtle shadow, clean padding.
+
+3) Bottom Footer Area (on the blue gradient):
+- Center “Powered by” text
+- Directly underneath, centered Meridian Nexus logo
+- Tighten spacing so Powered by sits neatly above the logo (aligned and not far apart).
+
+STYLING DETAILS:
+- All labels and dropdown text remain in Meridian blue (#003B71) on the white card.
+- Start Visit button remains orange and prominent.
+- Improve spacing consistency: equal vertical gaps between fields.
+- Mobile-first, no horizontal scrolling.
+
+BEHAVIOUR:
+- Store dropdown filters to selected rep’s stores.
+- Start Visit disabled until Rep + Store selected, shows loading state when pressed.
+- Do NOT change any backend/data mapping.

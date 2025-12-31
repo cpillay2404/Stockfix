@@ -131,9 +131,10 @@ export default function Landing() {
   return (
     <div 
       className="min-h-screen flex flex-col items-center"
-      style={{ backgroundColor: '#003B71' }}
+      style={{ background: 'linear-gradient(180deg, #003B71 0%, #002F5A 100%)' }}
     >
-      <div style={{ paddingTop: '32px', paddingBottom: '32px' }}>
+      {/* Top Header: Meridian Logo */}
+      <div style={{ paddingTop: '32px', paddingBottom: '20px' }}>
         <img 
           src={meridianGroupLogo} 
           alt="Meridian Group" 
@@ -141,33 +142,34 @@ export default function Landing() {
           data-testid="img-meridian-group-logo"
         />
       </div>
+
+      {/* StockFix Identity Block - On Blue Background */}
+      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+          <Wrench style={{ width: '28px', height: '28px', color: '#F36C21' }} />
+          <span style={{ fontSize: '30px', fontWeight: 700, color: '#FFFFFF' }} data-testid="text-title">
+            StockFix
+          </span>
+        </div>
+        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginTop: '6px' }} data-testid="text-subtitle">
+          Field Inventory Management
+        </p>
+      </div>
       
+      {/* White Card - Only Form Fields */}
       <div 
         style={{
           width: '420px',
           maxWidth: 'calc(100% - 32px)',
           backgroundColor: '#FFFFFF',
           borderRadius: '16px',
-          padding: '32px',
+          padding: '28px',
           boxShadow: '0px 16px 40px rgba(0,0,0,0.25)',
         }}
       >
-        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-            <Wrench style={{ width: '24px', height: '24px', color: '#F36C21' }} />
-            <span style={{ fontSize: '28px', fontWeight: 700, color: '#003B71' }} data-testid="text-title">
-              StockFix
-            </span>
-          </div>
-        </div>
-        
-        <p style={{ fontSize: '14px', color: '#6B7280', textAlign: 'center', marginBottom: '24px' }} data-testid="text-subtitle">
-          Field Inventory Management
-        </p>
-
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
-            <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '6px', display: 'block', fontWeight: 500 }}>
               Select Rep <span style={{ color: '#F36C21' }}>*</span>
             </label>
             <SearchableSelect
@@ -180,7 +182,7 @@ export default function Landing() {
           </div>
 
           <div>
-            <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '6px', display: 'block', fontWeight: 500 }}>
               Select Store <span style={{ color: '#F36C21' }}>*</span>
             </label>
             <SearchableSelect
@@ -194,7 +196,7 @@ export default function Landing() {
           </div>
 
           <div>
-            <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '6px', display: 'block', fontWeight: 500 }}>
               All Clients
             </label>
             <SearchableSelect
@@ -226,18 +228,18 @@ export default function Landing() {
         >
           START VISIT
         </Button>
-
       </div>
 
-      <div style={{ paddingTop: '32px', paddingBottom: '32px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <p style={{ fontSize: '12px', color: '#FFFFFF', margin: 0, marginBottom: '2px', textAlign: 'center' }} data-testid="text-powered-by">
+      {/* Footer: Powered by Meridian Nexus */}
+      <div style={{ paddingTop: '24px', paddingBottom: '24px', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: 0, textAlign: 'center' }} data-testid="text-powered-by">
             Powered by
           </p>
           <img 
             src={meridianNexusLogo} 
             alt="Meridian Nexus" 
-            style={{ height: '80px', display: 'block' }}
+            style={{ height: '60px', display: 'block' }}
             data-testid="img-meridian-nexus-logo"
           />
         </div>
