@@ -554,6 +554,16 @@ export async function registerRoutes(
     try {
       const allTasks = await storage.getAllTasks();
       
+      // Only export tasks that have been captured (have feedback, reasonCode, or completed status)
+      const capturedTasks = allTasks.filter(task => 
+        task.actionStatus === 'Completed' || 
+        task.reasonCode || 
+        task.feedback || 
+        task.captureDate ||
+        task.image1 ||
+        task.image2
+      );
+      
       // Build full URL for images
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
@@ -567,7 +577,7 @@ export async function registerRoutes(
       };
       
       // Transform data to match Excel columns
-      const exportData = allTasks.map(task => ({
+      const exportData = capturedTasks.map(task => ({
         'Unique Id': task.uniqueId,
         'Key': task.key,
         'client': task.client,
