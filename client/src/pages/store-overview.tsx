@@ -1,12 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronDown, ArrowLeft, LogOut } from "lucide-react";
+import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, Tooltip, LabelList } from "recharts";
+import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 
 interface SearchableSelectProps {
   value: string;
@@ -116,8 +116,8 @@ function Tile({ label, value, testId }: TileProps) {
       data-testid={testId}
       style={{
         backgroundColor: '#FFFFFF',
-        borderRadius: '12px',
-        padding: '16px',
+        borderRadius: '10px',
+        padding: '12px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
         display: 'flex',
         flexDirection: 'column',
@@ -125,10 +125,10 @@ function Tile({ label, value, testId }: TileProps) {
         justifyContent: 'center',
       }}
     >
-      <span style={{ fontSize: '28px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>
+      <span style={{ fontSize: '24px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>
         {value}
       </span>
-      <span style={{ fontSize: '11px', color: '#6B7280', textAlign: 'center', marginTop: '4px' }}>
+      <span style={{ fontSize: '10px', color: '#6B7280', textAlign: 'center', marginTop: '2px' }}>
         {label}
       </span>
     </div>
@@ -139,9 +139,11 @@ interface ChartCardProps {
   title: string;
   data: { weekEnding: string; value: number }[];
   testId: string;
+  height?: number;
+  isWFC?: boolean;
 }
 
-function ChartCard({ title, data, testId }: ChartCardProps) {
+function ChartCard({ title, data, testId, height = 160, isWFC = false }: ChartCardProps) {
   const formatWeekLabel = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -152,6 +154,9 @@ function ChartCard({ title, data, testId }: ChartCardProps) {
   };
 
   const formatValue = (val: number) => {
+    if (isWFC) {
+      return val.toFixed(1);
+    }
     if (val >= 1000) {
       return `${(val / 1000).toFixed(1)}k`;
     }
@@ -163,33 +168,30 @@ function ChartCard({ title, data, testId }: ChartCardProps) {
       data-testid={testId}
       style={{
         backgroundColor: '#FFFFFF',
-        borderRadius: '16px',
-        padding: '16px',
+        borderRadius: '12px',
+        padding: '12px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        marginBottom: '16px',
       }}
     >
-      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
+      <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '8px' }}>
         {title}
       </h3>
-      <div style={{ height: '180px' }}>
+      <div style={{ height: `${height}px` }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 20, right: 5, left: -15, bottom: 5 }}>
+          <ComposedChart data={data} margin={{ top: 20, right: 5, left: -20, bottom: 5 }}>
             <XAxis 
               dataKey="weekEnding" 
-              tick={{ fontSize: 10, fill: '#6B7280' }}
+              tick={{ fontSize: 9, fill: '#6B7280' }}
               tickFormatter={formatWeekLabel}
               axisLine={false}
               tickLine={false}
+              interval={0}
             />
             <YAxis 
-              tick={{ fontSize: 10, fill: '#6B7280' }}
+              tick={{ fontSize: 9, fill: '#6B7280' }}
               axisLine={false}
               tickLine={false}
-            />
-            <Tooltip 
-              labelFormatter={(label) => `Week: ${label}`}
-              formatter={(value: number) => [value.toLocaleString(), '']}
+              width={35}
             />
             <Bar dataKey="value" fill="#003B71" radius={[4, 4, 0, 0]}>
               <LabelList 
@@ -228,7 +230,7 @@ export default function StoreOverview() {
   const [selectedClient, setSelectedClient] = useState(initialClient);
   const [selectedArticle, setSelectedArticle] = useState(initialArticle);
 
-  const { data, isLoading } = useQuery({
+  const { data } = useQuery({
     queryKey: ["store-overview", rep, store, selectedClient, selectedArticle],
     queryFn: async () => {
       const params = new URLSearchParams({ rep, store });
@@ -269,16 +271,18 @@ export default function StoreOverview() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#003B71' }}>
-      <div style={{ padding: '20px 16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6' }}>
+      {/* Header Section - Blue */}
+      <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
+        {/* Navigation Row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
           <button
             onClick={() => setLocation('/')}
             data-testid="button-back"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '4px',
               color: 'rgba(255,255,255,0.8)',
               fontSize: '14px',
               background: 'none',
@@ -290,13 +294,29 @@ export default function StoreOverview() {
             <ArrowLeft style={{ width: '18px', height: '18px' }} />
             <span>Back</span>
           </button>
+          
+          {/* Centered Title */}
+          <h1 
+            style={{ 
+              fontSize: '18px', 
+              fontWeight: 700, 
+              color: '#FFFFFF',
+              position: 'absolute',
+              left: '50%',
+              transform: 'translateX(-50%)',
+            }}
+            data-testid="text-page-title"
+          >
+            Store Overview
+          </h1>
+          
           <button
             onClick={handleExitVisit}
             data-testid="button-exit-visit"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
+              gap: '4px',
               color: 'rgba(255,255,255,0.8)',
               fontSize: '14px',
               background: 'none',
@@ -309,27 +329,33 @@ export default function StoreOverview() {
             <span>Exit Visit</span>
           </button>
         </div>
-        <div style={{ marginBottom: '8px' }}>
-          <h1 
-            style={{ 
-              fontSize: '20px', 
-              fontWeight: 700, 
-              color: '#FFFFFF', 
-              textTransform: 'uppercase',
-              letterSpacing: '0.5px',
-            }}
-            data-testid="text-store-name"
-          >
-            {store}
-          </h1>
-          <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.8)' }} data-testid="text-region-rep">
-            {data?.region || ''} • {rep}
-          </p>
+
+        {/* Context Row - Rep and Store */}
+        <div style={{ 
+          display: 'flex', 
+          flexDirection: 'column',
+          alignItems: 'center', 
+          gap: '4px',
+          marginBottom: '16px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <User style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
+            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)' }} data-testid="text-rep-name">
+              {rep}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <MapPin style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
+            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)' }} data-testid="text-store-name">
+              {store}
+            </span>
+          </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '16px' }}>
+        {/* Filters Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
           <div>
-            <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', display: 'block' }}>
               Client
             </label>
             <SearchableSelect
@@ -341,7 +367,7 @@ export default function StoreOverview() {
             />
           </div>
           <div>
-            <label style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', display: 'block' }}>
               Article
             </label>
             <SearchableSelect
@@ -354,13 +380,14 @@ export default function StoreOverview() {
           </div>
         </div>
 
+        {/* VIEW TASKS Button */}
         <Button
           onClick={handleViewTasks}
           data-testid="button-view-tasks"
           style={{
             width: '100%',
             height: '48px',
-            marginTop: '20px',
+            marginTop: '16px',
             backgroundColor: '#F36C21',
             color: '#FFFFFF',
             fontSize: '16px',
@@ -373,17 +400,27 @@ export default function StoreOverview() {
         </Button>
       </div>
 
-      <div style={{ padding: '0 16px 24px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '20px' }}>
-          <Tile label="Total SKUs (This Week)" value={tiles.totalSKUs} testId="tile-total-skus" />
-          <Tile label="Action Required (This Week)" value={tiles.actionRequired} testId="tile-action-required" />
-          <Tile label="Understock / OOS (This Week)" value={tiles.understockOOS} testId="tile-understock-oos" />
-          <Tile label="Overstock (This Week)" value={tiles.overstock} testId="tile-overstock" />
+      {/* Content Section - Grey Background */}
+      <div style={{ padding: '16px' }}>
+        {/* KPI Tiles */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+          <Tile label="Total SKUs" value={tiles.totalSKUs} testId="tile-total-skus" />
+          <Tile label="Action Required" value={tiles.actionRequired} testId="tile-action-required" />
+          <Tile label="Understock / OOS" value={tiles.understockOOS} testId="tile-understock-oos" />
+          <Tile label="Overstock" value={tiles.overstock} testId="tile-overstock" />
         </div>
 
-        <ChartCard title="Store SOH" data={charts.storeSoh} testId="chart-store-soh" />
-        <ChartCard title="Sell Out (P4 Weeks)" data={charts.sellOutP4} testId="chart-sell-out" />
-        <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" />
+        {/* Charts Section */}
+        {/* Row 1: Store SOH - Full Width */}
+        <div style={{ marginBottom: '12px' }}>
+          <ChartCard title="Store SOH" data={charts.storeSoh} testId="chart-store-soh" height={140} />
+        </div>
+
+        {/* Row 2: Sell Out and WFC - Side by Side */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+          <ChartCard title="Sell Out" data={charts.sellOutP4} testId="chart-sell-out" height={120} />
+          <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" height={120} isWFC={true} />
+        </div>
       </div>
     </div>
   );
