@@ -20,7 +20,7 @@ export function SplashScreen({ onComplete, minDisplayTime = 2000 }: SplashScreen
 
   return (
     <div 
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#1e3a5f] transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#003B71] transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
     >
       <div className="flex flex-col items-center space-y-6">
         <div className="relative">
@@ -48,7 +48,7 @@ export function SplashScreen({ onComplete, minDisplayTime = 2000 }: SplashScreen
       </div>
 
       <div className="absolute bottom-8 text-blue-300/50 text-xs">
-        Powered by StockFix
+        Powered by Meridian Nexus
       </div>
     </div>
   );
