@@ -5,7 +5,7 @@ import { fetchTasks } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, CheckCircle2, LogOut } from "lucide-react";
+import { Search, ArrowLeft, CheckCircle2, LogOut, User, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@shared/schema";
 
@@ -280,9 +280,11 @@ export default function Dashboard() {
   }, [repFilter, storeFilter, clientFilter, articleFilter]);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#003B71' }}>
-      <div style={{ padding: '16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6' }}>
+      {/* Header Section - Blue */}
+      <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
+        {/* Navigation Row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', position: 'relative' }}>
           <button
             onClick={handleBack}
             data-testid="button-back"
@@ -301,6 +303,22 @@ export default function Dashboard() {
             <ArrowLeft style={{ width: '18px', height: '18px' }} />
             <span>Back</span>
           </button>
+          
+          {/* Centered Title */}
+          <h1 
+            style={{ 
+              position: 'absolute',
+              left: '50%',
+              transform: 'translateX(-50%)',
+              fontSize: '20px', 
+              fontWeight: 700, 
+              color: '#FFFFFF',
+              margin: 0,
+            }}
+          >
+            Tasks
+          </h1>
+          
           <button
             onClick={handleExitVisit}
             data-testid="button-exit-visit"
@@ -321,33 +339,31 @@ export default function Dashboard() {
           </button>
         </div>
 
-        <h1 style={{ fontSize: '22px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px' }}>
-          Tasks
-        </h1>
+        {/* Rep and Store Context Row */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px' }}>
+          {repFilter && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <User style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>{repFilter}</span>
+            </div>
+          )}
+          {storeFilter && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <MapPin style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>{storeFilter}</span>
+            </div>
+          )}
+        </div>
         
         {summary?.latestWeekEnding && (
-          <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginBottom: '12px' }}>
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>
             Week Ending: {formatWeekEnding(summary.latestWeekEnding)}
           </p>
         )}
+      </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' }}>
-          {repFilter && (
-            <Badge style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontSize: '11px' }}>
-              Rep: {repFilter}
-            </Badge>
-          )}
-          {storeFilter && (
-            <Badge style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontSize: '11px' }}>
-              Store: {storeFilter}
-            </Badge>
-          )}
-          {clientFilter && (
-            <Badge style={{ backgroundColor: 'rgba(255,255,255,0.15)', color: '#FFFFFF', fontSize: '11px' }}>
-              Client: {clientFilter}
-            </Badge>
-          )}
-        </div>
+      {/* Content Section - Grey Background */}
+      <div style={{ padding: '16px' }}>
 
         <div 
           style={{ 
@@ -459,7 +475,7 @@ export default function Dashboard() {
         </div>
 
         <div style={{ marginBottom: '8px' }}>
-          <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)' }}>
+          <span style={{ fontSize: '13px', color: '#6B7280' }}>
             Showing {filteredTasks.length} task{filteredTasks.length !== 1 ? 's' : ''}
           </span>
         </div>
@@ -467,15 +483,15 @@ export default function Dashboard() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
           {isLoading ? (
             <>
-              <Skeleton style={{ height: '120px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              <Skeleton style={{ height: '120px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
-              <Skeleton style={{ height: '120px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
+              <Skeleton style={{ height: '120px', borderRadius: '12px', backgroundColor: '#E5E7EB' }} />
+              <Skeleton style={{ height: '120px', borderRadius: '12px', backgroundColor: '#E5E7EB' }} />
+              <Skeleton style={{ height: '120px', borderRadius: '12px', backgroundColor: '#E5E7EB' }} />
             </>
           ) : filteredTasks.length === 0 ? (
             <div style={{ 
               textAlign: 'center', 
               padding: '48px 16px',
-              color: 'rgba(255,255,255,0.7)',
+              color: '#6B7280',
             }}>
               <p>No tasks found matching your criteria.</p>
             </div>
