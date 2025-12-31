@@ -413,6 +413,9 @@ export default function Dashboard() {
                 ? (summary?.pendingActionCounts || {}) 
                 : (summary?.completedActionCounts || {});
               const count = counts[action] || 0;
+              
+              if (count === 0 && action !== 'Optimal') return null;
+              
               const bgColor = getActionColor(action);
               const isSelected = actionFilter === action;
               return (
@@ -434,7 +437,7 @@ export default function Dashboard() {
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    opacity: count > 0 ? 1 : 0.5,
+                    opacity: action === 'Optimal' && count === 0 ? 0.5 : 1,
                   }}
                 >
                   <span>{action}</span>
