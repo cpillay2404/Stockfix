@@ -59,7 +59,7 @@ function MiniChartCard({ title, data }: { title: string; data: ChartDataPoint[] 
     if (!dateStr) return '';
     const parts = dateStr.split('-');
     if (parts.length === 3) {
-      return `${parts[1]}/${parts[2]}`;
+      return `${parts[2]}`;
     }
     return dateStr;
   };
@@ -78,16 +78,17 @@ function MiniChartCard({ title, data }: { title: string; data: ChartDataPoint[] 
           <ComposedChart data={displayData} margin={{ top: 15, right: 2, left: -20, bottom: 2 }}>
             <XAxis 
               dataKey="weekEnding" 
-              tick={{ fontSize: 7, fill: '#ffffff99' }}
+              tick={{ fontSize: 6, fill: '#ffffff99' }}
               tickFormatter={formatWeekLabel}
               axisLine={false}
               tickLine={false}
+              interval={0}
             />
             <YAxis 
-              tick={{ fontSize: 7, fill: '#ffffff99' }}
+              tick={{ fontSize: 6, fill: '#ffffff99' }}
               axisLine={false}
               tickLine={false}
-              width={25}
+              width={20}
             />
             <Bar dataKey="value" fill="#4a6a8a" radius={[3, 3, 0, 0]}>
               <LabelList 
