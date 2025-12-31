@@ -44,48 +44,85 @@ const requiresPhysicalCountForAction = (action: string): boolean => {
   );
 };
 
-function MicroChartPanel({ title, data }: { title: string; data: number[] }) {
-  const displayData = (!data || data.length === 0) ? [0, 0, 0, 0] : data.slice(-6);
-  const max = Math.max(...displayData, 1);
+interface TrendPoint {
+  weekLabel: string;
+  value: number;
+}
+
+function MiniTrendChart({ title, data }: { title: string; data: TrendPoint[] }) {
+  const displayData = (!data || data.length === 0) 
+    ? [{ weekLabel: '', value: 0 }] 
+    : data.slice(-4);
+  const max = Math.max(...displayData.map(d => d.value), 1);
   
-  const chartHeight = 32;
+  const chartHeight = 50;
+  const labelHeight = 12;
+  const totalHeight = chartHeight + labelHeight;
   const barWidth = 100 / displayData.length;
-  const barColor = "#7a9cbf";
-  const trendColor = "#5a7a9a";
+  const barColor = "#003B71";
+  const trendColor = "#F36C21";
   
-  const trendPoints = displayData.map((value, index) => {
+  const trendPoints = displayData.map((point, index) => {
     const x = index * barWidth + barWidth / 2;
-    const barHeight = Math.max((value / max) * chartHeight, 2);
+    const barHeight = Math.max((point.value / max) * (chartHeight - 8), 4);
     const y = chartHeight - barHeight;
     return `${x},${y}`;
   }).join(' ');
 
+  const formatValue = (val: number) => {
+    if (val >= 1000) return (val / 1000).toFixed(1) + 'k';
+    if (val % 1 !== 0) return val.toFixed(1);
+    return val.toString();
+  };
+
   return (
-    <div className="bg-[#F7F8FA] border border-gray-200 rounded-md p-2 min-w-[90px] flex-1">
-      <div className="text-[9px] text-gray-500 mb-1">{title}</div>
-      <svg viewBox={`0 0 100 ${chartHeight}`} className="w-full h-9">
-        <line x1="0" y1={chartHeight} x2="100" y2={chartHeight} stroke="#e5e7eb" strokeWidth="0.5" />
-        {displayData.map((value, index) => {
-          const barHeight = Math.max((value / max) * chartHeight, 2);
-          const x = index * barWidth + 2;
+    <div className="bg-[#003B71] rounded-lg p-2 flex-1">
+      <div className="text-[10px] text-white/80 mb-1 font-medium">{title}</div>
+      <svg viewBox={`0 0 100 ${totalHeight}`} className="w-full h-14" preserveAspectRatio="xMidYMid meet">
+        {displayData.map((point, index) => {
+          const barHeight = Math.max((point.value / max) * (chartHeight - 8), 4);
+          const x = index * barWidth + 4;
           const y = chartHeight - barHeight;
+          const textY = y + barHeight / 2 + 3;
           return (
-            <rect
-              key={index}
-              x={x}
-              y={y}
-              width={barWidth - 4}
-              height={barHeight}
-              fill={barColor}
-              rx="1"
-            />
+            <g key={index}>
+              <rect
+                x={x}
+                y={y}
+                width={barWidth - 8}
+                height={barHeight}
+                fill={barColor}
+                stroke="#5a7a9a"
+                strokeWidth="1"
+                rx="2"
+                className="fill-[#4a6a8a]"
+              />
+              <text
+                x={x + (barWidth - 8) / 2}
+                y={textY}
+                textAnchor="middle"
+                className="fill-white font-medium"
+                fontSize="7"
+              >
+                {formatValue(point.value)}
+              </text>
+              <text
+                x={x + (barWidth - 8) / 2}
+                y={totalHeight - 1}
+                textAnchor="middle"
+                className="fill-white/70"
+                fontSize="5"
+              >
+                {point.weekLabel}
+              </text>
+            </g>
           );
         })}
         <polyline
           points={trendPoints}
           fill="none"
           stroke={trendColor}
-          strokeWidth="1.5"
+          strokeWidth="2"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -128,21 +165,38 @@ export default function TaskDetail() {
     queryKey: ["taskTrends", task?.repName, task?.storeName, task?.client, task?.barcode],
     queryFn: async () => {
       if (!task) return null;
-      const response = await fetchTasks(1, 100, '', '', {
+      const response = await fetchTasks(1, 200, '', '', {
         rep: task.repName,
         store: task.storeName,
-        client: task.client,
       });
       const filtered = response.tasks
         .filter(t => t.barcode === task.barcode)
-        .sort((a, b) => (a.weekEnding || '').localeCompare(b.weekEnding || ''))
-        .slice(-8);
+        .sort((a, b) => {
+          const dateA = a.weekEnding ? new Date(a.weekEnding).getTime() : 0;
+          const dateB = b.weekEnding ? new Date(b.weekEnding).getTime() : 0;
+          return dateA - dateB;
+        })
+        .slice(-4);
+      
+      const formatWeekLabel = (dateStr: string | null) => {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        return `${date.getMonth() + 1}/${date.getDate()}`;
+      };
       
       return {
-        storeSoh: filtered.map(t => parseFloat(t.storeSoh || '0') || 0),
-        dcSoh: filtered.map(t => parseFloat(t.dcSoh || '0') || 0),
-        p4Sales: filtered.map(t => parseFloat(t.p4WeekSales || '0') || 0),
-        wfc: filtered.map(t => parseFloat(t.storeWfc || '0') || 0),
+        storeSoh: filtered.map(t => ({ 
+          weekLabel: formatWeekLabel(t.weekEnding), 
+          value: parseFloat(t.storeSoh || '0') || 0 
+        })),
+        p4Sales: filtered.map(t => ({ 
+          weekLabel: formatWeekLabel(t.weekEnding), 
+          value: parseFloat(t.p4WeekSales || '0') || 0 
+        })),
+        wfc: filtered.map(t => ({ 
+          weekLabel: formatWeekLabel(t.weekEnding), 
+          value: parseFloat(t.storeWfc || '0') || 0 
+        })),
       };
     },
     enabled: !!task,
@@ -404,13 +458,11 @@ export default function TaskDetail() {
           </div>
         </div>
 
-        {/* Section 2: SKU Trends - Horizontal Strip (3 panels) */}
-        <div className="overflow-x-auto">
-          <div className="flex gap-2 min-w-max">
-            <MicroChartPanel title="SOH" data={trendData?.storeSoh || []} />
-            <MicroChartPanel title="Sell Out" data={trendData?.p4Sales || []} />
-            <MicroChartPanel title="WFC" data={trendData?.wfc || []} />
-          </div>
+        {/* Section 2: SKU Trends - 3 mini charts in a row */}
+        <div className="grid grid-cols-3 gap-2">
+          <MiniTrendChart title="Store SOH" data={trendData?.storeSoh || []} />
+          <MiniTrendChart title="Sell Out" data={trendData?.p4Sales || []} />
+          <MiniTrendChart title="WFC" data={trendData?.wfc || []} />
         </div>
 
         {/* Section 3: Feedback Form Card */}
