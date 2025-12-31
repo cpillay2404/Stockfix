@@ -1,0 +1,149 @@
+mplement “Task Feedback” write-back to the SAME imported master dataset (single table). Do NOT create a separate table/file.
+
+CONTEXT
+- The master dataset contains both operational fields and empty feedback fields to be populated by reps.
+- The master dataset columns include (exact header names):
+  client, REGION.1, BANNER.1, cleaned store name, REP NAME, barcode, article description,
+  Stock Classification (This Week), Action Column, week ending, Store SOH, WFC, Sell out p4 weeks,
+  Supplying dc soh, physicalCount, variance, systemAdjusted, reasonCode, actionTakenComment,
+  feedback, captureDate, image1, image2
+
+GOAL
+When a rep submits feedback on the Task Feedback page, the app must UPDATE the matching row in the master dataset by writing into:
+- physicalCount
+- variance
+- systemAdjusted
+- reasonCode
+- actionTakenComment
+- feedback
+- captureDate
+- image1
+- image2
+
+NO OTHER STORAGE
+- Do NOT create a new DB table or file for feedback.
+- All feedback must write back into the existing master dataset rows.
+
+========================================================
+1) ROW MATCHING / UPDATE KEY (CRITICAL)
+========================================================
+When opening a task detail and when submitting feedback, identify the exact row to update using this composite key:
+- REP NAME
+- cleaned store name
+- client
+- barcode (must be treated as STRING, not scientific notation)
+- week ending
+
+This key must match EXACTLY ONE ROW.
+If multiple rows match, choose the row with the latest week ending date within that subset.
+Never update more than one row.
+
+========================================================
+2) TASK FEEDBACK PAGE UI (FIELDS + BINDINGS)
+========================================================
+On the Task Feedback page, display task context (read-only):
+- article description
+- barcode
+- client
+- Action Column
+- Store SOH, WFC, Sell out p4 weeks, Supplying dc soh
+- week ending
+
+Add the following editable inputs and bind them to the master dataset columns exactly:
+
+A) Physical Count (numeric input)
+- Label: “Physical Count”
+- Writes to: physicalCount
+
+B) Variance (auto-calculated, read-only)
+- Compute: variance = physicalCount - Store SOH
+- Writes to: variance
+- Update variance live whenever physicalCount changes
+
+C) System Adjusted toggle (required)
+- Label: “System adjusted to match physical count?”
+- Options: Yes / No
+- Writes to: systemAdjusted
+
+D) Reason Code dropdown (conditionally required)
+- Label: “Reason Code”
+- Writes to: reasonCode
+- Required if systemAdjusted = “No”
+- Optional if systemAdjusted = “Yes”
+- Provide a fixed option list (use these values exactly):
+  - Awaiting delivery / stock not received
+  - Order placed
+  - Damaged or expired
+  - Count corrected – system = physical count
+  - Manual correction done
+  - No shelf space
+  - Slow-moving stock
+  - Stock in backroom
+  - Stock received and on shelf
+  - Store closed / promo / revamp
+  - System or data error
+  - Other
+
+E) Action Taken / Comment (text area)
+- Label: “Action Taken / Comment”
+- Writes to: actionTakenComment
+- Optional but recommended
+
+F) Feedback (optional text area)
+- Label: “Feedback”
+- Writes to: feedback
+
+G) Photo capture (2 images)
+- Provide two capture/upload controls:
+  - “Photo 1” -> writes URL/string to image1
+  - “Photo 2” -> writes URL/string to image2
+- Store image values as URLs or stored file references that can be exported later.
+- Do not store raw base64 in the spreadsheet cell; store a reference/URL string.
+
+H) Capture Date (auto)
+- On submit, set captureDate = current datetime in a consistent format (ISO preferred).
+- Writes to: captureDate
+
+========================================================
+3) PREFILL + EDIT BEHAVIOUR
+========================================================
+When opening Task Feedback page, if the row already contains captureDate (not blank), treat as “Completed” and:
+- Prefill physicalCount, systemAdjusted, reasonCode, actionTakenComment, feedback, image1, image2
+- Allow edits and re-submit; re-submit updates the same row and refreshes captureDate
+
+========================================================
+4) SUBMIT ACTION (WRITE-BACK)
+========================================================
+On “Submit Action”:
+1) Validate required fields:
+   - systemAdjusted is required
+   - physicalCount required ONLY for actions where counting is relevant:
+     - Fix Counts: Negative SOH
+     - Check Count: No Sales in 30 Days
+     - Urgent: DC OOS (optional physicalCount; do not force)
+   - If systemAdjusted = No, reasonCode required
+2) Compute variance and set it
+3) Update the matching master dataset row with:
+   physicalCount, variance, systemAdjusted, reasonCode, actionTakenComment, feedback, captureDate, image1, image2
+4) After successful update:
+   - Mark the task as Completed in the UI for the current week ending
+   - Navigate back one page (to Tasks list)
+   - Ensure the task moves from Pending -> Completed based on captureDate not blank
+
+========================================================
+5) PENDING / COMPLETED LOGIC (FOR TASKS LIST)
+========================================================
+For current week ending:
+- Pending tasks = captureDate is blank/null
+- Completed tasks = captureDate not blank
+
+========================================================
+6) DO NOT CHANGE
+========================================================
+- Do not redesign the entire app
+- Do not change the Landing page
+- Do not change the Store Overview page (except ensuring navigation works)
+- Do not create new storage tables/files for feedback
+
+DELIVERABLE
+Implement the Task Feedback page so that submitting feedback updates the existing master dataset row in-place using the composite key above, and Pending/Completed status updates accordingly.
