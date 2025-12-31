@@ -1,0 +1,78 @@
+Refine the Task Feedback page UI to improve clarity, spacing, and readability.
+Do NOT change any data logic, write-back logic, or image upload logic.
+Only make the UI/UX changes described below.
+
+==============================
+1) GRAPHS – SIMPLIFY & CLEAN
+==============================
+- Remove the DC SOH graph completely.
+- Keep ONLY these three graphs:
+  1) SOH
+  2) Sell Out
+  3) WFC
+
+- Rename all references:
+  - “Sell Out (P4 Weeks)” → “Sell Out”
+  - Do not mention “P4 Weeks” anywhere in graph titles or labels.
+
+- Graph styling rules:
+  - Compact micro-graphs only (sparkline or small bar)
+  - No legends
+  - No borders
+  - No gridlines
+  - Minimal or no axis labels
+  - Neutral colour (blue/grey)
+  - Graphs must feel supportive, not dominant
+
+- Place graphs in a single compact section above the feedback form.
+
+==============================
+2) KPI LABELS (CONFIRMED)
+==============================
+- Use these exact KPI labels:
+  - SOH
+  - DC SOH
+  - P4 Sales
+  - WFC
+- Keep all 4 KPIs on ONE line.
+- Prevent label wrapping.
+- Format WFC to 1 decimal place (display only).
+
+==============================
+3) FEEDBACK FORM – TYPOGRAPHY & COPY
+==============================
+- Slightly reduce font size across the feedback form to improve density.
+- Reduce vertical spacing between fields.
+
+Replace this question text:
+“Was the system stock adjusted to match the physical count?”
+
+With this shorter version (exact text):
+“Was system stock adjusted to physical count?”
+
+Ensure this question fits on ONE line on mobile.
+
+==============================
+4) PHOTO SECTION – VISIBILITY FIX
+==============================
+- Ensure the “Add Photo” section is fully visible and not cut off.
+- Add sufficient bottom padding so photo thumbnails and buttons are not hidden behind the Submit Action button.
+- Do NOT change how photos are captured or uploaded.
+- Do NOT change image logic or storage.
+
+==============================
+5) SUBMIT BUTTON
+==============================
+- Keep “Submit Action” full-width.
+- Ensure it does not overlap or obscure the “Add Photo” section.
+- Add bottom spacing if needed to avoid overlap.
+
+==============================
+DO NOT CHANGE
+==============================
+- Do NOT modify image upload logic.
+- Do NOT change database structure.
+- Do NOT change write-back logic.
+- Do NOT redesign other pages.
+
+Goal: Make the Task Feedback page visually tighter, cleaner, and closer to the approved mock-up, while preserving all existing functionality.

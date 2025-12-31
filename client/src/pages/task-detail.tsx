@@ -376,7 +376,7 @@ export default function TaskDetail() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-auto p-4 pb-28 space-y-4">
+      <div className="flex-1 overflow-auto p-4 pb-40 space-y-3">
         
         {/* Section 1: Action + SKU Context Card */}
         <div className="bg-white rounded-xl p-4 shadow-sm space-y-4">
@@ -394,69 +394,57 @@ export default function TaskDetail() {
             </div>
           </div>
 
-          {/* KPI Tiles - 4 tiles */}
-          <div className="grid grid-cols-4 gap-2">
-            <div className="border rounded-lg p-2 text-center bg-gray-50">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide">Store SOH</div>
-              <div className="text-xl font-bold text-gray-900">{task.storeSoh || '0'}</div>
+          {/* KPI Tiles - 4 tiles on one line */}
+          <div className="grid grid-cols-4 gap-1">
+            <div className="border rounded-lg p-1.5 text-center bg-gray-50">
+              <div className="text-[9px] text-gray-500 uppercase tracking-wide whitespace-nowrap">SOH</div>
+              <div className="text-lg font-bold text-gray-900">{task.storeSoh || '0'}</div>
             </div>
-            <div className="border rounded-lg p-2 text-center bg-gray-50">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide">DC SOH</div>
-              <div className="text-xl font-bold text-gray-900">{task.dcSoh || '0'}</div>
+            <div className="border rounded-lg p-1.5 text-center bg-gray-50">
+              <div className="text-[9px] text-gray-500 uppercase tracking-wide whitespace-nowrap">DC SOH</div>
+              <div className="text-lg font-bold text-gray-900">{task.dcSoh || '0'}</div>
             </div>
-            <div className="border rounded-lg p-2 text-center bg-gray-50">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide">P4 Sales</div>
-              <div className="text-xl font-bold text-gray-900">{task.p4WeekSales || '0'}</div>
+            <div className="border rounded-lg p-1.5 text-center bg-gray-50">
+              <div className="text-[9px] text-gray-500 uppercase tracking-wide whitespace-nowrap">P4 Sales</div>
+              <div className="text-lg font-bold text-gray-900">{task.p4WeekSales || '0'}</div>
             </div>
-            <div className="border rounded-lg p-2 text-center bg-gray-50">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide">WFC</div>
-              <div className="text-xl font-bold text-gray-900">{(parseFloat(task.storeWfc || '0') || 0).toFixed(1)}</div>
+            <div className="border rounded-lg p-1.5 text-center bg-gray-50">
+              <div className="text-[9px] text-gray-500 uppercase tracking-wide whitespace-nowrap">WFC</div>
+              <div className="text-lg font-bold text-gray-900">{(parseFloat(task.storeWfc || '0') || 0).toFixed(1)}</div>
             </div>
           </div>
         </div>
 
-        {/* Section 2: Micro-graphs Card */}
-        <div className="bg-white rounded-xl p-4 shadow-sm">
-          <div className="grid grid-cols-4 gap-2">
+        {/* Section 2: Compact Micro-graphs (3 graphs: SOH, Sell Out, WFC) */}
+        <div className="bg-white rounded-xl p-3 shadow-sm">
+          <div className="grid grid-cols-3 gap-3">
             <div className="text-center">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Store SOH</div>
-              <div className="border rounded-lg p-1 bg-gray-50">
-                <MicroSparkline data={trendData?.storeSoh || []} />
-              </div>
+              <div className="text-[9px] text-gray-500 uppercase tracking-wide mb-1">SOH</div>
+              <MicroSparkline data={trendData?.storeSoh || []} color="#6b7280" />
             </div>
             <div className="text-center">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">DC SOH</div>
-              <div className="border rounded-lg p-1 bg-gray-50">
-                <MicroBarChart data={trendData?.dcSoh || []} />
-              </div>
+              <div className="text-[9px] text-gray-500 uppercase tracking-wide mb-1">Sell Out</div>
+              <MicroBarChart data={trendData?.p4Sales || []} color="#6b7280" />
             </div>
             <div className="text-center">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Sell Out (P4 Weeks)</div>
-              <div className="border rounded-lg p-1 bg-gray-50">
-                <MicroBarChart data={trendData?.p4Sales || []} />
-              </div>
-            </div>
-            <div className="text-center">
-              <div className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">WFC</div>
-              <div className="border rounded-lg p-1 bg-gray-50">
-                <MicroSparkline data={trendData?.wfc || []} />
-              </div>
+              <div className="text-[9px] text-gray-500 uppercase tracking-wide mb-1">WFC</div>
+              <MicroSparkline data={trendData?.wfc || []} color="#6b7280" />
             </div>
           </div>
         </div>
 
         {/* Section 3: Feedback Form Card */}
-        <div className="bg-white rounded-xl p-4 shadow-sm space-y-5">
+        <div className="bg-white rounded-xl p-3 shadow-sm space-y-3">
           
           {/* Physical Count with Variance */}
-          <div className="space-y-2">
+          <div className="space-y-1">
             <div className="flex items-center justify-between">
-              <Label htmlFor="physicalCount" className="text-base font-semibold text-gray-900">
+              <Label htmlFor="physicalCount" className="text-sm font-semibold text-gray-900">
                 Physical Count
               </Label>
               {variance !== null && (
                 <span className={cn(
-                  "text-sm font-medium",
+                  "text-xs font-medium",
                   variance < 0 ? "text-red-600" : variance > 0 ? "text-green-600" : "text-gray-600"
                 )}>
                   Variance: {variance > 0 ? '+' : ''}{variance}
@@ -470,36 +458,36 @@ export default function TaskDetail() {
               value={physicalCount}
               onChange={(e) => setPhysicalCount(e.target.value)}
               disabled={isCompleted}
-              className="text-lg bg-gray-50 border-gray-300"
+              className="text-sm bg-gray-50 border-gray-300 h-9"
               data-testid="input-physical-count"
             />
           </div>
 
           {/* System Adjusted Question */}
-          <div className="space-y-3">
-            <Label className="text-base text-gray-900">
-              Was the system stock adjusted to match the physical count?
+          <div className="space-y-2">
+            <Label className="text-sm text-gray-900">
+              Was system stock adjusted to physical count?
             </Label>
             <RadioGroup
               value={systemAdjusted === true ? "yes" : systemAdjusted === false ? "no" : ""}
               onValueChange={(value) => setSystemAdjusted(value === "yes")}
               disabled={isCompleted}
-              className="flex gap-12"
+              className="flex gap-10"
             >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="yes" id="system-yes" data-testid="radio-system-yes" className="border-2 border-gray-400" />
-                <Label htmlFor="system-yes" className="font-normal cursor-pointer text-base">Yes</Label>
+                <Label htmlFor="system-yes" className="font-normal cursor-pointer text-sm">Yes</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="no" id="system-no" data-testid="radio-system-no" className="border-2 border-gray-400" />
-                <Label htmlFor="system-no" className="font-normal cursor-pointer text-base">No</Label>
+                <Label htmlFor="system-no" className="font-normal cursor-pointer text-sm">No</Label>
               </div>
             </RadioGroup>
           </div>
 
           {/* Reason Code */}
-          <div className="space-y-2">
-            <Label htmlFor="reasonCode" className="text-base font-semibold text-gray-900">
+          <div className="space-y-1">
+            <Label htmlFor="reasonCode" className="text-sm font-semibold text-gray-900">
               Reason Code {systemAdjusted === false && <span className="text-red-500">*</span>}
             </Label>
             <Select 
@@ -507,7 +495,7 @@ export default function TaskDetail() {
               onValueChange={setReasonCode}
               disabled={isCompleted}
             >
-              <SelectTrigger data-testid="select-reason-code" className="text-base bg-gray-50 border-gray-300">
+              <SelectTrigger data-testid="select-reason-code" className="text-sm bg-gray-50 border-gray-300 h-9">
                 <SelectValue placeholder="Select" />
               </SelectTrigger>
               <SelectContent>
@@ -519,12 +507,12 @@ export default function TaskDetail() {
           </div>
 
           {/* Action Taken / Comment */}
-          <div className="space-y-2">
-            <Label htmlFor="actionTakenComment" className="text-base font-semibold text-gray-900">Action Taken / Comment</Label>
+          <div className="space-y-1">
+            <Label htmlFor="actionTakenComment" className="text-sm font-semibold text-gray-900">Action Taken / Comment</Label>
             <Textarea 
               id="actionTakenComment"
               placeholder="Enter action taken or comments..."
-              className="min-h-[80px] text-base bg-gray-50 border-gray-300"
+              className="min-h-[60px] text-sm bg-gray-50 border-gray-300"
               value={actionTakenComment}
               onChange={(e) => setActionTakenComment(e.target.value)}
               disabled={isCompleted}
@@ -533,9 +521,9 @@ export default function TaskDetail() {
           </div>
 
           {/* Photo Section */}
-          <div className="space-y-3">
+          <div className="space-y-2 pb-4">
             <div className="flex items-center justify-between">
-              <Label className="text-base font-semibold text-gray-900">Add Photo</Label>
+              <Label className="text-sm font-semibold text-gray-900">Add Photo</Label>
               {!isCompleted && (!image1 || !image2) && (
                 <button
                   onClick={() => handleImageClick(image1 ? 2 : 1)}
