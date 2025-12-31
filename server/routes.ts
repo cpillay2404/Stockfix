@@ -549,6 +549,68 @@ export async function registerRoutes(
     }
   });
 
+  // GET export tasks as Excel - MUST be before :uniqueId route
+  app.get("/api/tasks/export", async (req, res) => {
+    try {
+      const allTasks = await storage.getAllTasks();
+      
+      // Build full URL for images
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+      const baseUrl = `${protocol}://${host}`;
+      
+      // Helper to make image URL full path
+      const getFullImageUrl = (imagePath: string | null | undefined): string => {
+        if (!imagePath) return '';
+        if (imagePath.startsWith('http')) return imagePath;
+        return `${baseUrl}${imagePath}`;
+      };
+      
+      // Transform data to match Excel columns
+      const exportData = allTasks.map(task => ({
+        'Unique Id': task.uniqueId,
+        'Key': task.key,
+        'client': task.client,
+        'BANNER.1': task.banner,
+        'REGION.1': task.region,
+        'STORE NAME': task.storeName,
+        'REP NAME': task.repName,
+        'LINE MANAGER': task.lineManager,
+        'Category': task.category,
+        'Barcode': task.barcode,
+        'article description': task.articleDescription,
+        'DC SOH': task.dcSoh,
+        'Store SOH': task.storeSoh,
+        'P4 week Sales': task.p4WeekSales,
+        'Missed Sales (This Week)': task.missedSales,
+        'Store WFC (This Week)': task.storeWfc,
+        'Stock Classification (This Week)': task.stockClassification,
+        'Action': task.action,
+        'Action Date': task.actionDate,
+        'Action Status': task.actionStatus,
+        'Reason Code': task.reasonCode || '',
+        'Action Taken Comment': task.actionTakenComment || '',
+        'Feedback': task.feedback || '',
+        'Capture Date': task.captureDate || '',
+        'Image 1': getFullImageUrl(task.image1),
+        'Image 2': getFullImageUrl(task.image2),
+      }));
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Tasks');
+      
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
+      res.setHeader('Content-Disposition', 'attachment; filename=stockfix_export.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting tasks:", error);
+      res.status(500).json({ error: "Failed to export tasks" });
+    }
+  });
+
   // GET single task by uniqueId
   app.get("/api/tasks/:uniqueId", async (req, res) => {
     try {
@@ -757,68 +819,6 @@ export async function registerRoutes(
         fs.unlinkSync(req.file.path);
       }
       res.status(500).json({ error: "Failed to import tasks: " + (error instanceof Error ? error.message : 'Unknown error') });
-    }
-  });
-
-  // GET export tasks as Excel
-  app.get("/api/tasks/export", async (req, res) => {
-    try {
-      const allTasks = await storage.getAllTasks();
-      
-      // Build full URL for images
-      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-      const host = req.headers['x-forwarded-host'] || req.headers.host || '';
-      const baseUrl = `${protocol}://${host}`;
-      
-      // Helper to make image URL full path
-      const getFullImageUrl = (imagePath: string | null | undefined): string => {
-        if (!imagePath) return '';
-        if (imagePath.startsWith('http')) return imagePath;
-        return `${baseUrl}${imagePath}`;
-      };
-      
-      // Transform data to match Excel columns
-      const exportData = allTasks.map(task => ({
-        'Unique Id': task.uniqueId,
-        'Key': task.key,
-        'client': task.client,
-        'BANNER.1': task.banner,
-        'REGION.1': task.region,
-        'STORE NAME': task.storeName,
-        'REP NAME': task.repName,
-        'LINE MANAGER': task.lineManager,
-        'Category': task.category,
-        'Barcode': task.barcode,
-        'article description': task.articleDescription,
-        'DC SOH': task.dcSoh,
-        'Store SOH': task.storeSoh,
-        'P4 week Sales': task.p4WeekSales,
-        'Missed Sales (This Week)': task.missedSales,
-        'Store WFC (This Week)': task.storeWfc,
-        'Stock Classification (This Week)': task.stockClassification,
-        'Action': task.action,
-        'Action Date': task.actionDate,
-        'Action Status': task.actionStatus,
-        'Reason Code': task.reasonCode || '',
-        'Action Taken Comment': task.actionTakenComment || '',
-        'Feedback': task.feedback || '',
-        'Capture Date': task.captureDate || '',
-        'Image 1': getFullImageUrl(task.image1),
-        'Image 2': getFullImageUrl(task.image2),
-      }));
-
-      const worksheet = XLSX.utils.json_to_sheet(exportData);
-      const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Tasks');
-      
-      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
-      
-      res.setHeader('Content-Disposition', 'attachment; filename=stockfix_export.xlsx');
-      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-      res.send(buffer);
-    } catch (error) {
-      console.error("Error exporting tasks:", error);
-      res.status(500).json({ error: "Failed to export tasks" });
     }
   });
 
