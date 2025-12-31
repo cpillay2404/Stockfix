@@ -112,15 +112,15 @@ interface TileProps {
   valueColor: string;
 }
 
-function Tile({ label, value, testId, accentColor, valueColor }: TileProps) {
+function Tile({ label, value, testId, accentColor }: TileProps) {
   return (
     <div
       data-testid={testId}
       style={{
-        backgroundColor: 'rgba(255,255,255,0.15)',
+        backgroundColor: '#FFFFFF',
         borderRadius: '6px',
-        padding: '6px 4px',
-        height: '48px',
+        padding: '5px 3px',
+        height: '44px',
         borderTop: `2px solid ${accentColor}`,
         display: 'flex',
         flexDirection: 'column',
@@ -130,12 +130,12 @@ function Tile({ label, value, testId, accentColor, valueColor }: TileProps) {
         minWidth: 0,
       }}
     >
-      <span style={{ fontSize: '16px', fontWeight: 700, color: valueColor, fontFamily: 'monospace', lineHeight: 1 }}>
+      <span style={{ fontSize: '15px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace', lineHeight: 1 }}>
         {value}
       </span>
       <span style={{ 
         fontSize: '7px', 
-        color: 'rgba(255,255,255,0.8)', 
+        color: '#6B7280', 
         textAlign: 'center', 
         marginTop: '2px',
         lineHeight: 1.1,
@@ -184,18 +184,18 @@ function ChartCard({ title, data, testId, isWFC = false }: ChartCardProps) {
       data-testid={testId}
       style={{
         backgroundColor: '#FFFFFF',
-        borderRadius: '12px',
-        padding: '12px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        marginBottom: '12px',
+        borderRadius: '10px',
+        padding: '10px',
+        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+        marginBottom: '8px',
       }}
     >
-      <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#003B71', marginBottom: '8px' }}>
+      <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '4px' }}>
         {title}
       </h3>
-      <div style={{ height: '140px' }}>
+      <div style={{ height: '100px' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 25, right: 10, left: -15, bottom: 5 }}>
+          <ComposedChart data={data} margin={{ top: 20, right: 10, left: -15, bottom: 0 }}>
             <XAxis 
               dataKey="weekEnding" 
               tick={{ fontSize: 10, fill: '#6B7280' }}
@@ -289,7 +289,7 @@ export default function StoreOverview() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '70px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '65px' }}>
       {/* Header Section - Blue */}
       <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
         {/* Navigation Row */}
@@ -434,7 +434,7 @@ export default function StoreOverview() {
       </div>
 
       {/* Content Section - Grey Background with Charts */}
-      <div style={{ padding: '16px' }}>
+      <div style={{ padding: '12px 16px' }}>
         <ChartCard title="Store SOH" data={charts.storeSoh} testId="chart-store-soh" />
         <ChartCard title="Sell Out" data={charts.sellOutP4} testId="chart-sell-out" />
         <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" isWFC={true} />
