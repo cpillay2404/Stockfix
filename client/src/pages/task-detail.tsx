@@ -5,8 +5,11 @@ import { Layout } from "@/components/layout";
 import { fetchTask, updateTask, uploadImage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { 
   ArrowLeft, Camera, CheckCircle2, AlertCircle, MapPin, 
   Calendar, Layers, Info, Loader2, LogOut
@@ -15,6 +18,33 @@ import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+
+const REASON_CODES = [
+  "Awaiting delivery / stock not received",
+  "Order placed",
+  "Damaged or expired",
+  "Count corrected – system = physical count",
+  "Manual correction done",
+  "No shelf space",
+  "Slow-moving stock",
+  "Stock in backroom",
+  "Stock received and on shelf",
+  "Store closed / promo / revamp",
+  "System or data error",
+  "Other"
+];
+
+const ACTIONS_REQUIRING_PHYSICAL_COUNT = [
+  "Fix Counts: Negative SOH",
+  "Check Count: No Sales in 30 Days"
+];
+
+const requiresPhysicalCountForAction = (action: string): boolean => {
+  if (!action) return false;
+  return ACTIONS_REQUIRING_PHYSICAL_COUNT.some(
+    requiredAction => action === requiredAction || action.includes(requiredAction)
+  );
+};
 
 export default function TaskDetail() {
   const [match, params] = useRoute("/task/:id");
@@ -28,8 +58,11 @@ export default function TaskDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [comment, setComment] = useState("");
+  const [physicalCount, setPhysicalCount] = useState<string>("");
+  const [systemAdjusted, setSystemAdjusted] = useState<boolean | null>(null);
   const [reasonCode, setReasonCode] = useState("");
+  const [actionTakenComment, setActionTakenComment] = useState("");
+  const [feedback, setFeedback] = useState("");
   const [image1, setImage1] = useState<string | null>(null);
   const [image2, setImage2] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState<1 | 2 | null>(null);
@@ -65,8 +98,11 @@ export default function TaskDetail() {
 
   useEffect(() => {
     if (task) {
-      setComment(task.actionTakenComment || "");
+      setPhysicalCount(task.physicalCount || "");
+      setSystemAdjusted(task.systemAdjusted === "Yes" ? true : task.systemAdjusted === "No" ? false : null);
       setReasonCode(task.reasonCode || "");
+      setActionTakenComment(task.actionTakenComment || "");
+      setFeedback(task.feedback || "");
       setImage1(task.image1 || null);
       setImage2(task.image2 || null);
     }
@@ -109,20 +145,35 @@ export default function TaskDetail() {
     );
   }
 
+  const storeSohNum = parseFloat(task.storeSoh || "0") || 0;
+  const physicalCountNum = parseFloat(physicalCount) || 0;
+  const variance = physicalCount ? physicalCountNum - storeSohNum : null;
+
+  const requiresPhysicalCount = requiresPhysicalCountForAction(task.action || '');
+
   const handleSubmit = () => {
-    if (!comment) {
+    if (systemAdjusted === null) {
       toast({
-        title: "Comment required",
-        description: "Please describe the action taken.",
+        title: "Required Field",
+        description: "Please indicate if the system was adjusted to match the physical count.",
         variant: "destructive"
       });
       return;
     }
 
-    if (!reasonCode) {
+    if (requiresPhysicalCount && !physicalCount) {
       toast({
-        title: "Reason Code required",
-        description: "Please select a reason code.",
+        title: "Physical Count Required",
+        description: "Please enter the physical count for this action type.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (systemAdjusted === false && !reasonCode) {
+      toast({
+        title: "Reason Code Required",
+        description: "Please select a reason code when system was not adjusted.",
         variant: "destructive"
       });
       return;
@@ -130,11 +181,15 @@ export default function TaskDetail() {
 
     updateMutation.mutate({
       actionStatus: 'Completed',
-      actionTakenComment: comment,
-      reasonCode: reasonCode,
-      image1: image1 || undefined,
-      image2: image2 || undefined,
-      captureDate: new Date().toISOString().split('T')[0],
+      physicalCount: physicalCount || null,
+      variance: variance !== null ? variance.toString() : null,
+      systemAdjusted: systemAdjusted ? "Yes" : "No",
+      reasonCode: reasonCode || null,
+      actionTakenComment: actionTakenComment || null,
+      feedback: feedback || null,
+      image1: image1 || null,
+      image2: image2 || null,
+      captureDate: new Date().toISOString(),
     });
   };
 
@@ -155,7 +210,7 @@ export default function TaskDetail() {
       
       toast({
         title: "Image Uploaded",
-        description: `Image ${slot} attached successfully.`,
+        description: `Photo ${slot} attached successfully.`,
       });
     } catch (error) {
       toast({
@@ -168,7 +223,16 @@ export default function TaskDetail() {
     }
   };
 
-  const isCompleted = task.actionStatus === 'Completed';
+  const isCompleted = task.actionStatus === 'Completed' || !!task.captureDate;
+
+  const getActionColor = (action: string) => {
+    const a = action?.toLowerCase() || '';
+    if (a.includes('fix') || a.includes('urgent') || a.includes('check count')) return 'text-red-600 bg-red-50 border-red-200';
+    if (a.includes('oos') || a.includes('risk') || a.includes('out of stock')) return 'text-orange-600 bg-orange-50 border-orange-200';
+    if (a.includes('monitor')) return 'text-blue-600 bg-blue-50 border-blue-200';
+    if (a.includes('optimal')) return 'text-green-600 bg-green-50 border-green-200';
+    return 'text-gray-600 bg-gray-50 border-gray-200';
+  };
 
   return (
     <Layout>
@@ -177,6 +241,7 @@ export default function TaskDetail() {
           ref={fileInput1} 
           type="file" 
           accept="image/*" 
+          capture="environment"
           className="hidden" 
           onChange={(e) => handleFileChange(1, e)}
           disabled={isCompleted}
@@ -185,6 +250,7 @@ export default function TaskDetail() {
           ref={fileInput2} 
           type="file" 
           accept="image/*" 
+          capture="environment"
           className="hidden" 
           onChange={(e) => handleFileChange(2, e)}
           disabled={isCompleted}
@@ -219,7 +285,7 @@ export default function TaskDetail() {
               </Badge>
               <h1 className="text-xl font-bold leading-tight">{task.articleDescription}</h1>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>{task.category}</span>
+                <span>{task.client}</span>
                 <span>•</span>
                 <span>{task.stockClassification}</span>
               </div>
@@ -227,17 +293,19 @@ export default function TaskDetail() {
             {isCompleted && <CheckCircle2 className="h-8 w-8 text-green-500 shrink-0" />}
           </div>
 
-          <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-100 dark:border-blue-900/50 rounded-lg p-4">
+          <div className={cn("border rounded-lg p-4", getActionColor(task.action))}>
             <div className="flex items-start gap-3">
-              <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+              <AlertCircle className="h-5 w-5 mt-0.5 shrink-0" />
               <div className="space-y-1">
-                <h3 className="font-semibold text-blue-900 dark:text-blue-100">Required Action</h3>
-                <p className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed">
+                <h3 className="font-semibold">Required Action</h3>
+                <p className="text-sm leading-relaxed font-medium">
                   {task.action}
                 </p>
-                <div className="pt-2 text-xs text-blue-700 dark:text-blue-300 font-medium">
-                  Due: {task.actionDate}
-                </div>
+                {task.weekEnding && (
+                  <div className="pt-2 text-xs font-medium opacity-80">
+                    Week Ending: {task.weekEnding}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -265,79 +333,136 @@ export default function TaskDetail() {
                 <div className="font-mono font-medium">{task.storeSoh}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-muted-foreground text-xs">P4 Wk Sales</div>
+                <div className="text-muted-foreground text-xs">Sell Out P4 Weeks</div>
                 <div className="font-mono font-medium">{task.p4WeekSales}</div>
               </div>
               <div className="space-y-1">
-                <div className="text-muted-foreground text-xs">Missed Sales</div>
-                <div className="font-mono font-medium text-red-600 dark:text-red-400">
-                  ${task.missedSales}
-                </div>
+                <div className="text-muted-foreground text-xs">WFC</div>
+                <div className="font-mono font-medium">{task.storeWfc}</div>
               </div>
             </div>
           </div>
-
-          {task.systemImage && (
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium flex items-center gap-2">
-                <Info className="h-4 w-4 text-muted-foreground" />
-                Reference Image
-              </h3>
-              <div className="rounded-lg overflow-hidden border bg-muted h-32 w-32 relative">
-                <img src={task.systemImage} alt="Reference" className="object-cover w-full h-full" />
-              </div>
-            </div>
-          )}
 
           <Separator className="my-6" />
 
           <div className="space-y-5">
             <h3 className="font-semibold text-lg flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5" />
-              Action Feedback
+              Task Feedback
             </h3>
-            
+
             <div className="space-y-2">
-              <label className="text-sm font-medium">Reason Code</label>
+              <Label htmlFor="physicalCount">
+                Physical Count {requiresPhysicalCount && <span className="text-red-500">*</span>}
+              </Label>
+              <Input
+                id="physicalCount"
+                type="number"
+                placeholder="Enter physical count..."
+                value={physicalCount}
+                onChange={(e) => setPhysicalCount(e.target.value)}
+                disabled={isCompleted}
+                data-testid="input-physical-count"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Variance (auto-calculated)</Label>
+              <div className={cn(
+                "p-3 rounded-md border bg-muted font-mono text-sm",
+                variance !== null && variance < 0 && "text-red-600",
+                variance !== null && variance > 0 && "text-green-600"
+              )}>
+                {variance !== null ? variance : "—"}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Variance = Physical Count - Store SOH
+              </p>
+            </div>
+
+            <div className="space-y-3 p-4 bg-muted/50 rounded-lg border">
+              <Label>
+                System adjusted to match physical count? <span className="text-red-500">*</span>
+              </Label>
+              <RadioGroup
+                value={systemAdjusted === true ? "yes" : systemAdjusted === false ? "no" : ""}
+                onValueChange={(value) => setSystemAdjusted(value === "yes")}
+                disabled={isCompleted}
+                className="flex gap-6"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="yes" id="system-yes" data-testid="radio-system-yes" />
+                  <Label htmlFor="system-yes" className="font-normal cursor-pointer">Yes</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="no" id="system-no" data-testid="radio-system-no" />
+                  <Label htmlFor="system-no" className="font-normal cursor-pointer">No</Label>
+                </div>
+              </RadioGroup>
+              {systemAdjusted === null && (
+                <p className="text-xs text-amber-600">Please select Yes or No</p>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="reasonCode">
+                Reason Code {systemAdjusted === false && <span className="text-red-500">*</span>}
+              </Label>
               <Select 
                 value={reasonCode} 
                 onValueChange={setReasonCode}
                 disabled={isCompleted}
               >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select outcome..." />
+                <SelectTrigger data-testid="select-reason-code">
+                  <SelectValue placeholder="Select reason code..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="completed">Action Completed</SelectItem>
-                  <SelectItem value="stock_unavailable">Stock Unavailable</SelectItem>
-                  <SelectItem value="manager_refusal">Manager Refusal</SelectItem>
-                  <SelectItem value="promo_issue">Promo Issue</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
+                  {REASON_CODES.map((code) => (
+                    <SelectItem key={code} value={code}>{code}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
+              {systemAdjusted === false && !reasonCode && (
+                <p className="text-xs text-amber-600">Required when system was not adjusted</p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Action Taken / Comment</label>
+              <Label htmlFor="actionTakenComment">Action Taken / Comment</Label>
               <Textarea 
-                placeholder="Describe what you did..."
-                className="min-h-[100px]"
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
+                id="actionTakenComment"
+                placeholder="Describe what action you took..."
+                className="min-h-[80px]"
+                value={actionTakenComment}
+                onChange={(e) => setActionTakenComment(e.target.value)}
                 disabled={isCompleted}
+                data-testid="textarea-action-comment"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="feedback">Feedback (optional)</Label>
+              <Textarea 
+                id="feedback"
+                placeholder="Any additional feedback..."
+                className="min-h-[60px]"
+                value={feedback}
+                onChange={(e) => setFeedback(e.target.value)}
+                disabled={isCompleted}
+                data-testid="textarea-feedback"
               />
             </div>
 
             <div className="space-y-3">
-              <label className="text-sm font-medium">Evidence (Photos)</label>
+              <Label>Photo Evidence</Label>
               <div className="grid grid-cols-2 gap-3">
                 {image1 ? (
                   <div className="relative rounded-lg overflow-hidden border aspect-square group">
-                    <img src={image1} alt="Proof 1" className="w-full h-full object-cover" />
+                    <img src={image1} alt="Photo 1" className="w-full h-full object-cover" />
                     {!isCompleted && (
                       <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setImage1(null)}>×</Button>
                     )}
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 text-center">Image 1</div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 text-center">Photo 1</div>
                   </div>
                 ) : (
                   <Button 
@@ -345,13 +470,14 @@ export default function TaskDetail() {
                     className="h-auto aspect-square flex flex-col gap-2" 
                     onClick={() => handleImageClick(1)} 
                     disabled={isCompleted || uploadingImage === 1}
+                    data-testid="button-add-image-1"
                   >
                     {uploadingImage === 1 ? (
                       <Loader2 className="h-6 w-6 animate-spin" />
                     ) : (
                       <>
                         <Camera className="h-6 w-6 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Add Image 1</span>
+                        <span className="text-xs text-muted-foreground">Photo 1</span>
                       </>
                     )}
                   </Button>
@@ -359,11 +485,11 @@ export default function TaskDetail() {
 
                 {image2 ? (
                   <div className="relative rounded-lg overflow-hidden border aspect-square group">
-                    <img src={image2} alt="Proof 2" className="w-full h-full object-cover" />
+                    <img src={image2} alt="Photo 2" className="w-full h-full object-cover" />
                     {!isCompleted && (
                       <Button variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6" onClick={() => setImage2(null)}>×</Button>
                     )}
-                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 text-center">Image 2</div>
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/50 text-white text-[10px] p-1 text-center">Photo 2</div>
                   </div>
                 ) : (
                   <Button 
@@ -371,19 +497,31 @@ export default function TaskDetail() {
                     className="h-auto aspect-square flex flex-col gap-2" 
                     onClick={() => handleImageClick(2)} 
                     disabled={isCompleted || uploadingImage === 2}
+                    data-testid="button-add-image-2"
                   >
                     {uploadingImage === 2 ? (
                       <Loader2 className="h-6 w-6 animate-spin" />
                     ) : (
                       <>
                         <Camera className="h-6 w-6 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">Add Image 2</span>
+                        <span className="text-xs text-muted-foreground">Photo 2</span>
                       </>
                     )}
                   </Button>
                 )}
               </div>
             </div>
+
+            {isCompleted && task.captureDate && (
+              <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-900 rounded-lg">
+                <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
+                  <CheckCircle2 className="h-4 w-4" />
+                  <span className="text-sm font-medium">
+                    Captured: {new Date(task.captureDate).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -396,6 +534,7 @@ export default function TaskDetail() {
               size="lg"
               onClick={handleSubmit}
               disabled={updateMutation.isPending}
+              data-testid="button-submit-action"
             >
               {updateMutation.isPending ? (
                 <>

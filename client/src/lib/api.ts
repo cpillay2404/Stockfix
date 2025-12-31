@@ -75,12 +75,15 @@ export async function updateTask(
   uniqueId: string,
   updates: {
     actionStatus?: string;
-    reasonCode?: string;
-    actionTakenComment?: string;
-    feedback?: string;
+    reasonCode?: string | null;
+    actionTakenComment?: string | null;
+    feedback?: string | null;
     captureDate?: string;
-    image1?: string;
-    image2?: string;
+    physicalCount?: string | null;
+    variance?: string | null;
+    systemAdjusted?: string | null;
+    image1?: string | null;
+    image2?: string | null;
   }
 ): Promise<Task> {
   const res = await fetch(`${API_BASE}/tasks/${uniqueId}`, {
