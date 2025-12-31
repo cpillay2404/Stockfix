@@ -193,9 +193,9 @@ function ChartCard({ title, data, testId, isWFC = false }: ChartCardProps) {
       <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '4px' }}>
         {title}
       </h3>
-      <div style={{ height: '100px' }}>
+      <div style={{ height: '120px' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 20, right: 10, left: -15, bottom: 0 }}>
+          <ComposedChart data={data} margin={{ top: 20, right: 10, left: -15, bottom: 5 }}>
             <XAxis 
               dataKey="weekEnding" 
               tick={{ fontSize: 10, fill: '#6B7280' }}
