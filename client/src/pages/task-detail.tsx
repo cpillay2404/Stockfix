@@ -410,7 +410,7 @@ export default function TaskDetail() {
             </div>
             <div className="border rounded-lg p-2 text-center bg-gray-50">
               <div className="text-[10px] text-gray-500 uppercase tracking-wide">WFC</div>
-              <div className="text-xl font-bold text-gray-900">{task.storeWfc || '0'}</div>
+              <div className="text-xl font-bold text-gray-900">{(parseFloat(task.storeWfc || '0') || 0).toFixed(1)}</div>
             </div>
           </div>
         </div>
