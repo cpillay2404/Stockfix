@@ -117,13 +117,11 @@ function Tile({ label, value, testId, accentColor, valueColor }: TileProps) {
     <div
       data-testid={testId}
       style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '8px',
-        padding: '8px 6px',
-        height: '52px',
-        boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-        border: '1px solid #E5E7EB',
-        borderTop: `3px solid ${accentColor}`,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderRadius: '6px',
+        padding: '6px 4px',
+        height: '48px',
+        borderTop: `2px solid ${accentColor}`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -132,19 +130,21 @@ function Tile({ label, value, testId, accentColor, valueColor }: TileProps) {
         minWidth: 0,
       }}
     >
-      <span style={{ fontSize: '18px', fontWeight: 700, color: valueColor, fontFamily: 'monospace', lineHeight: 1 }}>
+      <span style={{ fontSize: '16px', fontWeight: 700, color: valueColor, fontFamily: 'monospace', lineHeight: 1 }}>
         {value}
       </span>
       <span style={{ 
-        fontSize: '8px', 
-        color: '#6B7280', 
+        fontSize: '7px', 
+        color: 'rgba(255,255,255,0.8)', 
         textAlign: 'center', 
-        marginTop: '3px',
+        marginTop: '2px',
         lineHeight: 1.1,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         textOverflow: 'ellipsis',
         maxWidth: '100%',
+        textTransform: 'uppercase',
+        letterSpacing: '0.3px',
       }}>
         {label}
       </span>
@@ -156,11 +156,10 @@ interface ChartCardProps {
   title: string;
   data: { weekEnding: string; value: number }[];
   testId: string;
-  height?: number;
   isWFC?: boolean;
 }
 
-function ChartCard({ title, data, testId, height = 160, isWFC = false }: ChartCardProps) {
+function ChartCard({ title, data, testId, isWFC = false }: ChartCardProps) {
   const formatWeekLabel = (dateStr: string) => {
     if (!dateStr) return '';
     const parts = dateStr.split('-');
@@ -188,17 +187,18 @@ function ChartCard({ title, data, testId, height = 160, isWFC = false }: ChartCa
         borderRadius: '12px',
         padding: '12px',
         boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        marginBottom: '12px',
       }}
     >
-      <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '8px' }}>
+      <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#003B71', marginBottom: '8px' }}>
         {title}
       </h3>
-      <div style={{ height: `${height}px` }}>
+      <div style={{ height: '140px' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 20, right: 5, left: -20, bottom: 5 }}>
+          <ComposedChart data={data} margin={{ top: 25, right: 10, left: -15, bottom: 5 }}>
             <XAxis 
               dataKey="weekEnding" 
-              tick={{ fontSize: 9, fill: '#6B7280' }}
+              tick={{ fontSize: 10, fill: '#6B7280' }}
               tickFormatter={formatWeekLabel}
               axisLine={false}
               tickLine={false}
@@ -213,8 +213,8 @@ function ChartCard({ title, data, testId, height = 160, isWFC = false }: ChartCa
             <Bar dataKey="value" fill="#003B71" radius={[4, 4, 0, 0]}>
               <LabelList 
                 dataKey="value" 
-                position="inside" 
-                fill="#FFFFFF" 
+                position="top" 
+                fill="#003B71" 
                 fontSize={9}
                 fontWeight={600}
                 formatter={formatValue}
@@ -282,17 +282,18 @@ export default function StoreOverview() {
 
   const tiles = data?.tiles || { totalSKUs: 0, actionRequired: 0, understockOOS: 0, overstock: 0 };
   const charts = data?.charts || { storeSoh: [], sellOutP4: [], wfc: [] };
+  const actionCount = tiles.actionRequired || 0;
 
   const handleExitVisit = () => {
     setLocation('/');
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '70px' }}>
       {/* Header Section - Blue */}
       <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
         {/* Navigation Row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', position: 'relative' }}>
           <button
             onClick={() => setLocation('/')}
             data-testid="button-back"
@@ -306,21 +307,22 @@ export default function StoreOverview() {
               border: 'none',
               cursor: 'pointer',
               padding: 0,
+              zIndex: 1,
             }}
           >
             <ArrowLeft style={{ width: '18px', height: '18px' }} />
             <span>Back</span>
           </button>
           
-          {/* Centered Title */}
           <h1 
             style={{ 
-              fontSize: '18px', 
+              fontSize: '17px', 
               fontWeight: 700, 
               color: '#FFFFFF',
               position: 'absolute',
               left: '50%',
               transform: 'translateX(-50%)',
+              margin: 0,
             }}
             data-testid="text-page-title"
           >
@@ -340,10 +342,11 @@ export default function StoreOverview() {
               border: 'none',
               cursor: 'pointer',
               padding: 0,
+              zIndex: 1,
             }}
           >
             <LogOut style={{ width: '16px', height: '16px' }} />
-            <span>Exit Visit</span>
+            <span>Exit</span>
           </button>
         </div>
 
@@ -352,27 +355,27 @@ export default function StoreOverview() {
           display: 'flex', 
           flexDirection: 'column',
           alignItems: 'center', 
-          gap: '4px',
-          marginBottom: '16px',
+          gap: '2px',
+          marginBottom: '12px',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <User style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
-            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)' }} data-testid="text-rep-name">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <User style={{ width: '12px', height: '12px', color: 'rgba(255,255,255,0.6)' }} />
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)' }} data-testid="text-rep-name">
               {rep}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <MapPin style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
-            <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)' }} data-testid="text-store-name">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+            <MapPin style={{ width: '12px', height: '12px', color: 'rgba(255,255,255,0.6)' }} />
+            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)' }} data-testid="text-store-name">
               {store}
             </span>
           </div>
         </div>
 
         {/* Filters Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
           <div>
-            <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginBottom: '3px', display: 'block' }}>
               Client
             </label>
             <SearchableSelect
@@ -384,7 +387,7 @@ export default function StoreOverview() {
             />
           </div>
           <div>
-            <label style={{ fontSize: '11px', color: 'rgba(255,255,255,0.7)', marginBottom: '4px', display: 'block' }}>
+            <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginBottom: '3px', display: 'block' }}>
               Article
             </label>
             <SearchableSelect
@@ -397,14 +400,63 @@ export default function StoreOverview() {
           </div>
         </div>
 
-        {/* VIEW TASKS Button */}
+        {/* KPI Tiles - Inside Blue Header */}
+        <div style={{ display: 'flex', gap: '6px' }}>
+          <Tile 
+            label="Total SKUs" 
+            value={tiles.totalSKUs} 
+            testId="tile-total-skus" 
+            accentColor="rgba(255,255,255,0.4)"
+            valueColor="#FFFFFF"
+          />
+          <Tile 
+            label="Action Req" 
+            value={tiles.actionRequired} 
+            testId="tile-action-required" 
+            accentColor="#F36C21"
+            valueColor="#F36C21"
+          />
+          <Tile 
+            label="Under/OOS" 
+            value={tiles.understockOOS} 
+            testId="tile-understock-oos" 
+            accentColor="#FBBF24"
+            valueColor="#FBBF24"
+          />
+          <Tile 
+            label="Overstock" 
+            value={tiles.overstock} 
+            testId="tile-overstock" 
+            accentColor="#60A5FA"
+            valueColor="#60A5FA"
+          />
+        </div>
+      </div>
+
+      {/* Content Section - Grey Background with Charts */}
+      <div style={{ padding: '16px' }}>
+        <ChartCard title="Store SOH" data={charts.storeSoh} testId="chart-store-soh" />
+        <ChartCard title="Sell Out" data={charts.sellOutP4} testId="chart-sell-out" />
+        <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" isWFC={true} />
+      </div>
+
+      {/* Sticky Footer - VIEW TASKS Button */}
+      <div style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        padding: '12px 16px',
+        backgroundColor: '#FFFFFF',
+        boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
+        zIndex: 50,
+      }}>
         <Button
           onClick={handleViewTasks}
           data-testid="button-view-tasks"
           style={{
             width: '100%',
             height: '48px',
-            marginTop: '16px',
             backgroundColor: '#F36C21',
             color: '#FFFFFF',
             fontSize: '16px',
@@ -413,55 +465,8 @@ export default function StoreOverview() {
           }}
           className="hover:bg-[#E05A10]"
         >
-          VIEW TASKS
+          VIEW TASKS ({actionCount})
         </Button>
-      </div>
-
-      {/* Content Section - Grey Background */}
-      <div style={{ padding: '16px' }}>
-        {/* KPI Tiles - Single Horizontal Row */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '12px' }}>
-          <Tile 
-            label="Total SKUs" 
-            value={tiles.totalSKUs} 
-            testId="tile-total-skus" 
-            accentColor="#94A3B8"
-            valueColor="#003B71"
-          />
-          <Tile 
-            label="Action Required" 
-            value={tiles.actionRequired} 
-            testId="tile-action-required" 
-            accentColor="#F36C21"
-            valueColor="#F36C21"
-          />
-          <Tile 
-            label="Understock / OOS" 
-            value={tiles.understockOOS} 
-            testId="tile-understock-oos" 
-            accentColor="#F59E0B"
-            valueColor="#D97706"
-          />
-          <Tile 
-            label="Overstock" 
-            value={tiles.overstock} 
-            testId="tile-overstock" 
-            accentColor="#3B82F6"
-            valueColor="#003B71"
-          />
-        </div>
-
-        {/* Charts Section */}
-        {/* Row 1: Store SOH - Full Width */}
-        <div style={{ marginBottom: '12px' }}>
-          <ChartCard title="Store SOH" data={charts.storeSoh} testId="chart-store-soh" height={140} />
-        </div>
-
-        {/* Row 2: Sell Out and WFC - Side by Side */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <ChartCard title="Sell Out" data={charts.sellOutP4} testId="chart-sell-out" height={120} />
-          <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" height={120} isWFC={true} />
-        </div>
       </div>
     </div>
   );
