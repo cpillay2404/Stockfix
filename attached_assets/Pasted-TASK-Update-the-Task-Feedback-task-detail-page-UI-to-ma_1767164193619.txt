@@ -1,0 +1,182 @@
+TASK: Update the “Task Feedback” (task detail) page UI to match the approved mock-up EXACTLY, while keeping existing image upload logic unchanged. This page must remain mobile-first. Do NOT redesign other pages.
+
+NON-NEGOTIABLE BRANDING
+- Page background: Meridian Blue #003B71 (same as other pages).
+- Content sits on white cards with rounded corners.
+- Do NOT add gradients.
+- Use existing app font styles; keep typography clean and consistent.
+
+NAVIGATION (LOCKED)
+- Top left: “← Back” goes back ONE page only (Task Feedback → Tasks list). Must preserve visit context.
+- Top right: “Exit Visit” returns to Landing page and clears visit context.
+- Do NOT combine these actions.
+
+DATA SOURCE / WRITE-BACK (LOCKED)
+- The master dataset is the imported table with these exact columns (header names):
+  client, REGION.1, BANNER.1, cleaned store name, REP NAME, barcode, article description,
+  Stock Classification (This Week), Action Column, week ending, Store SOH, WFC, Sell out p4 weeks,
+  Supplying dc soh, physicalCount, variance, systemAdjusted, reasonCode, actionTakenComment,
+  feedback, captureDate, image1, image2
+- Do NOT create a separate table/file. All feedback writes back into the SAME matching row.
+
+ROW MATCH KEY (CRITICAL)
+Identify the EXACT row using this composite key:
+- REP NAME
+- cleaned store name
+- client
+- barcode (string, never scientific notation)
+- week ending
+If more than one row matches, choose the one with the latest week ending date in that subset. Never update multiple rows.
+
+========================================================
+UI LAYOUT (MATCH THE APPROVED MOCK-UP)
+========================================================
+
+HEADER BAR (top, sticky)
+- Background: #003B71
+- Left: “← Back”
+- Center: Title “Task Feedback”
+- Right: “Exit Visit”
+- White text/icons.
+
+MAIN CONTENT (scrollable)
+
+SECTION 1: ACTION + SKU CONTEXT CARD (white card)
+1) Action pill (top)
+- Display Action Column text as a pill at the top of the card.
+- Example: “Urgent: Place Order – DC has stock”
+- Use urgency colour for the pill background:
+  - Fix Counts / Urgent: Red
+  - Review / OOS on Order: Orange
+  - Check Count: Amber/Yellow
+  - Monitor: Blue
+  - Optimal: Green
+- Pill text: white, bold, single line.
+
+2) SKU title + barcode
+- Large bold title: article description
+- Below it: “Barcode: {barcode}”
+- Optional small icon for copying barcode is allowed but not required.
+
+3) KPI tiles row (exactly 4 tiles, compact, single row)
+Place immediately below barcode, inside the same card.
+Tiles must be small, equal width, and show LABEL + VALUE.
+Use these exact labels (no extra words):
+- “Store SOH”  -> value from Store SOH
+- “DC SOH”     -> value from Supplying dc soh
+- “P4 Sales”   -> value from Sell out p4 weeks
+- “WFC”        -> value from WFC
+Rules:
+- Do NOT write “P4 Weeks” anywhere in tile labels.
+- Keep tile design clean: light border, subtle background or plain white.
+- Values large; labels small.
+- No clutter.
+
+SECTION 2: COMPACT MICRO-GRAPHS CARD (white card, directly below KPI tiles)
+Goal: show SKU trends but remain compact and not distract from feedback.
+- Add a small heading row: “SKU Trends” (optional) but keep minimal.
+- Include 4 micro-graphs stacked or in a 2x2 grid (choose the layout that fits mobile best WITHOUT increasing vertical height too much).
+Graphs required (in this exact order):
+1) Store SOH (trend)
+2) DC SOH (trend)
+3) P4 Sales (trend)
+4) WFC (trend)
+Rules for graphs:
+- Must be compact micro-charts (sparkline or mini bar). Height approx 80–100px each.
+- NO legends.
+- NO tooltips.
+- NO interaction.
+- Minimal or no axis labels; if dates shown, show short dates only.
+- Use a neutral single colour for all graphs (e.g., a muted blue). Do NOT use urgency colours in graphs.
+- Data for trends:
+  - Filter to the same REP NAME + cleaned store name + client + barcode
+  - Include the latest 4–8 weeks available (sorted by week ending asc)
+  - If fewer weeks exist, show what exists.
+
+SECTION 3: FEEDBACK FORM CARD (white card)
+This section must remain the primary focus below the graphs.
+
+Fields and bindings (write-back to same row):
+A) Physical Count (input)
+- Label: “Physical Count”
+- Numeric input bound to column: physicalCount
+- Show this field for all actions (simpler), OR at minimum show for:
+  - Fix Counts: Negative SOH
+  - Check Count: No Sales in 30 Days
+(Preferred: show for all actions to keep UX consistent.)
+
+B) Variance (read-only, live)
+- Display “Variance: {value}” aligned to the right of the Physical Count label row (like the mock-up).
+- Compute live: variance = physicalCount - Store SOH
+- Write computed value back to column: variance on submit.
+
+C) System Adjusted (required)
+- Question text exactly:
+  “Was the system stock adjusted to match the physical count?”
+- Radio buttons Yes / No
+- Bind to column: systemAdjusted
+- systemAdjusted is REQUIRED before submit.
+
+D) Reason Code (conditional)
+- Label: “Reason Code *”
+- Dropdown bound to column: reasonCode
+- Required ONLY when systemAdjusted = “No”
+- Optional when systemAdjusted = “Yes”
+- Options (use exactly these values):
+  Awaiting delivery / stock not received
+  Order placed
+  Damaged or expired
+  Count corrected – system = physical count
+  Manual correction done
+  No shelf space
+  Slow-moving stock
+  Stock in backroom
+  Stock received and on shelf
+  Store closed / promo / revamp
+  System or data error
+  Other
+
+E) Action Taken / Comment
+- Text area label: “Action Taken / Comment”
+- Bind to column: actionTakenComment
+
+F) (Optional) Feedback
+- Text area label: “Feedback”
+- Bind to column: feedback
+
+SECTION 4: PHOTO EVIDENCE (KEEP EXISTING LOGIC)
+- DO NOT change the existing image upload/capture UI or backend logic.
+- Keep the same controls as currently implemented.
+- The only requirement: ensure the final image URLs produced by the existing logic are saved to:
+  - Photo 1 URL -> image1
+  - Photo 2 URL -> image2
+- Do not refactor or rename any image code paths.
+
+SUBMIT BUTTON (sticky bottom or at end, like mock-up)
+- Button text: “Submit Action”
+- On submit:
+  1) Validate:
+     - systemAdjusted must be selected
+     - if systemAdjusted = No -> reasonCode required
+  2) Set captureDate = current datetime (ISO format preferred) and write to column captureDate
+  3) Update ONLY the matching row with:
+     physicalCount, variance, systemAdjusted, reasonCode, actionTakenComment, feedback, captureDate, image1, image2
+  4) After successful save:
+     - Navigate back one page to Tasks list
+     - Ensure this task becomes “Completed” because captureDate is not blank
+
+PENDING / COMPLETED LOGIC (for Tasks list)
+- Pending = captureDate is blank/null
+- Completed = captureDate is not blank
+
+DO NOT CHANGE
+- Do not redesign Landing, Store Overview, or Tasks list (except the navigation behaviour already specified).
+- Do not create any new tables/files for feedback.
+- Do not change image upload logic.
+
+SUCCESS CRITERIA
+- The Task Feedback page visually matches the approved mock-up:
+  - KPI tiles show exactly: Store SOH, DC SOH, P4 Sales, WFC
+  - Compact micro-graphs exist for the same 4 metrics
+  - Feedback form below remains the main focus
+- Submitting feedback writes back into the same imported dataset row using the composite key.
