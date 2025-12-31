@@ -144,34 +144,20 @@ export default function TaskDetail() {
   });
 
   const { data: trendData } = useQuery({
-    queryKey: ["taskTrends", task?.repName, task?.storeName, task?.barcode],
+    queryKey: ["skuTrends", task?.storeName, task?.barcode],
     queryFn: async () => {
       if (!task) return null;
-      const response = await fetchTasks(1, 500, '', '', {
+      const params = new URLSearchParams({
+        barcode: task.barcode,
         store: task.storeName,
       });
-      const filtered = response.tasks
-        .filter(t => t.barcode === task.barcode)
-        .sort((a, b) => {
-          const dateA = a.weekEndingDate ? new Date(a.weekEndingDate).getTime() : 0;
-          const dateB = b.weekEndingDate ? new Date(b.weekEndingDate).getTime() : 0;
-          return dateA - dateB;
-        })
-        .slice(-4);
-      
+      const response = await fetch(`/api/sku-trends?${params.toString()}`);
+      if (!response.ok) throw new Error('Failed to fetch SKU trends');
+      const data = await response.json();
       return {
-        storeSoh: filtered.map(t => ({ 
-          weekEnding: t.weekEndingDate || '', 
-          value: parseFloat(t.storeSoh || '0') || 0 
-        })),
-        p4Sales: filtered.map(t => ({ 
-          weekEnding: t.weekEndingDate || '', 
-          value: parseFloat(t.p4WeekSales || '0') || 0 
-        })),
-        wfc: filtered.map(t => ({ 
-          weekEnding: t.weekEndingDate || '', 
-          value: parseFloat(t.storeWfc || '0') || 0 
-        })),
+        storeSoh: data.storeSoh || [],
+        p4Sales: data.sellOut || [],
+        wfc: data.wfc || [],
       };
     },
     enabled: !!task,

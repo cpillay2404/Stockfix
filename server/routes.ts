@@ -313,6 +313,79 @@ export async function registerRoutes(
     }
   });
 
+  // GET SKU trends (historical data for a specific barcode at a specific store)
+  app.get("/api/sku-trends", async (req, res) => {
+    try {
+      const barcode = req.query.barcode as string;
+      const store = req.query.store as string;
+      
+      if (!barcode || !store) {
+        return res.status(400).json({ error: "Barcode and store are required" });
+      }
+      
+      const allTasks = await storage.getAllTasks();
+      
+      // Filter by barcode and store to get historical data for this specific SKU
+      const skuTasks = allTasks.filter(t => 
+        t.barcode === barcode && t.storeName === store
+      );
+      
+      if (skuTasks.length === 0) {
+        return res.json({
+          barcode,
+          store,
+          storeSoh: [],
+          sellOut: [],
+          wfc: [],
+        });
+      }
+      
+      // Get unique week endings sorted ascending (oldest to newest for chart display)
+      const weekEndings = [...new Set(skuTasks.map(t => t.weekEndingDate).filter(Boolean))].sort();
+      
+      // Get last 6 weeks of data for the charts
+      const last6Weeks = weekEndings.slice(-6);
+      
+      // Store SOH per week
+      const storeSohData = last6Weeks.map(week => {
+        const weekTask = skuTasks.find(t => t.weekEndingDate === week);
+        return { 
+          weekEnding: week, 
+          value: weekTask ? (parseFloat(weekTask.storeSoh) || 0) : 0 
+        };
+      });
+      
+      // Sell Out P4 Weeks per week
+      const sellOutData = last6Weeks.map(week => {
+        const weekTask = skuTasks.find(t => t.weekEndingDate === week);
+        return { 
+          weekEnding: week, 
+          value: weekTask ? (parseFloat(weekTask.p4WeekSales) || 0) : 0 
+        };
+      });
+      
+      // WFC per week
+      const wfcData = last6Weeks.map(week => {
+        const weekTask = skuTasks.find(t => t.weekEndingDate === week);
+        return { 
+          weekEnding: week, 
+          value: weekTask ? (parseFloat(weekTask.storeWfc) || 0) : 0 
+        };
+      });
+      
+      res.json({
+        barcode,
+        store,
+        storeSoh: storeSohData,
+        sellOut: sellOutData,
+        wfc: wfcData,
+      });
+    } catch (error) {
+      console.error("Error fetching SKU trends:", error);
+      res.status(500).json({ error: "Failed to fetch SKU trends" });
+    }
+  });
+
   // GET store summary
   app.get("/api/stores/:storeName/summary", async (req, res) => {
     try {
