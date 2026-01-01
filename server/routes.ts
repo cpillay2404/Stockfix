@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTaskSchema } from "@shared/schema";
+import { normalizeObjectUrl } from "@shared/urlUtils";
 import { z } from "zod";
 import multer from "multer";
 import XLSX from "xlsx";
@@ -642,11 +643,12 @@ export async function registerRoutes(
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
       const baseUrl = `${protocol}://${host}`;
       
-      // Helper to make image URL full path
+      // Helper to make image URL full path with normalization
       const getFullImageUrl = (imagePath: string | null | undefined): string => {
         if (!imagePath) return '';
-        if (imagePath.startsWith('http')) return imagePath;
-        return `${baseUrl}${imagePath}`;
+        const normalized = normalizeObjectUrl(imagePath);
+        if (normalized.startsWith('http')) return normalized;
+        return `${baseUrl}${normalized}`;
       };
       
       // Transform data to match Excel columns

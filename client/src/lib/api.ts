@@ -1,4 +1,5 @@
 import { Task } from "@shared/schema";
+import { normalizeObjectUrl } from "@shared/urlUtils";
 
 const API_BASE = "/api";
 
@@ -119,8 +120,8 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   
   if (!uploadRes.ok) throw new Error("Failed to upload image");
   
-  // Return the public URL path
-  return { url: `/objects/${objectPath}` };
+  // Return the normalized public URL path
+  return { url: normalizeObjectUrl(objectPath) };
 }
 
 export async function importExcel(file: File, clearExisting = true): Promise<{ success: boolean; count: number; message: string }> {
