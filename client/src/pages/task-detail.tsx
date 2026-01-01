@@ -271,6 +271,15 @@ export default function TaskDetail() {
   const requiresPhysicalCount = requiresPhysicalCountForAction(task.action || '');
 
   const handleSubmit = () => {
+    if (!physicalCount) {
+      toast({
+        title: "Physical Count Required",
+        description: "Please enter the physical count.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (systemAdjusted === null) {
       toast({
         title: "Selection Required",
@@ -280,19 +289,37 @@ export default function TaskDetail() {
       return;
     }
 
-    if (requiresPhysicalCount && !physicalCount) {
+    if (!reasonCode) {
       toast({
-        title: "Physical Count Required",
-        description: "Please enter the physical count for this action type.",
+        title: "Reason Code Required",
+        description: "Please select a reason code.",
         variant: "destructive"
       });
       return;
     }
 
-    if (systemAdjusted === false && !reasonCode) {
+    if (!actionTakenComment.trim()) {
       toast({
-        title: "Reason Code Required",
-        description: "Please select a reason code when system was not adjusted.",
+        title: "Action Taken Required",
+        description: "Please enter the action taken or comment.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!feedback.trim()) {
+      toast({
+        title: "Feedback Required",
+        description: "Please enter feedback.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!image1 && !image2) {
+      toast({
+        title: "Photo Required",
+        description: "Please capture at least one photo.",
         variant: "destructive"
       });
       return;
@@ -466,7 +493,7 @@ export default function TaskDetail() {
           <div style={{ marginBottom: '14px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
               <Label htmlFor="physicalCount" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937' }}>
-                Physical Count
+                Physical Count <span style={{ color: '#DC2626' }}>*</span>
               </Label>
               {variance !== null && (
                 <span style={{ fontSize: '12px', fontWeight: 500, color: variance < 0 ? '#DC2626' : variance > 0 ? '#16A34A' : '#6B7280' }}>
@@ -489,7 +516,7 @@ export default function TaskDetail() {
           {/* System Adjusted Question */}
           <div style={{ marginBottom: '14px' }}>
             <Label style={{ fontSize: '13px', color: '#1F2937', display: 'block', marginBottom: '8px' }}>
-              Was system stock adjusted to match physical count?
+              Was system stock adjusted to match physical count? <span style={{ color: '#DC2626' }}>*</span>
             </Label>
             <RadioGroup
               value={systemAdjusted === true ? "yes" : systemAdjusted === false ? "no" : ""}
@@ -511,7 +538,7 @@ export default function TaskDetail() {
           {/* Reason Code */}
           <div style={{ marginBottom: '14px' }}>
             <Label htmlFor="reasonCode" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
-              Reason Code {systemAdjusted === false && <span style={{ color: '#DC2626' }}>*</span>}
+              Reason Code <span style={{ color: '#DC2626' }}>*</span>
             </Label>
             <Select 
               value={reasonCode} 
@@ -532,7 +559,7 @@ export default function TaskDetail() {
           {/* Action Taken / Comment */}
           <div style={{ marginBottom: '14px' }}>
             <Label htmlFor="actionTakenComment" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
-              Action Taken / Comment
+              Action Taken / Comment <span style={{ color: '#DC2626' }}>*</span>
             </Label>
             <Textarea 
               id="actionTakenComment"
@@ -548,7 +575,7 @@ export default function TaskDetail() {
           {/* Feedback */}
           <div style={{ marginBottom: '14px' }}>
             <Label htmlFor="feedback" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
-              Feedback
+              Feedback <span style={{ color: '#DC2626' }}>*</span>
             </Label>
             <Textarea 
               id="feedback"
@@ -564,7 +591,7 @@ export default function TaskDetail() {
           {/* Photo Section */}
           <div style={{ paddingBottom: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <Label style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937' }}>Add Photo</Label>
+              <Label style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937' }}>Add Photo <span style={{ color: '#DC2626' }}>*</span></Label>
               {!isCompleted && (!image1 || !image2) && (
                 <button
                   onClick={() => handleImageClick(image1 ? 2 : 1)}
