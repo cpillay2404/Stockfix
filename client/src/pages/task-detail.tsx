@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, Camera, CheckCircle2, AlertCircle, Loader2, X, Plus, LogOut } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, AlertCircle, Loader2, X, Plus, LogOut, ClipboardEdit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -455,8 +455,9 @@ export default function TaskDetail() {
         <div style={{ height: '1px', backgroundColor: '#D1D5DB', marginBottom: '16px' }} />
 
         {/* Capture Store Feedback Header */}
-        <div style={{ marginBottom: '8px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1F2937' }}>Capture Store Feedback</h3>
+        <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <ClipboardEdit style={{ width: '20px', height: '20px', color: '#003B71' }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1F2937', margin: 0 }}>Capture Store Feedback</h3>
         </div>
 
         {/* Feedback Form Card */}
