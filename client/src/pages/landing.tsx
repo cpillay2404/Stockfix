@@ -111,14 +111,16 @@ export default function Landing() {
   });
 
   const reps = stats?.filters?.reps || [];
-  const stores = repStoresData?.stores || [];
+  const allStores = stats?.filters?.stores || [];
+  const repStores = repStoresData?.stores || [];
+  const stores = selectedRep ? repStores : allStores;
   const clients = stats?.filters?.clients || [];
 
   useEffect(() => {
     setSelectedStore("");
   }, [selectedRep]);
 
-  const canStart = selectedRep && selectedStore;
+  const canStart = !!selectedStore;
 
   const handleStartVisit = () => {
     const params = new URLSearchParams();
@@ -170,7 +172,7 @@ export default function Landing() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '6px', display: 'block', fontWeight: 500 }}>
-              Select Rep <span style={{ color: '#F36C21' }}>*</span>
+              Select Rep <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(optional)</span>
             </label>
             <SearchableSelect
               value={selectedRep}
@@ -189,8 +191,8 @@ export default function Landing() {
               value={selectedStore}
               onValueChange={setSelectedStore}
               options={stores}
-              placeholder={selectedRep ? "Select Store" : "Select a Rep first"}
-              disabled={!selectedRep}
+              placeholder="Select Store"
+              disabled={false}
               testId="select-store"
             />
           </div>
