@@ -118,10 +118,10 @@ function Tile({ label, value, testId, accentColor }: TileProps) {
       data-testid={testId}
       style={{
         backgroundColor: '#FFFFFF',
-        borderRadius: '6px',
-        padding: '5px 3px',
-        height: '44px',
-        borderTop: `2px solid ${accentColor}`,
+        borderRadius: '8px',
+        padding: '8px 4px',
+        height: '56px',
+        borderTop: `3px solid ${accentColor}`,
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -130,14 +130,14 @@ function Tile({ label, value, testId, accentColor }: TileProps) {
         minWidth: 0,
       }}
     >
-      <span style={{ fontSize: '15px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace', lineHeight: 1 }}>
+      <span style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace', lineHeight: 1 }}>
         {value}
       </span>
       <span style={{ 
-        fontSize: '7px', 
+        fontSize: '9px', 
         color: '#6B7280', 
         textAlign: 'center', 
-        marginTop: '2px',
+        marginTop: '3px',
         lineHeight: 1.1,
         whiteSpace: 'nowrap',
         overflow: 'hidden',
@@ -355,18 +355,18 @@ export default function StoreOverview() {
           display: 'flex', 
           flexDirection: 'column',
           alignItems: 'center', 
-          gap: '2px',
+          gap: '3px',
           marginBottom: '12px',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <User style={{ width: '12px', height: '12px', color: 'rgba(255,255,255,0.6)' }} />
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)' }} data-testid="text-rep-name">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <User style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
+            <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)' }} data-testid="text-rep-name">
               {rep}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-            <MapPin style={{ width: '12px', height: '12px', color: 'rgba(255,255,255,0.6)' }} />
-            <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.85)' }} data-testid="text-store-name">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <MapPin style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
+            <span style={{ fontSize: '14px', color: 'rgba(255,255,255,0.9)' }} data-testid="text-store-name">
               {store}
             </span>
           </div>
