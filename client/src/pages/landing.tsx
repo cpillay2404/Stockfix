@@ -230,16 +230,19 @@ export default function Landing() {
         </Button>
       </div>
 
+      {/* Spacer to push footer to bottom */}
+      <div style={{ flex: 1 }} />
+
       {/* Footer: Powered by Meridian Nexus */}
-      <div style={{ paddingTop: '24px', paddingBottom: '24px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', margin: 0, textAlign: 'center' }} data-testid="text-powered-by">
+      <div style={{ paddingBottom: '20px', display: 'flex', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: 0, textAlign: 'center' }} data-testid="text-powered-by">
             Powered by
           </p>
           <img 
             src={meridianNexusLogo} 
             alt="Meridian Nexus" 
-            style={{ height: '60px', display: 'block' }}
+            style={{ height: '80px', display: 'block' }}
             data-testid="img-meridian-nexus-logo"
           />
         </div>
