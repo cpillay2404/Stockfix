@@ -131,7 +131,7 @@ function ActionSection({ action, tasks, contextParams }: ActionSectionProps) {
         }}
       >
         <div style={{ width: '5px', height: '20px', backgroundColor: color, borderRadius: '2px', marginRight: '10px' }} />
-        <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+        <span style={{ fontSize: '14px', fontWeight: 700, color: '#003B71' }}>
           {action} ({tasks.length})
         </span>
       </div>
