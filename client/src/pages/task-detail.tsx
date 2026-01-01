@@ -516,7 +516,7 @@ export default function TaskDetail() {
           {/* System Adjusted Question */}
           <div style={{ marginBottom: '14px' }}>
             <Label style={{ fontSize: '13px', color: '#1F2937', display: 'block', marginBottom: '8px' }}>
-              Was system stock adjusted to match physical count? <span style={{ color: '#DC2626' }}>*</span>
+              System stock adjusted? <span style={{ color: '#DC2626' }}>*</span>
             </Label>
             <RadioGroup
               value={systemAdjusted === true ? "yes" : systemAdjusted === false ? "no" : ""}
