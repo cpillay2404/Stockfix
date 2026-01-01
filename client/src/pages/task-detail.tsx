@@ -220,7 +220,7 @@ export default function TaskDetail() {
 
   if (isLoading) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#003B71' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6' }}>
         <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.8)' }}>
@@ -232,9 +232,9 @@ export default function TaskDetail() {
           </div>
         </div>
         <div style={{ padding: '16px' }}>
-          <Skeleton style={{ height: '120px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '12px' }} />
-          <Skeleton style={{ height: '100px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '12px' }} />
-          <Skeleton style={{ height: '200px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
+          <Skeleton style={{ height: '100px', borderRadius: '12px', backgroundColor: '#E5E7EB', marginBottom: '12px' }} />
+          <Skeleton style={{ height: '100px', borderRadius: '12px', backgroundColor: '#E5E7EB', marginBottom: '12px' }} />
+          <Skeleton style={{ height: '200px', borderRadius: '12px', backgroundColor: '#E5E7EB' }} />
         </div>
       </div>
     );
@@ -242,7 +242,7 @@ export default function TaskDetail() {
 
   if (!task) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#003B71', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', display: 'flex', flexDirection: 'column' }}>
         <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
             <button onClick={handleBackToTasks} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.8)', background: 'none', border: 'none', cursor: 'pointer' }}>
@@ -346,7 +346,7 @@ export default function TaskDetail() {
   const actionBgColor = getActionBgColor(task.action);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#003B71', paddingBottom: '80px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '80px' }}>
       <input 
         ref={fileInput1} 
         type="file" 
@@ -406,7 +406,7 @@ export default function TaskDetail() {
         </div>
 
         {/* SKU Identity Block */}
-        <div style={{ textAlign: 'center' }}>
+        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
           <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px', lineHeight: 1.3 }}>
             {task.articleDescription}
           </h2>
@@ -414,12 +414,9 @@ export default function TaskDetail() {
             Barcode: {task.barcode}
           </div>
         </div>
-      </div>
 
-      {/* Content */}
-      <div style={{ padding: '0 16px' }}>
-        {/* KPI Row - 4 White Cards */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+        {/* KPI Row - 4 White Cards - Still in Blue Header */}
+        <div style={{ display: 'flex', gap: '6px' }}>
           <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
             <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>SOH</div>
             <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.storeSoh || '0'}</div>
@@ -437,19 +434,26 @@ export default function TaskDetail() {
             <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{(parseFloat(task.storeWfc || '0') || 0).toFixed(1)}</div>
           </div>
         </div>
+      </div>
 
-        {/* Charts Card - 3 Mini Charts in a Row */}
-        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '12px', marginBottom: '12px' }}>
-          <div style={{ display: 'flex', gap: '8px' }}>
+      {/* Content - White/Grey Background */}
+      <div style={{ padding: '16px' }}>
+        {/* Charts Section - 3 Separate Cards */}
+        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '10px', padding: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <MiniChart title="Store SOH" data={trendData?.storeSoh || []} />
+          </div>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '10px', padding: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <MiniChart title="Sell Out" data={trendData?.sellOut || []} />
+          </div>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '10px', padding: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <MiniChart title="WFC" data={trendData?.wfc || []} />
           </div>
         </div>
 
         {/* Feedback Form Header */}
         <div style={{ marginBottom: '8px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF' }}>Feedback Form</h3>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1F2937' }}>Feedback Form</h3>
         </div>
 
         {/* Feedback Form Card */}
