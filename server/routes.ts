@@ -190,16 +190,17 @@ export async function registerRoutes(
       const client = req.query.client as string | undefined;
       const article = req.query.article as string | undefined;
       
-      if (!rep || !store) {
-        return res.status(400).json({ error: "Rep and store are required" });
+      if (!store) {
+        return res.status(400).json({ error: "Store is required" });
       }
       
       const allTasks = await storage.getAllTasks();
       
-      // Filter by rep and store
-      let scopedTasks = allTasks.filter(t => 
-        t.repName === rep && t.storeName === store
-      );
+      // Filter by store (and optionally by rep if provided)
+      let scopedTasks = allTasks.filter(t => t.storeName === store);
+      if (rep) {
+        scopedTasks = scopedTasks.filter(t => t.repName === rep);
+      }
       
       // Apply optional client filter
       if (client && client !== 'All Clients') {
@@ -215,7 +216,7 @@ export async function registerRoutes(
         return res.json({
           storeName: store,
           region: '',
-          repName: rep,
+          repName: rep || '',
           tiles: { totalSKUs: 0, actionRequired: 0, understockOOS: 0, overstock: 0 },
           charts: { storeSoh: [], sellOutP4: [], wfc: [] },
           filters: { clients: [], articles: [] },
