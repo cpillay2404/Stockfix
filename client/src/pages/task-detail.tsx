@@ -1,17 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useRoute, useLocation, useSearch } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { fetchTask, fetchTasks, updateTask, uploadImage } from "@/lib/api";
+import { fetchTask, updateTask, uploadImage } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { 
-  ArrowLeft, Camera, CheckCircle2, AlertCircle, 
-  Loader2, X, Plus, Home, Store, Eye, ListChecks
-} from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, AlertCircle, Loader2, X, Plus, LogOut } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -50,7 +46,7 @@ interface ChartDataPoint {
   value: number;
 }
 
-function MiniChartCard({ title, data }: { title: string; data: ChartDataPoint[] }) {
+function MiniChart({ title, data }: { title: string; data: ChartDataPoint[] }) {
   const displayData = (!data || data.length === 0) 
     ? [{ weekEnding: '', value: 0 }] 
     : data;
@@ -71,26 +67,28 @@ function MiniChartCard({ title, data }: { title: string; data: ChartDataPoint[] 
   };
 
   return (
-    <div className="bg-[#003B71] rounded-lg p-2 flex-1 border border-gray-300">
-      <div className="text-[10px] text-white/90 mb-1 font-semibold">{title}</div>
-      <div style={{ height: '80px' }}>
+    <div style={{ flex: 1 }}>
+      <div style={{ fontSize: '10px', color: '#6B7280', marginBottom: '4px', fontWeight: 600, textAlign: 'center' }}>
+        {title}
+      </div>
+      <div style={{ height: '70px' }}>
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={displayData} margin={{ top: 15, right: 2, left: -20, bottom: 2 }}>
+          <ComposedChart data={displayData} margin={{ top: 15, right: 2, left: -20, bottom: 0 }}>
             <XAxis 
               dataKey="weekEnding" 
-              tick={{ fontSize: 6, fill: '#ffffff99' }}
+              tick={{ fontSize: 7, fill: '#9CA3AF' }}
               tickFormatter={formatWeekLabel}
               axisLine={false}
               tickLine={false}
               interval={0}
             />
             <YAxis 
-              tick={{ fontSize: 6, fill: '#ffffff99' }}
+              tick={{ fontSize: 7, fill: '#9CA3AF' }}
               axisLine={false}
               tickLine={false}
-              width={20}
+              width={18}
             />
-            <Bar dataKey="value" fill="#4a6a8a" radius={[3, 3, 0, 0]}>
+            <Bar dataKey="value" fill="#003B71" radius={[2, 2, 0, 0]}>
               <LabelList 
                 dataKey="value" 
                 position="top" 
@@ -104,7 +102,7 @@ function MiniChartCard({ title, data }: { title: string; data: ChartDataPoint[] 
               type="monotone" 
               dataKey="value" 
               stroke="#F36C21" 
-              strokeWidth={2}
+              strokeWidth={1.5}
               dot={false}
             />
           </ComposedChart>
@@ -113,6 +111,15 @@ function MiniChartCard({ title, data }: { title: string; data: ChartDataPoint[] 
     </div>
   );
 }
+
+const getActionBgColor = (action: string) => {
+  const a = action?.toLowerCase() || '';
+  if (a.includes('urgent') || a.includes('fix counts')) return '#DC2626';
+  if (a.includes('review') || a.includes('oos') || a.includes('check count')) return '#F97316';
+  if (a.includes('monitor')) return '#3B82F6';
+  if (a.includes('optimal')) return '#22C55E';
+  return '#F36C21';
+};
 
 export default function TaskDetail() {
   const [match, params] = useRoute("/task/:id");
@@ -157,7 +164,7 @@ export default function TaskDetail() {
       const data = await response.json();
       return {
         storeSoh: data.storeSoh || [],
-        p4Sales: data.sellOut || [],
+        sellOut: data.sellOut || [],
         wfc: data.wfc || [],
       };
     },
@@ -213,16 +220,21 @@ export default function TaskDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#003B71]">
-        <div className="bg-[#003B71] text-white px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-1"><ArrowLeft className="h-5 w-5" /><span>Back</span></div>
-          <h1 className="text-lg font-semibold">Task Feedback</h1>
-          <div className="px-3 py-1 bg-white/20 rounded text-sm">Exit Visit</div>
+      <div style={{ minHeight: '100vh', backgroundColor: '#003B71' }}>
+        <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.8)' }}>
+              <ArrowLeft style={{ width: '18px', height: '18px' }} />
+              <span>Back</span>
+            </div>
+            <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>Task Feedback</h1>
+            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px' }}>Exit Visit</div>
+          </div>
         </div>
-        <div className="p-4 space-y-4">
-          <Skeleton className="h-32 w-full rounded-xl bg-white/20" />
-          <Skeleton className="h-24 w-full rounded-xl bg-white/20" />
-          <Skeleton className="h-48 w-full rounded-xl bg-white/20" />
+        <div style={{ padding: '16px' }}>
+          <Skeleton style={{ height: '120px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '12px' }} />
+          <Skeleton style={{ height: '100px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '12px' }} />
+          <Skeleton style={{ height: '200px', borderRadius: '12px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
         </div>
       </div>
     );
@@ -230,18 +242,21 @@ export default function TaskDetail() {
 
   if (!task) {
     return (
-      <div className="min-h-screen bg-[#003B71] flex flex-col">
-        <div className="bg-[#003B71] text-white px-4 py-3 flex items-center justify-between">
-          <button onClick={handleBackToTasks} className="flex items-center gap-1">
-            <ArrowLeft className="h-5 w-5" /><span>Back</span>
-          </button>
-          <h1 className="text-lg font-semibold">Task Feedback</h1>
-          <button onClick={handleExitVisit} className="px-3 py-1 bg-white/20 rounded text-sm">Exit Visit</button>
+      <div style={{ minHeight: '100vh', backgroundColor: '#003B71', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative' }}>
+            <button onClick={handleBackToTasks} style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.8)', background: 'none', border: 'none', cursor: 'pointer' }}>
+              <ArrowLeft style={{ width: '18px', height: '18px' }} />
+              <span>Back</span>
+            </button>
+            <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>Task Feedback</h1>
+            <button onClick={handleExitVisit} style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer' }}>Exit Visit</button>
+          </div>
         </div>
-        <div className="flex-1 flex items-center justify-center">
-          <div className="bg-white rounded-xl p-8 text-center mx-4">
-            <AlertCircle className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-            <h2 className="text-lg font-medium">Task not found</h2>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '32px', textAlign: 'center' }}>
+            <AlertCircle style={{ width: '48px', height: '48px', margin: '0 auto', color: '#9CA3AF', marginBottom: '16px' }} />
+            <h2 style={{ fontSize: '18px', fontWeight: 500, marginBottom: '8px' }}>Task not found</h2>
             <Button variant="link" onClick={handleBackToTasks}>Go back to tasks</Button>
           </div>
         </div>
@@ -328,25 +343,16 @@ export default function TaskDetail() {
   };
 
   const isCompleted = task.actionStatus === 'Completed' || !!task.captureDate;
-
-  const getActionPillStyle = (action: string) => {
-    const a = action?.toLowerCase() || '';
-    if (a.includes('urgent') || a.includes('fix counts')) return 'bg-red-500 text-white';
-    if (a.includes('review') || a.includes('oos on order')) return 'bg-orange-500 text-white';
-    if (a.includes('check count')) return 'bg-amber-500 text-white';
-    if (a.includes('monitor')) return 'bg-blue-500 text-white';
-    if (a.includes('optimal')) return 'bg-green-500 text-white';
-    return 'bg-[#F36C21] text-white';
-  };
+  const actionBgColor = getActionBgColor(task.action);
 
   return (
-    <div className="min-h-screen bg-[#003B71] flex flex-col">
+    <div style={{ minHeight: '100vh', backgroundColor: '#003B71', paddingBottom: '80px' }}>
       <input 
         ref={fileInput1} 
         type="file" 
         accept="image/*" 
         capture="environment"
-        className="hidden" 
+        style={{ display: 'none' }}
         onChange={(e) => handleFileChange(1, e)}
         disabled={isCompleted}
       />
@@ -355,92 +361,107 @@ export default function TaskDetail() {
         type="file" 
         accept="image/*" 
         capture="environment"
-        className="hidden" 
+        style={{ display: 'none' }}
         onChange={(e) => handleFileChange(2, e)}
         disabled={isCompleted}
       />
 
       {/* Header */}
-      <div className="bg-[#003B71] text-white px-4 py-3 flex items-center justify-between sticky top-0 z-10">
-        <button 
-          onClick={handleBackToTasks}
-          className="flex items-center gap-1 text-white hover:opacity-80"
-          data-testid="button-back"
-        >
-          <ArrowLeft className="h-5 w-5" />
-          <span>Back</span>
-        </button>
-        <h1 className="text-lg font-semibold">Task Feedback</h1>
-        <button
-          onClick={handleExitVisit}
-          className="px-3 py-1 bg-white/20 rounded text-sm hover:bg-white/30"
-          data-testid="button-exit-visit"
-        >
-          Exit Visit
-        </button>
+      <div style={{ backgroundColor: '#003B71', padding: '16px', paddingBottom: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', marginBottom: '12px' }}>
+          <button 
+            onClick={handleBackToTasks}
+            data-testid="button-back"
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.85)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
+          >
+            <ArrowLeft style={{ width: '18px', height: '18px' }} />
+            <span>Back</span>
+          </button>
+          <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>
+            Task Feedback
+          </h1>
+          <button
+            onClick={handleExitVisit}
+            data-testid="button-exit-visit"
+            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.85)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
+          >
+            <LogOut style={{ width: '16px', height: '16px' }} />
+            <span>Exit Visit</span>
+          </button>
+        </div>
+
+        {/* Action Banner */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+          <div style={{ 
+            backgroundColor: actionBgColor, 
+            color: '#FFFFFF', 
+            padding: '8px 16px', 
+            borderRadius: '20px', 
+            fontSize: '13px', 
+            fontWeight: 600,
+            textAlign: 'center',
+          }}>
+            {task.action}
+          </div>
+        </div>
+
+        {/* SKU Identity Block */}
+        <div style={{ textAlign: 'center' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px', lineHeight: 1.3 }}>
+            {task.articleDescription}
+          </h2>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
+            Barcode: {task.barcode}
+          </div>
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 overflow-auto p-4 pb-40 space-y-3">
-        
-        {/* Section 1: Action + SKU Context Card */}
-        <div className="bg-white rounded-xl p-4 shadow-sm space-y-4">
-          {/* Action Pill */}
-          <Badge className={cn("text-sm font-bold px-3 py-1.5 rounded-md", getActionPillStyle(task.action))}>
-            {task.action}
-          </Badge>
-
-          {/* SKU Title + Barcode */}
-          <div>
-            <h2 className="text-xl font-bold text-gray-900">{task.articleDescription}</h2>
-            <div className="flex items-center gap-2 text-sm text-gray-500 mt-1">
-              <span>Barcode: {task.barcode}</span>
-              <ListChecks className="h-4 w-4" />
-            </div>
+      {/* Content */}
+      <div style={{ padding: '0 16px' }}>
+        {/* KPI Row - 4 White Cards */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>SOH</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.storeSoh || '0'}</div>
           </div>
-
-          {/* KPI Tiles - 4 tiles on one line */}
-          <div className="grid grid-cols-4 gap-1">
-            <div className="border rounded-lg p-1.5 text-center bg-gray-50">
-              <div className="text-[9px] text-gray-500 uppercase tracking-wide whitespace-nowrap">SOH</div>
-              <div className="text-lg font-bold text-gray-900">{task.storeSoh || '0'}</div>
-            </div>
-            <div className="border rounded-lg p-1.5 text-center bg-gray-50">
-              <div className="text-[9px] text-gray-500 uppercase tracking-wide whitespace-nowrap">DC SOH</div>
-              <div className="text-lg font-bold text-gray-900">{task.dcSoh || '0'}</div>
-            </div>
-            <div className="border rounded-lg p-1.5 text-center bg-gray-50">
-              <div className="text-[9px] text-gray-500 uppercase tracking-wide whitespace-nowrap">P4 Sales</div>
-              <div className="text-lg font-bold text-gray-900">{task.p4WeekSales || '0'}</div>
-            </div>
-            <div className="border rounded-lg p-1.5 text-center bg-gray-50">
-              <div className="text-[9px] text-gray-500 uppercase tracking-wide whitespace-nowrap">WFC</div>
-              <div className="text-lg font-bold text-gray-900">{(parseFloat(task.storeWfc || '0') || 0).toFixed(1)}</div>
-            </div>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>DC SOH</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.dcSoh || '0'}</div>
+          </div>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>Sell Out</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.p4WeekSales || '0'}</div>
+          </div>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>WFC</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{(parseFloat(task.storeWfc || '0') || 0).toFixed(1)}</div>
           </div>
         </div>
 
-        {/* Section 2: SKU Trends - 3 mini charts in a row */}
-        <div className="grid grid-cols-3 gap-2">
-          <MiniChartCard title="Store SOH" data={trendData?.storeSoh || []} />
-          <MiniChartCard title="Sell Out" data={trendData?.p4Sales || []} />
-          <MiniChartCard title="WFC" data={trendData?.wfc || []} />
+        {/* Charts Card - 3 Mini Charts in a Row */}
+        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '12px', marginBottom: '12px' }}>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <MiniChart title="Store SOH" data={trendData?.storeSoh || []} />
+            <MiniChart title="Sell Out" data={trendData?.sellOut || []} />
+            <MiniChart title="WFC" data={trendData?.wfc || []} />
+          </div>
         </div>
 
-        {/* Section 3: Feedback Form Card */}
-        <div className="bg-white rounded-xl p-3 shadow-sm space-y-3">
-          
+        {/* Feedback Form Header */}
+        <div style={{ marginBottom: '8px' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF' }}>Feedback Form</h3>
+        </div>
+
+        {/* Feedback Form Card */}
+        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '14px' }}>
           {/* Physical Count with Variance */}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="physicalCount" className="text-sm font-semibold text-gray-900">
+          <div style={{ marginBottom: '14px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+              <Label htmlFor="physicalCount" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937' }}>
                 Physical Count
               </Label>
               {variance !== null && (
-                <span className={cn(
-                  "text-xs font-medium",
-                  variance < 0 ? "text-red-600" : variance > 0 ? "text-green-600" : "text-gray-600"
-                )}>
+                <span style={{ fontSize: '12px', fontWeight: 500, color: variance < 0 ? '#DC2626' : variance > 0 ? '#16A34A' : '#6B7280' }}>
                   Variance: {variance > 0 ? '+' : ''}{variance}
                 </span>
               )}
@@ -452,45 +473,45 @@ export default function TaskDetail() {
               value={physicalCount}
               onChange={(e) => setPhysicalCount(e.target.value)}
               disabled={isCompleted}
-              className="text-sm bg-gray-50 border-gray-300 h-9"
               data-testid="input-physical-count"
+              style={{ fontSize: '14px', height: '40px', backgroundColor: '#F9FAFB' }}
             />
           </div>
 
           {/* System Adjusted Question */}
-          <div className="space-y-2">
-            <Label className="text-sm text-gray-900">
-              Was system stock adjusted to physical count?
+          <div style={{ marginBottom: '14px' }}>
+            <Label style={{ fontSize: '13px', color: '#1F2937', display: 'block', marginBottom: '8px' }}>
+              Was system stock adjusted to match physical count?
             </Label>
             <RadioGroup
               value={systemAdjusted === true ? "yes" : systemAdjusted === false ? "no" : ""}
               onValueChange={(value) => setSystemAdjusted(value === "yes")}
               disabled={isCompleted}
-              className="flex gap-10"
+              style={{ display: 'flex', gap: '24px' }}
             >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="yes" id="system-yes" data-testid="radio-system-yes" className="border-2 border-gray-400" />
-                <Label htmlFor="system-yes" className="font-normal cursor-pointer text-sm">Yes</Label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <RadioGroupItem value="yes" id="system-yes" data-testid="radio-system-yes" />
+                <Label htmlFor="system-yes" style={{ fontWeight: 400, cursor: 'pointer', fontSize: '14px' }}>Yes</Label>
               </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="no" id="system-no" data-testid="radio-system-no" className="border-2 border-gray-400" />
-                <Label htmlFor="system-no" className="font-normal cursor-pointer text-sm">No</Label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <RadioGroupItem value="no" id="system-no" data-testid="radio-system-no" />
+                <Label htmlFor="system-no" style={{ fontWeight: 400, cursor: 'pointer', fontSize: '14px' }}>No</Label>
               </div>
             </RadioGroup>
           </div>
 
           {/* Reason Code */}
-          <div className="space-y-1">
-            <Label htmlFor="reasonCode" className="text-sm font-semibold text-gray-900">
-              Reason Code {systemAdjusted === false && <span className="text-red-500">*</span>}
+          <div style={{ marginBottom: '14px' }}>
+            <Label htmlFor="reasonCode" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
+              Reason Code {systemAdjusted === false && <span style={{ color: '#DC2626' }}>*</span>}
             </Label>
             <Select 
               value={reasonCode} 
               onValueChange={setReasonCode}
               disabled={isCompleted}
             >
-              <SelectTrigger data-testid="select-reason-code" className="text-sm bg-gray-50 border-gray-300 h-9">
-                <SelectValue placeholder="Select" />
+              <SelectTrigger data-testid="select-reason-code" style={{ fontSize: '14px', height: '40px', backgroundColor: '#F9FAFB' }}>
+                <SelectValue placeholder="Select reason code..." />
               </SelectTrigger>
               <SelectContent>
                 {REASON_CODES.map((code) => (
@@ -501,88 +522,88 @@ export default function TaskDetail() {
           </div>
 
           {/* Action Taken / Comment */}
-          <div className="space-y-1">
-            <Label htmlFor="actionTakenComment" className="text-sm font-semibold text-gray-900">Action Taken / Comment</Label>
+          <div style={{ marginBottom: '14px' }}>
+            <Label htmlFor="actionTakenComment" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
+              Action Taken / Comment
+            </Label>
             <Textarea 
               id="actionTakenComment"
               placeholder="Enter action taken or comments..."
-              className="min-h-[60px] text-sm bg-gray-50 border-gray-300"
               value={actionTakenComment}
               onChange={(e) => setActionTakenComment(e.target.value)}
               disabled={isCompleted}
               data-testid="textarea-action-comment"
+              style={{ minHeight: '70px', fontSize: '14px', backgroundColor: '#F9FAFB' }}
             />
           </div>
 
           {/* Photo Section */}
-          <div className="space-y-2 pb-4">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm font-semibold text-gray-900">Add Photo</Label>
+          <div style={{ paddingBottom: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <Label style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937' }}>Add Photo</Label>
               {!isCompleted && (!image1 || !image2) && (
                 <button
                   onClick={() => handleImageClick(image1 ? 2 : 1)}
-                  className="text-[#003B71] text-sm font-medium flex items-center gap-1 hover:underline"
                   data-testid="button-add-photo"
+                  style={{ color: '#003B71', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
-                  <Plus className="h-4 w-4" />
+                  <Plus style={{ width: '16px', height: '16px' }} />
                   Add Photo
                 </button>
               )}
             </div>
             
-            <div className="flex gap-3">
-              {/* Photo 1 Slot */}
+            <div style={{ display: 'flex', gap: '12px' }}>
               {image1 ? (
-                <div className="relative w-20 h-20 rounded-lg overflow-hidden border">
-                  <img src={image1} alt="Photo 1" className="w-full h-full object-cover" />
+                <div style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                  <img src={image1} alt="Photo 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   {!isCompleted && (
                     <button 
-                      className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 hover:bg-black/80"
                       onClick={() => setImage1(null)}
+                      style={{ position: 'absolute', top: '4px', right: '4px', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '2px', border: 'none', cursor: 'pointer' }}
                     >
-                      <X className="h-3 w-3 text-white" />
+                      <X style={{ width: '12px', height: '12px', color: '#FFFFFF' }} />
                     </button>
                   )}
                 </div>
               ) : (
                 <button
                   onClick={() => handleImageClick(1)}
-                  className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:border-[#003B71] hover:text-[#003B71]"
                   disabled={isCompleted || uploadingImage !== null}
                   data-testid="button-add-photo-1"
+                  style={{ width: '80px', height: '80px', border: '2px dashed #D1D5DB', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', background: 'none', cursor: 'pointer' }}
                 >
                   {uploadingImage === 1 ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 style={{ width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />
                   ) : (
-                    <Camera className="h-5 w-5" />
+                    <Camera style={{ width: '20px', height: '20px' }} />
                   )}
                 </button>
               )}
               
-              {/* Photo 2 Slot */}
               {image2 ? (
-                <div className="relative w-20 h-20 rounded-lg overflow-hidden border">
-                  <img src={image2} alt="Photo 2" className="w-full h-full object-cover" />
+                <div style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                  <img src={image2} alt="Photo 2" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   {!isCompleted && (
                     <button 
-                      className="absolute top-1 right-1 bg-black/60 rounded-full p-0.5 hover:bg-black/80"
                       onClick={() => setImage2(null)}
+                      style={{ position: 'absolute', top: '4px', right: '4px', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '2px', border: 'none', cursor: 'pointer' }}
                     >
-                      <X className="h-3 w-3 text-white" />
+                      <X style={{ width: '12px', height: '12px', color: '#FFFFFF' }} />
                     </button>
                   )}
                 </div>
               ) : (
                 <button
                   onClick={() => handleImageClick(2)}
-                  className="w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-400 hover:border-[#003B71] hover:text-[#003B71]"
                   disabled={isCompleted || uploadingImage !== null}
                   data-testid="button-add-photo-2"
+                  style={{ width: '80px', height: '80px', border: '2px dashed #D1D5DB', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', background: 'none', cursor: 'pointer' }}
                 >
                   {uploadingImage === 2 ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <Loader2 style={{ width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />
                   ) : (
-                    <Camera className="h-5 w-5" />
+                    <Camera style={{ width: '20px', height: '20px' }} />
                   )}
                 </button>
               )}
@@ -592,10 +613,10 @@ export default function TaskDetail() {
 
         {/* Completed Status */}
         {isCompleted && task.captureDate && (
-          <div className="bg-white rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 text-green-700">
-              <CheckCircle2 className="h-5 w-5" />
-              <span className="text-sm font-medium">
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '14px', marginTop: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#15803D' }}>
+              <CheckCircle2 style={{ width: '20px', height: '20px' }} />
+              <span style={{ fontSize: '14px', fontWeight: 500 }}>
                 Captured: {new Date(task.captureDate).toLocaleString()}
               </span>
             </div>
@@ -603,18 +624,19 @@ export default function TaskDetail() {
         )}
       </div>
 
-      {/* Submit Button - Fixed at bottom */}
+      {/* Submit Button - Sticky Footer */}
       {!isCompleted && (
-        <div className="fixed bottom-16 left-0 right-0 p-4 bg-[#003B71]">
+        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', backgroundColor: '#FFFFFF', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}>
           <Button
             onClick={handleSubmit}
             disabled={updateMutation.isPending}
-            className="w-full bg-[#003B71] hover:bg-[#002a52] text-white py-6 text-lg font-semibold rounded-lg border-2 border-white"
             data-testid="button-submit-action"
+            style={{ width: '100%', height: '48px', backgroundColor: '#F36C21', color: '#FFFFFF', fontSize: '16px', fontWeight: 600, borderRadius: '10px' }}
+            className="hover:bg-[#E05A10]"
           >
             {updateMutation.isPending ? (
               <>
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                <Loader2 style={{ marginRight: '8px', width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />
                 Submitting...
               </>
             ) : (
@@ -623,44 +645,6 @@ export default function TaskDetail() {
           </Button>
         </div>
       )}
-
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg">
-        <div className="max-w-md mx-auto grid grid-cols-4">
-          <button 
-            onClick={handleBackToTasks}
-            className="flex flex-col items-center py-2.5 text-[#003B71]"
-            data-testid="nav-back"
-          >
-            <Home className="h-5 w-5" />
-            <span className="text-xs mt-0.5">Back</span>
-          </button>
-          <button 
-            onClick={() => setLocation('/tasks')}
-            className="flex flex-col items-center py-2.5 text-gray-500 hover:text-[#003B71]"
-            data-testid="nav-mocus"
-          >
-            <ListChecks className="h-5 w-5" />
-            <span className="text-xs mt-0.5">Mocus</span>
-          </button>
-          <button 
-            onClick={() => setLocation(`/store-overview?store=${encodeURIComponent(task.storeName)}`)}
-            className="flex flex-col items-center py-2.5 text-gray-500 hover:text-[#003B71]"
-            data-testid="nav-store"
-          >
-            <Store className="h-5 w-5" />
-            <span className="text-xs mt-0.5">Store</span>
-          </button>
-          <button 
-            onClick={handleExitVisit}
-            className="flex flex-col items-center py-2.5 text-gray-500 hover:text-[#003B71]"
-            data-testid="nav-visit"
-          >
-            <Eye className="h-5 w-5" />
-            <span className="text-xs mt-0.5">Visit</span>
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

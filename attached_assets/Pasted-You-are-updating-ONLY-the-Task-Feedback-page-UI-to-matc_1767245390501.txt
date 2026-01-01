@@ -1,0 +1,223 @@
+You are updating ONLY the Task Feedback page UI to match the style of the Store Overview page.
+Do not change navigation, routing, calculations, database, or image upload logic — UI/layout only.
+
+1) Global Styling (must match Store Overview)
+
+App background: Meridian blue theme (same as Store Overview)
+
+Primary blue: use the same header blue already used in Store Overview
+
+Accent orange: same orange as “VIEW TASKS” button
+
+Cards: white background, rounded corners, soft shadow (same as Store Overview chart cards)
+
+Typography: match Store Overview (same font sizes and weights)
+
+2) Top Header Bar (same structure as Store Overview)
+
+Use the SAME header structure:
+
+Left: “← Back” (goes back to Tasks list)
+
+Center: “Task Feedback”
+
+Right: “Exit Visit”
+
+Header stays fixed at the top.
+
+3) Action Banner (primary context)
+
+Directly under the header (still on the blue background), show the required action as a prominent pill/banner:
+
+Full action text (never abbreviated)
+
+Example: “Review: Risk of OOS”
+
+Rounded pill
+
+Solid background colour based on urgency
+
+White text
+
+Centered and visually prominent
+
+Do NOT repeat action elsewhere at the top.
+
+4) SKU Identity Block (compact)
+
+Under the action banner, display:
+
+Article description (bold, large)
+
+Barcode line (smaller): “Barcode: <barcode>”
+
+Remove “Client: …” completely (do not show client here)
+
+This must be compact and clean.
+
+5) KPI Row (white cards like Store Overview)
+
+Immediately under SKU identity (still above graphs), add a single row of 4 KPI cards:
+
+KPI cards rules
+
+Card background: WHITE (like Store Overview cards)
+
+Rounded corners + subtle shadow
+
+Label small, value large
+
+All four must fit in ONE row (no wrapping)
+
+KPI order + labels (exact)
+
+SOH
+
+DC SOH
+
+Sell Out
+
+WFC
+
+Formatting rules
+
+WFC must be formatted to 1 decimal
+
+No extra wording like “Store SOH”, just “SOH”
+
+No “(this week)” wording
+
+Values come from current SKU/store selection context
+
+6) Charts Section (ONE row of 3 charts, no scrolling)
+
+Below KPI row, add a white card section that contains exactly 3 mini time-series charts in ONE row, side-by-side, equal width, no horizontal scroll.
+
+Chart titles (exact)
+
+“Store SOH”
+
+“Sell Out”
+
+“WFC”
+
+Chart rules
+
+Bar chart + thin trend line on top
+
+Small value label above each bar
+
+X axis = week ending dates
+
+Y axis visible but subtle
+
+No legends
+
+No DC SOH chart (DC SOH is KPI only)
+
+Must use historical weekly data for the SAME SKU + SAME STORE (based on week ending)
+
+If values are all zero across weeks, still render the chart and show “0” labels (no blank charts)
+
+7) Subheader before form (clear separation)
+
+After the charts card, add a clear section header:
+
+“Feedback Form”
+
+Bold
+
+Left aligned
+
+This must visually signal “now you are capturing feedback”
+
+8) Feedback Form Fields (order locked)
+
+Under “Feedback Form”, show these inputs in this order:
+
+Physical Count (numeric input)
+
+placeholder: “Enter count…”
+
+Show Variance on the same row (right aligned) or just under it:
+
+Variance = Physical Count − SOH (or your existing variance logic)
+
+Must update live as user types
+
+System adjustment question (single line)
+Text must be concise and fit on one line:
+
+“Was system stock adjusted to match physical count?”
+
+Yes / No radio buttons inline
+
+Reason Code (required dropdown)
+
+label: “Reason Code *”
+
+use existing reason code list (do not invent new values)
+
+Action Taken / Comment (multiline text)
+
+placeholder: “Enter action taken or comments…”
+
+Add Photo
+
+Keep the existing working image upload logic exactly as is
+
+Show “+ Add Photo” button
+
+Show thumbnails underneath
+
+Ensure this section is NOT cut off by any sticky button
+
+Must support at least 2 photos (image1, image2)
+
+9) Submit Action Button (sticky)
+
+At bottom:
+
+Full width orange button
+
+Text: “Submit Action”
+
+Sticky footer style (always reachable)
+
+Must not overlap “Add Photo” area; add bottom padding so photos aren’t hidden.
+
+10) Save behaviour (write back to same dataset)
+
+On submit, write back into the same imported dataset row for this task (no separate file), populating these fields:
+
+physicalCount
+
+variance
+
+systemAdjusted
+
+reasonCode
+
+actionTakenComment
+
+feedback (if used)
+
+captureDate
+
+image1
+
+image2
+
+After submit, return to Tasks list.
+
+11) Explicit layout constraints (avoid previous mistakes)
+
+Do NOT create 1 large graph + 3 small graphs
+
+Do NOT add a DC SOH graph
+
+Do NOT add horizontal scrolling anywhere in charts
+
+Do NOT show “Client:” anywhere in the SKU header section
+
+KPI cards must be white like Store Overview
