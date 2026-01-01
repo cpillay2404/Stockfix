@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
+import BottomNav from "@/components/BottomNav";
 
 const REASON_CODES = [
   "Awaiting delivery / stock not received",
@@ -373,7 +374,7 @@ export default function TaskDetail() {
   const actionBgColor = getActionBgColor(task.action);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '80px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '140px' }}>
       <input 
         ref={fileInput1} 
         type="file" 
@@ -675,9 +676,9 @@ export default function TaskDetail() {
         )}
       </div>
 
-      {/* Submit Button - Sticky Footer */}
+      {/* Submit Button - Sticky Footer above bottom nav */}
       {!isCompleted && (
-        <div style={{ position: 'fixed', bottom: 0, left: 0, right: 0, padding: '12px 16px', backgroundColor: '#FFFFFF', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)' }}>
+        <div style={{ position: 'fixed', bottom: '56px', left: 0, right: 0, padding: '12px 16px', backgroundColor: '#FFFFFF', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)', zIndex: 50 }}>
           <Button
             onClick={handleSubmit}
             disabled={updateMutation.isPending}
@@ -696,6 +697,14 @@ export default function TaskDetail() {
           </Button>
         </div>
       )}
+
+      {/* Bottom Navigation */}
+      <BottomNav 
+        rep={repFilter} 
+        store={storeFilter} 
+        client={clientFilter}
+        activeTaskId={params?.id}
+      />
     </div>
   );
 }

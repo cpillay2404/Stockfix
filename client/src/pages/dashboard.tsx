@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Search, ArrowLeft, LogOut, User, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@shared/schema";
+import BottomNav from "@/components/BottomNav";
 
 const ACTION_PRIORITY_ORDER = [
   "Fix Counts: Negative SOH",
@@ -259,7 +260,7 @@ export default function Dashboard() {
   }, [repFilter, storeFilter, clientFilter, articleFilter]);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#003B71' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#003B71', paddingBottom: '80px' }}>
       {/* Header Section - Blue */}
       <div style={{ padding: '16px', paddingBottom: '12px' }}>
         {/* Navigation Row */}
@@ -445,6 +446,13 @@ export default function Dashboard() {
           ))
         )}
       </div>
+
+      {/* Bottom Navigation */}
+      <BottomNav 
+        rep={repFilter} 
+        store={storeFilter} 
+        client={clientFilter}
+      />
     </div>
   );
 }

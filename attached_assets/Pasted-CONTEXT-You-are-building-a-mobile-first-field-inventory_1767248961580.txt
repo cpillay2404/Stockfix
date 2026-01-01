@@ -1,0 +1,174 @@
+CONTEXT
+
+You are building a mobile-first field inventory execution app called StockFix used by retail reps during store visits.
+
+The app has:
+
+A defined visit lifecycle
+
+Multiple screens within a visit
+
+A fixed top header
+
+A fixed bottom navigation strip
+
+KPI, graph, task, and feedback flows
+
+This prompt defines the GLOBAL DESIGN SYSTEM, NAVIGATION RULES, AND PAGE STRUCTURE.
+Follow it exactly. Do not invent patterns or deviate.
+
+1️⃣ GLOBAL DESIGN SYSTEM (APPLIES TO ALL SCREENS)
+Colour System
+
+Primary blue (Meridian Blue): #003B71
+
+Primary action (CTA): Orange (same as existing “View Tasks” / “Submit Action” buttons)
+
+Cards: White background
+
+Text: Dark grey on white, white on blue
+
+Typography
+
+Same font family across app
+
+Page titles: medium-bold
+
+Section headers: bold
+
+Labels: small, muted
+
+Values: larger, prominent
+
+Cards
+
+White background
+
+Rounded corners
+
+Subtle shadow
+
+Consistent padding
+
+No heavy borders
+
+2️⃣ VISIT LIFECYCLE (GLOBAL RULE)
+Pages BEFORE visit starts
+
+Landing page (Select Rep / Select Store)
+
+No bottom navigation strip
+
+No visit context
+
+Pages DURING visit
+
+Store Overview
+
+Tasks
+
+Task Feedback
+
+Any visit-related sub-pages
+
+Once a visit starts:
+
+Bottom navigation strip is always visible
+
+Top header is always visible
+
+3️⃣ TOP HEADER (GLOBAL, FIXED)
+Layout
+
+Fixed at top
+
+Height and padding identical on all pages
+
+Background: Meridian Blue
+
+Header contents
+
+Left: ← Back (page-level navigation)
+
+Center: Page title (centered)
+
+Right: Exit Visit (visit-level navigation)
+
+Behaviour
+
+Back → goes back ONE page
+
+Exit Visit → exits the visit entirely and returns to Landing
+
+4️⃣ BOTTOM NAVIGATION STRIP (GLOBAL, FIXED)
+Visibility
+
+Appears ONLY once a visit has started
+
+Always visible on all in-visit pages
+
+Layout
+
+Fixed to bottom
+
+Height: 56px
+
+Full width
+
+No shadows
+
+No rounded corners
+
+Respects mobile safe areas
+
+Styling
+
+Background: Meridian Blue (#003B71)
+
+Active tab: white (100%)
+
+Inactive tabs: white (60%)
+
+No gradients
+
+No animations
+
+No badges
+
+No counters
+
+Tabs (exact order)
+
+Overview
+
+Tasks
+
+Feedback
+
+Visit
+
+Each tab has:
+
+Icon above
+
+Label below
+
+Tab behaviour
+
+Overview → Store Overview
+
+Tasks → Tasks list
+
+Feedback:
+
+Disabled if no task selected
+
+Enabled only when a task is open
+
+Opens Task Feedback for the active task
+
+Visit:
+
+Opens Visit Actions sheet (not a new page)
+
+Contains Exit Visit (and later Visit Summary)

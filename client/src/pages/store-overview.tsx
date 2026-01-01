@@ -7,6 +7,7 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
+import BottomNav from "@/components/BottomNav";
 
 interface SearchableSelectProps {
   value: string;
@@ -289,7 +290,7 @@ export default function StoreOverview() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '65px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '140px' }}>
       {/* Header Section - Blue */}
       <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
         {/* Navigation Row */}
@@ -440,10 +441,10 @@ export default function StoreOverview() {
         <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" isWFC={true} />
       </div>
 
-      {/* Sticky Footer - VIEW TASKS Button */}
+      {/* Sticky Footer - VIEW TASKS Button above bottom nav */}
       <div style={{
         position: 'fixed',
-        bottom: 0,
+        bottom: '56px',
         left: 0,
         right: 0,
         padding: '12px 16px',
@@ -468,6 +469,13 @@ export default function StoreOverview() {
           VIEW TASKS ({actionCount})
         </Button>
       </div>
+
+      {/* Bottom Navigation */}
+      <BottomNav 
+        rep={rep} 
+        store={store} 
+        client={selectedClient}
+      />
     </div>
   );
 }
