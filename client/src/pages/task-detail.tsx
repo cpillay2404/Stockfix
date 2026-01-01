@@ -175,18 +175,23 @@ export default function TaskDetail() {
   const updateMutation = useMutation({
     mutationFn: (updates: any) => updateTask(params!.id, updates),
     onSuccess: () => {
+      // Invalidate all related queries to refresh counts and lists
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
       queryClient.invalidateQueries({ queryKey: ["task", params?.id] });
+      queryClient.invalidateQueries({ queryKey: ["store-overview"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
+      queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
+      
       toast({
-        title: "Action Captured",
-        description: "Task updated successfully.",
+        title: "Action Submitted",
+        description: "Task marked as completed.",
       });
       handleBackToTasks();
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to update task. Please try again.",
+        description: "Failed to submit action. Please try again.",
         variant: "destructive",
       });
     },
