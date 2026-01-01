@@ -1,0 +1,240 @@
+ABSOLUTE RULES (READ FIRST)
+
+This request is UI / layout / styling only.
+
+DO NOT:
+
+Change data sources
+
+Change calculations
+
+Change task logic
+
+Change sorting logic
+
+Add new features
+
+Replace dividers with pills or badges
+
+Abbreviate action names
+
+Move actions into cards
+
+If unsure, do nothing instead of guessing.
+
+PAGE PURPOSE
+
+This page must feel like a professional field execution app, not a dashboard.
+
+The rep must immediately understand:
+
+What action types exist
+
+Which actions are most urgent
+
+What to do next, top to bottom
+
+HEADER (MATCH STORE OVERVIEW EXACTLY)
+
+Meridian blue background
+
+Same Back (left) and Exit Visit (right)
+
+Centered title: Tasks
+
+Show Week Ending below title
+
+Identity block:
+
+👤 Rep name
+
+📍 Store name
+
+Compact spacing (no tall header)
+
+SEARCH & STATUS TOGGLE (KEEP)
+
+Search bar stays (article / barcode / client)
+
+Pending / Completed toggle stays
+
+Compact spacing
+
+No visual emphasis beyond usability
+
+❌ REMOVE ACTION PILLS COMPLETELY
+
+Do NOT use coloured pills
+
+Do NOT use chip filters
+
+Do NOT use dropdowns for actions
+
+✅ TASK STRUCTURE = STRONG SECTION DIVIDERS + CARDS
+OVERALL RULE
+
+Tasks are grouped by Action Type, separated by prominent section dividers.
+
+🔹 ACTION SECTION DIVIDERS (CRITICAL)
+
+Each action group starts with a prominent divider block.
+
+Divider Layout
+
+Height: 48–56px
+
+Full width
+
+Rounded corners
+
+Left-aligned content
+
+Count aligned right
+
+Divider Content
+Review: Risk of OOS            (2)
+
+
+Full action text (NO abbreviations)
+
+Count in brackets
+
+Bold action text
+
+Medium-weight count
+
+Divider Visual Design
+
+LEFT COLOUR RAIL: 6–8px wide
+
+Colour-coded by urgency
+
+Divider background:
+
+Very light tint of the same colour (5–8% opacity)
+
+NOT solid
+
+NOT saturated
+
+Colour Mapping (LOCKED)
+
+Fix Counts: Negative SOH → dark red rail
+
+Urgent: DC OOS → red rail
+
+Urgent: Place Order – DC has stock → orange-red rail
+
+OOS – Stock on Order → orange rail
+
+Review: Risk of OOS → orange rail
+
+Check Count: No Sales in 30 Days → amber rail
+
+Monitor: Possible Overstock → blue rail
+
+Optimal → green rail (muted)
+
+Divider Spacing
+
+12–16px space ABOVE divider
+
+6–8px space BELOW divider
+
+Divider must clearly signal:
+
+“New priority section starts here”
+
+🔹 TASK CARDS (INSIDE SECTIONS)
+VERY IMPORTANT RULE
+
+DO NOT repeat the action text inside the card.
+The divider already communicates the action.
+
+Card Content Order
+
+Article description (bold)
+
+Barcode (small, muted)
+
+Client name
+
+WFC value (small, right-aligned)
+
+Status badge (Pending / Completed, subtle)
+
+Card Styling
+
+White background
+
+Rounded corners
+
+Compact padding
+
+Subtle shadow or border
+
+No icons
+
+No buttons
+
+No action labels
+
+Cards must feel secondary to the divider.
+
+🔹 SECTION ORDER (STRICT)
+
+Render sections in this order ONLY:
+
+Fix Counts: Negative SOH
+
+Urgent: DC OOS
+
+Urgent: Place Order – DC has stock
+
+OOS – Stock on Order
+
+Review: Risk of OOS
+
+Check Count: No Sales in 30 Days
+
+Monitor: Possible Overstock
+
+Optimal
+
+🔹 VISIBILITY RULE
+
+ONLY render sections where count > 0
+
+Optimal renders only if count > 0
+
+No empty sections
+
+No placeholders
+
+❌ STRICTLY FORBIDDEN
+
+No pills
+
+No coloured banners
+
+No repeating action text
+
+No abbreviations
+
+No side-by-side layouts
+
+No visual clutter
+
+SUCCESS CRITERIA
+
+The final page must:
+
+Immediately communicate urgency by section
+
+Feel calm and intentional
+
+Match Store Overview visual language
+
+Look like a real enterprise field app
+
+Make the rep act without thinking

@@ -21,15 +21,27 @@ const ACTION_PRIORITY_ORDER = [
 ];
 
 const getActionColor = (action: string) => {
-  if (action === 'Fix Counts: Negative SOH') return '#DC2626';
-  if (action === 'Urgent: DC OOS') return '#EA580C';
-  if (action === 'Urgent: Place Order - DC has stock') return '#DC2626';
-  if (action === 'Review: Risk of OOS') return '#EA580C';
-  if (action === 'OOS – Stock on Order') return '#EA580C';
-  if (action === 'Check Count: No Sales in 30 Days') return '#DC2626';
-  if (action === 'Monitor: Possible Overstock') return '#60A5FA';
-  if (action === 'Optimal') return '#16A34A';
+  if (action === 'Fix Counts: Negative SOH') return '#991B1B';
+  if (action === 'Urgent: DC OOS') return '#DC2626';
+  if (action === 'Urgent: Place Order - DC has stock') return '#EA580C';
+  if (action === 'OOS – Stock on Order') return '#F97316';
+  if (action === 'Review: Risk of OOS') return '#F97316';
+  if (action === 'Check Count: No Sales in 30 Days') return '#D97706';
+  if (action === 'Monitor: Possible Overstock') return '#3B82F6';
+  if (action === 'Optimal') return '#22C55E';
   return '#6B7280';
+};
+
+const getActionBgTint = (action: string) => {
+  if (action === 'Fix Counts: Negative SOH') return 'rgba(153, 27, 27, 0.06)';
+  if (action === 'Urgent: DC OOS') return 'rgba(220, 38, 38, 0.06)';
+  if (action === 'Urgent: Place Order - DC has stock') return 'rgba(234, 88, 12, 0.06)';
+  if (action === 'OOS – Stock on Order') return 'rgba(249, 115, 22, 0.06)';
+  if (action === 'Review: Risk of OOS') return 'rgba(249, 115, 22, 0.06)';
+  if (action === 'Check Count: No Sales in 30 Days') return 'rgba(217, 119, 6, 0.06)';
+  if (action === 'Monitor: Possible Overstock') return 'rgba(59, 130, 246, 0.06)';
+  if (action === 'Optimal') return 'rgba(34, 197, 94, 0.06)';
+  return 'rgba(107, 114, 128, 0.06)';
 };
 
 interface TaskCardProps {
@@ -111,32 +123,49 @@ interface ActionSectionProps {
   action: string;
   tasks: Task[];
   contextParams: string;
+  isFirst: boolean;
 }
 
-function ActionSection({ action, tasks, contextParams }: ActionSectionProps) {
+function ActionSection({ action, tasks, contextParams, isFirst }: ActionSectionProps) {
   const color = getActionColor(action);
+  const bgTint = getActionBgTint(action);
   
   return (
-    <div style={{ marginBottom: '16px' }} data-testid={`section-${action.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}>
+    <div 
+      style={{ marginTop: isFirst ? '0' : '14px' }} 
+      data-testid={`section-${action.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
+    >
+      {/* Section Divider */}
       <div 
         style={{ 
           display: 'flex',
           alignItems: 'center',
-          marginBottom: '8px',
-          backgroundColor: '#F9FAFB',
-          borderRadius: '6px',
+          height: '52px',
+          backgroundColor: bgTint,
+          borderRadius: '8px',
           overflow: 'hidden',
+          marginBottom: '8px',
         }}
       >
-        <div style={{ width: '5px', backgroundColor: color, alignSelf: 'stretch', minHeight: '36px' }} />
-        <div style={{ padding: '8px 12px', flex: 1 }}>
-          <span style={{ fontSize: '13px', fontWeight: 600, color: '#374151' }}>
-            {action} ({tasks.length})
+        <div style={{ width: '7px', backgroundColor: color, alignSelf: 'stretch' }} />
+        <div style={{ 
+          padding: '0 14px', 
+          flex: 1, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center' 
+        }}>
+          <span style={{ fontSize: '14px', fontWeight: 700, color: '#1F2937' }}>
+            {action}
+          </span>
+          <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>
+            ({tasks.length})
           </span>
         </div>
       </div>
       
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', paddingLeft: '5px' }}>
+      {/* Task Cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         {tasks.map((task) => (
           <TaskCard key={task.uniqueId} task={task} contextParams={contextParams} />
         ))}
@@ -227,6 +256,15 @@ export default function Dashboard() {
 
   const displayedPendingCount = summary?.pendingCountExcludingOptimal ?? summary?.pendingCount ?? 0;
 
+  const formatWeekEnding = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+  };
+
   const handleBack = () => {
     const params = new URLSearchParams();
     if (repFilter) params.set('rep', repFilter);
@@ -254,7 +292,7 @@ export default function Dashboard() {
       {/* Header Section - Blue */}
       <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
         {/* Navigation Row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', position: 'relative' }}>
           <button
             onClick={handleBack}
             data-testid="button-back"
@@ -309,8 +347,15 @@ export default function Dashboard() {
           </button>
         </div>
 
+        {/* Week Ending */}
+        {summary?.latestWeekEnding && (
+          <p style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)', textAlign: 'center', margin: '0 0 10px 0' }}>
+            Week Ending: {formatWeekEnding(summary.latestWeekEnding)}
+          </p>
+        )}
+
         {/* Rep and Store Context Row */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
           {repFilter && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <User style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
@@ -328,20 +373,12 @@ export default function Dashboard() {
 
       {/* Content Section - Grey Background */}
       <div style={{ padding: '16px' }}>
-        {/* Search and Filter Card */}
-        <div 
-          style={{ 
-            backgroundColor: '#FFFFFF', 
-            borderRadius: '10px', 
-            padding: '12px',
-            marginBottom: '16px',
-            boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-          }}
-        >
+        {/* Search and Filter */}
+        <div style={{ marginBottom: '16px' }}>
           <div style={{ position: 'relative', marginBottom: '10px' }}>
             <Search style={{ 
               position: 'absolute', 
-              left: '10px', 
+              left: '12px', 
               top: '50%', 
               transform: 'translateY(-50%)',
               width: '16px', 
@@ -353,7 +390,13 @@ export default function Dashboard() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               data-testid="input-search"
-              style={{ paddingLeft: '36px', height: '38px', fontSize: '14px' }}
+              style={{ 
+                paddingLeft: '38px', 
+                height: '40px', 
+                fontSize: '14px',
+                backgroundColor: '#FFFFFF',
+                borderRadius: '8px',
+              }}
             />
           </div>
 
@@ -365,8 +408,10 @@ export default function Dashboard() {
               style={{ 
                 borderRadius: '20px', 
                 fontSize: '13px',
-                backgroundColor: filter === "pending" ? '#003B71' : 'transparent',
+                backgroundColor: filter === "pending" ? '#003B71' : '#FFFFFF',
+                color: filter === "pending" ? '#FFFFFF' : '#374151',
                 flex: 1,
+                height: '36px',
               }}
               data-testid="button-filter-pending"
             >
@@ -379,8 +424,10 @@ export default function Dashboard() {
               style={{ 
                 borderRadius: '20px', 
                 fontSize: '13px',
-                backgroundColor: filter === "completed" ? '#003B71' : 'transparent',
+                backgroundColor: filter === "completed" ? '#003B71' : '#FFFFFF',
+                color: filter === "completed" ? '#FFFFFF' : '#374151',
                 flex: 1,
+                height: '36px',
               }}
               data-testid="button-filter-completed"
             >
@@ -392,11 +439,11 @@ export default function Dashboard() {
         {/* Task Sections */}
         {isLoading ? (
           <>
-            <Skeleton style={{ height: '40px', borderRadius: '6px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
-            <Skeleton style={{ height: '80px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
-            <Skeleton style={{ height: '80px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '16px' }} />
-            <Skeleton style={{ height: '40px', borderRadius: '6px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
-            <Skeleton style={{ height: '80px', borderRadius: '8px', backgroundColor: '#E5E7EB' }} />
+            <Skeleton style={{ height: '52px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
+            <Skeleton style={{ height: '70px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
+            <Skeleton style={{ height: '70px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '16px' }} />
+            <Skeleton style={{ height: '52px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
+            <Skeleton style={{ height: '70px', borderRadius: '8px', backgroundColor: '#E5E7EB' }} />
           </>
         ) : groupedTasks.length === 0 ? (
           <div style={{ 
@@ -407,12 +454,13 @@ export default function Dashboard() {
             <p>No tasks found matching your criteria.</p>
           </div>
         ) : (
-          groupedTasks.map(({ action, tasks }) => (
+          groupedTasks.map(({ action, tasks }, index) => (
             <ActionSection 
               key={action} 
               action={action} 
               tasks={tasks} 
-              contextParams={contextParams} 
+              contextParams={contextParams}
+              isFirst={index === 0}
             />
           ))
         )}
