@@ -411,7 +411,7 @@ export default function TaskDetail() {
             {task.articleDescription}
           </h2>
           <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.7)' }}>
-            Barcode: {task.barcode}
+            {task.barcode}
           </div>
         </div>
 
