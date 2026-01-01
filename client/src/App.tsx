@@ -35,7 +35,7 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} />}
+        {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} minDisplayTime={5000} />}
         <Toaster />
         <Router />
       </TooltipProvider>
