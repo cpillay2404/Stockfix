@@ -541,6 +541,22 @@ export default function TaskDetail() {
             />
           </div>
 
+          {/* Feedback */}
+          <div style={{ marginBottom: '14px' }}>
+            <Label htmlFor="feedback" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
+              Feedback
+            </Label>
+            <Textarea 
+              id="feedback"
+              placeholder="Enter feedback..."
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              disabled={isCompleted}
+              data-testid="textarea-feedback"
+              style={{ minHeight: '70px', fontSize: '14px', backgroundColor: '#F9FAFB' }}
+            />
+          </div>
+
           {/* Photo Section */}
           <div style={{ paddingBottom: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
