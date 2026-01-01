@@ -21,27 +21,15 @@ const ACTION_PRIORITY_ORDER = [
 ];
 
 const getActionColor = (action: string) => {
-  if (action === 'Fix Counts: Negative SOH') return '#991B1B';
+  if (action === 'Fix Counts: Negative SOH') return '#DC2626';
   if (action === 'Urgent: DC OOS') return '#DC2626';
-  if (action === 'Urgent: Place Order - DC has stock') return '#EA580C';
+  if (action === 'Urgent: Place Order - DC has stock') return '#DC2626';
   if (action === 'OOS – Stock on Order') return '#F97316';
   if (action === 'Review: Risk of OOS') return '#F97316';
-  if (action === 'Check Count: No Sales in 30 Days') return '#D97706';
+  if (action === 'Check Count: No Sales in 30 Days') return '#F97316';
   if (action === 'Monitor: Possible Overstock') return '#3B82F6';
   if (action === 'Optimal') return '#22C55E';
   return '#6B7280';
-};
-
-const getActionBgTint = (action: string) => {
-  if (action === 'Fix Counts: Negative SOH') return 'rgba(153, 27, 27, 0.06)';
-  if (action === 'Urgent: DC OOS') return 'rgba(220, 38, 38, 0.06)';
-  if (action === 'Urgent: Place Order - DC has stock') return 'rgba(234, 88, 12, 0.06)';
-  if (action === 'OOS – Stock on Order') return 'rgba(249, 115, 22, 0.06)';
-  if (action === 'Review: Risk of OOS') return 'rgba(249, 115, 22, 0.06)';
-  if (action === 'Check Count: No Sales in 30 Days') return 'rgba(217, 119, 6, 0.06)';
-  if (action === 'Monitor: Possible Overstock') return 'rgba(59, 130, 246, 0.06)';
-  if (action === 'Optimal') return 'rgba(34, 197, 94, 0.06)';
-  return 'rgba(107, 114, 128, 0.06)';
 };
 
 interface TaskCardProps {
@@ -61,41 +49,39 @@ function TaskCard({ task, contextParams }: TaskCardProps) {
       <div
         style={{
           backgroundColor: '#FFFFFF',
-          borderRadius: '8px',
+          borderRadius: '10px',
           padding: '12px 14px',
           cursor: 'pointer',
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-          border: '1px solid #E5E7EB',
+          marginBottom: '8px',
         }}
       >
-        <h3 style={{ 
-          fontSize: '14px', 
-          fontWeight: 600, 
-          color: '#003B71', 
-          marginBottom: '4px',
-          lineHeight: 1.3,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-        }}>
-          {task.articleDescription}
-        </h3>
-        
-        <div style={{ 
-          fontSize: '11px', 
-          fontFamily: 'monospace', 
-          color: '#6B7280', 
-          marginBottom: '6px',
-        }}>
-          {task.barcode}
-        </div>
-        
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '12px', color: '#6B7280' }}>
-            {task.client}
-          </span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, marginRight: '10px' }}>
+            <h3 style={{ 
+              fontSize: '14px', 
+              fontWeight: 600, 
+              color: '#1F2937', 
+              marginBottom: '2px',
+              lineHeight: 1.3,
+            }}>
+              {task.articleDescription}
+            </h3>
+            
+            <div style={{ 
+              fontSize: '11px', 
+              fontFamily: 'monospace', 
+              color: '#6B7280', 
+              marginBottom: '4px',
+            }}>
+              {task.barcode}
+            </div>
+            
+            <span style={{ fontSize: '12px', color: '#6B7280' }}>
+              {task.client}
+            </span>
+          </div>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
             {hasWfc && (
               <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
                 WFC: {wfc.toFixed(1)}
@@ -106,8 +92,9 @@ function TaskCard({ task, contextParams }: TaskCardProps) {
               style={{
                 fontSize: '10px',
                 backgroundColor: isPending ? 'transparent' : '#DCFCE7',
-                color: isPending ? '#6B7280' : '#16A34A',
-                border: isPending ? '1px solid #D1D5DB' : 'none',
+                color: isPending ? '#9CA3AF' : '#16A34A',
+                border: isPending ? '1px solid #E5E7EB' : 'none',
+                fontWeight: 400,
               }}
             >
               {task.actionStatus}
@@ -123,49 +110,33 @@ interface ActionSectionProps {
   action: string;
   tasks: Task[];
   contextParams: string;
-  isFirst: boolean;
 }
 
-function ActionSection({ action, tasks, contextParams, isFirst }: ActionSectionProps) {
+function ActionSection({ action, tasks, contextParams }: ActionSectionProps) {
   const color = getActionColor(action);
-  const bgTint = getActionBgTint(action);
   
   return (
     <div 
-      style={{ marginTop: isFirst ? '0' : '14px' }} 
+      style={{ marginBottom: '16px' }} 
       data-testid={`section-${action.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
     >
-      {/* Section Divider */}
+      {/* Section Header */}
       <div 
         style={{ 
           display: 'flex',
           alignItems: 'center',
-          height: '52px',
-          backgroundColor: bgTint,
-          borderRadius: '8px',
-          overflow: 'hidden',
           marginBottom: '8px',
+          paddingLeft: '4px',
         }}
       >
-        <div style={{ width: '7px', backgroundColor: color, alignSelf: 'stretch' }} />
-        <div style={{ 
-          padding: '0 14px', 
-          flex: 1, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center' 
-        }}>
-          <span style={{ fontSize: '14px', fontWeight: 700, color: '#1F2937' }}>
-            {action}
-          </span>
-          <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>
-            ({tasks.length})
-          </span>
-        </div>
+        <div style={{ width: '5px', height: '20px', backgroundColor: color, borderRadius: '2px', marginRight: '10px' }} />
+        <span style={{ fontSize: '14px', fontWeight: 700, color: '#FFFFFF' }}>
+          {action} ({tasks.length})
+        </span>
       </div>
       
       {/* Task Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div>
         {tasks.map((task) => (
           <TaskCard key={task.uniqueId} task={task} contextParams={contextParams} />
         ))}
@@ -256,6 +227,15 @@ export default function Dashboard() {
 
   const displayedPendingCount = summary?.pendingCountExcludingOptimal ?? summary?.pendingCount ?? 0;
 
+  const formatWeekEnding = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}/${parts[1]}/${parts[0]}`;
+    }
+    return dateStr;
+  };
+
   const handleBack = () => {
     const params = new URLSearchParams();
     if (repFilter) params.set('rep', repFilter);
@@ -279,19 +259,19 @@ export default function Dashboard() {
   }, [repFilter, storeFilter, clientFilter, articleFilter]);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#003B71' }}>
       {/* Header Section - Blue */}
-      <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
+      <div style={{ padding: '16px', paddingBottom: '12px' }}>
         {/* Navigation Row */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', position: 'relative' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', position: 'relative' }}>
           <button
             onClick={handleBack}
             data-testid="button-back"
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              color: 'rgba(255,255,255,0.8)',
+              gap: '4px',
+              color: 'rgba(255,255,255,0.85)',
               fontSize: '14px',
               background: 'none',
               border: 'none',
@@ -309,8 +289,8 @@ export default function Dashboard() {
               position: 'absolute',
               left: '50%',
               transform: 'translateX(-50%)',
-              fontSize: '20px', 
-              fontWeight: 700, 
+              fontSize: '18px', 
+              fontWeight: 600, 
               color: '#FFFFFF',
               margin: 0,
             }}
@@ -324,8 +304,8 @@ export default function Dashboard() {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '6px',
-              color: 'rgba(255,255,255,0.8)',
+              gap: '4px',
+              color: 'rgba(255,255,255,0.85)',
               fontSize: '14px',
               background: 'none',
               border: 'none',
@@ -339,26 +319,40 @@ export default function Dashboard() {
         </div>
 
         {/* Rep and Store Context Row - Centered */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'center' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center', marginBottom: '4px' }}>
           {repFilter && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <User style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <User style={{ width: '13px', height: '13px', color: 'rgba(255,255,255,0.7)' }} />
               <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>{repFilter}</span>
             </div>
           )}
           {storeFilter && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MapPin style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <MapPin style={{ width: '13px', height: '13px', color: 'rgba(255,255,255,0.7)' }} />
               <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.9)' }}>{storeFilter}</span>
             </div>
           )}
         </div>
+
+        {/* Week Ending */}
+        {summary?.latestWeekEnding && (
+          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', textAlign: 'center', margin: 0 }}>
+            Week Ending: {formatWeekEnding(summary.latestWeekEnding)}
+          </p>
+        )}
       </div>
 
-      {/* Content Section - Grey Background */}
-      <div style={{ padding: '16px' }}>
-        {/* Search and Filter */}
-        <div style={{ marginBottom: '16px' }}>
+      {/* Content Section - Blue Background continues */}
+      <div style={{ padding: '0 16px 16px' }}>
+        {/* Search and Filter Card - White */}
+        <div 
+          style={{ 
+            backgroundColor: '#FFFFFF', 
+            borderRadius: '12px', 
+            padding: '12px',
+            marginBottom: '16px',
+          }}
+        >
           <div style={{ position: 'relative', marginBottom: '10px' }}>
             <Search style={{ 
               position: 'absolute', 
@@ -378,7 +372,8 @@ export default function Dashboard() {
                 paddingLeft: '38px', 
                 height: '40px', 
                 fontSize: '14px',
-                backgroundColor: '#FFFFFF',
+                backgroundColor: '#F9FAFB',
+                border: '1px solid #E5E7EB',
                 borderRadius: '8px',
               }}
             />
@@ -392,8 +387,9 @@ export default function Dashboard() {
               style={{ 
                 borderRadius: '20px', 
                 fontSize: '13px',
-                backgroundColor: filter === "pending" ? '#003B71' : '#FFFFFF',
+                backgroundColor: filter === "pending" ? '#003B71' : 'transparent',
                 color: filter === "pending" ? '#FFFFFF' : '#374151',
+                border: filter === "pending" ? 'none' : '1px solid #D1D5DB',
                 flex: 1,
                 height: '36px',
               }}
@@ -408,8 +404,9 @@ export default function Dashboard() {
               style={{ 
                 borderRadius: '20px', 
                 fontSize: '13px',
-                backgroundColor: filter === "completed" ? '#003B71' : '#FFFFFF',
+                backgroundColor: filter === "completed" ? '#003B71' : 'transparent',
                 color: filter === "completed" ? '#FFFFFF' : '#374151',
+                border: filter === "completed" ? 'none' : '1px solid #D1D5DB',
                 flex: 1,
                 height: '36px',
               }}
@@ -423,28 +420,27 @@ export default function Dashboard() {
         {/* Task Sections */}
         {isLoading ? (
           <>
-            <Skeleton style={{ height: '52px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
-            <Skeleton style={{ height: '70px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
-            <Skeleton style={{ height: '70px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '16px' }} />
-            <Skeleton style={{ height: '52px', borderRadius: '8px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
-            <Skeleton style={{ height: '70px', borderRadius: '8px', backgroundColor: '#E5E7EB' }} />
+            <Skeleton style={{ height: '28px', width: '200px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
+            <Skeleton style={{ height: '70px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
+            <Skeleton style={{ height: '70px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '16px' }} />
+            <Skeleton style={{ height: '28px', width: '180px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
+            <Skeleton style={{ height: '70px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
           </>
         ) : groupedTasks.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
             padding: '48px 16px',
-            color: '#6B7280',
+            color: 'rgba(255,255,255,0.7)',
           }}>
             <p>No tasks found matching your criteria.</p>
           </div>
         ) : (
-          groupedTasks.map(({ action, tasks }, index) => (
+          groupedTasks.map(({ action, tasks }) => (
             <ActionSection 
               key={action} 
               action={action} 
               tasks={tasks} 
               contextParams={contextParams}
-              isFirst={index === 0}
             />
           ))
         )}

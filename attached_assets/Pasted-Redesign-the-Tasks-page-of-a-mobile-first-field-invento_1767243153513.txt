@@ -1,0 +1,159 @@
+Redesign the Tasks page of a mobile-first field inventory app to match the Store Overview page styling and layout.
+
+Overall Style
+
+Mobile app UI (not web)
+
+Primary background: Meridian blue #003B71
+
+Content area: white cards on blue background
+
+Clean, professional, enterprise field-app look
+
+No pills or chips for actions
+
+No visual clutter
+
+Header (Blue Banner)
+
+At the very top, create a fixed blue header identical in height and padding to the Store Overview page.
+
+Include:
+
+Top row:
+
+Left: “← Back” (go back one page)
+
+Center: Tasks
+
+Right: “Exit Visit”
+
+Below title:
+
+👤 Rep Name (with small person icon on the left)
+
+📍 Store Name (with location pin icon on the left)
+
+Text color: white
+
+Font: medium weight, compact spacing
+
+Show Week Ending: DD/MM/YYYY under the store name
+
+Filters & Status Toggle (White Card)
+
+Below the header, place a white rounded container with:
+
+Search input:
+
+Placeholder: “Search article, barcode, client…”
+
+Subtle border, no heavy shadow
+
+Status toggle:
+
+“Pending (X)” and “Completed (Y)”
+
+Pending selected by default
+
+Compact pill style ONLY for status (this is allowed)
+
+Task Grouping Logic (IMPORTANT)
+
+Tasks must be grouped by Action Type.
+
+Each Action Type is shown as:
+
+A section header
+
+Only shown if its task count > 0
+
+No abbreviations — show full action text
+
+Action order (top to bottom, always):
+
+Fix Counts: Negative SOH
+
+Urgent: DC OOS
+
+Urgent: Place Order – DC has stock
+
+OOS – Stock on Order
+
+Review: Risk of OOS
+
+Check Count: No Sales in 30 Days
+
+Monitor: Possible Overstock
+
+Optimal
+
+Action Section Header Design
+
+Each action section must include:
+
+A left vertical accent bar (4–6px wide)
+
+Accent color by action type:
+
+Fix Counts / Urgent: Red
+
+Review / Check Count: Orange
+
+Monitor: Blue
+
+Optimal: Green
+
+Section title text (bold):
+
+Example: “Review: Risk of OOS (2)”
+
+Do NOT use pills or chips here
+
+Task Cards (inside each section)
+
+Each task is a white rounded card with:
+
+Product name (bold)
+
+Barcode (smaller text under product name)
+
+Client name
+
+Optional WFC value (right-aligned, small)
+
+Status label: “Pending” or “Completed” (small, subtle)
+
+Spacing must be compact so more tasks fit on screen.
+
+UX Rules
+
+No action chips anywhere
+
+No duplicated action labels inside cards (action already shown by section)
+
+Scrolling should feel natural and vertical
+
+Page must feel consistent with Store Overview page
+
+Navigation
+
+Tapping a task opens Task Feedback page
+
+“Back” goes to Store Overview
+
+“Exit Visit” returns to Landing page
+
+Final Requirement
+
+The page must feel:
+
+Calm
+
+Prioritised
+
+Professional
+
+Easy to scan in-store
+
+Do NOT add any elements not specified above.
