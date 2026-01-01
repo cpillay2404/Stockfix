@@ -451,9 +451,9 @@ export default function TaskDetail() {
           </div>
         </div>
 
-        {/* Feedback Form Header */}
+        {/* Capture Feedback Header */}
         <div style={{ marginBottom: '8px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1F2937' }}>Feedback Form</h3>
+          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1F2937' }}>Capture Feedback</h3>
         </div>
 
         {/* Feedback Form Card */}
