@@ -130,7 +130,7 @@ export default function Landing() {
 
   return (
     <div 
-      className="min-h-screen flex flex-col items-center"
+      className="h-screen flex flex-col items-center overflow-hidden"
       style={{ background: 'linear-gradient(180deg, #003B71 0%, #002F5A 100%)' }}
     >
       {/* Top Header: Meridian Logo */}
