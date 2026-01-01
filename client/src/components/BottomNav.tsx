@@ -54,6 +54,7 @@ export default function BottomNav({ rep, store, client, activeTaskId }: BottomNa
         alignItems: 'center',
         zIndex: 1000,
         paddingBottom: 'env(safe-area-inset-bottom)',
+        boxShadow: '0 -4px 12px rgba(0, 0, 0, 0.15)',
       }}
       data-testid="bottom-nav"
     >

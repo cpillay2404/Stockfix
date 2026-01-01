@@ -260,9 +260,9 @@ export default function Dashboard() {
   }, [repFilter, storeFilter, clientFilter, articleFilter]);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#003B71', paddingBottom: '80px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '80px' }}>
       {/* Header Section - Blue */}
-      <div style={{ padding: '16px', paddingBottom: '12px' }}>
+      <div style={{ backgroundColor: '#003B71', padding: '16px', paddingBottom: '12px' }}>
         {/* Navigation Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', position: 'relative' }}>
           <button
@@ -343,8 +343,8 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Content Section - Blue Background continues */}
-      <div style={{ padding: '0 16px 16px' }}>
+      {/* Content Section - Light Grey Background */}
+      <div style={{ padding: '16px' }}>
         {/* Search and Filter Card - White */}
         <div 
           style={{ 
@@ -421,17 +421,17 @@ export default function Dashboard() {
         {/* Task Sections */}
         {isLoading ? (
           <>
-            <Skeleton style={{ height: '28px', width: '200px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
-            <Skeleton style={{ height: '70px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
-            <Skeleton style={{ height: '70px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '16px' }} />
-            <Skeleton style={{ height: '28px', width: '180px', borderRadius: '4px', backgroundColor: 'rgba(255,255,255,0.1)', marginBottom: '8px' }} />
-            <Skeleton style={{ height: '70px', borderRadius: '10px', backgroundColor: 'rgba(255,255,255,0.1)' }} />
+            <Skeleton style={{ height: '28px', width: '200px', borderRadius: '4px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
+            <Skeleton style={{ height: '70px', borderRadius: '10px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
+            <Skeleton style={{ height: '70px', borderRadius: '10px', backgroundColor: '#E5E7EB', marginBottom: '16px' }} />
+            <Skeleton style={{ height: '28px', width: '180px', borderRadius: '4px', backgroundColor: '#E5E7EB', marginBottom: '8px' }} />
+            <Skeleton style={{ height: '70px', borderRadius: '10px', backgroundColor: '#E5E7EB' }} />
           </>
         ) : groupedTasks.length === 0 ? (
           <div style={{ 
             textAlign: 'center', 
             padding: '48px 16px',
-            color: 'rgba(255,255,255,0.7)',
+            color: '#6B7280',
           }}>
             <p>No tasks found matching your criteria.</p>
           </div>
