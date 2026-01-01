@@ -338,8 +338,8 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Rep and Store Context Row */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+        {/* Rep and Store Context Row - Centered */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', alignItems: 'center' }}>
           {repFilter && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <User style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
