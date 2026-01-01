@@ -130,7 +130,7 @@ function Tile({ label, value, testId, accentColor }: TileProps) {
         minWidth: 0,
       }}
     >
-      <span style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace', lineHeight: 1 }}>
+      <span style={{ fontSize: '20px', fontWeight: 800, color: '#003B71', fontFamily: 'monospace', lineHeight: 1 }}>
         {value}
       </span>
       <span style={{ 
