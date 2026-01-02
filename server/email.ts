@@ -68,29 +68,47 @@ let connectionSettings: any;
 
 async function getCredentials() {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  console.log('[Email] Connector hostname:', hostname);
+  
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
     : process.env.WEB_REPL_RENEWAL 
     ? 'depl ' + process.env.WEB_REPL_RENEWAL 
     : null;
 
+  console.log('[Email] Token type:', xReplitToken ? (xReplitToken.startsWith('repl ') ? 'repl' : 'depl') : 'none');
+
   if (!xReplitToken) {
     throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
 
-  connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      }
+  const url = 'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid';
+  console.log('[Email] Fetching from:', url);
+  
+  const response = await fetch(url, {
+    headers: {
+      'Accept': 'application/json',
+      'X_REPLIT_TOKEN': xReplitToken
     }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+  });
+  
+  const data = await response.json();
+  console.log('[Email] Response status:', response.status);
+  console.log('[Email] Response data items:', data.items?.length ?? 0);
+  
+  connectionSettings = data.items?.[0];
 
-  if (!connectionSettings || (!connectionSettings.settings.api_key || !connectionSettings.settings.from_email)) {
+  if (!connectionSettings) {
+    console.error('[Email] No connection settings found');
     throw new Error('SendGrid not connected');
   }
+  
+  if (!connectionSettings.settings?.api_key || !connectionSettings.settings?.from_email) {
+    console.error('[Email] Missing api_key or from_email in settings');
+    throw new Error('SendGrid not connected');
+  }
+  
+  console.log('[Email] Got credentials, from email:', connectionSettings.settings.from_email);
   return {apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email};
 }
 
