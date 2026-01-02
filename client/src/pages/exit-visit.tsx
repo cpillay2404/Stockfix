@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, Clock, Camera, AlertCircle, Store, ChevronRight } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Camera, AlertCircle, Store, ChevronRight, RefreshCw } from "lucide-react";
 import { Task } from "@shared/schema";
 import { fetchTasks } from "@/lib/api";
 
@@ -21,6 +21,7 @@ export default function ExitVisit() {
   });
 
   const [timeSpent, setTimeSpent] = useState('0 minutes');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   useEffect(() => {
     const now = new Date();
@@ -97,8 +98,11 @@ export default function ExitVisit() {
   };
 
   const handleCloseVisit = () => {
-    sessionStorage.removeItem('visitStartTime');
-    setLocation('/');
+    setIsSyncing(true);
+    setTimeout(() => {
+      sessionStorage.removeItem('visitStartTime');
+      setLocation('/');
+    }, 2500);
   };
 
   const visitDate = new Date().toLocaleDateString('en-US', {
@@ -112,6 +116,52 @@ export default function ExitVisit() {
     minute: '2-digit',
     hour12: true,
   });
+
+  if (isSyncing) {
+    return (
+      <div style={{ 
+        minHeight: '100vh', 
+        backgroundColor: '#003B71', 
+        display: 'flex', 
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '32px',
+      }}>
+        <style>{`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+        <RefreshCw 
+          style={{ 
+            width: '64px', 
+            height: '64px', 
+            color: '#F36C21',
+            animation: 'spin 1.5s linear infinite',
+            marginBottom: '24px',
+          }} 
+        />
+        <h1 style={{ 
+          fontSize: '24px', 
+          fontWeight: 700, 
+          color: '#FFFFFF', 
+          marginBottom: '8px',
+          textAlign: 'center',
+        }}>
+          Syncing Visit Data...
+        </h1>
+        <p style={{ 
+          fontSize: '14px', 
+          color: 'rgba(255,255,255,0.7)',
+          textAlign: 'center',
+        }}>
+          Please wait while we save your visit
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', display: 'flex', flexDirection: 'column' }}>
