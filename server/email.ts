@@ -64,11 +64,19 @@ function formatSystemAdjusted(value: any): string {
 }
 
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
+  console.log('[Email] sendTaskCompletedEmail called');
+  
   const smtpHost = process.env.SMTP_HOST;
   const smtpPort = process.env.SMTP_PORT;
   const smtpUser = process.env.SMTP_USER;
   const smtpPass = process.env.SMTP_PASS;
   const fromEmail = process.env.FROM_EMAIL;
+
+  console.log('[Email] SMTP_HOST:', smtpHost ? 'set' : 'NOT SET');
+  console.log('[Email] SMTP_PORT:', smtpPort ? smtpPort : 'NOT SET');
+  console.log('[Email] SMTP_USER:', smtpUser ? 'set' : 'NOT SET');
+  console.log('[Email] SMTP_PASS:', smtpPass ? 'set (hidden)' : 'NOT SET');
+  console.log('[Email] FROM_EMAIL:', fromEmail ? fromEmail : 'NOT SET');
 
   if (!fromEmail) {
     console.error('[Email] FROM_EMAIL environment variable is not set. Skipping email.');
