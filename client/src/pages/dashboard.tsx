@@ -262,7 +262,12 @@ export default function Dashboard() {
   };
 
   const handleExitVisit = () => {
-    setLocation('/');
+    const params = new URLSearchParams();
+    if (repFilter) params.set('rep', repFilter);
+    if (storeFilter) params.set('store', storeFilter);
+    if (clientFilter) params.set('client', clientFilter);
+    if (articleFilter) params.set('article', articleFilter);
+    setLocation(`/exit-visit?${params.toString()}`);
   };
 
   const contextParams = useMemo(() => {

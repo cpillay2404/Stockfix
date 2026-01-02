@@ -13,6 +13,7 @@ import TaskDetail from "@/pages/task-detail";
 import ImportData from "@/pages/import-data";
 import StoreSummary from "@/pages/store-summary";
 import StoreOverview from "@/pages/store-overview";
+import ExitVisit from "@/pages/exit-visit";
 
 function Router() {
   return (
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/import" component={ImportData} />
       <Route path="/task/:id" component={TaskDetail} />
       <Route path="/store/:storeName" component={StoreSummary} />
+      <Route path="/exit-visit" component={ExitVisit} />
       <Route component={NotFound} />
     </Switch>
   );

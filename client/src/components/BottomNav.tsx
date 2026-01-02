@@ -35,7 +35,11 @@ export default function BottomNav({ rep, store, client, activeTaskId }: BottomNa
     }
   };
   const handleVisit = () => {
-    setLocation('/');
+    const params = new URLSearchParams();
+    if (rep) params.set('rep', rep);
+    if (store) params.set('store', store);
+    if (client) params.set('client', client);
+    setLocation(`/exit-visit?${params.toString()}`);
   };
 
   const feedbackDisabled = !activeTaskId;

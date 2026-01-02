@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -248,6 +248,12 @@ export default function StoreOverview() {
   const [selectedClient, setSelectedClient] = useState(initialClient);
   const [selectedArticle, setSelectedArticle] = useState(initialArticle);
 
+  useEffect(() => {
+    if (!sessionStorage.getItem('visitStartTime')) {
+      sessionStorage.setItem('visitStartTime', new Date().toISOString());
+    }
+  }, []);
+
   const { data } = useQuery({
     queryKey: ["store-overview", rep, store, selectedClient, selectedArticle],
     queryFn: async () => {
@@ -286,7 +292,10 @@ export default function StoreOverview() {
   const actionCount = tiles.actionRequired || 0;
 
   const handleExitVisit = () => {
-    setLocation('/');
+    const params = new URLSearchParams();
+    if (rep) params.set('rep', rep);
+    if (store) params.set('store', store);
+    setLocation(`/exit-visit?${params.toString()}`);
   };
 
   return (
