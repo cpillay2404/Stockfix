@@ -388,29 +388,6 @@ export default function ExitVisit() {
             )}
           </div>
         </div>
-
-        {/* Visit Summary Expandable */}
-        <div style={{ 
-          backgroundColor: 'white', 
-          borderRadius: '12px', 
-          padding: '16px',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-        }}>
-          <p style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', margin: '0 0 12px 0' }}>
-            Visit summary
-          </p>
-          {Object.keys(reasonCodeCounts).length === 0 ? (
-            <p style={{ fontSize: '13px', color: '#9CA3AF', margin: 0 }}>No actions recorded</p>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              {Object.entries(reasonCodeCounts).map(([code, count]) => (
-                <p key={code} style={{ fontSize: '13px', color: '#4B5563', margin: 0 }}>
-                  • {code}: {count}
-                </p>
-              ))}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Close Visit Button */}
