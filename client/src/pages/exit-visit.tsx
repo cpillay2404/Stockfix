@@ -380,7 +380,7 @@ export default function ExitVisit() {
           data-testid="button-close-visit"
           style={{
             width: '100%',
-            backgroundColor: '#003B71',
+            backgroundColor: '#F36C21',
             color: 'white',
             fontSize: '16px',
             fontWeight: 600,
