@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from "react";
 import { Link, useSearch, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchTasks } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, LogOut, User, MapPin } from "lucide-react";
+import { Search, ArrowLeft, LogOut, User, MapPin, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@shared/schema";
 import BottomNav from "@/components/BottomNav";
@@ -150,6 +150,7 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const urlParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
+  const queryClient = useQueryClient();
   
   const repFilter = urlParams.get('rep') || '';
   const storeFilter = urlParams.get('store') || '';
@@ -159,6 +160,16 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<"pending" | "completed">("pending");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+      queryClient.invalidateQueries({ queryKey: ["task-summary"] }),
+    ]);
+    setTimeout(() => setIsRefreshing(false), 500);
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -339,13 +350,51 @@ export default function Dashboard() {
           )}
         </div>
 
-        {/* Week Ending */}
-        {summary?.latestWeekEnding && (
-          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', textAlign: 'center', margin: 0 }}>
-            Week Ending: {formatWeekEnding(summary.latestWeekEnding)}
-          </p>
-        )}
+        {/* Week Ending and Sync Button Row */}
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '12px', marginTop: '4px' }}>
+          {summary?.latestWeekEnding && (
+            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: 0 }}>
+              Week Ending: {formatWeekEnding(summary.latestWeekEnding)}
+            </p>
+          )}
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            data-testid="button-sync"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              backgroundColor: '#F36C21',
+              color: 'white',
+              fontSize: '12px',
+              fontWeight: 500,
+              padding: '6px 12px',
+              borderRadius: '16px',
+              border: 'none',
+              cursor: isRefreshing ? 'not-allowed' : 'pointer',
+              opacity: isRefreshing ? 0.7 : 1,
+            }}
+          >
+            <RefreshCw 
+              style={{ 
+                width: '14px', 
+                height: '14px',
+                animation: isRefreshing ? 'spin 1s linear infinite' : 'none',
+              }} 
+            />
+            <span>{isRefreshing ? 'Syncing...' : 'Sync'}</span>
+          </button>
+        </div>
       </div>
+
+      {/* CSS for spin animation */}
+      <style>{`
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+      `}</style>
 
       {/* Content Section - Light Grey Background */}
       <div style={{ padding: '16px' }}>
