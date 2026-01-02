@@ -1,4 +1,5 @@
-import nodemailer from 'nodemailer';
+// SendGrid integration for email notifications
+import sgMail from '@sendgrid/mail';
 
 const RECIPIENTS = [
   'jjooste@meridiangroup.co.za',
@@ -63,30 +64,47 @@ function formatSystemAdjusted(value: any): string {
   return String(value);
 }
 
+let connectionSettings: any;
+
+async function getCredentials() {
+  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY 
+    ? 'repl ' + process.env.REPL_IDENTITY 
+    : process.env.WEB_REPL_RENEWAL 
+    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
+    : null;
+
+  if (!xReplitToken) {
+    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+  }
+
+  connectionSettings = await fetch(
+    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
+    {
+      headers: {
+        'Accept': 'application/json',
+        'X_REPLIT_TOKEN': xReplitToken
+      }
+    }
+  ).then(res => res.json()).then(data => data.items?.[0]);
+
+  if (!connectionSettings || (!connectionSettings.settings.api_key || !connectionSettings.settings.from_email)) {
+    throw new Error('SendGrid not connected');
+  }
+  return {apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email};
+}
+
+async function getUncachableSendGridClient() {
+  const {apiKey, email} = await getCredentials();
+  sgMail.setApiKey(apiKey);
+  return {
+    client: sgMail,
+    fromEmail: email
+  };
+}
+
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
-  
-  const smtpHost = process.env.SMTP_HOST;
-  const smtpPort = process.env.SMTP_PORT;
-  const smtpUser = process.env.SMTP_USER;
-  const smtpPass = process.env.SMTP_PASS;
-  const fromEmail = process.env.FROM_EMAIL;
-
-  console.log('[Email] SMTP_HOST:', smtpHost ? 'set' : 'NOT SET');
-  console.log('[Email] SMTP_PORT:', smtpPort ? smtpPort : 'NOT SET');
-  console.log('[Email] SMTP_USER:', smtpUser ? 'set' : 'NOT SET');
-  console.log('[Email] SMTP_PASS:', smtpPass ? 'set (hidden)' : 'NOT SET');
-  console.log('[Email] FROM_EMAIL:', fromEmail ? fromEmail : 'NOT SET');
-
-  if (!fromEmail) {
-    console.error('[Email] FROM_EMAIL environment variable is not set. Skipping email.');
-    return;
-  }
-
-  if (!smtpHost || !smtpPort || !smtpUser || !smtpPass) {
-    console.error('[Email] SMTP credentials not fully configured. Required: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS');
-    return;
-  }
 
   const subject = `StockFix | ${safeString(task.client)} | ${safeString(task.storeName)} | ${safeString(task.actionColumn)}`;
 
@@ -140,34 +158,21 @@ This is an automated notification from StockFix.
 `.trim();
 
   try {
-    const port = parseInt(smtpPort, 10);
-    console.log('[Email] Creating transporter with port:', port);
+    console.log('[Email] Getting SendGrid client...');
+    const { client, fromEmail } = await getUncachableSendGridClient();
     
-    const transporter = nodemailer.createTransport({
-      host: smtpHost,
-      port: port,
-      secure: port === 465, // true for 465, false for other ports
-      auth: {
-        user: smtpUser,
-        pass: smtpPass,
-      },
-      connectionTimeout: 10000, // 10 second timeout
-      greetingTimeout: 10000,
-      socketTimeout: 10000,
-    });
-
-    console.log('[Email] Attempting to send email...');
-    
-    const info = await transporter.sendMail({
+    console.log('[Email] Sending email via SendGrid...');
+    const msg = {
+      to: RECIPIENTS,
       from: fromEmail,
-      to: RECIPIENTS.join(', '),
       subject: subject,
       text: body,
-    });
+    };
+    
+    await client.send(msg);
 
     console.log(`[Email] Successfully sent task completion email to ${RECIPIENTS.join(', ')}`);
     console.log(`[Email] Subject: ${subject}`);
-    console.log(`[Email] Message ID: ${info.messageId}`);
   } catch (error) {
     console.error('[Email] Failed to send task completion email:', error instanceof Error ? error.message : error);
     if (error instanceof Error && error.stack) {
