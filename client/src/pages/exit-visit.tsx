@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, Clock, Camera, AlertCircle, Store, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Camera, AlertCircle, Store, ChevronRight, Wrench } from "lucide-react";
 import { Task } from "@shared/schema";
 import { fetchTasks } from "@/lib/api";
 
@@ -134,12 +134,12 @@ export default function ExitVisit() {
             to { transform: rotate(360deg); }
           }
         `}</style>
-        <RefreshCw 
+        <Wrench 
           style={{ 
             width: '64px', 
             height: '64px', 
             color: '#F36C21',
-            animation: 'spin 1.5s linear infinite',
+            animation: 'spin 3s linear infinite',
             marginBottom: '24px',
           }} 
         />
