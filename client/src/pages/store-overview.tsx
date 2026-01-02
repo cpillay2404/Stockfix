@@ -339,25 +339,7 @@ export default function StoreOverview() {
             Store Overview
           </h1>
           
-          <button
-            onClick={handleExitVisit}
-            data-testid="button-exit-visit"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              color: 'rgba(255,255,255,0.8)',
-              fontSize: '14px',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              zIndex: 1,
-            }}
-          >
-            <LogOut style={{ width: '16px', height: '16px' }} />
-            <span>Close & Sync</span>
-          </button>
+          <div style={{ width: '70px' }} />
         </div>
 
         {/* Context Row - Rep and Store */}
