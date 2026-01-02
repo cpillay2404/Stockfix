@@ -9,6 +9,7 @@ import XLSX from "xlsx";
 import path from "path";
 import fs from "fs";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { sendTaskCompletedEmail } from "./email";
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -758,6 +759,46 @@ export async function registerRoutes(
       }
       
       const updated = await storage.updateTask(task.id, updates);
+      
+      // Send email notification if this is a task completion submission
+      // (actionStatus changed to something other than Pending, or feedback/reasonCode provided)
+      const isTaskCompletion = 
+        (validated.actionStatus && validated.actionStatus !== 'Pending') ||
+        validated.feedback ||
+        validated.reasonCode;
+      
+      if (isTaskCompletion && updated) {
+        // Fire and forget - don't block the response
+        sendTaskCompletedEmail({
+          repName: updated.repName,
+          client: updated.client,
+          storeName: updated.storeName,
+          banner: updated.banner,
+          region: updated.region,
+          weekEndingDate: updated.weekEndingDate,
+          category: updated.category,
+          barcode: updated.barcode,
+          articleDescription: updated.articleDescription,
+          stockClassificationThisWeek: updated.stockClassificationThisWeek,
+          actionColumn: updated.actionColumn,
+          actionStatus: updated.actionStatus,
+          storeSOH: updated.storeSOH,
+          supplyingDcSoh: updated.supplyingDcSoh,
+          sellOutP4Weeks: updated.sellOutP4Weeks,
+          wfc: updated.wfc,
+          physicalCount: updated.physicalCount,
+          variance: updated.variance,
+          systemAdjusted: updated.systemAdjusted,
+          reasonCode: updated.reasonCode,
+          actionTakenComment: updated.actionTakenComment,
+          feedback: updated.feedback,
+          captureDate: updated.captureDate,
+          image1: updated.image1,
+          image2: updated.image2,
+        }).catch(err => {
+          console.error('[Email] Error in fire-and-forget email:', err);
+        });
+      }
       
       res.json(updated);
     } catch (error) {

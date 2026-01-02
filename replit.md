@@ -50,7 +50,14 @@ The database stores users and tasks. Tasks contain comprehensive retail data inc
    - **Store Landing Page**: Header with store stats, client breakdown grid with severity colors (red=urgent, orange=OOS, green=stable), Top 5 clients by issue type sections, quick filter chips
    - **Navigation Flow**: Dashboard → Store Landing Page → Task List (drill-down pattern)
 
-### Recent Changes (Dec 11, 2025)
+### Recent Changes (Jan 2, 2026)
+
+- Implemented email notifications using SMTP/Nodemailer when reps submit task completions
+- Email utility in `server/email.ts` with hardcoded recipients (jjooste@meridiangroup.co.za, cpillay@meridiangroup.co.za)
+- Email triggered in PATCH `/api/tasks/:uniqueId` route after successful task update
+- Required secrets: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, FROM_EMAIL
+
+### Previous Changes (Dec 11, 2025)
 
 - Implemented full IZON-inspired layout for Dashboard (`client/src/pages/home.tsx`)
 - Created Store Summary page with client breakdown and Top 5 issue sections (`client/src/pages/store-summary.tsx`)
