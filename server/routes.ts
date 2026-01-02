@@ -28,6 +28,17 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
   
+  // Add cache-busting headers for all API routes to ensure fresh data
+  app.use('/api', (req, res, next) => {
+    res.set({
+      'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Surrogate-Control': 'no-store'
+    });
+    next();
+  });
+  
   // Register object storage routes for persistent file uploads
   registerObjectStorageRoutes(app);
   
