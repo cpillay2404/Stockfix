@@ -1,0 +1,75 @@
+Implement email notifications in the StockFix Replit app when a rep submits a task (clicks “Submit Action” on the Task Feedback page).
+
+CRITICAL SCOPE RULES
+- Do NOT change any UI layout, navigation, charts, image upload logic, or data model beyond what is required to trigger emails.
+- Email sending must happen on the BACKEND (server/API), not in the browser.
+- If email sending fails, the task submission must still succeed (log the error, do not block the user).
+
+RECIPIENTS (hardcoded)
+- Emails must ONLY be sent to:
+  1) jjooste@meridiangroup.co.za
+  2) cpillay@meridiangroup.co.za
+- No other recipients, no CC/BCC, no dynamic routing.
+
+TRIGGER CONDITIONS
+- Send an email ONLY after the backend confirms the task submission has been saved successfully (DB/file write succeeded).
+- Send only for real “task completion” submissions (Submit Action). Do NOT send on page load, draft saves, or edits.
+
+EMAIL PROVIDER
+- Use SendGrid (preferred) via API key stored in Replit Secrets:
+  - SENDGRID_API_KEY
+- If SendGrid is not already installed, add the minimal dependency needed.
+- Also support a sender/from address via env var:
+  - FROM_EMAIL (e.g., "stockfix@meridiangroup.co.za")
+- If FROM_EMAIL is missing, fail gracefully with a clear server log message but do not block submission.
+
+SUBJECT LINE (consistent for filtering)
+Use EXACT format:
+StockFix | <CLIENT> | <STORE> | <ACTION>
+
+Where:
+- <CLIENT> = client field in the row (e.g., ASPEN)
+- <STORE> = cleaned store name (e.g., CHECKERS FX ROBBERG BAY)
+- <ACTION> = full Action Column text (no abbreviations)
+
+EMAIL BODY (plain text is fine, HTML optional)
+Include these fields in a clear, readable format:
+
+- Rep Name
+- Client
+- Store (cleaned store name)
+- Banner
+- Region
+- Week Ending
+- Category (if available)
+- Barcode
+- Article Description
+- Stock Classification (This Week)
+- Action Column (full text)
+- Action Status (e.g., Fixed/Pending/Completed)
+- Store SOH
+- Supplying dc soh (DC SOH)
+- Sell out p4 weeks (label it “Sell Out”)
+- WFC (1 decimal)
+- physicalCount
+- variance
+- systemAdjusted (Yes/No)
+- reasonCode
+- actionTakenComment
+- feedback (if present)
+- captureDate
+- image1 URL (if present)
+- image2 URL (if present)
+
+IMPLEMENTATION DETAILS
+1) Create a backend utility function: sendTaskCompletedEmail(taskRow)
+2) Call it from the same backend route/controller that handles “Submit Action” AFTER the save is confirmed.
+3) Ensure values are safely stringified (handle null/blank fields gracefully).
+4) Log success/failure with enough detail to debug, but never print secrets.
+
+DELIVERABLES
+After implementing, output:
+- The exact file(s) changed
+- The backend route where the email is triggered
+- The env vars required: SENDGRID_API_KEY and FROM_EMAIL
+- A sample subject line generated from a sample row
