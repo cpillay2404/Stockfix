@@ -1,5 +1,5 @@
-// SendGrid integration for email notifications
-import sgMail from '@sendgrid/mail';
+// Resend integration for email notifications
+import { Resend } from 'resend';
 
 const RECIPIENTS = [
   'jjooste@meridiangroup.co.za',
@@ -82,7 +82,7 @@ async function getCredentials() {
     throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
 
-  const url = 'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid';
+  const url = 'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=resend';
   console.log('[Email] Fetching from:', url);
   
   const response = await fetch(url, {
@@ -100,24 +100,24 @@ async function getCredentials() {
 
   if (!connectionSettings) {
     console.error('[Email] No connection settings found');
-    throw new Error('SendGrid not connected');
+    throw new Error('Resend not connected');
   }
   
-  if (!connectionSettings.settings?.api_key || !connectionSettings.settings?.from_email) {
-    console.error('[Email] Missing api_key or from_email in settings');
-    throw new Error('SendGrid not connected');
+  if (!connectionSettings.settings?.api_key) {
+    console.error('[Email] Missing api_key in settings');
+    throw new Error('Resend not connected');
   }
   
-  console.log('[Email] Got credentials, from email:', connectionSettings.settings.from_email);
-  return {apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email};
+  const fromEmail = connectionSettings.settings.from_email || 'onboarding@resend.dev';
+  console.log('[Email] Got credentials, from email:', fromEmail);
+  return { apiKey: connectionSettings.settings.api_key, fromEmail };
 }
 
-async function getUncachableSendGridClient() {
-  const {apiKey, email} = await getCredentials();
-  sgMail.setApiKey(apiKey);
+async function getUncachableResendClient() {
+  const { apiKey, fromEmail } = await getCredentials();
   return {
-    client: sgMail,
-    fromEmail: email
+    client: new Resend(apiKey),
+    fromEmail
   };
 }
 
@@ -176,21 +176,20 @@ This is an automated notification from StockFix.
 `.trim();
 
   try {
-    console.log('[Email] Getting SendGrid client...');
-    const { client, fromEmail } = await getUncachableSendGridClient();
+    console.log('[Email] Getting Resend client...');
+    const { client, fromEmail } = await getUncachableResendClient();
     
-    console.log('[Email] Sending email via SendGrid...');
-    const msg = {
-      to: RECIPIENTS,
+    console.log('[Email] Sending email via Resend...');
+    const result = await client.emails.send({
       from: fromEmail,
+      to: RECIPIENTS,
       subject: subject,
       text: body,
-    };
-    
-    await client.send(msg);
+    });
 
     console.log(`[Email] Successfully sent task completion email to ${RECIPIENTS.join(', ')}`);
     console.log(`[Email] Subject: ${subject}`);
+    console.log(`[Email] Resend result:`, result);
   } catch (error) {
     console.error('[Email] Failed to send task completion email:', error instanceof Error ? error.message : error);
     if (error instanceof Error && error.stack) {
