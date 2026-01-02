@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, Clock, Camera, AlertCircle, Store, ChevronRight, Wrench } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Camera, AlertCircle, Store, Wrench } from "lucide-react";
 import { Task } from "@shared/schema";
 import { fetchTasks } from "@/lib/api";
 
@@ -396,12 +396,9 @@ export default function ExitVisit() {
           padding: '16px',
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
         }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <p style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', margin: 0 }}>
-              Visit summary
-            </p>
-            <ChevronRight style={{ width: '18px', height: '18px', color: '#9CA3AF' }} />
-          </div>
+          <p style={{ fontSize: '14px', fontWeight: 600, color: '#1F2937', margin: '0 0 12px 0' }}>
+            Visit summary
+          </p>
           {Object.keys(reasonCodeCounts).length === 0 ? (
             <p style={{ fontSize: '13px', color: '#9CA3AF', margin: 0 }}>No actions recorded</p>
           ) : (
