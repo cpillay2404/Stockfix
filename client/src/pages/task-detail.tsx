@@ -241,7 +241,7 @@ export default function TaskDetail() {
               <span>Back</span>
             </div>
             <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>Task Feedback</h1>
-            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px' }}>Close & Sync</div>
+            <div style={{ width: '70px' }} />
           </div>
         </div>
         <div style={{ padding: '16px' }}>
@@ -263,7 +263,7 @@ export default function TaskDetail() {
               <span>Back</span>
             </button>
             <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>Task Feedback</h1>
-            <button onClick={handleExitVisit} style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer' }}>Close & Sync</button>
+            <div style={{ width: '70px' }} />
           </div>
         </div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
@@ -420,14 +420,7 @@ export default function TaskDetail() {
           <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>
             Task Feedback
           </h1>
-          <button
-            onClick={handleExitVisit}
-            data-testid="button-exit-visit"
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.85)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
-          >
-            <LogOut style={{ width: '16px', height: '16px' }} />
-            <span>Close & Sync</span>
-          </button>
+          <div style={{ width: '70px' }} />
         </div>
 
         {/* Action Banner */}
