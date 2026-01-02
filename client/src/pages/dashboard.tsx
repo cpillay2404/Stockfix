@@ -335,7 +335,7 @@ export default function Dashboard() {
             }}
           >
             <LogOut style={{ width: '16px', height: '16px' }} />
-            <span>Exit Visit</span>
+            <span>Close & Sync</span>
           </button>
         </div>
 

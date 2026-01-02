@@ -133,7 +133,7 @@ export default function ExitVisit() {
           <ArrowLeft style={{ width: '20px', height: '20px' }} />
         </button>
         <h1 style={{ fontSize: '18px', fontWeight: 600, color: 'white', margin: 0 }}>
-          Exit Visit
+          Close & Sync Visit
         </h1>
         <div style={{ width: '20px' }} />
       </div>
@@ -390,7 +390,7 @@ export default function ExitVisit() {
             cursor: 'pointer',
           }}
         >
-          Close Visit
+          Close & Sync Visit
         </button>
       </div>
     </div>

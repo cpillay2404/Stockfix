@@ -241,7 +241,7 @@ export default function TaskDetail() {
               <span>Back</span>
             </div>
             <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>Task Feedback</h1>
-            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px' }}>Exit Visit</div>
+            <div style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px' }}>Close & Sync</div>
           </div>
         </div>
         <div style={{ padding: '16px' }}>
@@ -263,7 +263,7 @@ export default function TaskDetail() {
               <span>Back</span>
             </button>
             <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>Task Feedback</h1>
-            <button onClick={handleExitVisit} style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer' }}>Exit Visit</button>
+            <button onClick={handleExitVisit} style={{ color: 'rgba(255,255,255,0.8)', fontSize: '14px', background: 'none', border: 'none', cursor: 'pointer' }}>Close & Sync</button>
           </div>
         </div>
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
@@ -426,7 +426,7 @@ export default function TaskDetail() {
             style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.85)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
           >
             <LogOut style={{ width: '16px', height: '16px' }} />
-            <span>Exit Visit</span>
+            <span>Close & Sync</span>
           </button>
         </div>
 

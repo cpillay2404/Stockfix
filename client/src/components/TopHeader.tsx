@@ -83,7 +83,7 @@ export default function TopHeader({ title, onBack, showExitVisit = true }: TopHe
             }}
           >
             <LogOut style={{ width: '16px', height: '16px' }} />
-            <span>Exit Visit</span>
+            <span>Close & Sync</span>
           </button>
         ) : (
           <div style={{ minWidth: '70px' }} />

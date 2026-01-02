@@ -356,7 +356,7 @@ export default function StoreOverview() {
             }}
           >
             <LogOut style={{ width: '16px', height: '16px' }} />
-            <span>Exit</span>
+            <span>Close & Sync</span>
           </button>
         </div>
 
