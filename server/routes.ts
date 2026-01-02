@@ -767,7 +767,10 @@ export async function registerRoutes(
         validated.feedback ||
         validated.reasonCode;
       
+      console.log('[Task Update] isTaskCompletion:', isTaskCompletion, 'validated:', JSON.stringify(validated));
+      
       if (isTaskCompletion && updated) {
+        console.log('[Task Update] Triggering email notification...');
         // Fire and forget - don't block the response
         sendTaskCompletedEmail({
           repName: updated.repName,
