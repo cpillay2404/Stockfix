@@ -140,17 +140,25 @@ This is an automated notification from StockFix.
 `.trim();
 
   try {
+    const port = parseInt(smtpPort, 10);
+    console.log('[Email] Creating transporter with port:', port);
+    
     const transporter = nodemailer.createTransport({
       host: smtpHost,
-      port: parseInt(smtpPort, 10),
-      secure: parseInt(smtpPort, 10) === 465,
+      port: port,
+      secure: port === 465, // true for 465, false for other ports
       auth: {
         user: smtpUser,
         pass: smtpPass,
       },
+      connectionTimeout: 10000, // 10 second timeout
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
     });
 
-    await transporter.sendMail({
+    console.log('[Email] Attempting to send email...');
+    
+    const info = await transporter.sendMail({
       from: fromEmail,
       to: RECIPIENTS.join(', '),
       subject: subject,
@@ -159,7 +167,11 @@ This is an automated notification from StockFix.
 
     console.log(`[Email] Successfully sent task completion email to ${RECIPIENTS.join(', ')}`);
     console.log(`[Email] Subject: ${subject}`);
+    console.log(`[Email] Message ID: ${info.messageId}`);
   } catch (error) {
     console.error('[Email] Failed to send task completion email:', error instanceof Error ? error.message : error);
+    if (error instanceof Error && error.stack) {
+      console.error('[Email] Stack trace:', error.stack);
+    }
   }
 }
