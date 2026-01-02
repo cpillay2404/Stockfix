@@ -174,13 +174,15 @@ export default function TaskDetail() {
 
   const updateMutation = useMutation({
     mutationFn: (updates: any) => updateTask(params!.id, updates),
-    onSuccess: () => {
-      // Invalidate all related queries to refresh counts and lists
-      queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      queryClient.invalidateQueries({ queryKey: ["task", params?.id] });
-      queryClient.invalidateQueries({ queryKey: ["store-overview"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] });
-      queryClient.invalidateQueries({ queryKey: ["dashboard-tasks"] });
+    onSuccess: async () => {
+      // Invalidate and refetch all related queries to ensure fresh data
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+        queryClient.invalidateQueries({ queryKey: ["task", params?.id] }),
+        queryClient.invalidateQueries({ queryKey: ["task-summary"] }),
+        queryClient.invalidateQueries({ queryKey: ["store-overview"] }),
+        queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+      ]);
       
       toast({
         title: "Action Submitted",

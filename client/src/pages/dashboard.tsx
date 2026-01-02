@@ -177,6 +177,8 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Failed to fetch summary");
       return res.json();
     },
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   const { data, isLoading } = useQuery({
@@ -187,6 +189,8 @@ export default function Dashboard() {
       client: clientFilter,
       article: articleFilter,
     }),
+    refetchOnMount: 'always',
+    staleTime: 0,
   });
 
   const allTasks: Task[] = data?.tasks || [];
