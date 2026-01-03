@@ -108,7 +108,14 @@ async function getCredentials() {
     throw new Error('Resend not connected');
   }
   
-  const fromEmail = connectionSettings.settings.from_email || 'onboarding@resend.dev';
+  let fromEmail = connectionSettings.settings.from_email;
+  
+  // Resend doesn't allow sending from unverified domains like gmail.com
+  // Use Resend's test sender for development/testing
+  if (!fromEmail || fromEmail.includes('gmail.com') || fromEmail.includes('yahoo.com') || fromEmail.includes('hotmail.com')) {
+    fromEmail = 'StockFix <onboarding@resend.dev>';
+  }
+  
   console.log('[Email] Got credentials, from email:', fromEmail);
   return { apiKey: connectionSettings.settings.api_key, fromEmail };
 }
