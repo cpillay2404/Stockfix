@@ -65,59 +65,22 @@ function formatSystemAdjusted(value: any): string {
   return String(value);
 }
 
-let connectionSettings: any;
-
-async function getCredentials() {
-  const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
-  console.log('[Email] Connector hostname:', hostname);
+function getCredentials() {
+  const apiKey = process.env.RESEND_API_KEY;
   
-  const xReplitToken = process.env.REPL_IDENTITY 
-    ? 'repl ' + process.env.REPL_IDENTITY 
-    : process.env.WEB_REPL_RENEWAL 
-    ? 'depl ' + process.env.WEB_REPL_RENEWAL 
-    : null;
-
-  console.log('[Email] Token type:', xReplitToken ? (xReplitToken.startsWith('repl ') ? 'repl' : 'depl') : 'none');
-
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
-  }
-
-  const url = 'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=resend';
-  console.log('[Email] Fetching from:', url);
-  
-  const response = await fetch(url, {
-    headers: {
-      'Accept': 'application/json',
-      'X_REPLIT_TOKEN': xReplitToken
-    }
-  });
-  
-  const data = await response.json();
-  console.log('[Email] Response status:', response.status);
-  console.log('[Email] Response data items:', data.items?.length ?? 0);
-  
-  connectionSettings = data.items?.[0];
-
-  if (!connectionSettings) {
-    console.error('[Email] No connection settings found');
-    throw new Error('Resend not connected');
+  if (!apiKey) {
+    console.error('[Email] RESEND_API_KEY not found in environment');
+    throw new Error('RESEND_API_KEY not configured');
   }
   
-  if (!connectionSettings.settings?.api_key) {
-    console.error('[Email] Missing api_key in settings');
-    throw new Error('Resend not connected');
-  }
-  
-  // Use verified mlsender.net domain for sending emails
+  console.log('[Email] Using RESEND_API_KEY from environment');
   const fromEmail = 'StockFix <stockfix@test-p7kx4xwq8p8g9yjr.mlsender.net>';
   
-  console.log('[Email] Got credentials, from email:', fromEmail);
-  return { apiKey: connectionSettings.settings.api_key, fromEmail };
+  return { apiKey, fromEmail };
 }
 
-async function getUncachableResendClient() {
-  const { apiKey, fromEmail } = await getCredentials();
+function getResendClient() {
+  const { apiKey, fromEmail } = getCredentials();
   return {
     client: new Resend(apiKey),
     fromEmail
@@ -180,7 +143,7 @@ This is an automated notification from StockFix.
 
   try {
     console.log('[Email] Getting Resend client...');
-    const { client, fromEmail } = await getUncachableResendClient();
+    const { client, fromEmail } = getResendClient();
     
     console.log('[Email] Sending email via Resend...');
     const result = await client.emails.send({
