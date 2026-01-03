@@ -1,5 +1,5 @@
-// Resend integration for email notifications
-import { Resend } from 'resend';
+// MailerSend integration for email notifications
+import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
 
 const RECIPIENTS = [
   'jjooste@meridiangroup.co.za',
@@ -65,26 +65,16 @@ function formatSystemAdjusted(value: any): string {
   return String(value);
 }
 
-function getCredentials() {
-  const apiKey = process.env.RESEND_API_KEY;
+function getMailerSendClient() {
+  const apiKey = process.env.MAILERSEND_API_KEY;
   
   if (!apiKey) {
-    console.error('[Email] RESEND_API_KEY not found in environment');
-    throw new Error('RESEND_API_KEY not configured');
+    console.error('[Email] MAILERSEND_API_KEY not found in environment');
+    throw new Error('MAILERSEND_API_KEY not configured');
   }
   
-  console.log('[Email] Using RESEND_API_KEY from environment');
-  const fromEmail = 'StockFix <stockfix@test-p7kx4xwq8p8g9yjr.mlsender.net>';
-  
-  return { apiKey, fromEmail };
-}
-
-function getResendClient() {
-  const { apiKey, fromEmail } = getCredentials();
-  return {
-    client: new Resend(apiKey),
-    fromEmail
-  };
+  console.log('[Email] Using MAILERSEND_API_KEY from environment');
+  return new MailerSend({ apiKey });
 }
 
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
@@ -128,38 +118,39 @@ Physical Count: ${safeString(task.physicalCount)}
 Variance: ${safeString(task.variance)}
 System Adjusted: ${formatSystemAdjusted(task.systemAdjusted)}
 Reason Code: ${safeString(task.reasonCode)}
-Action Taken Comment: ${safeString(task.actionTakenComment)}
+Action/Comment: ${safeString(task.actionTakenComment)}
 Feedback: ${safeString(task.feedback)}
 Capture Date: ${safeString(task.captureDate)}
 
 Images
 ------
-Image 1: ${task.image1 ? task.image1 : 'Not provided'}
-Image 2: ${task.image2 ? task.image2 : 'Not provided'}
-
----
-This is an automated notification from StockFix.
+Image 1: ${task.image1 ? `Attached - ${task.image1}` : 'N/A'}
+Image 2: ${task.image2 ? `Attached - ${task.image2}` : 'N/A'}
 `.trim();
 
   try {
-    console.log('[Email] Getting Resend client...');
-    const { client, fromEmail } = getResendClient();
+    console.log('[Email] Getting MailerSend client...');
+    const mailerSend = getMailerSendClient();
     
-    console.log('[Email] Sending email via Resend...');
-    const result = await client.emails.send({
-      from: fromEmail,
-      to: RECIPIENTS,
-      subject: subject,
-      text: body,
-    });
-
-    console.log(`[Email] Successfully sent task completion email to ${RECIPIENTS.join(', ')}`);
-    console.log(`[Email] Subject: ${subject}`);
-    console.log(`[Email] Resend result:`, result);
-  } catch (error) {
-    console.error('[Email] Failed to send task completion email:', error instanceof Error ? error.message : error);
-    if (error instanceof Error && error.stack) {
-      console.error('[Email] Stack trace:', error.stack);
+    const sentFrom = new Sender('stockfix@test-p7kx4xwq8p8g9yjr.mlsender.net', 'StockFix');
+    const recipients = RECIPIENTS.map(email => new Recipient(email));
+    
+    const emailParams = new EmailParams()
+      .setFrom(sentFrom)
+      .setTo(recipients)
+      .setSubject(subject)
+      .setText(body);
+    
+    console.log('[Email] Sending email via MailerSend...');
+    const result = await mailerSend.email.send(emailParams);
+    
+    console.log('[Email] Successfully sent task completion email to', RECIPIENTS.join(', '));
+    console.log('[Email] Subject:', subject);
+    console.log('[Email] MailerSend result:', JSON.stringify(result, null, 2));
+  } catch (error: any) {
+    console.error('[Email] Failed to send email:', error.message || error);
+    if (error.body) {
+      console.error('[Email] Error body:', JSON.stringify(error.body, null, 2));
     }
   }
 }
