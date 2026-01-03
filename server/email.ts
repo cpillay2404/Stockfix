@@ -133,20 +133,26 @@ Image 2: ${task.image2 ? `Attached - ${task.image2}` : 'N/A'}
     const mailerSend = getMailerSendClient();
     
     const sentFrom = new Sender('stockfix@test-p7kx4xwq8p8g9yjr.mlsender.net', 'StockFix');
-    const recipients = RECIPIENTS.map(email => new Recipient(email));
     
-    const emailParams = new EmailParams()
-      .setFrom(sentFrom)
-      .setTo(recipients)
-      .setSubject(subject)
-      .setText(body);
+    // Send individual emails to each recipient (MailerSend free plan limits recipients per email)
+    for (const recipientEmail of RECIPIENTS) {
+      try {
+        const emailParams = new EmailParams()
+          .setFrom(sentFrom)
+          .setTo([new Recipient(recipientEmail)])
+          .setSubject(subject)
+          .setText(body);
+        
+        console.log('[Email] Sending email to:', recipientEmail);
+        const result = await mailerSend.email.send(emailParams);
+        console.log('[Email] Successfully sent to', recipientEmail);
+      } catch (err: any) {
+        console.error('[Email] Failed to send to', recipientEmail, ':', err.message || err);
+      }
+    }
     
-    console.log('[Email] Sending email via MailerSend...');
-    const result = await mailerSend.email.send(emailParams);
-    
-    console.log('[Email] Successfully sent task completion email to', RECIPIENTS.join(', '));
+    console.log('[Email] Completed sending to all recipients');
     console.log('[Email] Subject:', subject);
-    console.log('[Email] MailerSend result:', JSON.stringify(result, null, 2));
   } catch (error: any) {
     console.error('[Email] Failed to send email:', error.message || error);
     if (error.body) {
