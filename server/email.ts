@@ -3,7 +3,8 @@ import { Resend } from 'resend';
 
 const RECIPIENTS = [
   'jjooste@meridiangroup.co.za',
-  'cpillay@meridiangroup.co.za'
+  'cpillay@meridiangroup.co.za',
+  'carin.pillay@gmail.com'
 ];
 
 interface TaskEmailData {
