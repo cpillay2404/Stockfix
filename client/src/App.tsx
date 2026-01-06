@@ -8,7 +8,7 @@ import { SplashScreen } from "@/components/splash-screen";
 import { AccessProvider } from "@/context/AccessContext";
 import NotFound from "@/pages/not-found";
 import ChooseAccess from "@/pages/choose-access";
-import SelectRep from "@/pages/select-rep";
+import SelectRepStore from "@/pages/select-rep-store";
 import SelectClient from "@/pages/select-client";
 import SelectStore from "@/pages/select-store";
 import Home from "@/pages/home";
@@ -23,7 +23,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={ChooseAccess} />
-      <Route path="/select-rep" component={SelectRep} />
+      <Route path="/select-rep" component={SelectRepStore} />
       <Route path="/select-client" component={SelectClient} />
       <Route path="/select-store" component={SelectStore} />
       <Route path="/store-overview" component={StoreOverview} />
