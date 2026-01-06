@@ -155,6 +155,7 @@ export default function Dashboard() {
   const storeFilter = urlParams.get('store') || '';
   const clientFilter = urlParams.get('client') || '';
   const articleFilter = urlParams.get('article') || '';
+  const issueFilter = urlParams.get('issue') || '';
 
   const [filter, setFilter] = useState<"pending" | "completed">("pending");
   const [search, setSearch] = useState("");
@@ -208,8 +209,18 @@ export default function Dashboard() {
       );
     }
     
+    if (issueFilter === 'action') {
+      tasks = tasks.filter(t => t.stockClassification !== 'Optimal');
+    } else if (issueFilter === 'understock') {
+      tasks = tasks.filter(t => 
+        ['Understock', 'OOS', 'Out of Stock'].includes(t.stockClassification || '')
+      );
+    } else if (issueFilter === 'overstock') {
+      tasks = tasks.filter(t => t.stockClassification === 'Overstock');
+    }
+    
     return tasks;
-  }, [allTasks, debouncedSearch]);
+  }, [allTasks, debouncedSearch, issueFilter]);
 
   const groupedTasks = useMemo(() => {
     const groups: Record<string, Task[]> = {};

@@ -112,12 +112,14 @@ interface TileProps {
   testId: string;
   accentColor: string;
   valueColor: string;
+  onClick?: () => void;
 }
 
-function Tile({ label, value, testId, accentColor }: TileProps) {
+function Tile({ label, value, testId, accentColor, onClick }: TileProps) {
   return (
     <div
       data-testid={testId}
+      onClick={onClick}
       style={{
         backgroundColor: '#FFFFFF',
         borderRadius: '8px',
@@ -130,6 +132,7 @@ function Tile({ label, value, testId, accentColor }: TileProps) {
         justifyContent: 'center',
         flex: 1,
         minWidth: 0,
+        cursor: onClick ? 'pointer' : 'default',
       }}
     >
       <span style={{ fontSize: '20px', fontWeight: 800, color: '#003B71', fontFamily: 'monospace', lineHeight: 1 }}>
@@ -321,6 +324,17 @@ export default function StoreOverview() {
     setLocation(`/exit-visit?${params.toString()}`);
   };
 
+  const handleTileClick = (issueFilter: string) => {
+    const taskParams = new URLSearchParams();
+    if (rep) taskParams.set('rep', rep);
+    if (store) taskParams.set('store', store);
+    if (selectedClient && selectedClient !== 'All Clients') {
+      taskParams.set('client', selectedClient);
+    }
+    taskParams.set('issue', issueFilter);
+    setLocation(`/tasks?${taskParams.toString()}`);
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '140px' }}>
       {/* Header Section - Blue */}
@@ -430,6 +444,7 @@ export default function StoreOverview() {
             testId="tile-action-required" 
             accentColor="#F36C21"
             valueColor="#F36C21"
+            onClick={() => handleTileClick('action')}
           />
           <Tile 
             label="Under/OOS" 
@@ -437,6 +452,7 @@ export default function StoreOverview() {
             testId="tile-understock-oos" 
             accentColor="#FBBF24"
             valueColor="#FBBF24"
+            onClick={() => handleTileClick('understock')}
           />
           <Tile 
             label="Overstock" 
@@ -444,6 +460,7 @@ export default function StoreOverview() {
             testId="tile-overstock" 
             accentColor="#60A5FA"
             valueColor="#60A5FA"
+            onClick={() => handleTileClick('overstock')}
           />
         </div>
       </div>
