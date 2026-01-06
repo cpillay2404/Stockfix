@@ -8,6 +8,7 @@ import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin } from "lucide-reac
 import { cn } from "@/lib/utils";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import BottomNav from "@/components/BottomNav";
+import { TopAttentionModal } from "@/components/TopAttentionModal";
 
 interface SearchableSelectProps {
   value: string;
@@ -247,6 +248,7 @@ export default function StoreOverview() {
   
   const [selectedClient, setSelectedClient] = useState(initialClient);
   const [selectedArticle, setSelectedArticle] = useState(initialArticle);
+  const [showAttentionModal, setShowAttentionModal] = useState(false);
 
   useEffect(() => {
     if (!sessionStorage.getItem('visitStartTime')) {
@@ -268,6 +270,25 @@ export default function StoreOverview() {
       }
       const res = await fetch(`/api/store-overview?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch store overview");
+      return res.json();
+    },
+    enabled: !!store,
+  });
+
+  const { data: attentionData } = useQuery({
+    queryKey: ["top-attention-skus", rep, store, selectedClient, selectedArticle],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (rep) params.set('rep', rep);
+      if (store) params.set('store', store);
+      if (selectedClient && selectedClient !== 'All Clients') {
+        params.set('client', selectedClient);
+      }
+      if (selectedArticle && selectedArticle !== 'All Articles') {
+        params.set('article', selectedArticle);
+      }
+      const res = await fetch(`/api/top-attention-skus?${params.toString()}`);
+      if (!res.ok) throw new Error("Failed to fetch top attention SKUs");
       return res.json();
     },
     enabled: !!store,
@@ -434,7 +455,7 @@ export default function StoreOverview() {
         <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" isWFC={true} />
       </div>
 
-      {/* Sticky Footer - VIEW TASKS Button above bottom nav */}
+      {/* Sticky Footer - Buttons above bottom nav */}
       <div style={{
         position: 'fixed',
         bottom: '56px',
@@ -444,7 +465,27 @@ export default function StoreOverview() {
         backgroundColor: '#FFFFFF',
         boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
         zIndex: 50,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '8px',
       }}>
+        <Button
+          onClick={() => setShowAttentionModal(true)}
+          data-testid="button-top-attention"
+          variant="outline"
+          style={{
+            width: '100%',
+            height: '40px',
+            backgroundColor: '#FFFFFF',
+            color: '#003B71',
+            fontSize: '14px',
+            fontWeight: 600,
+            borderRadius: '10px',
+            border: '2px solid #003B71',
+          }}
+        >
+          Top Attention SKUs
+        </Button>
         <Button
           onClick={handleViewTasks}
           data-testid="button-view-tasks"
@@ -462,6 +503,16 @@ export default function StoreOverview() {
           VIEW TASKS ({actionCount})
         </Button>
       </div>
+
+      {/* Top Attention SKUs Modal */}
+      <TopAttentionModal
+        open={showAttentionModal}
+        onOpenChange={setShowAttentionModal}
+        skus={attentionData?.skus || []}
+        rep={rep}
+        store={store}
+        client={selectedClient}
+      />
 
       {/* Bottom Navigation */}
       <BottomNav 

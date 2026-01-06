@@ -1,0 +1,209 @@
+Goal: Add “Top Attention SKUs” functionality to the existing Store Overview page, using sales-weighted saliency, without changing the current UI layout, theme, or existing logic.
+
+0) Non-negotiables (do not break anything)
+
+Do NOT change any existing page layouts, spacing, colours, fonts, headers, buttons, charts, dropdowns, navigation, or components.
+
+Do NOT remove any current filters (Client dropdown, Article dropdown) or existing KPI cards or graphs.
+
+Do NOT rename existing routes, components, API endpoints, database tables, or data import logic.
+
+This change must be additive only: add new UI + new logic in a safe, isolated way.
+
+If anything is unclear, default to not changing and add new code in a separate function/component.
+
+1) Where to add it (UI placement)
+
+On the Store Overview page ONLY:
+
+Add a new secondary button called “Top Attention SKUs”.
+
+Place it directly above the existing orange “VIEW TASKS (x)” button.
+
+Keep styling consistent with the app:
+
+Same width as “VIEW TASKS”
+
+Slightly smaller height
+
+Use outline style (white background, blue border #003B71, blue text #003B71)
+
+No layout shift: the page can scroll normally if needed but do not redesign anything.
+
+When clicked:
+
+Open a bottom sheet / modal (preferred) or a dedicated page if modal is not available.
+
+The modal title: “Top Attention SKUs”.
+
+Show a list of up to 5 SKU cards (compact).
+
+Each card must show:
+
+Action label (full action text, not abbreviated)
+
+Article description
+
+Barcode
+
+Client
+
+Store SOH
+
+Sell Out (P4 weeks) (label exactly like that)
+
+WFC (1 decimal)
+
+Each card must have a primary action: “Open Task” that navigates to the existing Task Feedback flow for that SKU (do not create a new feedback flow).
+
+2) Data assumptions (use existing dataset)
+
+Use existing task dataset fields (use the exact fields already in the app if available):
+
+store identifier (cleaned store name / store)
+
+rep name
+
+client
+
+barcode
+
+article description
+
+week ending
+
+Store SOH
+
+Sell out p4 weeks
+
+WFC
+
+Action Column (full action instruction)
+
+Stock Classification (This Week) if needed
+
+No new files. No new DB tables required unless absolutely necessary. If you must store computed values, compute in-memory per request.
+
+3) Saliency logic (sales-weighted)
+
+We need a computed field: attentionScore per SKU for the selected Store (and selected Client if client filter is applied).
+
+3.1 Scope (what rows to use)
+
+Use the current Store selection context already used on Store Overview.
+
+Use current week ending (same week the tasks page uses).
+
+For sales weighting, use Sell Out (P4 weeks) from the current week row (or latest available week for that barcode in that store).
+
+3.2 Action priority weights (baseScore)
+
+Use Action Column text to classify into these buckets:
+
+Highest to lowest base priority:
+
+Fix Counts: Negative SOH → baseScore 100
+
+Urgent: DC OOS → baseScore 90
+
+Urgent: Place Order - DC has stock → baseScore 85
+
+OOS – Stock on Order → baseScore 80
+
+Review: Risk of OOS → baseScore 70
+
+Check Count: No Sales in 30 Days → baseScore 50
+
+Monitor: Possible Overstock → baseScore 40
+
+Optimal → baseScore 10 (keep eligible but will rarely rank)
+
+Match by startsWith / includes string matching on Action Column.
+
+3.3 Sales impact modifier (salesScore)
+
+Compute salesScore using Sell out p4 weeks for the store:
+
+Calculate the store median of Sell out p4 weeks across all SKUs for the current week.
+
+Calculate store 75th percentile (top 25%) for the current week.
+
+SalesScore rules:
+
+If Sell out p4 weeks >= 75th percentile → +30
+
+Else if Sell out p4 weeks > median → +15
+
+Else → +0
+
+3.4 Stock risk modifier (riskScore)
+
+If Store SOH == 0 → +20
+
+If Store SOH < 0 → +25 (negative is extremely important)
+
+If WFC <= 1 → +15
+
+If WFC between 1 and 2 → +8
+
+Else → +0
+
+3.5 Final score and selection
+
+attentionScore = baseScore + salesScore + riskScore
+
+Then:
+
+Filter to SKUs in the current Store & current week
+
+Sort descending by attentionScore
+
+Return top 5 unique barcodes
+
+IMPORTANT: if multiple rows exist for the same barcode across weeks, use latest week only (current week).
+
+4) Respect client filter + article filter
+
+If Store Overview client dropdown is set to a specific client (not “All Clients”), Top Attention SKUs must only use that client’s rows.
+
+If Article dropdown is set to a specific article, Top Attention SKUs must only show that SKU (still compute its score but list will be 1 item).
+
+Do not modify existing dropdown behaviour.
+
+5) Don’t change tasks page; link into it
+
+When user clicks “Open Task” on a Top Attention item:
+
+Navigate to the existing Tasks list (or Task Feedback) using the app’s existing navigation.
+
+Prefilter/select that SKU automatically (store + barcode + client) so the rep lands on the correct task.
+
+6) No UI clutter
+
+Do not add new charts.
+
+Do not add new KPI tiles.
+
+Do not change existing charts.
+Only add the one new button and the modal list.
+
+7) Edge cases
+
+If fewer than 5 tasks exist, show whatever is available.
+
+If Sell out p4 weeks is missing/null, treat as 0.
+
+If WFC is missing/null, treat as large (e.g., 999) so it doesn’t inflate urgency.
+
+If no tasks found, show empty state: “No attention SKUs for this selection.”
+
+8) Implementation instruction
+
+Implement this in a new isolated function + component:
+
+computeTopAttentionSkus(rows, filters) => topSkus
+
+TopAttentionModal component
+Wire it into Store Overview page with minimal edits.
+
+Return the final code changes required.

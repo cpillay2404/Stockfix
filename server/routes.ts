@@ -194,6 +194,127 @@ export async function registerRoutes(
     }
   });
 
+  // GET top attention SKUs for store overview
+  app.get("/api/top-attention-skus", async (req, res) => {
+    try {
+      const store = req.query.store as string;
+      const rep = req.query.rep as string | undefined;
+      const client = req.query.client as string | undefined;
+      const article = req.query.article as string | undefined;
+      
+      if (!store) {
+        return res.status(400).json({ error: "Store is required" });
+      }
+      
+      const allTasks = await storage.getAllTasks();
+      
+      // Filter by store (and optionally by rep if provided)
+      let scopedTasks = allTasks.filter(t => t.storeName === store);
+      if (rep) {
+        scopedTasks = scopedTasks.filter(t => t.repName === rep);
+      }
+      
+      // Get latest week ending
+      const weekEndings = [...new Set(scopedTasks.map(t => t.weekEndingDate).filter(Boolean))].sort().reverse();
+      const latestWeekEnding = weekEndings[0] || null;
+      
+      if (!latestWeekEnding) {
+        return res.json({ skus: [] });
+      }
+      
+      // Filter to latest week only
+      let latestWeekTasks = scopedTasks.filter(t => t.weekEndingDate === latestWeekEnding);
+      
+      // Apply client filter if provided
+      if (client && client !== 'All Clients') {
+        latestWeekTasks = latestWeekTasks.filter(t => t.client === client);
+      }
+      
+      // Apply article filter if provided
+      if (article && article !== 'All Articles') {
+        latestWeekTasks = latestWeekTasks.filter(t => t.articleDescription === article);
+      }
+      
+      if (latestWeekTasks.length === 0) {
+        return res.json({ skus: [] });
+      }
+      
+      // Calculate sales statistics for the store
+      const sellOutValues = latestWeekTasks
+        .map(t => parseFloat(t.p4WeekSales) || 0)
+        .filter(v => !isNaN(v))
+        .sort((a, b) => a - b);
+      
+      const median = sellOutValues.length > 0 
+        ? sellOutValues[Math.floor(sellOutValues.length / 2)] 
+        : 0;
+      const p75Index = Math.floor(sellOutValues.length * 0.75);
+      const p75 = sellOutValues.length > 0 ? sellOutValues[p75Index] : 0;
+      
+      // Compute attention score for each task
+      const scoredTasks = latestWeekTasks.map(task => {
+        const actionText = task.action || '';
+        
+        // Base score from action priority
+        let baseScore = 10; // Default for Optimal
+        if (actionText.includes('Fix Counts: Negative SOH')) baseScore = 100;
+        else if (actionText.includes('Urgent: DC OOS')) baseScore = 90;
+        else if (actionText.includes('Urgent: Place Order')) baseScore = 85;
+        else if (actionText.includes('OOS – Stock on Order') || actionText.includes('OOS - Stock on Order')) baseScore = 80;
+        else if (actionText.includes('Review: Risk of OOS')) baseScore = 70;
+        else if (actionText.includes('Check Count: No Sales')) baseScore = 50;
+        else if (actionText.includes('Monitor: Possible Overstock')) baseScore = 40;
+        
+        // Sales score
+        const sellOut = parseFloat(task.p4WeekSales) || 0;
+        let salesScore = 0;
+        if (sellOut >= p75) salesScore = 30;
+        else if (sellOut > median) salesScore = 15;
+        
+        // Risk score
+        const soh = parseFloat(task.storeSoh) || 0;
+        const wfc = task.storeWfc ? parseFloat(task.storeWfc) : 999;
+        let riskScore = 0;
+        if (soh < 0) riskScore += 25;
+        else if (soh === 0) riskScore += 20;
+        if (wfc <= 1) riskScore += 15;
+        else if (wfc <= 2) riskScore += 8;
+        
+        const attentionScore = baseScore + salesScore + riskScore;
+        
+        return {
+          uniqueId: task.uniqueId,
+          action: task.action,
+          articleDescription: task.articleDescription,
+          barcode: task.barcode,
+          client: task.client,
+          storeSoh: task.storeSoh,
+          p4WeekSales: task.p4WeekSales,
+          storeWfc: task.storeWfc,
+          attentionScore,
+        };
+      });
+      
+      // Sort by attention score descending and get unique barcodes (top 5)
+      scoredTasks.sort((a, b) => b.attentionScore - a.attentionScore);
+      
+      const seenBarcodes = new Set<string>();
+      const topSkus = [];
+      for (const task of scoredTasks) {
+        if (!seenBarcodes.has(task.barcode)) {
+          seenBarcodes.add(task.barcode);
+          topSkus.push(task);
+          if (topSkus.length >= 5) break;
+        }
+      }
+      
+      res.json({ skus: topSkus });
+    } catch (error) {
+      console.error("Error fetching top attention SKUs:", error);
+      res.status(500).json({ error: "Failed to fetch top attention SKUs" });
+    }
+  });
+
   // GET stores for a specific client
   app.get("/api/clients/:clientName/stores", async (req, res) => {
     try {
