@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin } from "lucide-react";
+import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import BottomNav from "@/components/BottomNav";
@@ -385,7 +385,7 @@ export default function StoreOverview() {
           flexDirection: 'column',
           alignItems: 'center', 
           gap: '3px',
-          marginBottom: '12px',
+          marginBottom: '8px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <User style={{ width: '14px', height: '14px', color: 'rgba(255,255,255,0.7)' }} />
@@ -400,6 +400,31 @@ export default function StoreOverview() {
             </span>
           </div>
         </div>
+
+        {/* Critical SKUs Button */}
+        <button
+          onClick={() => setShowAttentionModal(true)}
+          data-testid="button-critical-skus"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            width: '100%',
+            padding: '8px 12px',
+            marginBottom: '12px',
+            backgroundColor: '#DC2626',
+            borderRadius: '8px',
+            border: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          <AlertTriangle style={{ width: '16px', height: '16px', color: '#FFFFFF' }} />
+          <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>
+            Critical SKUs
+          </span>
+          <AlertTriangle style={{ width: '16px', height: '16px', color: '#FFFFFF' }} />
+        </button>
 
         {/* Filters Row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
@@ -486,23 +511,6 @@ export default function StoreOverview() {
         flexDirection: 'column',
         gap: '8px',
       }}>
-        <Button
-          onClick={() => setShowAttentionModal(true)}
-          data-testid="button-top-attention"
-          variant="outline"
-          style={{
-            width: '100%',
-            height: '40px',
-            backgroundColor: '#FFFFFF',
-            color: '#003B71',
-            fontSize: '14px',
-            fontWeight: 600,
-            borderRadius: '10px',
-            border: '2px solid #003B71',
-          }}
-        >
-          Top Attention SKUs
-        </Button>
         <Button
           onClick={handleViewTasks}
           data-testid="button-view-tasks"

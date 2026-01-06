@@ -45,14 +45,14 @@ export function TopAttentionModal({ open, onOpenChange, skus, rep, store, client
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent style={{ maxWidth: '420px', maxHeight: '80vh', overflow: 'auto' }}>
         <DialogHeader>
-          <DialogTitle style={{ color: '#003B71', fontSize: '18px', fontWeight: 700 }}>
-            Top Attention SKUs
+          <DialogTitle style={{ color: '#DC2626', fontSize: '18px', fontWeight: 700 }}>
+            Critical SKUs
           </DialogTitle>
         </DialogHeader>
         
         {skus.length === 0 ? (
           <div style={{ padding: '20px', textAlign: 'center', color: '#6B7280' }}>
-            No attention SKUs for this selection.
+            No critical SKUs for this selection.
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
