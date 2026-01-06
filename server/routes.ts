@@ -798,6 +798,11 @@ export async function registerRoutes(
       
       if (isTaskCompletion && updated) {
         console.log('[Task Update] Triggering email notification...');
+        // Build base URL from request
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+        const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+        const baseUrl = `${protocol}://${host}`;
+        
         // Fire and forget - don't block the response
         sendTaskCompletedEmail({
           repName: updated.repName,
@@ -825,6 +830,7 @@ export async function registerRoutes(
           captureDate: updated.captureDate,
           image1: updated.image1,
           image2: updated.image2,
+          baseUrl: baseUrl,
         }).catch(err => {
           console.error('[Email] Error in fire-and-forget email:', err);
         });

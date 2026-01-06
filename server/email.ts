@@ -33,6 +33,14 @@ interface TaskEmailData {
   captureDate?: string | null;
   image1?: string | null;
   image2?: string | null;
+  baseUrl?: string;
+}
+
+function formatImageUrl(imagePath: string | null | undefined, baseUrl: string | undefined): string {
+  if (!imagePath) return 'N/A';
+  if (imagePath.startsWith('http')) return imagePath;
+  const base = baseUrl || 'https://stockfix.replit.app';
+  return `${base}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
 }
 
 function safeString(value: any): string {
@@ -127,8 +135,8 @@ Capture Date: ${safeString(task.captureDate)}
 
 Images
 ------
-Image 1: ${task.image1 ? `Attached - ${task.image1}` : 'N/A'}
-Image 2: ${task.image2 ? `Attached - ${task.image2}` : 'N/A'}
+Image 1: ${task.image1 ? formatImageUrl(task.image1, task.baseUrl) : 'N/A'}
+Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
 `.trim();
 
   try {
