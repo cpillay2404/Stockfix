@@ -421,7 +421,7 @@ export default function StoreOverview() {
           >
             <AlertTriangle style={{ width: '14px', height: '14px', color: '#FFFFFF' }} />
             <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>
-              View 5 Critical SKUs
+              View Critical SKUs
             </span>
             <ChevronRight style={{ width: '14px', height: '14px', color: '#FFFFFF' }} />
           </button>
