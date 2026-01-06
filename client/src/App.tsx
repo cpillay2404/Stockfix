@@ -9,8 +9,7 @@ import { AccessProvider } from "@/context/AccessContext";
 import NotFound from "@/pages/not-found";
 import ChooseAccess from "@/pages/choose-access";
 import SelectRepStore from "@/pages/select-rep-store";
-import SelectClient from "@/pages/select-client";
-import SelectStore from "@/pages/select-store";
+import SelectClientStore from "@/pages/select-client-store";
 import Home from "@/pages/home";
 import TaskList from "@/pages/dashboard";
 import TaskDetail from "@/pages/task-detail";
@@ -24,8 +23,7 @@ function Router() {
     <Switch>
       <Route path="/" component={ChooseAccess} />
       <Route path="/select-rep" component={SelectRepStore} />
-      <Route path="/select-client" component={SelectClient} />
-      <Route path="/select-store" component={SelectStore} />
+      <Route path="/select-client" component={SelectClientStore} />
       <Route path="/store-overview" component={StoreOverview} />
       <Route path="/dashboard" component={Home} />
       <Route path="/tasks" component={TaskList} />
