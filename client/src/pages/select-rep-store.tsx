@@ -116,7 +116,7 @@ export default function SelectRepStore() {
     enabled: !!repValue,
   });
 
-  const reps = stats?.reps || [];
+  const reps = stats?.filters?.reps || [];
   const stores = storesData?.stores || [];
 
   const handleRepChange = (newRep: string) => {
