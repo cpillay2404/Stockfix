@@ -4,9 +4,11 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, CheckCircle2, Clock, Camera, AlertCircle, Store, Wrench } from "lucide-react";
 import { Task } from "@shared/schema";
 import { fetchTasks } from "@/lib/api";
+import { useAccess } from "@/context/AccessContext";
 
 export default function ExitVisit() {
   const [, setLocation] = useLocation();
+  const { clearAll } = useAccess();
   const searchString = useSearch();
   const urlParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
   
@@ -100,7 +102,7 @@ export default function ExitVisit() {
   const handleCloseVisit = () => {
     setIsSyncing(true);
     setTimeout(() => {
-      sessionStorage.removeItem('visitStartTime');
+      clearAll();
       setLocation('/');
     }, 2500);
   };

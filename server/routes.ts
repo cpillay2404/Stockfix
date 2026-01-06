@@ -194,6 +194,33 @@ export async function registerRoutes(
     }
   });
 
+  // GET stores for a specific client
+  app.get("/api/clients/:clientName/stores", async (req, res) => {
+    try {
+      const clientName = decodeURIComponent(req.params.clientName);
+      const includeAll = req.query.includeAll === 'true';
+      
+      let allTasks = await storage.getAllTasks();
+      
+      // Filter to latest week ending date unless includeAll is true
+      if (!includeAll) {
+        const latestWeek = await storage.getLatestWeekEndingDate();
+        if (latestWeek) {
+          allTasks = allTasks.filter(t => t.weekEndingDate === latestWeek);
+        }
+      }
+      
+      // Get unique stores for this client
+      const clientTasks = allTasks.filter(t => t.client === clientName);
+      const stores = [...new Set(clientTasks.map(t => t.storeName).filter(Boolean))].sort();
+      
+      res.json({ stores });
+    } catch (error) {
+      console.error("Error fetching client stores:", error);
+      res.status(500).json({ error: "Failed to fetch client stores" });
+    }
+  });
+
   // GET store overview (scoped to rep+store for Store Overview page)
   app.get("/api/store-overview", async (req, res) => {
     try {

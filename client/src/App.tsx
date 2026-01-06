@@ -5,8 +5,12 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SplashScreen } from "@/components/splash-screen";
+import { AccessProvider } from "@/context/AccessContext";
 import NotFound from "@/pages/not-found";
-import Landing from "@/pages/landing";
+import ChooseAccess from "@/pages/choose-access";
+import SelectRep from "@/pages/select-rep";
+import SelectClient from "@/pages/select-client";
+import SelectStore from "@/pages/select-store";
 import Home from "@/pages/home";
 import TaskList from "@/pages/dashboard";
 import TaskDetail from "@/pages/task-detail";
@@ -18,7 +22,10 @@ import ExitVisit from "@/pages/exit-visit";
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Landing} />
+      <Route path="/" component={ChooseAccess} />
+      <Route path="/select-rep" component={SelectRep} />
+      <Route path="/select-client" component={SelectClient} />
+      <Route path="/select-store" component={SelectStore} />
       <Route path="/store-overview" component={StoreOverview} />
       <Route path="/dashboard" component={Home} />
       <Route path="/tasks" component={TaskList} />
@@ -37,9 +44,11 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} minDisplayTime={5000} />}
-        <Toaster />
-        <Router />
+        <AccessProvider>
+          {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} minDisplayTime={5000} />}
+          <Toaster />
+          <Router />
+        </AccessProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
