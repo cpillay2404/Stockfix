@@ -257,7 +257,9 @@ export default function StoreOverview() {
   const { data } = useQuery({
     queryKey: ["store-overview", rep, store, selectedClient, selectedArticle],
     queryFn: async () => {
-      const params = new URLSearchParams({ rep, store });
+      const params = new URLSearchParams();
+      if (rep) params.set('rep', rep);
+      if (store) params.set('store', store);
       if (selectedClient && selectedClient !== 'All Clients') {
         params.set('client', selectedClient);
       }
@@ -268,7 +270,7 @@ export default function StoreOverview() {
       if (!res.ok) throw new Error("Failed to fetch store overview");
       return res.json();
     },
-    enabled: !!rep && !!store,
+    enabled: !!store,
   });
 
   const handleViewTasks = () => {
