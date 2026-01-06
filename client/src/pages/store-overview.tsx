@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin, AlertTriangle } from "lucide-react";
+import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin, AlertTriangle, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import BottomNav from "@/components/BottomNav";
@@ -401,29 +401,29 @@ export default function StoreOverview() {
           </div>
         </div>
 
-        {/* Critical SKUs Button */}
+        {/* Critical SKUs Button - Compact pill style */}
         <button
           onClick={() => setShowAttentionModal(true)}
           data-testid="button-critical-skus"
           style={{
-            display: 'flex',
+            display: 'inline-flex',
             alignItems: 'center',
             justifyContent: 'center',
             gap: '6px',
-            width: '100%',
-            padding: '8px 12px',
+            padding: '6px 14px',
             marginBottom: '12px',
             backgroundColor: '#DC2626',
-            borderRadius: '8px',
-            border: 'none',
+            borderRadius: '20px',
+            border: '2px solid #FFFFFF',
             cursor: 'pointer',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
           }}
         >
-          <AlertTriangle style={{ width: '16px', height: '16px', color: '#FFFFFF' }} />
-          <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>
-            Critical SKUs
+          <AlertTriangle style={{ width: '14px', height: '14px', color: '#FFFFFF' }} />
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>
+            View 5 Critical SKUs
           </span>
-          <AlertTriangle style={{ width: '16px', height: '16px', color: '#FFFFFF' }} />
+          <ChevronRight style={{ width: '14px', height: '14px', color: '#FFFFFF' }} />
         </button>
 
         {/* Filters Row */}
