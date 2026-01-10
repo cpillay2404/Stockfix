@@ -88,7 +88,7 @@ function getMailerSendClient() {
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const fromEmail = 'stockfix@test-p7kx4xwq8p8g9yjr.mlsender.net';
+  const fromEmail = process.env.FROM_EMAIL || 'notifications@stockfixapp.online';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
 
   const subject = `StockFix | ${safeString(task.client)} | ${safeString(task.storeName)} | ${safeString(task.actionColumn)}`;
