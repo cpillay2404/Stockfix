@@ -43,6 +43,16 @@ export async function registerRoutes(
   // Register object storage routes for persistent file uploads
   registerObjectStorageRoutes(app);
   
+  // Serve legacy images from public/images directory (backward compatibility)
+  app.get('/images/:filename', (req, res) => {
+    const filePath = path.join(process.cwd(), 'public', 'images', req.params.filename);
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).json({ error: 'Image not found' });
+    }
+  });
+  
   // GET dashboard stats
   app.get("/api/dashboard/stats", async (req, res) => {
     try {
