@@ -19,7 +19,7 @@ export default function ImportData() {
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleExport = (type: 'all' | 'rep' | 'manager') => {
+  const handleExport = async (type: 'all' | 'rep' | 'manager') => {
     setIsExporting(type);
     
     const config = {
@@ -30,19 +30,39 @@ export default function ImportData() {
     
     toast({
       title: `${config[type].title} Started`,
-      description: "Your download will begin shortly.",
+      description: "Preparing your download...",
     });
     
-    const link = document.createElement('a');
-    link.href = config[type].url;
-    link.download = config[type].filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    setTimeout(() => {
+    try {
+      const response = await fetch(config[type].url);
+      if (!response.ok) {
+        throw new Error('Export failed');
+      }
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = config[type].filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      
+      toast({
+        title: "Export Complete",
+        description: `${config[type].filename} downloaded successfully.`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "There was an error exporting the data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
       setIsExporting(null);
-    }, 3000);
+    }
   };
 
   const importMutation = useMutation({
