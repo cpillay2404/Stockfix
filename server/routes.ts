@@ -10,6 +10,7 @@ import path from "path";
 import fs from "fs";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendTaskCompletedEmail } from "./email";
+import { calculateRepGamificationStats, getLeaderboard, getTeamStats } from "./gamification";
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -1439,6 +1440,34 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching managers:", error);
       res.status(500).json({ error: "Failed to fetch managers" });
+    }
+  });
+
+  // GET Gamification Leaderboard
+  app.get("/api/gamification/leaderboard", async (req, res) => {
+    try {
+      const manager = req.query.manager as string | undefined;
+      const limit = parseInt(req.query.limit as string) || 10;
+      
+      const allTasks = await storage.getAllTasks();
+      let filteredTasks = allTasks;
+      
+      if (manager) {
+        filteredTasks = allTasks.filter(t => t.lineManager === manager);
+      }
+      
+      const allStats = calculateRepGamificationStats(filteredTasks);
+      const leaderboard = getLeaderboard(allStats, limit);
+      const teamStats = getTeamStats(allStats);
+      
+      res.json({
+        leaderboard,
+        teamStats,
+        totalReps: allStats.length,
+      });
+    } catch (error) {
+      console.error("Error fetching leaderboard:", error);
+      res.status(500).json({ error: "Failed to fetch leaderboard" });
     }
   });
 
