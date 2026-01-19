@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronDown, Wrench } from "lucide-react";
+import { ArrowLeft, Check, ChevronDown, Wrench, TrendingUp, Store } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -89,6 +89,7 @@ export default function SelectRepStore() {
   const { accessMode, setAccessMode, setSelectedRep, setSelectedStore: setContextStore } = useAccess();
   const [repValue, setRepValue] = useState("");
   const [storeValue, setStoreValue] = useState("");
+  const [showStoreSelection, setShowStoreSelection] = useState(false);
 
   useEffect(() => {
     if (accessMode !== "rep") {
@@ -122,10 +123,26 @@ export default function SelectRepStore() {
   const handleRepChange = (newRep: string) => {
     setRepValue(newRep);
     setStoreValue("");
+    setShowStoreSelection(false);
   };
 
   const handleBack = () => {
-    setLocation("/");
+    if (showStoreSelection) {
+      setShowStoreSelection(false);
+    } else {
+      setLocation("/");
+    }
+  };
+
+  const handleMyDashboard = () => {
+    if (repValue) {
+      setSelectedRep(repValue);
+      setLocation(`/rep-progress?rep=${encodeURIComponent(repValue)}`);
+    }
+  };
+
+  const handleProceedToStoreVisit = () => {
+    setShowStoreSelection(true);
   };
 
   const handleStartVisit = () => {
@@ -165,7 +182,7 @@ export default function SelectRepStore() {
           </span>
         </div>
         <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginTop: '6px' }}>
-          Rep Visit Setup
+          {showStoreSelection ? 'Select Store' : 'Rep Login'}
         </p>
       </div>
 
@@ -199,61 +216,135 @@ export default function SelectRepStore() {
           Back
         </button>
 
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
-            Select Your Name <span style={{ color: '#F36C21' }}>*</span>
-          </label>
-          <SearchableSelect
-            value={repValue}
-            onValueChange={handleRepChange}
-            options={reps}
-            placeholder="Select Rep"
-            testId="select-rep"
-          />
-        </div>
+        {!showStoreSelection ? (
+          <>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
+                Select Your Name <span style={{ color: '#F36C21' }}>*</span>
+              </label>
+              <SearchableSelect
+                value={repValue}
+                onValueChange={handleRepChange}
+                options={reps}
+                placeholder="Select Rep"
+                testId="select-rep"
+              />
+            </div>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
-            Select Store <span style={{ color: '#F36C21' }}>*</span>
-          </label>
-          <SearchableSelect
-            value={storeValue}
-            onValueChange={setStoreValue}
-            options={stores}
-            placeholder={repValue ? "Select Store" : "Select rep first"}
-            testId="select-store"
-            disabled={!repValue}
-          />
-          {repValue && stores.length === 0 && !storesLoading && (
-            <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
-              No stores found for this rep
-            </p>
-          )}
-          {storesLoading && (
-            <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
-              Loading stores...
-            </p>
-          )}
-        </div>
+            {repValue && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                <button
+                  onClick={handleProceedToStoreVisit}
+                  data-testid="button-store-visit"
+                  style={{
+                    width: '100%',
+                    padding: '18px',
+                    backgroundColor: '#F36C21',
+                    color: '#FFFFFF',
+                    borderRadius: '10px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E05A10'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F36C21'}
+                >
+                  <Store style={{ width: '20px', height: '20px' }} />
+                  Proceed to Store Visit
+                </button>
 
-        <button
-          onClick={handleStartVisit}
-          disabled={!canStart}
-          data-testid="button-start-visit"
-          style={{
-            width: '100%',
-            height: '48px',
-            backgroundColor: canStart ? '#F36C21' : '#D1D5DB',
-            color: '#FFFFFF',
-            fontSize: '16px',
-            fontWeight: 600,
-            borderRadius: '10px',
-            border: 'none',
-            cursor: canStart ? 'pointer' : 'not-allowed',
-          }}
-        >
-          START VISIT
-        </button>
+                <button
+                  onClick={handleMyDashboard}
+                  data-testid="button-my-dashboard"
+                  style={{
+                    width: '100%',
+                    padding: '18px',
+                    backgroundColor: '#003B71',
+                    color: '#FFFFFF',
+                    borderRadius: '10px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '10px',
+                    fontSize: '16px',
+                    fontWeight: 600,
+                    transition: 'background-color 0.2s',
+                  }}
+                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#002F5A'}
+                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#003B71'}
+                >
+                  <TrendingUp style={{ width: '20px', height: '20px' }} />
+                  My Dashboard
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            <div style={{ 
+              backgroundColor: '#F0F4F8', 
+              padding: '12px 16px', 
+              borderRadius: '8px', 
+              marginBottom: '16px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <span style={{ fontSize: '14px', color: '#6B7280' }}>Logged in as:</span>
+              <span style={{ fontSize: '14px', fontWeight: 600, color: '#003B71' }}>{repValue}</span>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
+                Select Store <span style={{ color: '#F36C21' }}>*</span>
+              </label>
+              <SearchableSelect
+                value={storeValue}
+                onValueChange={setStoreValue}
+                options={stores}
+                placeholder="Select Store"
+                testId="select-store"
+              />
+              {stores.length === 0 && !storesLoading && (
+                <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
+                  No stores found for this rep
+                </p>
+              )}
+              {storesLoading && (
+                <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
+                  Loading stores...
+                </p>
+              )}
+            </div>
+
+            <button
+              onClick={handleStartVisit}
+              disabled={!canStart}
+              data-testid="button-start-visit"
+              style={{
+                width: '100%',
+                height: '48px',
+                backgroundColor: canStart ? '#F36C21' : '#D1D5DB',
+                color: '#FFFFFF',
+                fontSize: '16px',
+                fontWeight: 600,
+                borderRadius: '10px',
+                border: 'none',
+                cursor: canStart ? 'pointer' : 'not-allowed',
+              }}
+            >
+              START VISIT
+            </button>
+          </>
+        )}
       </div>
 
       <div style={{ flex: 1 }} />

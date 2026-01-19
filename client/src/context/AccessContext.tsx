@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 
-export type AccessMode = "rep" | "client" | null;
+export type AccessMode = "rep" | "client" | "manager" | null;
 
 interface AccessContextType {
   accessMode: AccessMode;

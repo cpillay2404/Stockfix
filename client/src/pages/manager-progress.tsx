@@ -193,7 +193,7 @@ export default function ManagerProgress() {
   };
 
   const handleRepClick = (repName: string) => {
-    setLocation(`/rep-progress?rep=${encodeURIComponent(repName)}`);
+    setLocation(`/rep-progress?rep=${encodeURIComponent(repName)}&from=manager`);
   };
 
   const repsAtRisk = data?.riskAttention?.repsAtRisk || [];

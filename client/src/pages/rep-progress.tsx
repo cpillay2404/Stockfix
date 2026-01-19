@@ -122,6 +122,8 @@ export default function RepProgress() {
   const params = new URLSearchParams(searchString);
   
   const repName = params.get('rep') || '';
+  const storeParam = params.get('store') || '';
+  const fromManager = params.get('from') === 'manager';
   const [activeTab, setActiveTab] = useState<'open' | 'completed'>('open');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStore, setSelectedStore] = useState('');
@@ -142,7 +144,13 @@ export default function RepProgress() {
   });
 
   const handleBack = () => {
-    setLocation('/store-overview' + searchString);
+    if (fromManager) {
+      setLocation('/manager-progress');
+    } else if (storeParam) {
+      setLocation('/store-overview' + searchString);
+    } else {
+      setLocation('/select-rep');
+    }
   };
 
   const filteredTasks = (activeTab === 'open' ? data?.tasks?.open : data?.tasks?.completed) || [];

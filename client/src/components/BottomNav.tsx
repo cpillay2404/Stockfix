@@ -2,13 +2,13 @@ import { useLocation } from "wouter";
 import { LayoutDashboard, ClipboardList, MessageSquare, LogOut } from "lucide-react";
 
 interface BottomNavProps {
-  rep: string;
-  store: string;
+  rep?: string;
+  store?: string;
   client?: string;
   activeTaskId?: string | null;
 }
 
-export default function BottomNav({ rep, store, client, activeTaskId }: BottomNavProps) {
+export default function BottomNav({ rep = '', store = '', client, activeTaskId }: BottomNavProps) {
   const [location, setLocation] = useLocation();
 
   const buildUrl = (path: string) => {
