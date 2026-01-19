@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, TrendingUp, Clock, CheckCircle, AlertCircle, Search } from "lucide-react";
-import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList, BarChart, Cell } from "recharts";
+import { Bar, XAxis, YAxis, ResponsiveContainer, LabelList, BarChart, Cell, PieChart, Pie } from "recharts";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -161,15 +161,6 @@ export default function RepProgress() {
     task.client.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const formatWeekLabel = (week: string) => {
-    if (!week || week === 'Unknown') return 'N/A';
-    const parts = week.split('-');
-    if (parts.length >= 2) {
-      return `${parts[1]}/${parts[2] || ''}`;
-    }
-    return week;
-  };
-
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -241,43 +232,55 @@ export default function RepProgress() {
       </div>
 
       <div style={{ padding: '16px' }}>
-        {data?.charts?.tasksOverTime?.length > 0 && (
-          <div style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: '8px',
-            padding: '12px',
-            marginBottom: '16px',
-          }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '8px' }}>
-              Tasks by Week
-            </h3>
-            <div style={{ height: '120px' }}>
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '8px',
+          padding: '12px',
+          marginBottom: '16px',
+        }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
+            Task Status Breakdown
+          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '120px', height: '120px' }}>
               <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={data.charts.tasksOverTime} margin={{ top: 20, right: 10, left: -15, bottom: 5 }}>
-                  <XAxis 
-                    dataKey="week" 
-                    tick={{ fontSize: 10, fill: '#6B7280' }}
-                    tickFormatter={formatWeekLabel}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 9, fill: '#6B7280' }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={35}
-                  />
-                  <Bar dataKey="open" fill="#F36C21" radius={[4, 4, 0, 0]} name="Open">
-                    <LabelList dataKey="open" position="top" fill="#F36C21" fontSize={9} fontWeight={600} />
-                  </Bar>
-                  <Bar dataKey="completed" fill="#10B981" radius={[4, 4, 0, 0]} name="Completed">
-                    <LabelList dataKey="completed" position="top" fill="#10B981" fontSize={9} fontWeight={600} />
-                  </Bar>
-                </ComposedChart>
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Open', value: data?.kpis?.openCount || 0, fill: '#F36C21' },
+                      { name: 'Completed', value: data?.kpis?.completedCount || 0, fill: '#10B981' },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={30}
+                    outerRadius={50}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    <Cell fill="#F36C21" />
+                    <Cell fill="#10B981" />
+                  </Pie>
+                </PieChart>
               </ResponsiveContainer>
             </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ width: '12px', height: '12px', backgroundColor: '#F36C21', borderRadius: '2px' }} />
+                <span style={{ fontSize: '14px', color: '#374151' }}>Open</span>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: '#F36C21', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                  {data?.kpis?.openCount || 0}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '2px' }} />
+                <span style={{ fontSize: '14px', color: '#374151' }}>Completed</span>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: '#10B981', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                  {data?.kpis?.completedCount || 0}
+                </span>
+              </div>
+            </div>
           </div>
-        )}
+        </div>
 
         {data?.charts?.openByStore?.length > 0 && (
           <div style={{

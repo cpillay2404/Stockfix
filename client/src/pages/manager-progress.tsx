@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, TrendingUp, Clock, CheckCircle, AlertCircle, AlertTriangle, Users, Store } from "lucide-react";
+import { ArrowLeft, TrendingUp, Clock, CheckCircle, AlertCircle, AlertTriangle, Users, Store, Trophy } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import BottomNav from "@/components/BottomNav";
 
 interface KpiTileProps {
@@ -199,6 +200,17 @@ export default function ManagerProgress() {
   const repsAtRisk = data?.riskAttention?.repsAtRisk || [];
   const storesAtRisk = data?.riskAttention?.storesAtRisk || [];
 
+  const repLeaderboard = data?.repLeaderboard || [];
+  const topPerformer = repLeaderboard.length > 0 
+    ? [...repLeaderboard].sort((a: any, b: any) => b.completionRate - a.completionRate)[0] 
+    : null;
+  const mostOpenRep = repLeaderboard.length > 0 
+    ? [...repLeaderboard].sort((a: any, b: any) => b.open - a.open)[0] 
+    : null;
+  const teamAvgRate = repLeaderboard.length > 0 
+    ? Math.round(repLeaderboard.reduce((sum: number, r: any) => sum + r.completionRate, 0) / repLeaderboard.length) 
+    : 0;
+
   return (
     <div style={{ 
       minHeight: '100vh', 
@@ -270,6 +282,130 @@ export default function ManagerProgress() {
       </div>
 
       <div style={{ padding: '16px' }}>
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '8px',
+          padding: '12px',
+          marginBottom: '16px',
+        }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
+            Team Task Status
+          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '120px', height: '120px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Open', value: data?.kpis?.totalOpen || 0, fill: '#F36C21' },
+                      { name: 'Completed', value: data?.kpis?.totalCompleted || 0, fill: '#10B981' },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={30}
+                    outerRadius={50}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    <Cell fill="#F36C21" />
+                    <Cell fill="#10B981" />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ width: '12px', height: '12px', backgroundColor: '#F36C21', borderRadius: '2px' }} />
+                <span style={{ fontSize: '14px', color: '#374151' }}>Open</span>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: '#F36C21', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                  {data?.kpis?.totalOpen?.toLocaleString() || 0}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '2px' }} />
+                <span style={{ fontSize: '14px', color: '#374151' }}>Completed</span>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: '#10B981', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                  {data?.kpis?.totalCompleted?.toLocaleString() || 0}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {(data?.repLeaderboard?.length > 0) && (
+          <div style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '8px',
+            padding: '12px',
+            marginBottom: '16px',
+          }}>
+            <h3 style={{ 
+              fontSize: '14px', 
+              fontWeight: 600, 
+              color: '#003B71', 
+              marginBottom: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}>
+              <Trophy size={16} style={{ color: '#F59E0B' }} />
+              Leaderboard Insights
+            </h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div style={{ 
+                backgroundColor: '#F0FDF4', 
+                borderRadius: '6px', 
+                padding: '10px',
+                borderLeft: '3px solid #10B981',
+              }}>
+                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Top Performer</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#003B71' }}>
+                  {topPerformer?.repName || '-'}
+                </div>
+                <div style={{ fontSize: '11px', color: '#10B981' }}>
+                  {topPerformer?.completionRate || 0}% completion
+                </div>
+              </div>
+              <div style={{ 
+                backgroundColor: '#FEF2F2', 
+                borderRadius: '6px', 
+                padding: '10px',
+                borderLeft: '3px solid #DC2626',
+              }}>
+                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Most Open Tasks</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: '#003B71' }}>
+                  {mostOpenRep?.repName || '-'}
+                </div>
+                <div style={{ fontSize: '11px', color: '#DC2626' }}>
+                  {mostOpenRep?.open || 0} open
+                </div>
+              </div>
+              <div style={{ 
+                backgroundColor: '#FFF7ED', 
+                borderRadius: '6px', 
+                padding: '10px',
+                borderLeft: '3px solid #F59E0B',
+              }}>
+                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Team Avg Rate</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#F59E0B', fontFamily: 'monospace' }}>
+                  {teamAvgRate}%
+                </div>
+              </div>
+              <div style={{ 
+                backgroundColor: '#EFF6FF', 
+                borderRadius: '6px', 
+                padding: '10px',
+                borderLeft: '3px solid #3B82F6',
+              }}>
+                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Active Reps</div>
+                <div style={{ fontSize: '16px', fontWeight: 700, color: '#3B82F6', fontFamily: 'monospace' }}>
+                  {repLeaderboard.length}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {(repsAtRisk.length > 0 || storesAtRisk.length > 0) && (
           <div style={{ marginBottom: '16px' }}>
             <h3 style={{ 
