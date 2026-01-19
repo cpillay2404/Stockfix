@@ -289,31 +289,51 @@ export default function RepProgress() {
             padding: '12px',
             marginBottom: '16px',
           }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '8px' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
               Open Tasks by Store (Top 5)
             </h3>
-            <div style={{ height: '150px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={data.charts.openByStore} 
-                  layout="vertical"
-                  margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
-                >
-                  <XAxis type="number" tick={{ fontSize: 9, fill: '#6B7280' }} axisLine={false} tickLine={false} />
-                  <YAxis 
-                    type="category" 
-                    dataKey="store" 
-                    tick={{ fontSize: 9, fill: '#6B7280' }} 
-                    width={100}
-                    tickFormatter={(value) => value.length > 15 ? value.substring(0, 15) + '...' : value}
-                    axisLine={false}
-                    tickLine={false}
-                  />
-                  <Bar dataKey="count" fill="#003B71" radius={[0, 4, 4, 0]}>
-                    <LabelList dataKey="count" position="right" fill="#003B71" fontSize={10} fontWeight={600} />
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {data.charts.openByStore.map((item: { store: string; count: number }, index: number) => {
+                const maxCount = Math.max(...data.charts.openByStore.map((s: { count: number }) => s.count));
+                const barWidth = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
+                return (
+                  <div key={item.store} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ 
+                        fontSize: '12px', 
+                        color: '#003B71', 
+                        fontWeight: 500,
+                        flex: 1,
+                        paddingRight: '8px',
+                      }}>
+                        {index + 1}. {item.store}
+                      </span>
+                      <span style={{ 
+                        fontSize: '14px', 
+                        fontWeight: 700, 
+                        color: '#003B71',
+                        fontFamily: 'monospace',
+                      }}>
+                        {item.count}
+                      </span>
+                    </div>
+                    <div style={{ 
+                      height: '6px', 
+                      backgroundColor: '#E5E7EB', 
+                      borderRadius: '3px',
+                      overflow: 'hidden',
+                    }}>
+                      <div style={{ 
+                        height: '100%', 
+                        width: `${barWidth}%`, 
+                        backgroundColor: '#003B71',
+                        borderRadius: '3px',
+                        transition: 'width 0.3s ease',
+                      }} />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
