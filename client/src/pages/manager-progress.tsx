@@ -296,56 +296,7 @@ export default function ManagerProgress() {
       </div>
 
       <div style={{ padding: '16px' }}>
-        <div style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '8px',
-          padding: '12px',
-          marginBottom: '16px',
-        }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
-            Team Task Status
-          </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '120px', height: '120px' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: 'Open', value: data?.kpis?.totalOpen || 0, fill: '#F36C21' },
-                      { name: 'Completed', value: data?.kpis?.totalCompleted || 0, fill: '#10B981' },
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={30}
-                    outerRadius={50}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    <Cell fill="#F36C21" />
-                    <Cell fill="#10B981" />
-                  </Pie>
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                <div style={{ width: '12px', height: '12px', backgroundColor: '#F36C21', borderRadius: '2px' }} />
-                <span style={{ fontSize: '14px', color: '#374151' }}>Open</span>
-                <span style={{ fontSize: '18px', fontWeight: 700, color: '#F36C21', marginLeft: 'auto', fontFamily: 'monospace' }}>
-                  {data?.kpis?.totalOpen?.toLocaleString() || 0}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '2px' }} />
-                <span style={{ fontSize: '14px', color: '#374151' }}>Completed</span>
-                <span style={{ fontSize: '18px', fontWeight: 700, color: '#10B981', marginLeft: 'auto', fontFamily: 'monospace' }}>
-                  {data?.kpis?.totalCompleted?.toLocaleString() || 0}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
+        {/* Team Achievements / Leaderboard Insights - moved to top */}
         {(data?.repLeaderboard?.length > 0) && (
           <div style={{
             backgroundColor: '#FFFFFF',
@@ -363,7 +314,7 @@ export default function ManagerProgress() {
               gap: '8px',
             }}>
               <Trophy size={16} style={{ color: '#F59E0B' }} />
-              Leaderboard Insights
+              Team Achievements
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
               <div style={{ 
@@ -419,6 +370,57 @@ export default function ManagerProgress() {
             </div>
           </div>
         )}
+
+        {/* Team Task Status - moved below achievements */}
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '8px',
+          padding: '12px',
+          marginBottom: '16px',
+        }}>
+          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
+            Team Task Status
+          </h3>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ width: '120px', height: '120px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={[
+                      { name: 'Open', value: data?.kpis?.totalOpen || 0, fill: '#F36C21' },
+                      { name: 'Completed', value: data?.kpis?.totalCompleted || 0, fill: '#10B981' },
+                    ]}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={30}
+                    outerRadius={50}
+                    paddingAngle={2}
+                    dataKey="value"
+                  >
+                    <Cell fill="#F36C21" />
+                    <Cell fill="#10B981" />
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                <div style={{ width: '12px', height: '12px', backgroundColor: '#F36C21', borderRadius: '2px' }} />
+                <span style={{ fontSize: '14px', color: '#374151' }}>Open</span>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: '#F36C21', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                  {data?.kpis?.totalOpen?.toLocaleString() || 0}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '2px' }} />
+                <span style={{ fontSize: '14px', color: '#374151' }}>Completed</span>
+                <span style={{ fontSize: '18px', fontWeight: 700, color: '#10B981', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                  {data?.kpis?.totalCompleted?.toLocaleString() || 0}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {(repsAtRisk.length > 0 || storesAtRisk.length > 0) && (
           <div style={{ marginBottom: '16px' }}>
