@@ -1119,7 +1119,18 @@ export async function registerRoutes(
 
       console.log("Excel import - Total rows:", data.length);
       if (data.length > 0) {
-        console.log("Excel import - Column headers:", Object.keys(data[0] as object));
+        const headers = Object.keys(data[0] as object);
+        console.log("Excel import - Column headers:", headers);
+        // Check specifically for LINE MANAGER variations
+        const lineManagerHeader = headers.find(h => 
+          h.toLowerCase().includes('line') && h.toLowerCase().includes('manager') ||
+          h.toLowerCase() === 'linemanager' ||
+          h.toLowerCase() === 'line_manager'
+        );
+        console.log("Excel import - LINE MANAGER column found:", lineManagerHeader || "NOT FOUND");
+        if (lineManagerHeader) {
+          console.log("Excel import - Sample LINE MANAGER value:", (data[0] as any)[lineManagerHeader]);
+        }
       }
 
       // Helper to get value from row with flexible column matching
