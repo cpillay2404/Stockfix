@@ -32,6 +32,133 @@ function generateJobId(): string {
   return `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
+// Async import processing function for large files
+async function processImportAsync(filePath: string, clearExisting: boolean, jobId: string): Promise<void> {
+  const job = importJobs.get(jobId);
+  if (!job) return;
+
+  try {
+    console.log(`Async import [${jobId}] - Starting...`);
+    
+    if (clearExisting) {
+      console.log(`Async import [${jobId}] - Clearing existing tasks...`);
+      await storage.deleteAllTasks();
+    }
+
+    const workbook = XLSX.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json(sheet);
+    
+    job.totalRows = data.length;
+    console.log(`Async import [${jobId}] - Total rows: ${data.length}`);
+
+    // Helper to get value from row with flexible column matching
+    const getValue = (row: any, ...possibleKeys: string[]): string => {
+      for (const key of possibleKeys) {
+        if (row[key] !== undefined && row[key] !== null) {
+          return String(row[key]);
+        }
+        const lowerKey = key.toLowerCase();
+        for (const rowKey of Object.keys(row)) {
+          if (rowKey.toLowerCase() === lowerKey || rowKey.toLowerCase().replace(/[^a-z0-9]/g, '') === lowerKey.replace(/[^a-z0-9]/g, '')) {
+            return String(row[rowKey]);
+          }
+        }
+      }
+      return '';
+    };
+
+    const parseToISODate = (dateStr: string): string => {
+      if (!dateStr) return new Date().toISOString().split('T')[0];
+      try {
+        const parsed = new Date(dateStr);
+        if (!isNaN(parsed.getTime())) {
+          return parsed.toISOString().split('T')[0];
+        }
+      } catch (e) {}
+      return new Date().toISOString().split('T')[0];
+    };
+
+    // Map and validate tasks
+    const mappedTasks = data.map((row: any, index: number) => {
+      const storeVal = getValue(row, 'cleaned store name', 'STORE NAME', 'Store Name', 'StoreName', 'store_name', 'Store');
+      const barcodeVal = getValue(row, 'barcode', 'Barcode', 'BARCODE', 'SKU', 'sku');
+      const weekEndingVal = getValue(row, 'week ending', 'Week Ending', 'WeekEnding', 'week_ending', 'Date');
+      const weekEndingISO = parseToISODate(weekEndingVal);
+      
+      return {
+        uniqueId: `${storeVal}-${barcodeVal}-${weekEndingISO}`.replace(/[^a-zA-Z0-9-]/g, '') || `task-${Date.now()}-${index}`,
+        key: `${storeVal}-${barcodeVal}`.substring(0, 100) || `key-${index}`,
+        client: getValue(row, 'client', 'Client', 'CLIENT') || 'Unknown',
+        banner: getValue(row, 'BANNER.1', 'BANNER', 'Banner', 'banner') || '',
+        region: getValue(row, 'REGION.1', 'REGION', 'Region', 'region') || '',
+        storeName: storeVal || 'Unknown Store',
+        repName: getValue(row, 'REP NAME', 'Rep Name', 'RepName', 'rep_name', 'Rep') || '',
+        lineManager: getValue(row, 'LINE MANAGER', 'Line Manager', 'LineManager', 'line_manager') || '',
+        category: getValue(row, 'Category', 'CATEGORY', 'category') || '',
+        barcode: barcodeVal || '',
+        articleDescription: getValue(row, 'article description', 'Article Description', 'ArticleDescription', 'Description', 'Product', 'Product Name') || 'No Description',
+        dcSoh: getValue(row, 'Supplying dc soh', 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh', 'Supplying DC SOH') || '0',
+        storeSoh: getValue(row, 'Store SOH', 'STORE_SOH', 'StoreSoh', 'store_soh') || '0',
+        p4WeekSales: getValue(row, 'Sell out p4 weeks', 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales', 'Sell out P4 weeks') || '0',
+        missedSales: getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales') || '0',
+        storeWfc: getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc') || '0',
+        stockClassification: getValue(row, 'Stock Classification (This Week)', 'Stock Classification', 'StockClassification', 'stock_classification') || '',
+        weekEnding: weekEndingVal || new Date().toISOString().split('T')[0],
+        weekEndingDate: weekEndingISO,
+        action: getValue(row, 'Action Column', 'Action', 'ACTION', 'action', 'Task', 'Required Action') || 'Review stock',
+        actionDate: null,
+        actionStatus: getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status') || 'Pending',
+        systemImage: getValue(row, 'System Image', 'SystemImage', 'system_image', 'Image') || '',
+      };
+    });
+
+    const validTasks = mappedTasks.filter((task: any) => task.barcode && task.barcode !== '');
+    const validatedTasks = validTasks.map((task: any) => insertTaskSchema.parse(task));
+    
+    // Insert in batches
+    const BATCH_SIZE = 100;
+    
+    for (let i = 0; i < validatedTasks.length; i += BATCH_SIZE) {
+      const batch = validatedTasks.slice(i, i + BATCH_SIZE);
+      try {
+        const created = await storage.bulkCreateTasksIgnoreDuplicates(batch);
+        job.createdCount += created.length;
+      } catch (err) {
+        for (const task of batch) {
+          try {
+            await storage.createTask(task);
+            job.createdCount++;
+          } catch {
+            job.skippedCount++;
+          }
+        }
+      }
+      job.processedRows = Math.min(i + BATCH_SIZE, validatedTasks.length);
+      job.progress = Math.round((job.processedRows / validatedTasks.length) * 100);
+    }
+
+    // Clean up and complete
+    fs.unlinkSync(filePath);
+    invalidateGamificationCache();
+    
+    job.status = 'completed';
+    job.completedAt = new Date();
+    console.log(`Async import [${jobId}] - Completed: ${job.createdCount} created, ${job.skippedCount} skipped`);
+    
+  } catch (error: any) {
+    console.error(`Async import [${jobId}] - Error:`, error);
+    job.status = 'failed';
+    job.error = error.message || 'Unknown error';
+    job.completedAt = new Date();
+    
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+  }
+}
+
 // Priority action types - these are the most important tasks reps should focus on
 // Lower number = higher priority (appears first)
 const PRIORITY_ACTIONS = [

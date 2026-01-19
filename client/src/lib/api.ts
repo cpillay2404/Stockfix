@@ -124,7 +124,38 @@ export async function uploadImage(file: File): Promise<{ url: string }> {
   return { url: normalizeObjectUrl(objectPath) };
 }
 
-export async function importExcel(file: File, clearExisting = true): Promise<{ success: boolean; count: number; message: string }> {
+export interface ImportResult {
+  success: boolean;
+  count?: number;
+  message: string;
+  async?: boolean;
+  jobId?: string;
+}
+
+export interface ImportJobStatus {
+  id: string;
+  status: 'processing' | 'completed' | 'failed';
+  progress: number;
+  totalRows: number;
+  processedRows: number;
+  createdCount: number;
+  skippedCount: number;
+  error?: string;
+}
+
+export async function checkImportStatus(jobId: string): Promise<ImportJobStatus> {
+  const res = await fetch(`${API_BASE}/tasks/import/status/${jobId}`);
+  if (!res.ok) {
+    throw new Error("Failed to check import status");
+  }
+  return res.json();
+}
+
+export async function importExcel(
+  file: File, 
+  clearExisting = true,
+  onProgress?: (status: ImportJobStatus) => void
+): Promise<ImportResult> {
   const formData = new FormData();
   formData.append("file", file);
   
@@ -137,5 +168,38 @@ export async function importExcel(file: File, clearExisting = true): Promise<{ s
     const error = await res.json();
     throw new Error(error.error || "Failed to import file");
   }
-  return res.json();
+  
+  const result = await res.json();
+  
+  // If async import, poll for status
+  if (result.async && result.jobId) {
+    return new Promise((resolve, reject) => {
+      const pollInterval = setInterval(async () => {
+        try {
+          const status = await checkImportStatus(result.jobId);
+          
+          if (onProgress) {
+            onProgress(status);
+          }
+          
+          if (status.status === 'completed') {
+            clearInterval(pollInterval);
+            resolve({
+              success: true,
+              count: status.createdCount,
+              message: `Successfully imported ${status.createdCount} tasks (${status.skippedCount} skipped)`,
+            });
+          } else if (status.status === 'failed') {
+            clearInterval(pollInterval);
+            reject(new Error(status.error || 'Import failed'));
+          }
+        } catch (err) {
+          clearInterval(pollInterval);
+          reject(err);
+        }
+      }, 2000); // Poll every 2 seconds
+    });
+  }
+  
+  return result;
 }

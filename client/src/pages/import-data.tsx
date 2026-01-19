@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download, FileText } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
-import { importExcel } from "@/lib/api";
+import { importExcel, type ImportJobStatus } from "@/lib/api";
 
 export default function ImportData() {
   const [, setLocation] = useLocation();
@@ -17,6 +18,7 @@ export default function ImportData() {
   const [file, setFile] = useState<File | null>(null);
   const [clearExisting, setClearExisting] = useState(true);
   const [isExporting, setIsExporting] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState<ImportJobStatus | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: taskCount } = useQuery({
@@ -88,26 +90,20 @@ export default function ImportData() {
   };
 
   const importMutation = useMutation({
-    mutationFn: (file: File) => importExcel(file, clearExisting),
+    mutationFn: (file: File) => importExcel(file, clearExisting, (status) => {
+      setImportProgress(status);
+    }),
     onSuccess: (data: any) => {
+      setImportProgress(null);
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      // Show diagnostics if available
-      if (data.diagnostics) {
-        const d = data.diagnostics;
-        console.log("Import diagnostics:", d);
-        toast({
-          title: "Import Successful",
-          description: `${data.message}. Column: ${d.lineManagerColumn}, Excel value: ${d.sampleLineManager}, Mapped value: ${d.mappedLineManager}, Tasks with manager: ${d.tasksWithManager}`,
-        });
-      } else {
-        toast({
-          title: "Import Successful",
-          description: data.message,
-        });
-      }
-      setTimeout(() => setLocation("/"), 5000);
+      toast({
+        title: "Import Successful",
+        description: data.message,
+      });
+      setTimeout(() => setLocation("/"), 3000);
     },
     onError: (error: Error) => {
+      setImportProgress(null);
       toast({
         title: "Import Failed",
         description: error.message,
@@ -169,13 +165,28 @@ export default function ImportData() {
                 ) : (
                   <FileSpreadsheet className="h-5 w-5 text-green-600 mt-0.5" />
                 )}
-                <div className="space-y-1">
+                <div className="space-y-1 flex-1">
                   <p className="font-medium text-sm">{file.name}</p>
                   <p className="text-xs text-muted-foreground">
-                    {(file.size / 1024).toFixed(2)} KB
+                    {(file.size / (1024 * 1024)).toFixed(2)} MB
                     {importMutation.isSuccess && " • Import Complete"}
-                    {!importMutation.isSuccess && " • Ready to upload"}
+                    {!importMutation.isSuccess && !importProgress && " • Ready to upload"}
+                    {file.size > 20 * 1024 * 1024 && !importMutation.isPending && !importMutation.isSuccess && " • Large file - will process in background"}
                   </p>
+                  
+                  {importProgress && (
+                    <div className="mt-3 space-y-2">
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Processing: {importProgress.processedRows.toLocaleString()} / {importProgress.totalRows.toLocaleString()} rows</span>
+                        <span>{importProgress.progress}%</span>
+                      </div>
+                      <Progress value={importProgress.progress} className="h-2" />
+                      <p className="text-xs text-green-600">
+                        {importProgress.createdCount.toLocaleString()} tasks created
+                        {importProgress.skippedCount > 0 && `, ${importProgress.skippedCount.toLocaleString()} skipped`}
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
