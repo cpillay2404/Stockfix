@@ -89,7 +89,6 @@ export default function SelectRepStore() {
   const { accessMode, setAccessMode, setSelectedRep, setSelectedStore: setContextStore } = useAccess();
   const [repValue, setRepValue] = useState("");
   const [storeValue, setStoreValue] = useState("");
-  const [showStoreSelection, setShowStoreSelection] = useState(false);
 
   useEffect(() => {
     if (accessMode !== "rep") {
@@ -123,15 +122,10 @@ export default function SelectRepStore() {
   const handleRepChange = (newRep: string) => {
     setRepValue(newRep);
     setStoreValue("");
-    setShowStoreSelection(false);
   };
 
   const handleBack = () => {
-    if (showStoreSelection) {
-      setShowStoreSelection(false);
-    } else {
-      setLocation("/");
-    }
+    setLocation("/");
   };
 
   const handleMyDashboard = () => {
@@ -139,10 +133,6 @@ export default function SelectRepStore() {
       setSelectedRep(repValue);
       setLocation(`/rep-progress?rep=${encodeURIComponent(repValue)}`);
     }
-  };
-
-  const handleProceedToStoreVisit = () => {
-    setShowStoreSelection(true);
   };
 
   const handleStartVisit = () => {
@@ -182,7 +172,7 @@ export default function SelectRepStore() {
           </span>
         </div>
         <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginTop: '6px' }}>
-          {showStoreSelection ? 'Select Store' : 'Rep Login'}
+          Rep Login
         </p>
       </div>
 
@@ -216,92 +206,21 @@ export default function SelectRepStore() {
           Back
         </button>
 
-        {!showStoreSelection ? (
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
+            Select Your Name <span style={{ color: '#F36C21' }}>*</span>
+          </label>
+          <SearchableSelect
+            value={repValue}
+            onValueChange={handleRepChange}
+            options={reps}
+            placeholder="Select Rep"
+            testId="select-rep"
+          />
+        </div>
+
+        {repValue && (
           <>
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
-                Select Your Name <span style={{ color: '#F36C21' }}>*</span>
-              </label>
-              <SearchableSelect
-                value={repValue}
-                onValueChange={handleRepChange}
-                options={reps}
-                placeholder="Select Rep"
-                testId="select-rep"
-              />
-            </div>
-
-            {repValue && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                <button
-                  onClick={handleProceedToStoreVisit}
-                  data-testid="button-store-visit"
-                  style={{
-                    width: '100%',
-                    padding: '18px',
-                    backgroundColor: '#F36C21',
-                    color: '#FFFFFF',
-                    borderRadius: '10px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    fontSize: '16px',
-                    fontWeight: 600,
-                    transition: 'background-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E05A10'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F36C21'}
-                >
-                  <Store style={{ width: '20px', height: '20px' }} />
-                  Proceed to Store Visit
-                </button>
-
-                <button
-                  onClick={handleMyDashboard}
-                  data-testid="button-my-dashboard"
-                  style={{
-                    width: '100%',
-                    padding: '18px',
-                    backgroundColor: '#003B71',
-                    color: '#FFFFFF',
-                    borderRadius: '10px',
-                    border: 'none',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '10px',
-                    fontSize: '16px',
-                    fontWeight: 600,
-                    transition: 'background-color 0.2s',
-                  }}
-                  onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#002F5A'}
-                  onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#003B71'}
-                >
-                  <TrendingUp style={{ width: '20px', height: '20px' }} />
-                  My Dashboard
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <>
-            <div style={{ 
-              backgroundColor: '#F0F4F8', 
-              padding: '12px 16px', 
-              borderRadius: '8px', 
-              marginBottom: '16px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}>
-              <span style={{ fontSize: '14px', color: '#6B7280' }}>Logged in as:</span>
-              <span style={{ fontSize: '14px', fontWeight: 600, color: '#003B71' }}>{repValue}</span>
-            </div>
-
             <div style={{ marginBottom: '20px' }}>
               <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
                 Select Store <span style={{ color: '#F36C21' }}>*</span>
@@ -313,7 +232,7 @@ export default function SelectRepStore() {
                 placeholder="Select Store"
                 testId="select-store"
               />
-              {stores.length === 0 && !storesLoading && (
+              {stores.length === 0 && !storesLoading && repValue && (
                 <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
                   No stores found for this rep
                 </p>
@@ -325,24 +244,57 @@ export default function SelectRepStore() {
               )}
             </div>
 
-            <button
-              onClick={handleStartVisit}
-              disabled={!canStart}
-              data-testid="button-start-visit"
-              style={{
-                width: '100%',
-                height: '48px',
-                backgroundColor: canStart ? '#F36C21' : '#D1D5DB',
-                color: '#FFFFFF',
-                fontSize: '16px',
-                fontWeight: 600,
-                borderRadius: '10px',
-                border: 'none',
-                cursor: canStart ? 'pointer' : 'not-allowed',
-              }}
-            >
-              START VISIT
-            </button>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button
+                onClick={handleStartVisit}
+                disabled={!canStart}
+                data-testid="button-start-visit"
+                style={{
+                  width: '100%',
+                  padding: '18px',
+                  backgroundColor: canStart ? '#F36C21' : '#D1D5DB',
+                  color: '#FFFFFF',
+                  borderRadius: '10px',
+                  border: 'none',
+                  cursor: canStart ? 'pointer' : 'not-allowed',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                }}
+              >
+                <Store style={{ width: '20px', height: '20px' }} />
+                START VISIT
+              </button>
+
+              <button
+                onClick={handleMyDashboard}
+                data-testid="button-my-dashboard"
+                style={{
+                  width: '100%',
+                  padding: '18px',
+                  backgroundColor: '#003B71',
+                  color: '#FFFFFF',
+                  borderRadius: '10px',
+                  border: 'none',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '10px',
+                  fontSize: '16px',
+                  fontWeight: 600,
+                  transition: 'background-color 0.2s',
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#002F5A'}
+                onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#003B71'}
+              >
+                <TrendingUp style={{ width: '20px', height: '20px' }} />
+                My Dashboard
+              </button>
+            </div>
           </>
         )}
       </div>
