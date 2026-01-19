@@ -798,7 +798,9 @@ export async function registerRoutes(
   // GET export ALL tasks as Excel - MUST be before :uniqueId route
   app.get("/api/tasks/export", async (req, res) => {
     try {
+      console.log("Starting export all tasks...");
       const allTasks = await storage.getAllTasks();
+      console.log(`Exporting ${allTasks.length} tasks...`);
       
       // Build full URL for images
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
@@ -847,14 +849,19 @@ export async function registerRoutes(
         'image2': getFullImageUrl(task.image2),
       }));
 
+      console.log("Creating Excel workbook...");
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Tasks');
       
       const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      console.log(`Export complete. File size: ${buffer.length} bytes`);
       
+      // Set headers for download with explicit content length
       res.setHeader('Content-Disposition', 'attachment; filename=stockfix_export.xlsx');
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Length', buffer.length);
+      res.setHeader('Cache-Control', 'no-cache');
       res.send(buffer);
     } catch (error) {
       console.error("Error exporting tasks:", error);
