@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, TrendingUp, Clock, CheckCircle, AlertCircle, AlertTriangle, Users, Store, Trophy } from "lucide-react";
+import { ArrowLeft, TrendingUp, CheckCircle, AlertCircle, AlertTriangle, Users, Store, Trophy } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import BottomNav from "@/components/BottomNav";
 
@@ -290,13 +290,6 @@ export default function ManagerProgress() {
             icon={<TrendingUp size={18} />}
             accentColor="#003B71"
             testId="kpi-team-rate"
-          />
-          <KpiTile
-            label="Oldest (Days)"
-            value={data?.kpis?.oldestOpenDays || 0}
-            icon={<Clock size={18} />}
-            accentColor={data?.kpis?.oldestOpenDays > 14 ? '#DC2626' : '#6B7280'}
-            testId="kpi-team-oldest"
           />
         </div>
       </div>
