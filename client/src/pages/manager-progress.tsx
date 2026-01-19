@@ -270,29 +270,6 @@ export default function ManagerProgress() {
           </div>
         )}
 
-        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-          <KpiTile
-            label="Total Open"
-            value={data?.kpis?.totalOpen?.toLocaleString() || 0}
-            icon={<AlertCircle size={18} />}
-            accentColor="#F36C21"
-            testId="kpi-total-open"
-          />
-          <KpiTile
-            label="Completed"
-            value={data?.kpis?.totalCompleted?.toLocaleString() || 0}
-            icon={<CheckCircle size={18} />}
-            accentColor="#10B981"
-            testId="kpi-total-completed"
-          />
-          <KpiTile
-            label="Rate"
-            value={`${data?.kpis?.completionRate || 0}%`}
-            icon={<TrendingUp size={18} />}
-            accentColor="#003B71"
-            testId="kpi-team-rate"
-          />
-        </div>
       </div>
 
       <div style={{ padding: '16px' }}>
