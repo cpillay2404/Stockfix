@@ -152,7 +152,7 @@ export default function ImportData() {
               <div className="text-sm text-blue-900 dark:text-blue-100 space-y-2">
                 <p className="font-medium">Expected Column Headers:</p>
                 <div className="flex flex-wrap gap-1">
-                  {['client', 'REGION.1', 'BANNER.1', 'cleaned store name', 'REP NAME', 'barcode', 'article description', 'Stock Classification (This Week)', 'Action Column', 'week ending', 'Store SOH', 'WFC', 'Sell out p4 weeks', 'Supplying dc soh'].map(h => (
+                  {['client', 'REGION.1', 'BANNER.1', 'cleaned store name', 'LINE MANAGER', 'REP NAME', 'barcode', 'article description', 'Stock Classification (This Week)', 'Action Column', 'week ending', 'Store SOH', 'WFC', 'Sell out p4 weeks', 'Supplying dc soh'].map(h => (
                     <code key={h} className="bg-blue-100 dark:bg-blue-900 px-1.5 py-0.5 rounded text-xs border border-blue-200 dark:border-blue-800">
                       {h}
                     </code>
