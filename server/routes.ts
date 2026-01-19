@@ -1191,6 +1191,8 @@ export async function registerRoutes(
       console.log("Excel import - Mapped tasks:", mappedTasks.length);
       if (mappedTasks.length > 0) {
         console.log("Excel import - Sample task:", JSON.stringify(mappedTasks[0], null, 2));
+        console.log("Excel import - First row keys from Excel:", Object.keys(jsonData[0]));
+        console.log("Excel import - LINE MANAGER value:", mappedTasks[0].lineManager);
       }
 
       // Filter out tasks without barcode (required field)
