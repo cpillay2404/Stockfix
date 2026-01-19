@@ -795,12 +795,134 @@ export async function registerRoutes(
     }
   });
 
-  // GET export ALL tasks as Excel - MUST be before :uniqueId route
+  // GET export task count - check before export
+  app.get("/api/tasks/export/count", async (req, res) => {
+    try {
+      const allTasks = await storage.getAllTasks();
+      res.json({ count: allTasks.length });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to count tasks" });
+    }
+  });
+
+  // GET export ALL tasks as CSV (streaming - recommended for large datasets)
+  app.get("/api/tasks/export/csv", async (req, res) => {
+    try {
+      console.log("Starting CSV export (streaming)...");
+      const allTasks = await storage.getAllTasks();
+      console.log(`Streaming ${allTasks.length} tasks as CSV...`);
+      
+      // Build full URL for images
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+      const baseUrl = `${protocol}://${host}`;
+      
+      const getFullImageUrl = (imagePath: string | null | undefined): string => {
+        if (!imagePath) return '';
+        const normalized = normalizeObjectUrl(imagePath);
+        if (normalized.startsWith('http')) return normalized;
+        return `${baseUrl}${normalized}`;
+      };
+      
+      // CSV headers
+      const headers = [
+        'Unique Id', 'Key', 'client', 'BANNER.1', 'REGION.1', 'cleaned store name',
+        'REP NAME', 'LINE MANAGER', 'Category', 'barcode', 'article description',
+        'Supplying dc soh', 'Store SOH', 'Sell out p4 weeks', 'Missed Sales (This Week)',
+        'WFC', 'Stock Classification (This Week)', 'week ending', 'Action Column',
+        'Action Date', 'Action Status', 'physicalCount', 'variance', 'systemAdjusted',
+        'reasonCode', 'actionTakenComment', 'feedback', 'captureDate', 'image1', 'image2'
+      ];
+      
+      // Helper to escape CSV values
+      const escapeCSV = (val: string | null | undefined): string => {
+        const str = val || '';
+        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+      
+      // Set headers for streaming CSV download
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', 'attachment; filename=stockfix_export.csv');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Transfer-Encoding', 'chunked');
+      
+      // Write BOM for Excel compatibility
+      res.write('\ufeff');
+      
+      // Write header row
+      res.write(headers.join(',') + '\n');
+      
+      // Stream rows in batches to avoid memory buildup
+      const BATCH_SIZE = 1000;
+      for (let i = 0; i < allTasks.length; i += BATCH_SIZE) {
+        const batch = allTasks.slice(i, i + BATCH_SIZE);
+        const lines = batch.map(task => [
+          escapeCSV(task.uniqueId),
+          escapeCSV(task.key),
+          escapeCSV(task.client),
+          escapeCSV(task.banner),
+          escapeCSV(task.region),
+          escapeCSV(task.storeName),
+          escapeCSV(task.repName),
+          escapeCSV(task.lineManager),
+          escapeCSV(task.category),
+          escapeCSV(task.barcode),
+          escapeCSV(task.articleDescription),
+          escapeCSV(task.dcSoh),
+          escapeCSV(task.storeSoh),
+          escapeCSV(task.p4WeekSales),
+          escapeCSV(task.missedSales),
+          escapeCSV(task.storeWfc),
+          escapeCSV(task.stockClassification),
+          escapeCSV(task.weekEndingDate),
+          escapeCSV(task.action),
+          escapeCSV(task.actionDate),
+          escapeCSV(task.actionStatus),
+          escapeCSV(task.physicalCount),
+          escapeCSV(task.variance),
+          escapeCSV(task.systemAdjusted),
+          escapeCSV(task.reasonCode),
+          escapeCSV(task.actionTakenComment),
+          escapeCSV(task.feedback),
+          escapeCSV(task.captureDate),
+          escapeCSV(getFullImageUrl(task.image1)),
+          escapeCSV(getFullImageUrl(task.image2)),
+        ].join(','));
+        
+        res.write(lines.join('\n') + '\n');
+      }
+      
+      console.log("CSV export complete");
+      res.end();
+    } catch (error) {
+      console.error("Error exporting tasks as CSV:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to export tasks" });
+      } else {
+        res.end();
+      }
+    }
+  });
+
+  // GET export ALL tasks as Excel - limited to 50k tasks for stability
   app.get("/api/tasks/export", async (req, res) => {
     try {
-      console.log("Starting export all tasks...");
+      console.log("Starting Excel export...");
       const allTasks = await storage.getAllTasks();
       console.log(`Exporting ${allTasks.length} tasks...`);
+      
+      // Limit Excel export to 50k rows for stability
+      const MAX_EXCEL_ROWS = 50000;
+      if (allTasks.length > MAX_EXCEL_ROWS) {
+        return res.status(400).json({ 
+          error: `Too many tasks (${allTasks.length}) for Excel export. Maximum is ${MAX_EXCEL_ROWS}. Please use CSV export for large datasets.`,
+          count: allTasks.length,
+          useCSV: true
+        });
+      }
       
       // Build full URL for images
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';

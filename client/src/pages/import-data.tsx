@@ -1,13 +1,13 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Layout } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download, FileText } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { importExcel } from "@/lib/api";
 
 export default function ImportData() {
@@ -19,23 +19,45 @@ export default function ImportData() {
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleExport = async (type: 'all' | 'rep' | 'manager') => {
+  const { data: taskCount } = useQuery({
+    queryKey: ["task-count"],
+    queryFn: async () => {
+      const res = await fetch('/api/tasks/export/count');
+      if (!res.ok) return { count: 0 };
+      return res.json();
+    },
+  });
+
+  const isLargeDataset = (taskCount?.count || 0) > 50000;
+
+  const handleExport = async (type: 'all' | 'all-csv' | 'rep' | 'manager') => {
     setIsExporting(type);
     
     const config = {
-      all: { url: '/api/tasks/export', filename: 'stockfix_all_tasks.xlsx', title: 'All Tasks Export' },
+      'all': { url: '/api/tasks/export', filename: 'stockfix_all_tasks.xlsx', title: 'All Tasks Export (Excel)' },
+      'all-csv': { url: '/api/tasks/export/csv', filename: 'stockfix_all_tasks.csv', title: 'All Tasks Export (CSV)' },
       rep: { url: '/api/export/rep-leaderboard', filename: 'rep_leaderboard.xlsx', title: 'Rep Leaderboard Export' },
       manager: { url: '/api/export/manager-leaderboard', filename: 'manager_leaderboard.xlsx', title: 'Manager Leaderboard Export' },
     };
     
     toast({
       title: `${config[type].title} Started`,
-      description: "Preparing your download...",
+      description: type === 'all-csv' ? "Streaming download..." : "Preparing your download...",
     });
     
     try {
       const response = await fetch(config[type].url);
       if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        if (errorData?.useCSV) {
+          toast({
+            title: "Dataset Too Large for Excel",
+            description: `${errorData.count.toLocaleString()} tasks. Please use CSV export instead.`,
+            variant: "destructive",
+          });
+          setIsExporting(null);
+          return;
+        }
         throw new Error('Export failed');
       }
       
@@ -215,21 +237,48 @@ export default function ImportData() {
           <CardHeader>
             <CardTitle>Export Data</CardTitle>
             <CardDescription>
-              Download task data and leaderboards as Excel files.
+              Download task data and leaderboards.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-100 dark:border-green-900/50">
-              <p className="text-sm text-green-900 dark:text-green-100">
-                Export all tasks (answered &amp; unanswered), or download rep and manager leaderboards.
-              </p>
-            </div>
+            {taskCount?.count > 0 && (
+              <div className={`p-4 rounded-lg border ${isLargeDataset ? 'bg-amber-50 border-amber-200' : 'bg-green-50 border-green-100'}`}>
+                <p className={`text-sm font-medium ${isLargeDataset ? 'text-amber-800' : 'text-green-900'}`}>
+                  {taskCount.count.toLocaleString()} tasks available for export
+                </p>
+                {isLargeDataset && (
+                  <p className="text-xs text-amber-700 mt-1">
+                    Large dataset detected. Use CSV export for faster, more reliable downloads.
+                  </p>
+                )}
+              </div>
+            )}
             <div className="flex flex-col gap-2">
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">All Tasks</div>
+              <Button 
+                className="w-full" 
+                variant={isLargeDataset ? "default" : "outline"}
+                onClick={() => handleExport('all-csv')} 
+                disabled={isExporting !== null}
+                data-testid="button-export-csv"
+              >
+                {isExporting === 'all-csv' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Streaming...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Export as CSV {isLargeDataset && '(Recommended)'}
+                  </>
+                )}
+              </Button>
               <Button 
                 className="w-full" 
                 variant="outline"
                 onClick={() => handleExport('all')} 
-                disabled={isExporting !== null}
+                disabled={isExporting !== null || isLargeDataset}
                 data-testid="button-export-all"
               >
                 {isExporting === 'all' ? (
@@ -240,10 +289,11 @@ export default function ImportData() {
                 ) : (
                   <>
                     <Download className="mr-2 h-4 w-4" />
-                    Export All Tasks
+                    Export as Excel {isLargeDataset && '(Disabled - too large)'}
                   </>
                 )}
               </Button>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mt-4 mb-1">Leaderboards</div>
               <Button 
                 className="w-full" 
                 variant="outline"
