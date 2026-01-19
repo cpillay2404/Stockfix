@@ -12,6 +12,26 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { sendTaskCompletedEmail } from "./email";
 import { calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 
+// Async import job tracking
+interface ImportJob {
+  id: string;
+  status: 'processing' | 'completed' | 'failed';
+  progress: number;
+  totalRows: number;
+  processedRows: number;
+  createdCount: number;
+  skippedCount: number;
+  error?: string;
+  startedAt: Date;
+  completedAt?: Date;
+}
+
+const importJobs = new Map<string, ImportJob>();
+
+function generateJobId(): string {
+  return `import_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
 // Priority action types - these are the most important tasks reps should focus on
 // Lower number = higher priority (appears first)
 const PRIORITY_ACTIONS = [
@@ -1346,7 +1366,16 @@ export async function registerRoutes(
 
   // Old local image upload endpoint removed - now using cloud storage via /api/uploads/request-url
 
-  // POST import Excel/CSV file
+  // GET import job status
+  app.get("/api/tasks/import/status/:jobId", (req, res) => {
+    const job = importJobs.get(req.params.jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Import job not found" });
+    }
+    res.json(job);
+  });
+
+  // POST import Excel/CSV file (async with job tracking for large files)
   app.post("/api/tasks/import", upload.single('file'), handleMulterError, async (req, res) => {
     try {
       if (!req.file) {
@@ -1365,8 +1394,51 @@ export async function registerRoutes(
         });
       }
 
+      // For large files (>20MB), use async processing
+      const isLargeFile = req.file.size > 20 * 1024 * 1024;
+      
       // Check if we should clear existing tasks first (full refresh)
       const clearExisting = req.query.clear === 'true' || req.body?.clear === 'true';
+      
+      // Store file path for async processing
+      const filePath = req.file.path;
+      
+      // For large files, return immediately and process in background
+      if (isLargeFile) {
+        const jobId = generateJobId();
+        const job: ImportJob = {
+          id: jobId,
+          status: 'processing',
+          progress: 0,
+          totalRows: 0,
+          processedRows: 0,
+          createdCount: 0,
+          skippedCount: 0,
+          startedAt: new Date(),
+        };
+        importJobs.set(jobId, job);
+        
+        // Return immediately with job ID
+        res.json({ 
+          success: true, 
+          async: true,
+          jobId,
+          message: `Large file detected (${fileSizeMB}MB). Processing in background. Poll /api/tasks/import/status/${jobId} for progress.`
+        });
+        
+        // Process in background (don't await)
+        processImportAsync(filePath, clearExisting, jobId).catch(err => {
+          console.error('Async import error:', err);
+          const j = importJobs.get(jobId);
+          if (j) {
+            j.status = 'failed';
+            j.error = err.message || 'Unknown error';
+            j.completedAt = new Date();
+          }
+        });
+        
+        return;
+      }
       
       if (clearExisting) {
         console.log("Import - Clearing all existing tasks for full refresh...");
@@ -1374,7 +1446,7 @@ export async function registerRoutes(
         console.log("Import - All existing tasks cleared");
       }
 
-      const workbook = XLSX.readFile(req.file.path);
+      const workbook = XLSX.readFile(filePath);
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const data = XLSX.utils.sheet_to_json(sheet);
