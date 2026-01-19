@@ -3,6 +3,21 @@ import type { Task } from "@shared/schema";
 export type BadgeType = 'gold' | 'silver' | 'bronze' | 'none';
 export type RankChange = 'up' | 'down' | 'same' | 'new';
 
+// Priority action types - these are the most important tasks reps should focus on
+const PRIORITY_PATTERNS = [
+  'urgent: place order',
+  'fix counts: negative',
+  'negative soh',
+  'check count: no sales',
+];
+
+// Check if a task is a priority task (what reps are measured on)
+function isPriorityTask(action: string | null | undefined): boolean {
+  if (!action) return false;
+  const normalizedAction = action.toLowerCase().trim();
+  return PRIORITY_PATTERNS.some(pattern => normalizedAction.includes(pattern));
+}
+
 export interface RepBadge {
   type: BadgeType;
   label: string;
@@ -18,6 +33,11 @@ export interface RepGamificationStats {
   completedTasks: number;
   openTasks: number;
   completionRate: number;
+  // Priority task metrics (what reps are measured on)
+  priorityTotalTasks: number;
+  priorityCompletedTasks: number;
+  priorityOpenTasks: number;
+  priorityCompletionRate: number;
   badge: RepBadge;
   streak: number;
   rank: number;
@@ -114,6 +134,9 @@ export function calculateRepGamificationStats(tasks: Task[]): RepGamificationSta
     totalTasks: number;
     completedTasks: number;
     openTasks: number;
+    priorityTotalTasks: number;
+    priorityCompletedTasks: number;
+    priorityOpenTasks: number;
   }> = {};
 
   tasks.forEach(task => {
@@ -126,13 +149,28 @@ export function calculateRepGamificationStats(tasks: Task[]): RepGamificationSta
         totalTasks: 0,
         completedTasks: 0,
         openTasks: 0,
+        priorityTotalTasks: 0,
+        priorityCompletedTasks: 0,
+        priorityOpenTasks: 0,
       };
     }
     repStats[rep].totalTasks++;
+    
+    const isPriority = isPriorityTask(task.action);
+    if (isPriority) {
+      repStats[rep].priorityTotalTasks++;
+    }
+    
     if (task.actionStatus === 'Completed') {
       repStats[rep].completedTasks++;
+      if (isPriority) {
+        repStats[rep].priorityCompletedTasks++;
+      }
     } else {
       repStats[rep].openTasks++;
+      if (isPriority) {
+        repStats[rep].priorityOpenTasks++;
+      }
     }
   });
 
@@ -141,10 +179,17 @@ export function calculateRepGamificationStats(tasks: Task[]): RepGamificationSta
       ? Math.round((rep.completedTasks / rep.totalTasks) * 100) 
       : 0;
     
+    // Priority completion rate - this is what reps are measured on
+    const priorityCompletionRate = rep.priorityTotalTasks > 0 
+      ? Math.round((rep.priorityCompletedTasks / rep.priorityTotalTasks) * 100) 
+      : 0;
+    
+    // Badge is based on priority task completion, not overall
     return {
       ...rep,
       completionRate,
-      badge: calculateBadge(completionRate),
+      priorityCompletionRate,
+      badge: calculateBadge(priorityCompletionRate), // Badge based on PRIORITY tasks
       streak: calculateStreak(tasks, rep.repName),
       storesMastered: calculateStoresMastered(tasks, rep.repName),
       rank: 0,
@@ -153,7 +198,8 @@ export function calculateRepGamificationStats(tasks: Task[]): RepGamificationSta
     };
   });
 
-  statsArray.sort((a, b) => b.completionRate - a.completionRate);
+  // Sort by PRIORITY completion rate (what reps are measured on)
+  statsArray.sort((a, b) => b.priorityCompletionRate - a.priorityCompletionRate);
 
   statsArray.forEach((rep, index) => {
     rep.rank = index + 1;
@@ -179,6 +225,13 @@ export function getTeamStats(stats: RepGamificationStats[], managerName?: string
     ? Math.round(filtered.reduce((sum, r) => sum + r.completionRate, 0) / totalReps)
     : 0;
   
+  // Priority task metrics (what reps are measured on)
+  const priorityTotalTasks = filtered.reduce((sum, r) => sum + r.priorityTotalTasks, 0);
+  const priorityCompletedTasks = filtered.reduce((sum, r) => sum + r.priorityCompletedTasks, 0);
+  const avgPriorityCompletionRate = totalReps > 0 
+    ? Math.round(filtered.reduce((sum, r) => sum + r.priorityCompletionRate, 0) / totalReps)
+    : 0;
+  
   const goldCount = filtered.filter(r => r.badge.type === 'gold').length;
   const silverCount = filtered.filter(r => r.badge.type === 'silver').length;
   const bronzeCount = filtered.filter(r => r.badge.type === 'bronze').length;
@@ -188,6 +241,10 @@ export function getTeamStats(stats: RepGamificationStats[], managerName?: string
     totalTasks,
     totalCompleted,
     avgCompletionRate,
+    // Priority metrics (what the team is measured on)
+    priorityTotalTasks,
+    priorityCompletedTasks,
+    avgPriorityCompletionRate,
     badgeCounts: { gold: goldCount, silver: silverCount, bronze: bronzeCount },
     topPerformers: filtered.slice(0, 3),
   };

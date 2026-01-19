@@ -12,6 +12,48 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { sendTaskCompletedEmail } from "./email";
 import { calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 
+// Priority action types - these are the most important tasks reps should focus on
+// Lower number = higher priority (appears first)
+const PRIORITY_ACTIONS = [
+  { pattern: 'urgent: place order', priority: 1 },
+  { pattern: 'fix counts: negative', priority: 2 },
+  { pattern: 'negative soh', priority: 2 },
+  { pattern: 'check count: no sales', priority: 3 },
+];
+
+// Returns priority level (1=highest, 999=lowest/normal)
+function getTaskPriority(action: string | null | undefined): number {
+  if (!action) return 999;
+  const normalizedAction = action.toLowerCase().trim();
+  
+  for (const { pattern, priority } of PRIORITY_ACTIONS) {
+    if (normalizedAction.includes(pattern)) {
+      return priority;
+    }
+  }
+  return 999; // Non-priority tasks
+}
+
+// Check if a task is a priority task
+function isPriorityTask(action: string | null | undefined): boolean {
+  return getTaskPriority(action) < 999;
+}
+
+// Sort tasks by priority (priority tasks first, then by creation date)
+function sortByPriority<T extends { action: string; createdAt: Date | string }>(tasks: T[]): T[] {
+  return [...tasks].sort((a, b) => {
+    const priorityA = getTaskPriority(a.action);
+    const priorityB = getTaskPriority(b.action);
+    
+    if (priorityA !== priorityB) {
+      return priorityA - priorityB; // Lower priority number comes first
+    }
+    
+    // Same priority - sort by creation date (newest first)
+    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+}
+
 // Simple in-memory cache for expensive calculations
 interface CacheEntry<T> {
   data: T;
@@ -63,7 +105,7 @@ const upload = multer({
 });
 
 // Multer error handler middleware
-const handleMulterError = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+const handleMulterError = (err: any, req: any, res: any, next: any) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({ error: 'File too large. Maximum size is 50MB.' });
@@ -1593,20 +1635,36 @@ export async function registerRoutes(
       const stores = [...new Set(repTasks.map(t => t.storeName))].sort();
       const clients = [...new Set(repTasks.map(t => t.client))].sort();
 
+      // Priority task metrics (what reps should focus on)
+      const priorityOpenTasks = openTasks.filter(t => isPriorityTask(t.action));
+      const priorityCompletedTasks = completedTasks.filter(t => isPriorityTask(t.action));
+      const priorityTotal = priorityOpenTasks.length + priorityCompletedTasks.length;
+      const priorityCompletionRate = priorityTotal > 0 
+        ? Math.round((priorityCompletedTasks.length / priorityTotal) * 100) 
+        : 0;
+
+      // Sort tasks by priority (priority tasks first)
+      const sortedOpenTasks = sortByPriority(openTasks);
+      const sortedCompletedTasks = sortByPriority(completedTasks);
+
       // Pagination for task lists - limit to 50 per page for mobile performance
       const taskLimit = parseInt(req.query.limit as string) || 50;
       const openPage = parseInt(req.query.openPage as string) || 1;
       const completedPage = parseInt(req.query.completedPage as string) || 1;
 
-      const paginatedOpenTasks = openTasks.slice((openPage - 1) * taskLimit, openPage * taskLimit);
-      const paginatedCompletedTasks = completedTasks.slice((completedPage - 1) * taskLimit, completedPage * taskLimit);
+      const paginatedOpenTasks = sortedOpenTasks.slice((openPage - 1) * taskLimit, openPage * taskLimit);
+      const paginatedCompletedTasks = sortedCompletedTasks.slice((completedPage - 1) * taskLimit, completedPage * taskLimit);
 
       res.json({
         kpis: {
           openCount,
           completedCount,
           completionRate,
-          oldestOpenDays
+          oldestOpenDays,
+          // Priority task metrics
+          priorityOpenCount: priorityOpenTasks.length,
+          priorityCompletedCount: priorityCompletedTasks.length,
+          priorityCompletionRate,
         },
         charts: {
           tasksOverTime,
@@ -1623,7 +1681,9 @@ export async function registerRoutes(
             age: Math.floor((new Date().getTime() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
             actionStatus: t.actionStatus,
             stockClassification: t.stockClassification,
-            action: t.action
+            action: t.action,
+            isPriority: isPriorityTask(t.action),
+            priority: getTaskPriority(t.action),
           })),
           completed: paginatedCompletedTasks.map(t => ({
             uniqueId: t.uniqueId,
@@ -1635,7 +1695,9 @@ export async function registerRoutes(
             captureDate: t.captureDate,
             actionStatus: t.actionStatus,
             stockClassification: t.stockClassification,
-            action: t.action
+            action: t.action,
+            isPriority: isPriorityTask(t.action),
+            priority: getTaskPriority(t.action),
           })),
           openTotalPages: Math.ceil(openCount / taskLimit),
           completedTotalPages: Math.ceil(completedCount / taskLimit),
@@ -1814,6 +1876,14 @@ export async function registerRoutes(
       const total = totalOpen + totalCompleted;
       const completionRate = total > 0 ? Math.round((totalCompleted / total) * 100) : 0;
 
+      // Priority task metrics (what reps are measured on)
+      const priorityOpenTasks = openTasks.filter(t => isPriorityTask(t.action));
+      const priorityCompletedTasks = completedTasks.filter(t => isPriorityTask(t.action));
+      const priorityTotal = priorityOpenTasks.length + priorityCompletedTasks.length;
+      const priorityCompletionRate = priorityTotal > 0 
+        ? Math.round((priorityCompletedTasks.length / priorityTotal) * 100) 
+        : 0;
+
       // Oldest open task (team)
       let oldestOpenDays = 0;
       if (openTasks.length > 0) {
@@ -1826,13 +1896,22 @@ export async function registerRoutes(
         oldestOpenDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       }
 
-      // Rep leaderboard
-      const repStats: Record<string, { repName: string; open: number; completed: number; oldestOpenDays: number }> = {};
+      // Rep leaderboard with priority task tracking
+      const repStats: Record<string, { 
+        repName: string; 
+        open: number; 
+        completed: number; 
+        priorityOpen: number;
+        priorityCompleted: number;
+        oldestOpenDays: number;
+      }> = {};
       
       teamTasks.forEach(task => {
         const rep = task.repName || 'Unknown';
+        const isPriority = isPriorityTask(task.action);
+        
         if (!repStats[rep]) {
-          repStats[rep] = { repName: rep, open: 0, completed: 0, oldestOpenDays: 0 };
+          repStats[rep] = { repName: rep, open: 0, completed: 0, priorityOpen: 0, priorityCompleted: 0, oldestOpenDays: 0 };
         }
         if (task.actionStatus === 'Completed') {
           // Only count if within date range
@@ -1842,13 +1921,16 @@ export async function registerRoutes(
               if ((!dateFrom || captureDate >= new Date(dateFrom)) && 
                   (!dateTo || captureDate <= new Date(dateTo + 'T23:59:59'))) {
                 repStats[rep].completed++;
+                if (isPriority) repStats[rep].priorityCompleted++;
               }
             }
           } else {
             repStats[rep].completed++;
+            if (isPriority) repStats[rep].priorityCompleted++;
           }
         } else {
           repStats[rep].open++;
+          if (isPriority) repStats[rep].priorityOpen++;
           // Calculate oldest open for this rep
           const taskAge = Math.floor((new Date().getTime() - new Date(task.createdAt).getTime()) / (1000 * 60 * 60 * 24));
           if (taskAge > repStats[rep].oldestOpenDays) {
@@ -1858,13 +1940,19 @@ export async function registerRoutes(
       });
 
       const repLeaderboard = Object.values(repStats)
-        .map(rep => ({
-          ...rep,
-          completionRate: (rep.open + rep.completed) > 0 
-            ? Math.round((rep.completed / (rep.open + rep.completed)) * 100) 
-            : 0
-        }))
-        .sort((a, b) => b.open - a.open); // Sort by open tasks descending
+        .map(rep => {
+          const priorityTotal = rep.priorityOpen + rep.priorityCompleted;
+          return {
+            ...rep,
+            completionRate: (rep.open + rep.completed) > 0 
+              ? Math.round((rep.completed / (rep.open + rep.completed)) * 100) 
+              : 0,
+            priorityCompletionRate: priorityTotal > 0
+              ? Math.round((rep.priorityCompleted / priorityTotal) * 100)
+              : 0,
+          };
+        })
+        .sort((a, b) => b.priorityOpen - a.priorityOpen); // Sort by priority open tasks descending
 
       // Risk/attention section - identify reps and stores needing attention
       const highOpenThreshold = 10;
@@ -1883,15 +1971,19 @@ export async function registerRoutes(
         .slice(0, 5);
 
       // Get unique regions and clients for filters
-      const regions = [...new Set(allTasks.map(t => t.region))].filter(Boolean).sort();
-      const clients = [...new Set(allTasks.map(t => t.client))].filter(Boolean).sort();
+      const regions = [...new Set(teamTasks.map(t => t.region))].filter(Boolean).sort();
+      const clients = [...new Set(teamTasks.map(t => t.client))].filter(Boolean).sort();
 
       res.json({
         kpis: {
           totalOpen,
           totalCompleted,
           completionRate,
-          oldestOpenDays
+          oldestOpenDays,
+          // Priority task metrics (what reps are measured on)
+          priorityOpenCount: priorityOpenTasks.length,
+          priorityCompletedCount: priorityCompletedTasks.length,
+          priorityCompletionRate,
         },
         repLeaderboard,
         riskAttention: {
