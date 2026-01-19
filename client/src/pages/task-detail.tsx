@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import BottomNav from "@/components/BottomNav";
+import Celebration from "@/components/Celebration";
 
 const REASON_CODES = [
   "Awaiting delivery / stock not received",
@@ -142,6 +143,7 @@ export default function TaskDetail() {
   const [image1, setImage1] = useState<string | null>(null);
   const [image2, setImage2] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState<1 | 2 | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
   
   const fileInput1 = useRef<HTMLInputElement>(null);
   const fileInput2 = useRef<HTMLInputElement>(null);
@@ -182,13 +184,11 @@ export default function TaskDetail() {
         queryClient.invalidateQueries({ queryKey: ["task-summary"] }),
         queryClient.invalidateQueries({ queryKey: ["store-overview"] }),
         queryClient.invalidateQueries({ queryKey: ["dashboard-stats"] }),
+        queryClient.invalidateQueries({ queryKey: ["gamification-leaderboard"] }),
       ]);
       
-      toast({
-        title: "Action Submitted",
-        description: "Task marked as completed.",
-      });
-      handleBackToTasks();
+      // Show celebration animation
+      setShowCelebration(true);
     },
     onError: () => {
       toast({
@@ -385,8 +385,23 @@ export default function TaskDetail() {
   const isCompleted = task.actionStatus === 'Completed' || !!task.captureDate;
   const actionBgColor = getActionBgColor(task.action);
 
+  const handleCelebrationComplete = () => {
+    setShowCelebration(false);
+    toast({
+      title: "Task Completed!",
+      description: "Great work! Keep up the momentum.",
+    });
+    handleBackToTasks();
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '140px' }}>
+      <Celebration 
+        show={showCelebration} 
+        type="completion" 
+        message="Task Completed!" 
+        onComplete={handleCelebrationComplete}
+      />
       <input 
         ref={fileInput1} 
         type="file" 
