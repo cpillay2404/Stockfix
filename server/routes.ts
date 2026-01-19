@@ -794,20 +794,10 @@ export async function registerRoutes(
     }
   });
 
-  // GET export tasks as Excel - MUST be before :uniqueId route
+  // GET export ALL tasks as Excel - MUST be before :uniqueId route
   app.get("/api/tasks/export", async (req, res) => {
     try {
       const allTasks = await storage.getAllTasks();
-      
-      // Only export tasks that have been captured (have feedback, reasonCode, or completed status)
-      const capturedTasks = allTasks.filter(task => 
-        task.actionStatus === 'Completed' || 
-        task.reasonCode || 
-        task.feedback || 
-        task.captureDate ||
-        task.image1 ||
-        task.image2
-      );
       
       // Build full URL for images
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
@@ -822,8 +812,8 @@ export async function registerRoutes(
         return `${baseUrl}${normalized}`;
       };
       
-      // Transform data to match Excel columns
-      const exportData = capturedTasks.map(task => ({
+      // Transform data to match Excel columns - export ALL tasks
+      const exportData = allTasks.map(task => ({
         'Unique Id': task.uniqueId,
         'Key': task.key,
         'client': task.client,
@@ -868,6 +858,133 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error exporting tasks:", error);
       res.status(500).json({ error: "Failed to export tasks" });
+    }
+  });
+
+  // GET export Rep Leaderboard as Excel
+  app.get("/api/export/rep-leaderboard", async (req, res) => {
+    try {
+      const allTasks = await storage.getAllTasks();
+      
+      const repStats: Record<string, { 
+        repName: string; 
+        lineManager: string;
+        total: number;
+        open: number; 
+        completed: number; 
+        completionRate: number;
+      }> = {};
+      
+      allTasks.forEach(task => {
+        const rep = task.repName || 'Unknown';
+        if (!repStats[rep]) {
+          repStats[rep] = { 
+            repName: rep, 
+            lineManager: task.lineManager || '',
+            total: 0,
+            open: 0, 
+            completed: 0,
+            completionRate: 0,
+          };
+        }
+        repStats[rep].total++;
+        if (task.actionStatus === 'Completed') {
+          repStats[rep].completed++;
+        } else {
+          repStats[rep].open++;
+        }
+      });
+
+      const exportData = Object.values(repStats).map(rep => {
+        const total = rep.open + rep.completed;
+        return {
+          'Rep Name': rep.repName,
+          'Line Manager': rep.lineManager,
+          'Total Tasks': total,
+          'Open Tasks': rep.open,
+          'Completed Tasks': rep.completed,
+          'Completion Rate (%)': total > 0 ? Math.round((rep.completed / total) * 100) : 0,
+        };
+      }).sort((a, b) => b['Completion Rate (%)'] - a['Completion Rate (%)']);
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Rep Leaderboard');
+      
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
+      res.setHeader('Content-Disposition', 'attachment; filename=rep_leaderboard.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting rep leaderboard:", error);
+      res.status(500).json({ error: "Failed to export rep leaderboard" });
+    }
+  });
+
+  // GET export Manager Leaderboard as Excel
+  app.get("/api/export/manager-leaderboard", async (req, res) => {
+    try {
+      const allTasks = await storage.getAllTasks();
+      
+      const managerStats: Record<string, { 
+        managerName: string; 
+        repCount: number;
+        total: number;
+        open: number; 
+        completed: number; 
+        completionRate: number;
+        reps: Set<string>;
+      }> = {};
+      
+      allTasks.forEach(task => {
+        const manager = task.lineManager || 'Unknown';
+        if (!managerStats[manager]) {
+          managerStats[manager] = { 
+            managerName: manager, 
+            repCount: 0,
+            total: 0,
+            open: 0, 
+            completed: 0,
+            completionRate: 0,
+            reps: new Set(),
+          };
+        }
+        managerStats[manager].total++;
+        if (task.repName) {
+          managerStats[manager].reps.add(task.repName);
+        }
+        if (task.actionStatus === 'Completed') {
+          managerStats[manager].completed++;
+        } else {
+          managerStats[manager].open++;
+        }
+      });
+
+      const exportData = Object.values(managerStats).map(mgr => {
+        const total = mgr.open + mgr.completed;
+        return {
+          'Manager Name': mgr.managerName,
+          'Number of Reps': mgr.reps.size,
+          'Total Tasks': total,
+          'Open Tasks': mgr.open,
+          'Completed Tasks': mgr.completed,
+          'Completion Rate (%)': total > 0 ? Math.round((mgr.completed / total) * 100) : 0,
+        };
+      }).sort((a, b) => b['Completion Rate (%)'] - a['Completion Rate (%)']);
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData);
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Manager Leaderboard');
+      
+      const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+      
+      res.setHeader('Content-Disposition', 'attachment; filename=manager_leaderboard.xlsx');
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.send(buffer);
+    } catch (error) {
+      console.error("Error exporting manager leaderboard:", error);
+      res.status(500).json({ error: "Failed to export manager leaderboard" });
     }
   });
 

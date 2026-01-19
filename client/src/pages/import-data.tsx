@@ -16,27 +16,32 @@ export default function ImportData() {
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const [clearExisting, setClearExisting] = useState(true);
-  const [isExporting, setIsExporting] = useState(false);
+  const [isExporting, setIsExporting] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleExport = () => {
-    setIsExporting(true);
+  const handleExport = (type: 'all' | 'rep' | 'manager') => {
+    setIsExporting(type);
+    
+    const config = {
+      all: { url: '/api/tasks/export', filename: 'stockfix_all_tasks.xlsx', title: 'All Tasks Export' },
+      rep: { url: '/api/export/rep-leaderboard', filename: 'rep_leaderboard.xlsx', title: 'Rep Leaderboard Export' },
+      manager: { url: '/api/export/manager-leaderboard', filename: 'manager_leaderboard.xlsx', title: 'Manager Leaderboard Export' },
+    };
+    
     toast({
-      title: "Export Started",
-      description: "Your download will begin shortly. This may take a moment for large datasets.",
+      title: `${config[type].title} Started`,
+      description: "Your download will begin shortly.",
     });
     
-    // Use direct link download for large files - more reliable than fetch
     const link = document.createElement('a');
-    link.href = '/api/tasks/export';
-    link.download = 'stockfix_export.xlsx';
+    link.href = config[type].url;
+    link.download = config[type].filename;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
-    // Reset button after a delay since we can't track download completion
     setTimeout(() => {
-      setIsExporting(false);
+      setIsExporting(null);
     }, 3000);
   };
 
@@ -180,34 +185,74 @@ export default function ImportData() {
           <CardHeader>
             <CardTitle>Export Data</CardTitle>
             <CardDescription>
-              Download all task data including rep feedback and image URLs as an Excel file.
+              Download task data and leaderboards as Excel files.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg border border-green-100 dark:border-green-900/50">
               <p className="text-sm text-green-900 dark:text-green-100">
-                The export includes all columns plus rep-captured data: Reason Code, Action Taken Comment, Feedback, Capture Date, and clickable Image URLs.
+                Export all tasks (answered &amp; unanswered), or download rep and manager leaderboards.
               </p>
             </div>
-            <Button 
-              className="w-full sm:w-auto" 
-              variant="outline"
-              onClick={handleExport} 
-              disabled={isExporting}
-              data-testid="button-export"
-            >
-              {isExporting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Exporting...
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export to Excel
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col gap-2">
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => handleExport('all')} 
+                disabled={isExporting !== null}
+                data-testid="button-export-all"
+              >
+                {isExporting === 'all' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export All Tasks
+                  </>
+                )}
+              </Button>
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => handleExport('rep')} 
+                disabled={isExporting !== null}
+                data-testid="button-export-rep"
+              >
+                {isExporting === 'rep' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Rep Leaderboard
+                  </>
+                )}
+              </Button>
+              <Button 
+                className="w-full" 
+                variant="outline"
+                onClick={() => handleExport('manager')} 
+                disabled={isExporting !== null}
+                data-testid="button-export-manager"
+              >
+                {isExporting === 'manager' ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Export Manager Leaderboard
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
