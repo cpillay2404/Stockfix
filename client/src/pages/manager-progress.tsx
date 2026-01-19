@@ -273,7 +273,15 @@ export default function ManagerProgress() {
       </div>
 
       <div style={{ padding: '16px' }}>
-        {/* Team Achievements / Leaderboard Insights - moved to top */}
+        {/* Leaderboard with badges - at the very top */}
+        <Leaderboard 
+          manager={selectedManager}
+          limit={15}
+          showTeamStats={true}
+          onRepClick={handleRepClick}
+        />
+
+        {/* Team Achievements Insights */}
         {(data?.repLeaderboard?.length > 0) && (
           <div style={{
             backgroundColor: '#FFFFFF',
@@ -436,12 +444,6 @@ export default function ManagerProgress() {
           </div>
         )}
 
-        <Leaderboard 
-          manager={selectedManager}
-          limit={15}
-          showTeamStats={true}
-          onRepClick={handleRepClick}
-        />
       </div>
 
       <BottomNav />
