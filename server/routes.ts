@@ -1651,6 +1651,57 @@ export async function registerRoutes(
     }
   });
 
+  // GET Individual Rep Gamification Stats (this week only)
+  app.get("/api/gamification/rep/:repName", async (req, res) => {
+    try {
+      const repName = decodeURIComponent(req.params.repName);
+      
+      const allTasks = await storage.getAllTasks();
+      
+      // Filter to this week only
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      const thisWeekTasks = latestWeek 
+        ? allTasks.filter(t => t.weekEndingDate === latestWeek)
+        : allTasks;
+      
+      const allStats = calculateRepGamificationStats(thisWeekTasks);
+      const repStats = allStats.find(s => s.repName === repName);
+      
+      if (!repStats) {
+        return res.json({ 
+          found: false,
+          repName,
+          weekEndingDate: latestWeek,
+        });
+      }
+      
+      // Find rep's rank
+      const sortedByCompletion = [...allStats].sort((a, b) => b.completionRate - a.completionRate);
+      const rank = sortedByCompletion.findIndex(s => s.repName === repName) + 1;
+      
+      // Team averages for comparison
+      const teamAvgCompletion = allStats.length > 0 
+        ? Math.round(allStats.reduce((sum, s) => sum + s.completionRate, 0) / allStats.length)
+        : 0;
+      
+      res.json({
+        found: true,
+        repName,
+        weekEndingDate: latestWeek,
+        stats: {
+          ...repStats,
+          rank,
+          totalReps: allStats.length,
+          teamAvgCompletion,
+          aheadOfTeamBy: repStats.completionRate - teamAvgCompletion,
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching rep gamification stats:", error);
+      res.status(500).json({ error: "Failed to fetch rep stats" });
+    }
+  });
+
   // GET Manager Task Progress - shows team-wide progress across all reps (this week only)
   app.get("/api/task-progress/manager", async (req, res) => {
     try {

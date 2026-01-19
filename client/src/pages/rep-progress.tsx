@@ -1,10 +1,27 @@
 import { useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, TrendingUp, Clock, CheckCircle, AlertCircle, Search } from "lucide-react";
+import { ArrowLeft, TrendingUp, Clock, CheckCircle, AlertCircle, Search, Trophy, Flame, Award } from "lucide-react";
 import { Bar, XAxis, YAxis, ResponsiveContainer, LabelList, BarChart, Cell, PieChart, Pie } from "recharts";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
+interface RepGamificationStats {
+  found: boolean;
+  repName: string;
+  weekEndingDate: string;
+  stats?: {
+    badge: { type: string; label: string; color: string; emoji: string };
+    streak: number;
+    completionRate: number;
+    rank: number;
+    totalReps: number;
+    teamAvgCompletion: number;
+    aheadOfTeamBy: number;
+    totalTasks: number;
+    completedTasks: number;
+  };
+}
 
 interface KpiTileProps {
   label: string;
@@ -134,6 +151,17 @@ export default function RepProgress() {
     enabled: !!repName,
   });
 
+  // Fetch gamification stats for this rep
+  const { data: gamification } = useQuery<RepGamificationStats>({
+    queryKey: ["rep-gamification", repName],
+    queryFn: async () => {
+      const res = await fetch(`/api/gamification/rep/${encodeURIComponent(repName)}`);
+      if (!res.ok) throw new Error("Failed to fetch gamification");
+      return res.json();
+    },
+    enabled: !!repName,
+  });
+
   const handleBack = () => {
     if (fromManager) {
       setLocation('/manager-progress');
@@ -213,6 +241,85 @@ export default function RepProgress() {
             testId="kpi-completion-rate"
           />
         </div>
+
+        {/* Gamification Stats */}
+        {gamification?.found && gamification.stats && (
+          <div 
+            data-testid="gamification-card"
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              borderRadius: '12px',
+              padding: '12px 16px',
+              marginTop: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              {/* Badge */}
+              {gamification.stats.badge.type !== 'none' && (
+                <div 
+                  style={{ 
+                    fontSize: '28px',
+                    filter: gamification.stats.badge.type === 'gold' ? 'drop-shadow(0 0 6px gold)' : undefined,
+                  }}
+                  title={`${gamification.stats.badge.label} Badge`}
+                >
+                  {gamification.stats.badge.emoji}
+                </div>
+              )}
+              <div>
+                <div style={{ color: '#FFFFFF', fontWeight: 600, fontSize: '14px' }}>
+                  {gamification.stats.badge.type !== 'none' 
+                    ? gamification.stats.badge.label + ' Badge'
+                    : 'Keep going!'}
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>
+                  {gamification.stats.aheadOfTeamBy >= 0 
+                    ? `${gamification.stats.aheadOfTeamBy}% above team avg`
+                    : `${Math.abs(gamification.stats.aheadOfTeamBy)}% below team avg`}
+                </div>
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+              {/* Rank */}
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '4px',
+                  color: gamification.stats.rank <= 3 ? '#FFD700' : '#FFFFFF',
+                }}>
+                  <Trophy size={14} />
+                  <span style={{ fontWeight: 700, fontSize: '16px' }}>#{gamification.stats.rank}</span>
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '10px' }}>
+                  of {gamification.stats.totalReps}
+                </div>
+              </div>
+              
+              {/* Streak */}
+              {gamification.stats.streak > 0 && (
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '4px',
+                    color: gamification.stats.streak >= 7 ? '#FF6B6B' : gamification.stats.streak >= 3 ? '#FFB347' : '#FFFFFF',
+                  }}>
+                    <Flame size={14} />
+                    <span style={{ fontWeight: 700, fontSize: '16px' }}>{gamification.stats.streak}</span>
+                  </div>
+                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '10px' }}>
+                    day streak
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ padding: '16px' }}>
