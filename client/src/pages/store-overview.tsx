@@ -325,7 +325,6 @@ export default function StoreOverview() {
 
   const handleTileClick = (issueFilter: string) => {
     const taskParams = new URLSearchParams();
-    if (rep) taskParams.set('rep', rep);
     if (store) taskParams.set('store', store);
     if (selectedClient && selectedClient !== 'All Clients') {
       taskParams.set('client', selectedClient);
