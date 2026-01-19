@@ -96,15 +96,6 @@ function TaskRow({ task, onClick }: TaskRowProps) {
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '8px' }}>
-          {task.age !== undefined && (
-            <div style={{ 
-              fontSize: '12px', 
-              fontWeight: 600, 
-              color: task.age > 14 ? '#DC2626' : task.age > 7 ? '#F59E0B' : '#6B7280' 
-            }}>
-              {task.age} days
-            </div>
-          )}
           {task.captureDate && (
             <div style={{ fontSize: '11px', color: '#6B7280' }}>
               {new Date(task.captureDate).toLocaleDateString()}
