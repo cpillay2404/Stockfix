@@ -290,7 +290,7 @@ export default function RepProgress() {
             marginBottom: '16px',
           }}>
             <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '8px' }}>
-              Open Tasks by Store (Top 10)
+              Open Tasks by Store (Top 5)
             </h3>
             <div style={{ height: '150px' }}>
               <ResponsiveContainer width="100%" height="100%">

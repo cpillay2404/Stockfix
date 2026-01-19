@@ -1333,7 +1333,7 @@ export async function registerRoutes(
       const openByStore = Object.entries(storeData)
         .map(([store, count]) => ({ store, count }))
         .sort((a, b) => b.count - a.count)
-        .slice(0, 10);
+        .slice(0, 5);
 
       // Get unique stores and clients for filters
       const stores = [...new Set(repTasks.map(t => t.storeName))].sort();
