@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, ChevronDown, Wrench } from "lucide-react";
@@ -20,9 +20,16 @@ interface SearchableSelectProps {
 
 function SearchableSelect({ value, onValueChange, options, placeholder, testId, disabled }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  
+  const filteredOptions = useMemo(() => {
+    if (!search) return options.slice(0, 100);
+    const searchLower = search.toLowerCase();
+    return options.filter(opt => opt.toLowerCase().includes(searchLower)).slice(0, 100);
+  }, [options, search]);
 
   return (
-    <Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
+    <Popover open={open} onOpenChange={disabled ? undefined : (isOpen) => { setOpen(isOpen); if (!isOpen) setSearch(""); }}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -53,18 +60,19 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId, 
         style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '300px' }}
         align="start"
       >
-        <Command>
-          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} />
+        <Command shouldFilter={false}>
+          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} value={search} onValueChange={setSearch} />
           <CommandList style={{ maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option}
                   value={option}
                   onSelect={() => {
                     onValueChange(option);
                     setOpen(false);
+                    setSearch("");
                   }}
                 >
                   <Check
@@ -76,6 +84,11 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId, 
                   {option}
                 </CommandItem>
               ))}
+              {options.length > 100 && !search && (
+                <div className="px-2 py-1.5 text-xs text-gray-500 text-center">
+                  Type to search {options.length.toLocaleString()} items...
+                </div>
+              )}
             </CommandGroup>
           </CommandList>
         </Command>

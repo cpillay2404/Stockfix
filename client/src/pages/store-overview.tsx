@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,16 @@ interface SearchableSelectProps {
 
 function SearchableSelect({ value, onValueChange, options, placeholder, testId }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  
+  const filteredOptions = useMemo(() => {
+    if (!search) return options.slice(0, 100);
+    const searchLower = search.toLowerCase();
+    return options.filter(opt => opt.toLowerCase().includes(searchLower)).slice(0, 100);
+  }, [options, search]);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(isOpen) => { setOpen(isOpen); if (!isOpen) setSearch(""); }}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -61,18 +68,19 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId }
         style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '300px' }}
         align="start"
       >
-        <Command>
-          <CommandInput placeholder={`Search...`} />
+        <Command shouldFilter={false}>
+          <CommandInput placeholder={`Search...`} value={search} onValueChange={setSearch} />
           <CommandList style={{ maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
+              {filteredOptions.map((option) => (
                 <CommandItem
                   key={option}
                   value={option}
                   onSelect={() => {
                     onValueChange(option);
                     setOpen(false);
+                    setSearch("");
                   }}
                   style={{
                     display: 'flex',
