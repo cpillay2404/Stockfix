@@ -89,10 +89,10 @@ function invalidateGamificationCache() {
   gamificationCache.clear();
 }
 
-// Configure multer for file uploads - increased to 50MB for large imports
+// Configure multer for file uploads - increased to 150MB for large imports
 const upload = multer({ 
   dest: 'uploads/',
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  limits: { fileSize: 150 * 1024 * 1024 }, // 150MB limit
   fileFilter: (_req, file, cb) => {
     const allowedTypes = ['.xlsx', '.xls', '.csv'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -108,7 +108,7 @@ const upload = multer({
 const handleMulterError = (err: any, req: any, res: any, next: any) => {
   if (err instanceof multer.MulterError) {
     if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File too large. Maximum size is 50MB.' });
+      return res.status(400).json({ error: 'File too large. Maximum size is 150MB.' });
     }
     return res.status(400).json({ error: `Upload error: ${err.message}` });
   } else if (err) {
@@ -1357,11 +1357,11 @@ export async function registerRoutes(
       const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
       console.log(`Import - File received: ${req.file.originalname}, Size: ${fileSizeMB}MB`);
 
-      // Check file size (50MB limit)
-      if (req.file.size > 50 * 1024 * 1024) {
+      // Check file size (150MB limit)
+      if (req.file.size > 150 * 1024 * 1024) {
         fs.unlinkSync(req.file.path);
         return res.status(400).json({ 
-          error: `File too large (${fileSizeMB}MB). Maximum size is 50MB.` 
+          error: `File too large (${fileSizeMB}MB). Maximum size is 150MB.` 
         });
       }
 
