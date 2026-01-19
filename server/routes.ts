@@ -1268,17 +1268,34 @@ export async function registerRoutes(
     }
   });
 
+  // GET list of managers (line managers)
+  app.get("/api/managers", async (req, res) => {
+    try {
+      const allTasks = await storage.getAllTasks();
+      const managers = [...new Set(allTasks.map(t => t.lineManager).filter(Boolean))].sort();
+      res.json({ managers });
+    } catch (error) {
+      console.error("Error fetching managers:", error);
+      res.status(500).json({ error: "Failed to fetch managers" });
+    }
+  });
+
   // GET Manager Task Progress - shows team-wide progress across all reps
   app.get("/api/task-progress/manager", async (req, res) => {
     try {
       const region = req.query.region as string | undefined;
       const client = req.query.client as string | undefined;
+      const manager = req.query.manager as string | undefined;
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
 
       const allTasks = await storage.getAllTasks();
       let teamTasks = allTasks;
 
+      // Apply manager filter (filter by lineManager to show only that manager's team)
+      if (manager) {
+        teamTasks = teamTasks.filter(t => t.lineManager === manager);
+      }
       // Apply region filter
       if (region) {
         teamTasks = teamTasks.filter(t => t.region === region);

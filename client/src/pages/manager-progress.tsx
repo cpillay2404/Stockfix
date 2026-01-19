@@ -174,13 +174,24 @@ function RiskCard({ title, icon, items, testId }: RiskCardProps) {
 
 export default function ManagerProgress() {
   const [, setLocation] = useLocation();
+  const [selectedManager, setSelectedManager] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
 
+  const { data: managersData } = useQuery({
+    queryKey: ["managers-list"],
+    queryFn: async () => {
+      const res = await fetch('/api/managers');
+      if (!res.ok) throw new Error("Failed to fetch managers");
+      return res.json();
+    },
+  });
+
   const { data, isLoading } = useQuery({
-    queryKey: ["manager-progress", selectedRegion, selectedClient],
+    queryKey: ["manager-progress", selectedManager, selectedRegion, selectedClient],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
+      if (selectedManager) queryParams.set('manager', selectedManager);
       if (selectedRegion) queryParams.set('region', selectedRegion);
       if (selectedClient) queryParams.set('client', selectedClient);
       const res = await fetch(`/api/task-progress/manager?${queryParams.toString()}`);
@@ -188,6 +199,8 @@ export default function ManagerProgress() {
       return res.json();
     },
   });
+
+  const managers = managersData?.managers || [];
 
   const handleBack = () => {
     setLocation('/');
@@ -239,7 +252,7 @@ export default function ManagerProgress() {
           >
             <ArrowLeft style={{ width: '20px', height: '20px', color: '#FFFFFF' }} />
           </button>
-          <div>
+          <div style={{ flex: 1 }}>
             <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
               Team Task Progress
             </h1>
@@ -247,6 +260,37 @@ export default function ManagerProgress() {
               Manager Overview
             </p>
           </div>
+        </div>
+
+        <div style={{ marginTop: '12px', marginBottom: '4px' }}>
+          <select
+            data-testid="manager-select"
+            value={selectedManager}
+            onChange={(e) => setSelectedManager(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              fontSize: '14px',
+              borderRadius: '8px',
+              border: '2px solid rgba(255,255,255,0.3)',
+              backgroundColor: 'rgba(255,255,255,0.15)',
+              color: '#FFFFFF',
+              cursor: 'pointer',
+              appearance: 'none',
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
+              backgroundRepeat: 'no-repeat',
+              backgroundPosition: 'right 12px center',
+            }}
+          >
+            <option value="" style={{ color: '#374151', backgroundColor: '#FFFFFF' }}>
+              Select Manager to View Team
+            </option>
+            {managers.map((manager: string) => (
+              <option key={manager} value={manager} style={{ color: '#374151', backgroundColor: '#FFFFFF' }}>
+                {manager}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
