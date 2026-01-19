@@ -165,11 +165,27 @@ export async function importExcel(
     body: formData,
   });
   if (!res.ok) {
-    const error = await res.json();
-    throw new Error(error.error || "Failed to import file");
+    let errorMessage = `Upload failed with status ${res.status}`;
+    try {
+      const text = await res.text();
+      try {
+        const errorData = JSON.parse(text);
+        errorMessage = errorData.error || errorMessage;
+      } catch {
+        if (text) errorMessage = text;
+      }
+    } catch {
+      // Could not read response body
+    }
+    throw new Error(errorMessage);
   }
   
-  const result = await res.json();
+  let result;
+  try {
+    result = await res.json();
+  } catch {
+    throw new Error("Invalid response from server");
+  }
   
   // If async import, poll for status
   if (result.async && result.jobId) {
