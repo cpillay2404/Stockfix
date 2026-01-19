@@ -55,7 +55,7 @@ export default function ImportData() {
         console.log("Import diagnostics:", d);
         toast({
           title: "Import Successful",
-          description: `${data.message}. LINE MANAGER column: ${d.lineManagerColumn}, Sample value: ${d.sampleLineManager}`,
+          description: `${data.message}. Column: ${d.lineManagerColumn}, Excel value: ${d.sampleLineManager}, Mapped value: ${d.mappedLineManager}, Tasks with manager: ${d.tasksWithManager}`,
         });
       } else {
         toast({
@@ -63,7 +63,7 @@ export default function ImportData() {
           description: data.message,
         });
       }
-      setTimeout(() => setLocation("/"), 3000);
+      setTimeout(() => setLocation("/"), 5000);
     },
     onError: (error: Error) => {
       toast({

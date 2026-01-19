@@ -1201,8 +1201,11 @@ export async function registerRoutes(
 
       console.log("Excel import - Mapped tasks:", mappedTasks.length);
       if (mappedTasks.length > 0) {
-        console.log("Excel import - Sample task:", JSON.stringify(mappedTasks[0], null, 2));
-        console.log("Excel import - LINE MANAGER value:", mappedTasks[0].lineManager);
+        console.log("Excel import - Sample task lineManager:", mappedTasks[0].lineManager);
+        console.log("Excel import - Sample task repName:", mappedTasks[0].repName);
+        // Count how many have lineManager populated
+        const withManager = mappedTasks.filter((t: any) => t.lineManager && t.lineManager.trim() !== '').length;
+        console.log("Excel import - Tasks with LINE MANAGER populated:", withManager, "out of", mappedTasks.length);
       }
 
       // Filter out tasks without barcode (required field)
@@ -1257,6 +1260,8 @@ export async function registerRoutes(
         h.toLowerCase() === 'line_manager'
       );
       const sampleLineManager = lineManagerHeader && data.length > 0 ? (data[0] as any)[lineManagerHeader] : null;
+      const mappedSampleLineManager = mappedTasks.length > 0 ? mappedTasks[0].lineManager : 'N/A';
+      const tasksWithManager = mappedTasks.filter((t: any) => t.lineManager && t.lineManager.trim() !== '').length;
       
       res.json({ 
         success: true, 
@@ -1266,7 +1271,9 @@ export async function registerRoutes(
           totalRows: data.length,
           headers: detectedHeaders,
           lineManagerColumn: lineManagerHeader || 'NOT FOUND',
-          sampleLineManager: sampleLineManager || 'N/A'
+          sampleLineManager: sampleLineManager || 'N/A',
+          mappedLineManager: mappedSampleLineManager,
+          tasksWithManager: tasksWithManager
         }
       });
     } catch (error) {
