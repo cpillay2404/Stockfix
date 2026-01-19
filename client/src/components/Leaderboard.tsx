@@ -9,6 +9,11 @@ interface RepStats {
   completedTasks: number;
   openTasks: number;
   completionRate: number;
+  // Priority task metrics (what reps are measured on)
+  priorityTotalTasks: number;
+  priorityCompletedTasks: number;
+  priorityOpenTasks: number;
+  priorityCompletionRate: number;
   badge: {
     type: 'gold' | 'silver' | 'bronze' | 'none';
     label: string;
@@ -28,6 +33,10 @@ interface LeaderboardData {
     totalTasks: number;
     totalCompleted: number;
     avgCompletionRate: number;
+    // Priority task metrics (what the team is measured on)
+    priorityTotalTasks: number;
+    priorityCompletedTasks: number;
+    avgPriorityCompletionRate: number;
     badgeCounts: { gold: number; silver: number; bronze: number };
     topPerformers: RepStats[];
   };
@@ -220,9 +229,9 @@ export default function Leaderboard({ manager, limit = 10, showTeamStats = true,
             </div>
             
             <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-              <div style={{ fontSize: '11px', color: '#6B7280' }}>Team Avg</div>
+              <div style={{ fontSize: '11px', color: '#6B7280' }}>Priority Avg</div>
               <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71' }}>
-                {data.teamStats.avgCompletionRate}%
+                {data.teamStats.avgPriorityCompletionRate ?? data.teamStats.avgCompletionRate}%
               </div>
             </div>
           </div>
@@ -306,17 +315,17 @@ export default function Leaderboard({ manager, limit = 10, showTeamStats = true,
               </div>
               
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CompletionBar rate={rep.completionRate} />
+                <CompletionBar rate={rep.priorityCompletionRate ?? rep.completionRate} />
                 <span
                   style={{
                     fontSize: '14px',
                     fontWeight: 700,
-                    color: rep.completionRate >= 90 ? '#10B981' : rep.completionRate >= 70 ? '#F59E0B' : '#F36C21',
+                    color: (rep.priorityCompletionRate ?? rep.completionRate) >= 90 ? '#10B981' : (rep.priorityCompletionRate ?? rep.completionRate) >= 70 ? '#F59E0B' : '#F36C21',
                     minWidth: '40px',
                     textAlign: 'right',
                   }}
                 >
-                  {rep.completionRate}%
+                  {rep.priorityCompletionRate ?? rep.completionRate}%
                 </span>
               </div>
             </div>

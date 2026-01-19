@@ -54,6 +54,9 @@ interface RepRowProps {
     open: number;
     completed: number;
     completionRate: number;
+    priorityOpen?: number;
+    priorityCompleted?: number;
+    priorityCompletionRate?: number;
     oldestOpenDays: number;
   };
   onClick: () => void;
@@ -95,13 +98,13 @@ function RepRow({ rep, onClick }: RepRowProps) {
             color: '#6B7280',
           }}>
             <span style={{ color: '#F36C21', fontWeight: 600 }}>
-              {rep.open} open
+              {rep.priorityOpen ?? 0} priority
             </span>
             <span style={{ color: '#10B981' }}>
-              {rep.completed} done
+              {rep.priorityCompletionRate ?? 0}% priority rate
             </span>
             <span>
-              {rep.completionRate}% rate
+              {rep.open} total open
             </span>
           </div>
         </div>
@@ -209,13 +212,13 @@ export default function ManagerProgress() {
 
   const repLeaderboard = data?.repLeaderboard || [];
   const topPerformer = repLeaderboard.length > 0 
-    ? [...repLeaderboard].sort((a: any, b: any) => b.completionRate - a.completionRate)[0] 
+    ? [...repLeaderboard].sort((a: any, b: any) => (b.priorityCompletionRate ?? 0) - (a.priorityCompletionRate ?? 0))[0] 
     : null;
-  const mostOpenRep = repLeaderboard.length > 0 
-    ? [...repLeaderboard].sort((a: any, b: any) => b.open - a.open)[0] 
+  const mostPriorityOpenRep = repLeaderboard.length > 0 
+    ? [...repLeaderboard].sort((a: any, b: any) => (b.priorityOpen ?? 0) - (a.priorityOpen ?? 0))[0] 
     : null;
-  const teamAvgRate = repLeaderboard.length > 0 
-    ? Math.round(repLeaderboard.reduce((sum: number, r: any) => sum + r.completionRate, 0) / repLeaderboard.length) 
+  const teamAvgPriorityRate = repLeaderboard.length > 0 
+    ? Math.round(repLeaderboard.reduce((sum: number, r: any) => sum + (r.priorityCompletionRate ?? 0), 0) / repLeaderboard.length) 
     : 0;
 
   return (
@@ -308,12 +311,12 @@ export default function ManagerProgress() {
                 padding: '10px',
                 borderLeft: '3px solid #10B981',
               }}>
-                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Top Performer</div>
+                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Top Priority Performer</div>
                 <div style={{ fontSize: '13px', fontWeight: 600, color: '#003B71' }}>
                   {topPerformer?.repName || '-'}
                 </div>
                 <div style={{ fontSize: '11px', color: '#10B981' }}>
-                  {topPerformer?.completionRate || 0}% completion
+                  {topPerformer?.priorityCompletionRate ?? topPerformer?.completionRate ?? 0}% priority
                 </div>
               </div>
               <div style={{ 
@@ -322,12 +325,12 @@ export default function ManagerProgress() {
                 padding: '10px',
                 borderLeft: '3px solid #DC2626',
               }}>
-                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Most Open Tasks</div>
+                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Most Priority Open</div>
                 <div style={{ fontSize: '13px', fontWeight: 600, color: '#003B71' }}>
-                  {mostOpenRep?.repName || '-'}
+                  {mostPriorityOpenRep?.repName || '-'}
                 </div>
                 <div style={{ fontSize: '11px', color: '#DC2626' }}>
-                  {mostOpenRep?.open || 0} open
+                  {mostPriorityOpenRep?.priorityOpen ?? 0} priority open
                 </div>
               </div>
               <div style={{ 
@@ -336,9 +339,9 @@ export default function ManagerProgress() {
                 padding: '10px',
                 borderLeft: '3px solid #F59E0B',
               }}>
-                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Team Avg Rate</div>
+                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Team Priority Avg</div>
                 <div style={{ fontSize: '16px', fontWeight: 700, color: '#F59E0B', fontFamily: 'monospace' }}>
-                  {teamAvgRate}%
+                  {teamAvgPriorityRate}%
                 </div>
               </div>
               <div style={{ 

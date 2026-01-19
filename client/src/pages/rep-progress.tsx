@@ -14,6 +14,10 @@ interface RepGamificationStats {
     badge: { type: string; label: string; color: string; emoji: string };
     streak: number;
     completionRate: number;
+    priorityCompletionRate: number;
+    priorityTotalTasks: number;
+    priorityCompletedTasks: number;
+    priorityOpenTasks: number;
     rank: number;
     totalReps: number;
     teamAvgCompletion: number;
@@ -279,25 +283,25 @@ export default function RepProgress() {
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
           <KpiTile
-            label="Open Tasks"
-            value={data?.kpis?.openCount || 0}
+            label="Priority Open"
+            value={data?.kpis?.priorityOpenCount || 0}
             icon={<AlertCircle size={18} />}
             accentColor="#F36C21"
-            testId="kpi-open-tasks"
+            testId="kpi-priority-open"
           />
           <KpiTile
-            label="Completed"
-            value={data?.kpis?.completedCount || 0}
+            label="Priority Done"
+            value={data?.kpis?.priorityCompletedCount || 0}
             icon={<CheckCircle size={18} />}
             accentColor="#10B981"
-            testId="kpi-completed-tasks"
+            testId="kpi-priority-completed"
           />
           <KpiTile
-            label="Rate"
-            value={`${data?.kpis?.completionRate || 0}%`}
+            label="Priority Rate"
+            value={`${data?.kpis?.priorityCompletionRate || 0}%`}
             icon={<TrendingUp size={18} />}
             accentColor="#003B71"
-            testId="kpi-completion-rate"
+            testId="kpi-priority-rate"
           />
         </div>
 
