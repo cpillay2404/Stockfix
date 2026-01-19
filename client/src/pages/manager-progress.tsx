@@ -174,18 +174,12 @@ function RiskCard({ title, icon, items, testId }: RiskCardProps) {
 
 export default function ManagerProgress() {
   const [, setLocation] = useLocation();
-  const [selectedManager, setSelectedManager] = useState('');
   const [selectedRegion, setSelectedRegion] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
 
-  const { data: managersData } = useQuery({
-    queryKey: ["managers-list"],
-    queryFn: async () => {
-      const res = await fetch('/api/managers');
-      if (!res.ok) throw new Error("Failed to fetch managers");
-      return res.json();
-    },
-  });
+  // Get manager from URL query params
+  const urlParams = new URLSearchParams(window.location.search);
+  const selectedManager = urlParams.get('manager') || '';
 
   const { data, isLoading } = useQuery({
     queryKey: ["manager-progress", selectedManager, selectedRegion, selectedClient],
@@ -198,12 +192,11 @@ export default function ManagerProgress() {
       if (!res.ok) throw new Error("Failed to fetch manager progress");
       return res.json();
     },
+    enabled: !!selectedManager,
   });
 
-  const managers = managersData?.managers || [];
-
   const handleBack = () => {
-    setLocation('/');
+    setLocation('/select-manager');
   };
 
   const handleRepClick = (repName: string) => {
@@ -262,36 +255,19 @@ export default function ManagerProgress() {
           </div>
         </div>
 
-        <div style={{ marginTop: '12px', marginBottom: '4px' }}>
-          <select
-            data-testid="manager-select"
-            value={selectedManager}
-            onChange={(e) => setSelectedManager(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              fontSize: '14px',
-              borderRadius: '8px',
-              border: '2px solid rgba(255,255,255,0.3)',
-              backgroundColor: 'rgba(255,255,255,0.15)',
-              color: '#FFFFFF',
-              cursor: 'pointer',
-              appearance: 'none',
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-              backgroundRepeat: 'no-repeat',
-              backgroundPosition: 'right 12px center',
-            }}
-          >
-            <option value="" style={{ color: '#374151', backgroundColor: '#FFFFFF' }}>
-              Select Manager to View Team
-            </option>
-            {managers.map((manager: string) => (
-              <option key={manager} value={manager} style={{ color: '#374151', backgroundColor: '#FFFFFF' }}>
-                {manager}
-              </option>
-            ))}
-          </select>
-        </div>
+        {selectedManager && (
+          <div style={{ 
+            marginTop: '8px', 
+            padding: '8px 12px', 
+            backgroundColor: 'rgba(255,255,255,0.15)', 
+            borderRadius: '8px',
+            fontSize: '14px',
+            color: '#FFFFFF',
+            fontWeight: 500,
+          }}>
+            {selectedManager}'s Team
+          </div>
+        )}
 
         <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
           <KpiTile

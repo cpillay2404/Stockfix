@@ -1,93 +1,14 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronDown, Wrench, Users } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { cn } from "@/lib/utils";
+import { ArrowLeft, Wrench, Users, ChevronRight } from "lucide-react";
 import { useAccess } from "@/context/AccessContext";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
 
-interface SearchableSelectProps {
-  value: string;
-  onValueChange: (value: string) => void;
-  options: string[];
-  placeholder: string;
-  testId: string;
-  disabled?: boolean;
-}
-
-function SearchableSelect({ value, onValueChange, options, placeholder, testId, disabled }: SearchableSelectProps) {
-  const [open, setOpen] = useState(false);
-
-  return (
-    <Popover open={open} onOpenChange={disabled ? undefined : setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          data-testid={testId}
-          disabled={disabled}
-          style={{
-            width: '100%',
-            height: '48px',
-            borderRadius: '8px',
-            border: '1px solid #D1D5DB',
-            fontSize: '16px',
-            color: value ? '#003B71' : '#9CA3AF',
-            backgroundColor: disabled ? '#F3F4F6' : '#FFFFFF',
-            padding: '0 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: disabled ? 'not-allowed' : 'pointer',
-            opacity: disabled ? 0.6 : 1,
-          }}
-        >
-          <span>{value || placeholder}</span>
-          <ChevronDown style={{ width: '18px', height: '18px', opacity: 0.5 }} />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent 
-        className="p-0" 
-        style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '300px' }}
-        align="start"
-      >
-        <Command>
-          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} />
-          <CommandList style={{ maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
-            <CommandEmpty>No managers found.</CommandEmpty>
-            <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option}
-                  value={option}
-                  onSelect={() => {
-                    onValueChange(option);
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === option ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {option}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
-
 export default function SelectManager() {
   const [, setLocation] = useLocation();
   const { accessMode, setAccessMode, setSelectedManager } = useAccess();
-  const [managerValue, setManagerValue] = useState("");
 
   useEffect(() => {
     if (accessMode !== "manager") {
@@ -104,17 +25,15 @@ export default function SelectManager() {
     },
   });
 
-  const managers = managersData?.managers || [];
+  const managers: string[] = managersData?.managers || [];
 
   const handleBack = () => {
     setLocation("/");
   };
 
-  const handleProceed = () => {
-    if (managerValue) {
-      setSelectedManager(managerValue);
-      setLocation(`/manager-progress?manager=${encodeURIComponent(managerValue)}`);
-    }
+  const handleManagerSelect = (manager: string) => {
+    setSelectedManager(manager);
+    setLocation(`/manager-progress?manager=${encodeURIComponent(manager)}`);
   };
 
   return (
@@ -150,6 +69,9 @@ export default function SelectManager() {
           borderRadius: '16px',
           padding: '28px',
           boxShadow: '0px 16px 40px rgba(0,0,0,0.25)',
+          maxHeight: 'calc(100vh - 280px)',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
         <button
@@ -164,7 +86,7 @@ export default function SelectManager() {
             border: 'none',
             cursor: 'pointer',
             padding: 0,
-            marginBottom: '20px',
+            marginBottom: '16px',
             fontSize: '14px',
           }}
         >
@@ -172,55 +94,66 @@ export default function SelectManager() {
           Back
         </button>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
-            Select Your Name <span style={{ color: '#F36C21' }}>*</span>
-          </label>
-          <SearchableSelect
-            value={managerValue}
-            onValueChange={setManagerValue}
-            options={managers}
-            placeholder="Select Manager"
-            testId="select-manager"
-          />
-          {managers.length === 0 && !isLoading && (
-            <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
-              No managers found. Please ensure LINE MANAGER column is in your imported data.
-            </p>
-          )}
-          {isLoading && (
-            <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
-              Loading managers...
-            </p>
-          )}
-        </div>
+        <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '12px', display: 'block', fontWeight: 500 }}>
+          Select Your Name
+        </label>
 
-        {managerValue && (
-          <button
-            onClick={handleProceed}
-            data-testid="button-proceed"
-            style={{
-              width: '100%',
-              padding: '18px',
-              backgroundColor: '#003B71',
-              color: '#FFFFFF',
-              borderRadius: '10px',
-              border: 'none',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              fontSize: '16px',
-              fontWeight: 600,
-              transition: 'background-color 0.2s',
-            }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#002F5A'}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#003B71'}
-          >
-            <Users style={{ width: '20px', height: '20px' }} />
-            View Team Progress
-          </button>
+        {isLoading && (
+          <p style={{ fontSize: '14px', color: '#9CA3AF', textAlign: 'center', padding: '20px' }}>
+            Loading managers...
+          </p>
+        )}
+
+        {!isLoading && managers.length === 0 && (
+          <p style={{ fontSize: '14px', color: '#9CA3AF', textAlign: 'center', padding: '20px' }}>
+            No managers found. Please ensure LINE MANAGER column is in your imported data.
+          </p>
+        )}
+
+        {!isLoading && managers.length > 0 && (
+          <div style={{ 
+            overflowY: 'auto', 
+            flex: 1,
+            WebkitOverflowScrolling: 'touch',
+          }}>
+            {managers.map((manager) => (
+              <button
+                key={manager}
+                onClick={() => handleManagerSelect(manager)}
+                data-testid={`manager-${manager}`}
+                style={{
+                  width: '100%',
+                  padding: '16px',
+                  backgroundColor: '#F8FAFC',
+                  color: '#003B71',
+                  borderRadius: '10px',
+                  border: '1px solid #E2E8F0',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '16px',
+                  fontWeight: 500,
+                  marginBottom: '8px',
+                  transition: 'all 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = '#003B71';
+                  e.currentTarget.style.color = '#FFFFFF';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  e.currentTarget.style.color = '#003B71';
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <Users style={{ width: '20px', height: '20px' }} />
+                  {manager}
+                </div>
+                <ChevronRight style={{ width: '18px', height: '18px', opacity: 0.5 }} />
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
