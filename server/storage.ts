@@ -23,6 +23,8 @@ export interface IStorage {
   getAllTasks(): Promise<Task[]>;
   getTaskCount(): Promise<number>;
   getTasksBatch(offset: number, limit: number): Promise<Task[]>;
+  getTaskCountByWeek(weekEndingDate: string): Promise<number>;
+  getTasksBatchByWeek(weekEndingDate: string, offset: number, limit: number): Promise<Task[]>;
   getTasksPaginated(page: number, limit: number, search?: string, status?: string, filters?: TaskFilters): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }>;
   getTaskById(id: number): Promise<Task | undefined>;
   getTaskByUniqueId(uniqueId: string): Promise<Task | undefined>;
@@ -67,6 +69,15 @@ export class DatabaseStorage implements IStorage {
 
   async getTasksBatch(offset: number, limit: number): Promise<Task[]> {
     return await db.select().from(tasks).orderBy(tasks.id).limit(limit).offset(offset);
+  }
+
+  async getTaskCountByWeek(weekEndingDate: string): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(tasks).where(eq(tasks.weekEndingDate, weekEndingDate));
+    return result?.count || 0;
+  }
+
+  async getTasksBatchByWeek(weekEndingDate: string, offset: number, limit: number): Promise<Task[]> {
+    return await db.select().from(tasks).where(eq(tasks.weekEndingDate, weekEndingDate)).orderBy(tasks.id).limit(limit).offset(offset);
   }
 
   async getTasksPaginated(page: number, limit: number, search?: string, status?: string, filters?: TaskFilters): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }> {

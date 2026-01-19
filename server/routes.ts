@@ -795,22 +795,30 @@ export async function registerRoutes(
     }
   });
 
-  // GET export task count - check before export (lightweight SQL count)
+  // GET export task count - check before export (lightweight SQL count, this week only)
   app.get("/api/tasks/export/count", async (req, res) => {
     try {
-      const count = await storage.getTaskCount();
-      res.json({ count });
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      if (!latestWeek) {
+        return res.json({ count: 0, weekEndingDate: null });
+      }
+      const count = await storage.getTaskCountByWeek(latestWeek);
+      res.json({ count, weekEndingDate: latestWeek });
     } catch (error) {
       res.status(500).json({ error: "Failed to count tasks" });
     }
   });
 
-  // GET export ALL tasks as CSV (true streaming from DB - recommended for large datasets)
+  // GET export this week's tasks as CSV (true streaming from DB)
   app.get("/api/tasks/export/csv", async (req, res) => {
     try {
-      console.log("Starting CSV export (true streaming from DB)...");
-      const totalCount = await storage.getTaskCount();
-      console.log(`Streaming ${totalCount} tasks as CSV...`);
+      console.log("Starting CSV export (this week only, streaming from DB)...");
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      if (!latestWeek) {
+        return res.status(404).json({ error: "No tasks found" });
+      }
+      const totalCount = await storage.getTaskCountByWeek(latestWeek);
+      console.log(`Streaming ${totalCount} tasks for week ${latestWeek} as CSV...`);
       
       // Build full URL for images
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
@@ -855,13 +863,13 @@ export async function registerRoutes(
       // Write header row
       res.write(headers.join(',') + '\n');
       
-      // Stream rows in batches FROM DATABASE to avoid memory buildup
+      // Stream rows in batches FROM DATABASE to avoid memory buildup (this week only)
       const BATCH_SIZE = 2000;
       let offset = 0;
       let batchCount = 0;
       
       while (offset < totalCount) {
-        const batch = await storage.getTasksBatch(offset, BATCH_SIZE);
+        const batch = await storage.getTasksBatchByWeek(latestWeek, offset, BATCH_SIZE);
         if (batch.length === 0) break;
         
         const lines = batch.map(task => [
@@ -918,15 +926,21 @@ export async function registerRoutes(
     }
   });
 
-  // GET export ALL tasks as Excel - limited to 50k tasks for stability
+  // GET export this week's tasks as Excel - limited to 50k tasks for stability
   app.get("/api/tasks/export", async (req, res) => {
     try {
-      console.log("Starting Excel export...");
+      console.log("Starting Excel export (this week only)...");
+      
+      // Get latest week
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      if (!latestWeek) {
+        return res.status(404).json({ error: "No tasks found" });
+      }
       
       // Check count FIRST before loading data to avoid memory issues
       const MAX_EXCEL_ROWS = 50000;
-      const taskCount = await storage.getTaskCount();
-      console.log(`Task count: ${taskCount}`);
+      const taskCount = await storage.getTaskCountByWeek(latestWeek);
+      console.log(`Task count for week ${latestWeek}: ${taskCount}`);
       
       if (taskCount > MAX_EXCEL_ROWS) {
         return res.status(400).json({ 
@@ -936,9 +950,17 @@ export async function registerRoutes(
         });
       }
       
-      // Now safe to load all tasks into memory
-      const allTasks = await storage.getAllTasks();
-      console.log(`Exporting ${allTasks.length} tasks...`);
+      // Now safe to load this week's tasks into memory
+      const allTasks: typeof import("@shared/schema").tasks.$inferSelect[] = [];
+      let offset = 0;
+      const BATCH_SIZE = 5000;
+      while (offset < taskCount) {
+        const batch = await storage.getTasksBatchByWeek(latestWeek, offset, BATCH_SIZE);
+        if (batch.length === 0) break;
+        allTasks.push(...batch);
+        offset += batch.length;
+      }
+      console.log(`Exporting ${allTasks.length} tasks for week ${latestWeek}...`);
       
       // Build full URL for images
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
