@@ -591,11 +591,15 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Store is required" });
       }
       
-      // Use SQL-level filtering for performance
+      // Get latest week ending date first for efficiency
+      const latestWeekEnding = await storage.getLatestWeekEndingDate();
+      
+      // Use SQL-level filtering for performance - filter by latest week
       let scopedTasks = await storage.getTasksFiltered({
         store,
         repName: rep || undefined,
         client: (client && client !== 'All Clients') ? client : undefined,
+        weekEndingDate: latestWeekEnding || undefined,
       });
       
       // Apply optional article filter
@@ -615,14 +619,8 @@ export async function registerRoutes(
         });
       }
       
-      // Get unique week endings sorted descending
-      const weekEndings = [...new Set(scopedTasks.map(t => t.weekEndingDate).filter(Boolean))].sort().reverse();
-      const latestWeekEnding = weekEndings[0] || null;
-      
-      // Filter for latest week only (for tiles)
-      const latestWeekTasks = latestWeekEnding 
-        ? scopedTasks.filter(t => t.weekEndingDate === latestWeekEnding)
-        : scopedTasks;
+      // For latest week, use the filtered tasks directly
+      const latestWeekTasks = scopedTasks;
       
       // Count unique SKUs (barcode + article description)
       const getSkuKey = (t: any) => `${t.barcode}|${t.articleDescription}`;
@@ -653,31 +651,21 @@ export async function registerRoutes(
       );
       const overstock = overstockSkus.size;
       
-      // Charts: last 12 weeks of data
-      const last12Weeks = weekEndings.slice(0, 12).reverse();
-      
-      // Store SOH per week (sum)
-      const storeSohData = last12Weeks.map(week => {
-        const weekTasks = scopedTasks.filter(t => t.weekEndingDate === week);
-        const sum = weekTasks.reduce((acc, t) => acc + (parseFloat(t.storeSoh) || 0), 0);
-        return { weekEnding: week, value: Math.round(sum) };
+      // Charts: use efficient SQL aggregate for 12-week history
+      const chartAggregates = await storage.getChartAggregates({
+        store,
+        repName: rep || undefined,
+        client: (client && client !== 'All Clients') ? client : undefined,
+        article: (article && article !== 'All Articles') ? article : undefined,
+        limit: 12,
       });
       
-      // Sell Out P4 Weeks per week (sum)
-      const sellOutP4Data = last12Weeks.map(week => {
-        const weekTasks = scopedTasks.filter(t => t.weekEndingDate === week);
-        const sum = weekTasks.reduce((acc, t) => acc + (parseFloat(t.p4WeekSales) || 0), 0);
-        return { weekEnding: week, value: Math.round(sum) };
-      });
+      // Reverse to get chronological order (oldest first)
+      const chartDataAsc = [...chartAggregates].reverse();
       
-      // WFC per week (average)
-      const wfcData = last12Weeks.map(week => {
-        const weekTasks = scopedTasks.filter(t => t.weekEndingDate === week);
-        if (weekTasks.length === 0) return { weekEnding: week, value: 0 };
-        const sum = weekTasks.reduce((acc, t) => acc + (parseFloat(t.storeWfc) || 0), 0);
-        const avg = sum / weekTasks.length;
-        return { weekEnding: week, value: Math.round(avg * 10) / 10 };
-      });
+      const storeSohData = chartDataAsc.map(c => ({ weekEnding: c.weekEnding, value: c.storeSohSum }));
+      const sellOutP4Data = chartDataAsc.map(c => ({ weekEnding: c.weekEnding, value: c.sellOutP4Sum }));
+      const wfcData = chartDataAsc.map(c => ({ weekEnding: c.weekEnding, value: c.wfcAvg }));
       
       // Get filter options (unique clients and articles within scope)
       const clients = [...new Set(scopedTasks.map(t => t.client).filter(Boolean))].sort();

@@ -366,6 +366,49 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db.select({ count: count() }).from(tasks).where(whereClause);
     return result?.count || 0;
   }
+
+  async getChartAggregates(filters: {
+    store: string;
+    repName?: string;
+    client?: string;
+    article?: string;
+    limit?: number;
+  }): Promise<{ weekEnding: string; storeSohSum: number; sellOutP4Sum: number; wfcAvg: number }[]> {
+    let conditions = [eq(tasks.storeName, filters.store)];
+    
+    if (filters.repName) {
+      conditions.push(eq(tasks.repName, filters.repName));
+    }
+    if (filters.client) {
+      conditions.push(eq(tasks.client, filters.client));
+    }
+    if (filters.article) {
+      conditions.push(eq(tasks.articleDescription, filters.article));
+    }
+    
+    const whereClause = and(...conditions);
+    const limitCount = filters.limit || 12;
+    
+    const result = await db
+      .select({
+        weekEnding: tasks.weekEndingDate,
+        storeSohSum: sql<number>`COALESCE(SUM(CAST(${tasks.storeSoh} AS NUMERIC)), 0)`,
+        sellOutP4Sum: sql<number>`COALESCE(SUM(CAST(${tasks.p4WeekSales} AS NUMERIC)), 0)`,
+        wfcAvg: sql<number>`COALESCE(AVG(CAST(${tasks.storeWfc} AS NUMERIC)), 0)`,
+      })
+      .from(tasks)
+      .where(whereClause)
+      .groupBy(tasks.weekEndingDate)
+      .orderBy(desc(tasks.weekEndingDate))
+      .limit(limitCount);
+    
+    return result.map(r => ({
+      weekEnding: r.weekEnding || '',
+      storeSohSum: Math.round(Number(r.storeSohSum) || 0),
+      sellOutP4Sum: Math.round(Number(r.sellOutP4Sum) || 0),
+      wfcAvg: Math.round((Number(r.wfcAvg) || 0) * 10) / 10,
+    }));
+  }
 }
 
 export const storage = new DatabaseStorage();

@@ -50,7 +50,15 @@ The database stores users and tasks. Tasks contain comprehensive retail data inc
    - **Store Landing Page**: Header with store stats, client breakdown grid with severity colors (red=urgent, orange=OOS, green=stable), Top 5 clients by issue type sections, quick filter chips
    - **Navigation Flow**: Dashboard → Store Landing Page → Task List (drill-down pattern)
 
-### Recent Changes (Jan 2, 2026)
+### Recent Changes (Jan 19, 2026)
+
+- Optimized `/api/store-overview` endpoint performance:
+  - Filters tasks by latest week at SQL level instead of loading all historical data
+  - Added `getChartAggregates()` function using SQL GROUP BY and aggregate functions for 12-week chart data
+  - Added `staleTime: 60000` to frontend queries to reduce refetching
+- Database has 11 indexes including composite indexes on (store_name, week_ending_date), (rep_name, week_ending_date)
+
+### Previous Changes (Jan 2, 2026)
 
 - Implemented email notifications using SMTP/Nodemailer when reps submit task completions
 - Email utility in `server/email.ts` with hardcoded recipients (jjooste@meridiangroup.co.za, cpillay@meridiangroup.co.za)
