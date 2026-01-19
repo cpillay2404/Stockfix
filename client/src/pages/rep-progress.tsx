@@ -221,13 +221,6 @@ export default function RepProgress() {
             accentColor="#003B71"
             testId="kpi-completion-rate"
           />
-          <KpiTile
-            label="Oldest (Days)"
-            value={data?.kpis?.oldestOpenDays || 0}
-            icon={<Clock size={18} />}
-            accentColor={data?.kpis?.oldestOpenDays > 14 ? '#DC2626' : '#6B7280'}
-            testId="kpi-oldest-open"
-          />
         </div>
       </div>
 
