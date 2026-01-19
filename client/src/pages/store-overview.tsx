@@ -510,45 +510,22 @@ export default function StoreOverview() {
         flexDirection: 'column',
         gap: '8px',
       }}>
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <Button
-            onClick={handleViewTasks}
-            data-testid="button-view-tasks"
-            style={{
-              flex: 2,
-              height: '48px',
-              backgroundColor: '#F36C21',
-              color: '#FFFFFF',
-              fontSize: '16px',
-              fontWeight: 600,
-              borderRadius: '10px',
-            }}
-            className="hover:bg-[#E05A10]"
-          >
-            VIEW TASKS ({actionCount})
-          </Button>
-          <Button
-            onClick={() => setLocation(`/rep-progress?rep=${encodeURIComponent(rep)}`)}
-            data-testid="button-task-progress"
-            style={{
-              flex: 1,
-              height: '48px',
-              backgroundColor: '#003B71',
-              color: '#FFFFFF',
-              fontSize: '14px',
-              fontWeight: 600,
-              borderRadius: '10px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-            }}
-            className="hover:bg-[#002a54]"
-          >
-            <TrendingUp size={18} />
-            PROGRESS
-          </Button>
-        </div>
+        <Button
+          onClick={handleViewTasks}
+          data-testid="button-view-tasks"
+          style={{
+            width: '100%',
+            height: '48px',
+            backgroundColor: '#F36C21',
+            color: '#FFFFFF',
+            fontSize: '16px',
+            fontWeight: 600,
+            borderRadius: '10px',
+          }}
+          className="hover:bg-[#E05A10]"
+        >
+          VIEW TASKS ({actionCount})
+        </Button>
       </div>
 
       {/* Top Attention SKUs Modal */}
