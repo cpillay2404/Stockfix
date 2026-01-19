@@ -6,7 +6,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin, AlertTriangle, ChevronRight, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import BottomNav from "@/components/BottomNav";
 import { TopAttentionModal } from "@/components/TopAttentionModal";
 
@@ -157,87 +156,6 @@ function Tile({ label, value, testId, accentColor, onClick }: TileProps) {
   );
 }
 
-interface ChartCardProps {
-  title: string;
-  data: { weekEnding: string; value: number }[];
-  testId: string;
-  isWFC?: boolean;
-}
-
-function ChartCard({ title, data, testId, isWFC = false }: ChartCardProps) {
-  const formatWeekLabel = (dateStr: string) => {
-    if (!dateStr) return '';
-    const parts = dateStr.split('-');
-    if (parts.length === 3) {
-      return `${parts[1]}/${parts[2]}`;
-    }
-    return dateStr;
-  };
-
-  const formatValue = (val: number) => {
-    if (isWFC) {
-      return val.toFixed(1);
-    }
-    if (val >= 1000) {
-      return `${(val / 1000).toFixed(1)}k`;
-    }
-    return val.toString();
-  };
-
-  return (
-    <div
-      data-testid={testId}
-      style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '10px',
-        padding: '10px',
-        boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
-        marginBottom: '8px',
-      }}
-    >
-      <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '4px' }}>
-        {title}
-      </h3>
-      <div style={{ height: '120px' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 20, right: 10, left: -15, bottom: 5 }}>
-            <XAxis 
-              dataKey="weekEnding" 
-              tick={{ fontSize: 10, fill: '#6B7280' }}
-              tickFormatter={formatWeekLabel}
-              axisLine={false}
-              tickLine={false}
-              interval={0}
-            />
-            <YAxis 
-              tick={{ fontSize: 9, fill: '#6B7280' }}
-              axisLine={false}
-              tickLine={false}
-              width={35}
-            />
-            <Bar dataKey="value" fill="#003B71" radius={[4, 4, 0, 0]}>
-              <LabelList 
-                dataKey="value" 
-                position="top" 
-                fill="#003B71" 
-                fontSize={9}
-                fontWeight={600}
-                formatter={formatValue}
-              />
-            </Bar>
-            <Line 
-              type="monotone" 
-              dataKey="value" 
-              stroke="#F36C21" 
-              strokeWidth={2}
-              dot={false}
-            />
-          </ComposedChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
 
 export default function StoreOverview() {
   const [, setLocation] = useLocation();
@@ -299,7 +217,6 @@ export default function StoreOverview() {
 
   const handleViewTasks = () => {
     const taskParams = new URLSearchParams();
-    if (rep) taskParams.set('rep', rep);
     if (store) taskParams.set('store', store);
     if (selectedClient && selectedClient !== 'All Clients') {
       taskParams.set('client', selectedClient);
@@ -314,7 +231,6 @@ export default function StoreOverview() {
   const articleOptions = ['All Articles', ...(data?.filters?.articles || [])];
 
   const tiles = data?.tiles || { totalSKUs: 0, actionRequired: 0, understockOOS: 0, overstock: 0 };
-  const charts = data?.charts || { storeSoh: [], sellOutP4: [], wfc: [] };
   const actionCount = tiles.actionRequired || 0;
 
   const handleExitVisit = () => {
@@ -491,12 +407,6 @@ export default function StoreOverview() {
         </div>
       </div>
 
-      {/* Content Section - Grey Background with Charts */}
-      <div style={{ padding: '12px 16px' }}>
-        <ChartCard title="Store SOH" data={charts.storeSoh} testId="chart-store-soh" />
-        <ChartCard title="Sell Out" data={charts.sellOutP4} testId="chart-sell-out" />
-        <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" isWFC={true} />
-      </div>
 
       {/* Sticky Footer - Buttons above bottom nav */}
       <div style={{
