@@ -47,10 +47,10 @@ function invalidateGamificationCache() {
   gamificationCache.clear();
 }
 
-// Configure multer for file uploads
+// Configure multer for file uploads - increased to 50MB for large imports
 const upload = multer({ 
   dest: 'uploads/',
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
 });
 
 // Image uploads now use cloud storage via object storage integration
@@ -1318,6 +1318,18 @@ export async function registerRoutes(
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file provided" });
+      }
+
+      // Log file info for debugging
+      const fileSizeMB = (req.file.size / (1024 * 1024)).toFixed(2);
+      console.log(`Import - File received: ${req.file.originalname}, Size: ${fileSizeMB}MB`);
+
+      // Check file size (50MB limit)
+      if (req.file.size > 50 * 1024 * 1024) {
+        fs.unlinkSync(req.file.path);
+        return res.status(400).json({ 
+          error: `File too large (${fileSizeMB}MB). Maximum size is 50MB.` 
+        });
       }
 
       // Check if we should clear existing tasks first (full refresh)
