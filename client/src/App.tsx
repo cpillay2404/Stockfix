@@ -17,6 +17,8 @@ import ImportData from "@/pages/import-data";
 import StoreSummary from "@/pages/store-summary";
 import StoreOverview from "@/pages/store-overview";
 import ExitVisit from "@/pages/exit-visit";
+import RepProgress from "@/pages/rep-progress";
+import ManagerProgress from "@/pages/manager-progress";
 
 function Router() {
   return (
@@ -31,6 +33,8 @@ function Router() {
       <Route path="/task/:id" component={TaskDetail} />
       <Route path="/store/:storeName" component={StoreSummary} />
       <Route path="/exit-visit" component={ExitVisit} />
+      <Route path="/rep-progress" component={RepProgress} />
+      <Route path="/manager-progress" component={ManagerProgress} />
       <Route component={NotFound} />
     </Switch>
   );

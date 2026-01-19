@@ -1,0 +1,273 @@
+1. Context (existing app)
+
+This is the Meridian Group – StockFix (Field Inventory Management) mobile/web app.
+
+Current flow:
+
+Login → I’m a Rep
+
+Rep Visit Setup (Select Rep → Select Store → Start Visit)
+
+Store Overview
+
+Tasks screen (Pending | Completed)
+
+Task Feedback screen (task execution & submission)
+
+Important constraint
+Tasks have ONLY TWO STATES:
+
+Open (currently called Pending)
+
+Completed
+
+No other statuses exist.
+
+2. Objective
+
+Add new progress/monitoring screens that allow:
+
+A Rep to see how they are tracking across all open and completed tasks, not only the current store.
+
+A Manager to see team-wide task progress, compare reps, and identify backlog risk.
+
+This should feel like a natural extension of the existing UI — same cards, colours, typography, buttons, and bottom navigation logic.
+
+3. Navigation changes (minimal disruption)
+Entry points
+
+Add:
+
+A new tile/button on the Store Overview screen:
+
+Label: Task Progress
+
+Icon style consistent with “View Tasks”
+
+OR an additional bottom-nav item (manager only):
+
+Rep: optional
+
+Manager: visible by default
+
+4. Screen A — Rep View: “My Task Progress”
+Purpose
+
+Single view showing all tasks assigned to the rep, across all stores, split into Open vs Completed.
+
+Header
+
+Rep name
+
+Date range selector (affects Completed only; default = current week)
+
+KPI cards (top)
+
+Use same visual style as current KPI tiles.
+
+Show:
+
+Open Tasks (count)
+
+Completed Tasks (count in date range)
+
+Completion Rate
+
+Completed / (Open + Completed)
+
+Oldest Open Task (Days)
+(today – created date of oldest open task)
+
+Charts (reuse existing chart style)
+
+Tasks Over Time
+
+Bar or line
+
+Open vs Completed by day/week
+
+Open Tasks by Store
+
+Ranked list or bar chart
+
+Shows where backlog sits
+
+(Optional if data exists)
+
+Open Tasks by Article / Client
+
+Task list section
+
+Tabbed (same interaction pattern as current Tasks screen):
+
+Tabs
+
+Open
+
+Completed
+
+Filters
+
+Store
+
+Client
+
+Article / Barcode
+
+Search (reuse existing search behaviour)
+
+Columns / rows
+
+Article name
+
+Store
+
+Client
+
+WFC
+
+Created date
+
+Age (Open only)
+
+Status badge (Open / Completed)
+
+Actions
+
+Open task → navigates to existing Task Feedback screen
+
+Completed task → read-only view
+
+5. Screen B — Manager View: “Team Task Progress”
+Purpose
+
+Manager oversight across all reps, without drilling store-by-store.
+
+Header
+
+Team selector (if applicable)
+
+Date range selector (Completed tasks)
+
+KPI cards
+
+Total Open Tasks (Team)
+
+Total Completed Tasks
+
+Team Completion Rate
+
+Oldest Open Task (Team)
+
+Rep leaderboard table
+
+One row per rep.
+
+Columns:
+
+Rep name
+
+Open tasks
+
+Completed tasks (date range)
+
+Completion rate
+
+Oldest open task (days)
+
+Default sort
+
+Open tasks (descending)
+
+Interaction
+
+Tap a rep → opens Rep Task Progress filtered to that rep
+
+Risk / attention section (very important)
+
+Auto-generated list:
+
+Reps with high open task count
+
+Reps with very old open tasks
+
+Stores appearing repeatedly in open tasks
+
+This is read-only insight, no task execution here.
+
+6. Task logic (critical – must match current app)
+
+Open tasks = tasks shown under “Pending”
+
+Completed tasks = tasks shown under “Completed”
+
+Completion date = submit action timestamp from Task Feedback
+
+Completion rate calculation:
+
+Completed / (Open + Completed)
+
+
+(using same filter scope)
+
+7. Permissions
+
+Rep
+
+Sees only own tasks
+
+No access to team data
+
+Manager
+
+Sees all reps linked to them
+
+Can drill down, but cannot submit task feedback
+
+8. UX / UI rules (must follow screenshots)
+
+Same:
+
+Navy background
+
+White card containers
+
+Orange primary action buttons
+
+Rounded cards
+
+Font sizing hierarchy
+
+Reuse:
+
+Existing KPI card components
+
+Existing chart components
+
+Existing task row design
+
+Mobile-first layout (all screenshots are mobile)
+
+9. Deliverables expected from the AI / dev
+
+Return:
+
+Screen-by-screen layout description (aligned to current UI)
+
+Data queries / aggregations needed
+
+Component reuse plan (what is reused vs new)
+
+Logic for KPI calculations
+
+Any assumptions that must be validated
+
+10. Explicit non-requirements
+
+No additional task statuses
+
+No task assignment changes
+
+No workflow changes
+
+No editing completed tasks

@@ -1134,5 +1134,274 @@ export async function registerRoutes(
     }
   });
 
+  // GET Rep Task Progress - shows progress for a specific rep across all stores
+  app.get("/api/task-progress/rep", async (req, res) => {
+    try {
+      const repName = req.query.repName as string;
+      const store = req.query.store as string | undefined;
+      const client = req.query.client as string | undefined;
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+
+      if (!repName) {
+        return res.status(400).json({ error: "repName is required" });
+      }
+
+      const allTasks = await storage.getAllTasks();
+      let repTasks = allTasks.filter(t => t.repName === repName);
+
+      // Apply store filter
+      if (store) {
+        repTasks = repTasks.filter(t => t.storeName === store);
+      }
+      // Apply client filter
+      if (client) {
+        repTasks = repTasks.filter(t => t.client === client);
+      }
+
+      const openTasks = repTasks.filter(t => t.actionStatus !== 'Completed');
+      let completedTasks = repTasks.filter(t => t.actionStatus === 'Completed');
+
+      // Apply date range filter for completed tasks
+      if (dateFrom || dateTo) {
+        completedTasks = completedTasks.filter(t => {
+          if (!t.captureDate) return false;
+          const captureDate = new Date(t.captureDate);
+          if (dateFrom && captureDate < new Date(dateFrom)) return false;
+          if (dateTo && captureDate > new Date(dateTo + 'T23:59:59')) return false;
+          return true;
+        });
+      }
+
+      // Calculate KPIs
+      const openCount = openTasks.length;
+      const completedCount = completedTasks.length;
+      const total = openCount + completedCount;
+      const completionRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+
+      // Calculate oldest open task days
+      let oldestOpenDays = 0;
+      if (openTasks.length > 0) {
+        const today = new Date();
+        const oldestTask = openTasks.reduce((oldest, task) => {
+          const taskDate = new Date(task.createdAt);
+          return taskDate < new Date(oldest.createdAt) ? task : oldest;
+        });
+        const diffTime = today.getTime() - new Date(oldestTask.createdAt).getTime();
+        oldestOpenDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      }
+
+      // Chart data: Tasks by week
+      const weeklyData: Record<string, { week: string; open: number; completed: number }> = {};
+      repTasks.forEach(task => {
+        const week = task.weekEndingDate || 'Unknown';
+        if (!weeklyData[week]) {
+          weeklyData[week] = { week, open: 0, completed: 0 };
+        }
+        if (task.actionStatus === 'Completed') {
+          weeklyData[week].completed++;
+        } else {
+          weeklyData[week].open++;
+        }
+      });
+      const tasksOverTime = Object.values(weeklyData).sort((a, b) => a.week.localeCompare(b.week));
+
+      // Chart data: Open tasks by store
+      const storeData: Record<string, number> = {};
+      openTasks.forEach(task => {
+        storeData[task.storeName] = (storeData[task.storeName] || 0) + 1;
+      });
+      const openByStore = Object.entries(storeData)
+        .map(([store, count]) => ({ store, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 10);
+
+      // Get unique stores and clients for filters
+      const stores = [...new Set(repTasks.map(t => t.storeName))].sort();
+      const clients = [...new Set(repTasks.map(t => t.client))].sort();
+
+      res.json({
+        kpis: {
+          openCount,
+          completedCount,
+          completionRate,
+          oldestOpenDays
+        },
+        charts: {
+          tasksOverTime,
+          openByStore
+        },
+        tasks: {
+          open: openTasks.map(t => ({
+            uniqueId: t.uniqueId,
+            articleDescription: t.articleDescription,
+            storeName: t.storeName,
+            client: t.client,
+            storeWfc: t.storeWfc,
+            createdAt: t.createdAt,
+            age: Math.floor((new Date().getTime() - new Date(t.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+            actionStatus: t.actionStatus,
+            stockClassification: t.stockClassification,
+            action: t.action
+          })),
+          completed: completedTasks.map(t => ({
+            uniqueId: t.uniqueId,
+            articleDescription: t.articleDescription,
+            storeName: t.storeName,
+            client: t.client,
+            storeWfc: t.storeWfc,
+            createdAt: t.createdAt,
+            captureDate: t.captureDate,
+            actionStatus: t.actionStatus,
+            stockClassification: t.stockClassification,
+            action: t.action
+          }))
+        },
+        filters: {
+          stores,
+          clients
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching rep task progress:", error);
+      res.status(500).json({ error: "Failed to fetch rep task progress" });
+    }
+  });
+
+  // GET Manager Task Progress - shows team-wide progress across all reps
+  app.get("/api/task-progress/manager", async (req, res) => {
+    try {
+      const region = req.query.region as string | undefined;
+      const client = req.query.client as string | undefined;
+      const dateFrom = req.query.dateFrom as string | undefined;
+      const dateTo = req.query.dateTo as string | undefined;
+
+      const allTasks = await storage.getAllTasks();
+      let teamTasks = allTasks;
+
+      // Apply region filter
+      if (region) {
+        teamTasks = teamTasks.filter(t => t.region === region);
+      }
+      // Apply client filter
+      if (client) {
+        teamTasks = teamTasks.filter(t => t.client === client);
+      }
+
+      const openTasks = teamTasks.filter(t => t.actionStatus !== 'Completed');
+      let completedTasks = teamTasks.filter(t => t.actionStatus === 'Completed');
+
+      // Apply date range filter for completed tasks
+      if (dateFrom || dateTo) {
+        completedTasks = completedTasks.filter(t => {
+          if (!t.captureDate) return false;
+          const captureDate = new Date(t.captureDate);
+          if (dateFrom && captureDate < new Date(dateFrom)) return false;
+          if (dateTo && captureDate > new Date(dateTo + 'T23:59:59')) return false;
+          return true;
+        });
+      }
+
+      // Team KPIs
+      const totalOpen = openTasks.length;
+      const totalCompleted = completedTasks.length;
+      const total = totalOpen + totalCompleted;
+      const completionRate = total > 0 ? Math.round((totalCompleted / total) * 100) : 0;
+
+      // Oldest open task (team)
+      let oldestOpenDays = 0;
+      if (openTasks.length > 0) {
+        const today = new Date();
+        const oldestTask = openTasks.reduce((oldest, task) => {
+          const taskDate = new Date(task.createdAt);
+          return taskDate < new Date(oldest.createdAt) ? task : oldest;
+        });
+        const diffTime = today.getTime() - new Date(oldestTask.createdAt).getTime();
+        oldestOpenDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+      }
+
+      // Rep leaderboard
+      const repStats: Record<string, { repName: string; open: number; completed: number; oldestOpenDays: number }> = {};
+      
+      teamTasks.forEach(task => {
+        const rep = task.repName || 'Unknown';
+        if (!repStats[rep]) {
+          repStats[rep] = { repName: rep, open: 0, completed: 0, oldestOpenDays: 0 };
+        }
+        if (task.actionStatus === 'Completed') {
+          // Only count if within date range
+          if (dateFrom || dateTo) {
+            if (task.captureDate) {
+              const captureDate = new Date(task.captureDate);
+              if ((!dateFrom || captureDate >= new Date(dateFrom)) && 
+                  (!dateTo || captureDate <= new Date(dateTo + 'T23:59:59'))) {
+                repStats[rep].completed++;
+              }
+            }
+          } else {
+            repStats[rep].completed++;
+          }
+        } else {
+          repStats[rep].open++;
+          // Calculate oldest open for this rep
+          const taskAge = Math.floor((new Date().getTime() - new Date(task.createdAt).getTime()) / (1000 * 60 * 60 * 24));
+          if (taskAge > repStats[rep].oldestOpenDays) {
+            repStats[rep].oldestOpenDays = taskAge;
+          }
+        }
+      });
+
+      const repLeaderboard = Object.values(repStats)
+        .map(rep => ({
+          ...rep,
+          completionRate: (rep.open + rep.completed) > 0 
+            ? Math.round((rep.completed / (rep.open + rep.completed)) * 100) 
+            : 0
+        }))
+        .sort((a, b) => b.open - a.open); // Sort by open tasks descending
+
+      // Risk/attention section - identify reps and stores needing attention
+      const highOpenThreshold = 10;
+      const oldTaskThreshold = 14; // days
+
+      const repsAtRisk = repLeaderboard.filter(r => r.open >= highOpenThreshold || r.oldestOpenDays >= oldTaskThreshold);
+
+      // Stores with most open tasks
+      const storeOpenCounts: Record<string, number> = {};
+      openTasks.forEach(task => {
+        storeOpenCounts[task.storeName] = (storeOpenCounts[task.storeName] || 0) + 1;
+      });
+      const storesAtRisk = Object.entries(storeOpenCounts)
+        .map(([store, count]) => ({ store, openCount: count }))
+        .sort((a, b) => b.openCount - a.openCount)
+        .slice(0, 5);
+
+      // Get unique regions and clients for filters
+      const regions = [...new Set(allTasks.map(t => t.region))].filter(Boolean).sort();
+      const clients = [...new Set(allTasks.map(t => t.client))].filter(Boolean).sort();
+
+      res.json({
+        kpis: {
+          totalOpen,
+          totalCompleted,
+          completionRate,
+          oldestOpenDays
+        },
+        repLeaderboard,
+        riskAttention: {
+          repsAtRisk,
+          storesAtRisk
+        },
+        filters: {
+          regions,
+          clients
+        }
+      });
+    } catch (error) {
+      console.error("Error fetching manager task progress:", error);
+      res.status(500).json({ error: "Failed to fetch manager task progress" });
+    }
+  });
+
   return httpServer;
 }
