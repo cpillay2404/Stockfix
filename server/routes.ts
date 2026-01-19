@@ -490,13 +490,9 @@ export async function registerRoutes(
         return { weekEnding: week, value: Math.round(avg * 10) / 10 };
       });
       
-      // Get filter options (unique clients and articles within scope before article filter)
-      const baseFilteredTasks = allTasks.filter(t => 
-        t.repName === rep && t.storeName === store && 
-        (!client || client === 'All Clients' || t.client === client)
-      );
+      // Get filter options (unique clients and articles within scope)
       const clients = [...new Set(scopedTasks.map(t => t.client).filter(Boolean))].sort();
-      const articles = [...new Set(baseFilteredTasks.map(t => t.articleDescription).filter(Boolean))].sort();
+      const articles = [...new Set(scopedTasks.map(t => t.articleDescription).filter(Boolean))].sort();
       
       res.json({
         storeName: store,
