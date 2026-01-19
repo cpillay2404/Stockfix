@@ -1464,7 +1464,7 @@ export async function registerRoutes(
     }
   });
 
-  // GET Rep Task Progress - shows progress for a specific rep across all stores
+  // GET Rep Task Progress - shows progress for a specific rep across all stores (this week only)
   app.get("/api/task-progress/rep", async (req, res) => {
     try {
       const repName = req.query.repName as string;
@@ -1478,7 +1478,14 @@ export async function registerRoutes(
       }
 
       const allTasks = await storage.getAllTasks();
-      let repTasks = allTasks.filter(t => t.repName === repName);
+      
+      // Filter to this week only
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      const thisWeekTasks = latestWeek 
+        ? allTasks.filter(t => t.weekEndingDate === latestWeek)
+        : allTasks;
+      
+      let repTasks = thisWeekTasks.filter(t => t.repName === repName);
 
       // Apply store filter
       if (store) {
@@ -1610,17 +1617,22 @@ export async function registerRoutes(
     }
   });
 
-  // GET Gamification Leaderboard
+  // GET Gamification Leaderboard (this week only)
   app.get("/api/gamification/leaderboard", async (req, res) => {
     try {
       const manager = req.query.manager as string | undefined;
       const limit = parseInt(req.query.limit as string) || 10;
       
       const allTasks = await storage.getAllTasks();
-      let filteredTasks = allTasks;
+      
+      // Filter to this week only
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      let filteredTasks = latestWeek 
+        ? allTasks.filter(t => t.weekEndingDate === latestWeek)
+        : allTasks;
       
       if (manager) {
-        filteredTasks = allTasks.filter(t => t.lineManager === manager);
+        filteredTasks = filteredTasks.filter(t => t.lineManager === manager);
       }
       
       const allStats = calculateRepGamificationStats(filteredTasks);
@@ -1631,6 +1643,7 @@ export async function registerRoutes(
         leaderboard,
         teamStats,
         totalReps: allStats.length,
+        weekEndingDate: latestWeek,
       });
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
@@ -1638,7 +1651,7 @@ export async function registerRoutes(
     }
   });
 
-  // GET Manager Task Progress - shows team-wide progress across all reps
+  // GET Manager Task Progress - shows team-wide progress across all reps (this week only)
   app.get("/api/task-progress/manager", async (req, res) => {
     try {
       const region = req.query.region as string | undefined;
@@ -1648,7 +1661,12 @@ export async function registerRoutes(
       const dateTo = req.query.dateTo as string | undefined;
 
       const allTasks = await storage.getAllTasks();
-      let teamTasks = allTasks;
+      
+      // Filter to this week only
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      let teamTasks = latestWeek 
+        ? allTasks.filter(t => t.weekEndingDate === latestWeek)
+        : allTasks;
 
       // Apply manager filter (filter by lineManager to show only that manager's team)
       if (manager) {
