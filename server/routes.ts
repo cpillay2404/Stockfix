@@ -50,8 +50,30 @@ function invalidateGamificationCache() {
 // Configure multer for file uploads - increased to 50MB for large imports
 const upload = multer({ 
   dest: 'uploads/',
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB limit
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ['.xlsx', '.xls', '.csv'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type. Allowed: ${allowedTypes.join(', ')}`));
+    }
+  }
 });
+
+// Multer error handler middleware
+const handleMulterError = (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File too large. Maximum size is 50MB.' });
+    }
+    return res.status(400).json({ error: `Upload error: ${err.message}` });
+  } else if (err) {
+    return res.status(400).json({ error: err.message || 'Upload failed' });
+  }
+  next();
+};
 
 // Image uploads now use cloud storage via object storage integration
 
@@ -96,23 +118,14 @@ export async function registerRoutes(
       const clientFilter = req.query.client as string | undefined;
       const includeAll = req.query.includeAll === 'true';
       
-      let tasks = await storage.getAllTasks();
+      // Use SQL-level filtering for much better performance
+      const latestWeek = includeAll ? undefined : await storage.getLatestWeekEndingDate();
       
-      // Filter to latest week ending date unless includeAll is true
-      if (!includeAll) {
-        const latestWeek = await storage.getLatestWeekEndingDate();
-        if (latestWeek) {
-          tasks = tasks.filter(t => t.weekEndingDate === latestWeek);
-        }
-      }
-      
-      // Apply filters if provided
-      if (regionFilter) {
-        tasks = tasks.filter(t => t.region === regionFilter);
-      }
-      if (clientFilter) {
-        tasks = tasks.filter(t => t.client === clientFilter);
-      }
+      const tasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+        region: regionFilter,
+        client: clientFilter,
+      });
       
       // Count by action status
       const statusCounts: Record<string, number> = {};
@@ -219,18 +232,15 @@ export async function registerRoutes(
       const repName = decodeURIComponent(req.params.repName);
       const includeAll = req.query.includeAll === 'true';
       
-      let allTasks = await storage.getAllTasks();
+      // Use SQL-level filtering for performance
+      const latestWeek = includeAll ? undefined : await storage.getLatestWeekEndingDate();
       
-      // Filter to latest week ending date unless includeAll is true
-      if (!includeAll) {
-        const latestWeek = await storage.getLatestWeekEndingDate();
-        if (latestWeek) {
-          allTasks = allTasks.filter(t => t.weekEndingDate === latestWeek);
-        }
-      }
+      const repTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+        repName,
+      });
       
       // Get unique stores for this rep
-      const repTasks = allTasks.filter(t => t.repName === repName);
       const stores = [...new Set(repTasks.map(t => t.storeName).filter(Boolean))].sort();
       
       res.json({ stores });
@@ -252,24 +262,19 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Store is required" });
       }
       
-      const allTasks = await storage.getAllTasks();
-      
-      // Filter by store (and optionally by rep if provided)
-      let scopedTasks = allTasks.filter(t => t.storeName === store);
-      if (rep) {
-        scopedTasks = scopedTasks.filter(t => t.repName === rep);
-      }
-      
-      // Get latest week ending
-      const weekEndings = [...new Set(scopedTasks.map(t => t.weekEndingDate).filter(Boolean))].sort().reverse();
-      const latestWeekEnding = weekEndings[0] || null;
+      // Use SQL-level filtering for performance
+      const latestWeekEnding = await storage.getLatestWeekEndingDate();
       
       if (!latestWeekEnding) {
         return res.json({ skus: [] });
       }
       
-      // Filter to latest week only
-      let latestWeekTasks = scopedTasks.filter(t => t.weekEndingDate === latestWeekEnding);
+      // Get tasks filtered at SQL level
+      let latestWeekTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeekEnding,
+        store,
+        repName: rep,
+      });
       
       // Apply client filter if provided
       if (client && client !== 'All Clients') {
@@ -367,18 +372,15 @@ export async function registerRoutes(
       const clientName = decodeURIComponent(req.params.clientName);
       const includeAll = req.query.includeAll === 'true';
       
-      let allTasks = await storage.getAllTasks();
+      // Use SQL-level filtering for performance
+      const latestWeek = includeAll ? undefined : await storage.getLatestWeekEndingDate();
       
-      // Filter to latest week ending date unless includeAll is true
-      if (!includeAll) {
-        const latestWeek = await storage.getLatestWeekEndingDate();
-        if (latestWeek) {
-          allTasks = allTasks.filter(t => t.weekEndingDate === latestWeek);
-        }
-      }
+      const clientTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+        client: clientName,
+      });
       
       // Get unique stores for this client
-      const clientTasks = allTasks.filter(t => t.client === clientName);
       const stores = [...new Set(clientTasks.map(t => t.storeName).filter(Boolean))].sort();
       
       res.json({ stores });
@@ -400,18 +402,12 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Store is required" });
       }
       
-      const allTasks = await storage.getAllTasks();
-      
-      // Filter by store (and optionally by rep if provided)
-      let scopedTasks = allTasks.filter(t => t.storeName === store);
-      if (rep) {
-        scopedTasks = scopedTasks.filter(t => t.repName === rep);
-      }
-      
-      // Apply optional client filter
-      if (client && client !== 'All Clients') {
-        scopedTasks = scopedTasks.filter(t => t.client === client);
-      }
+      // Use SQL-level filtering for performance
+      let scopedTasks = await storage.getTasksFiltered({
+        store,
+        repName: rep || undefined,
+        client: (client && client !== 'All Clients') ? client : undefined,
+      });
       
       // Apply optional article filter
       if (article && article !== 'All Articles') {
@@ -531,12 +527,9 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Barcode and store are required" });
       }
       
-      const allTasks = await storage.getAllTasks();
-      
-      // Filter by barcode and store to get historical data for this specific SKU
-      const skuTasks = allTasks.filter(t => 
-        t.barcode === barcode && t.storeName === store
-      );
+      // Use SQL-level filtering for performance
+      const skuTasks = await storage.getTasksFiltered({ store })
+        .then(tasks => tasks.filter(t => t.barcode === barcode));
       
       if (skuTasks.length === 0) {
         return res.json({
@@ -600,17 +593,13 @@ export async function registerRoutes(
       const storeName = decodeURIComponent(req.params.storeName);
       const includeAll = req.query.includeAll === 'true';
       
-      let allTasks = await storage.getAllTasks();
+      // Use SQL-level filtering for performance
+      const latestWeek = includeAll ? undefined : await storage.getLatestWeekEndingDate();
       
-      // Filter to latest week ending date unless includeAll is true
-      if (!includeAll) {
-        const latestWeek = await storage.getLatestWeekEndingDate();
-        if (latestWeek) {
-          allTasks = allTasks.filter(t => t.weekEndingDate === latestWeek);
-        }
-      }
-      
-      const storeTasks = allTasks.filter(t => t.storeName === storeName);
+      const storeTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+        store: storeName,
+      });
       
       if (storeTasks.length === 0) {
         return res.status(404).json({ error: "Store not found" });
@@ -737,18 +726,16 @@ export async function registerRoutes(
       const client = req.query.client as string | undefined;
       const article = req.query.article as string | undefined;
       
-      let allTasks = await storage.getAllTasks();
+      // Use SQL-level filtering for performance
+      const latestWeekEnding = await storage.getLatestWeekEndingDate();
       
-      // Get latest week ending for the scope
-      const weekEndings = [...new Set(allTasks.map(t => t.weekEndingDate).filter(Boolean))].sort().reverse();
-      const latestWeekEnding = weekEndings[0] || null;
+      let scopedTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeekEnding || undefined,
+        repName: rep || undefined,
+        store: store || undefined,
+        client: (client && client !== 'All Clients') ? client : undefined,
+      });
       
-      // Filter to latest week and scope
-      let scopedTasks = allTasks.filter(t => t.weekEndingDate === latestWeekEnding);
-      
-      if (rep) scopedTasks = scopedTasks.filter(t => t.repName === rep);
-      if (store) scopedTasks = scopedTasks.filter(t => t.storeName === store);
-      if (client && client !== 'All Clients') scopedTasks = scopedTasks.filter(t => t.client === client);
       if (article && article !== 'All Articles') scopedTasks = scopedTasks.filter(t => t.articleDescription === article);
       
       // Count by action type (separate for pending and completed)
@@ -1067,7 +1054,11 @@ export async function registerRoutes(
   // GET export Rep Leaderboard as Excel
   app.get("/api/export/rep-leaderboard", async (req, res) => {
     try {
-      const allTasks = await storage.getAllTasks();
+      // Use SQL-level filtering for current week only
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      const allTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+      });
       
       const repRegionStats: Record<string, { 
         repName: string; 
@@ -1139,7 +1130,11 @@ export async function registerRoutes(
   // GET export Manager Leaderboard as Excel
   app.get("/api/export/manager-leaderboard", async (req, res) => {
     try {
-      const allTasks = await storage.getAllTasks();
+      // Use SQL-level filtering for current week only
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      const allTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+      });
       
       const managerStats: Record<string, { 
         managerName: string; 
@@ -1314,7 +1309,7 @@ export async function registerRoutes(
   // Old local image upload endpoint removed - now using cloud storage via /api/uploads/request-url
 
   // POST import Excel/CSV file
-  app.post("/api/tasks/import", upload.single('file'), async (req, res) => {
+  app.post("/api/tasks/import", upload.single('file'), handleMulterError, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file provided" });
@@ -1666,7 +1661,11 @@ export async function registerRoutes(
   // GET list of managers (line managers)
   app.get("/api/managers", async (req, res) => {
     try {
-      const allTasks = await storage.getAllTasks();
+      // Use SQL-level filtering for current week only
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      const allTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+      });
       const managers = [...new Set(allTasks.map(t => t.lineManager).filter(Boolean))].sort();
       res.json({ managers });
     } catch (error) {
@@ -1691,15 +1690,12 @@ export async function registerRoutes(
         allStats = cachedData.stats;
         latestWeek = cachedData.weekEndingDate;
       } else {
-        const allTasks = await storage.getAllTasks();
+        // Use SQL-level filtering for performance
         latestWeek = await storage.getLatestWeekEndingDate();
-        let filteredTasks = latestWeek 
-          ? allTasks.filter(t => t.weekEndingDate === latestWeek)
-          : allTasks;
-        
-        if (manager) {
-          filteredTasks = filteredTasks.filter(t => t.lineManager === manager);
-        }
+        const filteredTasks = await storage.getTasksFiltered({
+          weekEndingDate: latestWeek || undefined,
+          lineManager: manager || undefined,
+        });
         
         allStats = calculateRepGamificationStats(filteredTasks);
         setCachedGamificationStats(cacheKey, { stats: allStats, weekEndingDate: latestWeek });
@@ -1735,11 +1731,11 @@ export async function registerRoutes(
         allStats = cachedData.stats;
         latestWeek = cachedData.weekEndingDate;
       } else {
-        const allTasks = await storage.getAllTasks();
+        // Use SQL-level filtering for performance
         latestWeek = await storage.getLatestWeekEndingDate();
-        const thisWeekTasks = latestWeek 
-          ? allTasks.filter(t => t.weekEndingDate === latestWeek)
-          : allTasks;
+        const thisWeekTasks = await storage.getTasksFiltered({
+          weekEndingDate: latestWeek || undefined,
+        });
         
         allStats = calculateRepGamificationStats(thisWeekTasks);
         setCachedGamificationStats(cacheKey, { stats: allStats, weekEndingDate: latestWeek });
