@@ -11,25 +11,29 @@ import { Task } from "@shared/schema";
 import BottomNav from "@/components/BottomNav";
 
 const ACTION_PRIORITY_ORDER = [
-  "Fix Counts: Negative SOH",
-  "Urgent: DC OOS",
+  "URGENT: PLACE ORDER DC HAS STOCK",
   "Urgent: Place Order - DC has stock",
+  "NEGATIVE SOH: FIX COUNT",
+  "Fix Counts: Negative SOH",
+  "CHECK COUNT: NO SALES IN 30 DAYS",
+  "Check Count: No Sales in 30 Days",
+  "Urgent: DC OOS",
   "OOS – Stock on Order",
   "Review: Risk of OOS",
-  "Check Count: No Sales in 30 Days",
   "Monitor: Possible Overstock",
   "Optimal",
 ];
 
 const getActionColor = (action: string) => {
-  if (action === 'Fix Counts: Negative SOH') return '#DC2626';
-  if (action === 'Urgent: DC OOS') return '#DC2626';
-  if (action === 'Urgent: Place Order - DC has stock') return '#DC2626';
-  if (action === 'OOS – Stock on Order') return '#F97316';
-  if (action === 'Review: Risk of OOS') return '#F97316';
-  if (action === 'Check Count: No Sales in 30 Days') return '#F97316';
-  if (action === 'Monitor: Possible Overstock') return '#3B82F6';
-  if (action === 'Optimal') return '#22C55E';
+  const actionLower = action.toLowerCase();
+  if (actionLower.includes('negative') || actionLower.includes('fix count')) return '#DC2626';
+  if (actionLower.includes('urgent') || actionLower.includes('place order')) return '#DC2626';
+  if (actionLower.includes('dc oos')) return '#DC2626';
+  if (actionLower.includes('oos') || actionLower.includes('stock on order')) return '#F97316';
+  if (actionLower.includes('risk')) return '#F97316';
+  if (actionLower.includes('check count') || actionLower.includes('no sales')) return '#F97316';
+  if (actionLower.includes('overstock') || actionLower.includes('monitor')) return '#3B82F6';
+  if (actionLower.includes('optimal')) return '#22C55E';
   return '#6B7280';
 };
 
@@ -212,12 +216,24 @@ export default function Dashboard() {
       groups[action].push(task);
     }
     
-    return ACTION_PRIORITY_ORDER
+    const orderedGroups = ACTION_PRIORITY_ORDER
       .filter(action => groups[action] && groups[action].length > 0)
       .map(action => ({
         action,
         tasks: groups[action],
       }));
+    
+    const otherActions = Object.keys(groups)
+      .filter(action => !ACTION_PRIORITY_ORDER.includes(action))
+      .sort();
+    
+    for (const action of otherActions) {
+      if (groups[action] && groups[action].length > 0) {
+        orderedGroups.push({ action, tasks: groups[action] });
+      }
+    }
+    
+    return orderedGroups;
   }, [filteredTasks]);
 
   const displayedPendingCount = summary?.pendingCountExcludingOptimal ?? summary?.pendingCount ?? 0;
