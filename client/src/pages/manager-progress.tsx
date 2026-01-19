@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, TrendingUp, CheckCircle, AlertCircle, AlertTriangle, Users, Store, Trophy } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import BottomNav from "@/components/BottomNav";
+import Leaderboard from "@/components/Leaderboard";
 
 interface KpiTileProps {
   label: string;
@@ -456,58 +457,12 @@ export default function ManagerProgress() {
           </div>
         )}
 
-        <div style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '8px',
-          padding: '12px',
-        }}>
-          <h3 style={{ 
-            fontSize: '16px', 
-            fontWeight: 700, 
-            color: '#003B71', 
-            marginBottom: '12px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-          }}>
-            <Users size={20} />
-            Rep Leaderboard
-          </h3>
-
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            padding: '8px 12px',
-            fontSize: '11px',
-            fontWeight: 600,
-            color: '#6B7280',
-            borderBottom: '1px solid #E5E7EB',
-            marginBottom: '8px',
-          }}>
-            <span>REP NAME</span>
-            <span>STATUS</span>
-          </div>
-
-          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-            {isLoading ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>
-                Loading...
-              </div>
-            ) : (data?.repLeaderboard || []).length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>
-                No reps found
-              </div>
-            ) : (
-              (data?.repLeaderboard || []).map((rep: any) => (
-                <RepRow
-                  key={rep.repName}
-                  rep={rep}
-                  onClick={() => handleRepClick(rep.repName)}
-                />
-              ))
-            )}
-          </div>
-        </div>
+        <Leaderboard 
+          manager={selectedManager}
+          limit={15}
+          showTeamStats={true}
+          onRepClick={handleRepClick}
+        />
       </div>
 
       <BottomNav />
