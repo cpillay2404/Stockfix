@@ -1,11 +1,11 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import { Link, useSearch, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { fetchTasks } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, LogOut, User, MapPin } from "lucide-react";
+import { Search, ArrowLeft, LogOut, User, MapPin, ChevronDown } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@shared/schema";
 import BottomNav from "@/components/BottomNav";
@@ -36,76 +36,51 @@ const getActionColor = (action: string) => {
 interface TaskCardProps {
   task: Task;
   contextParams: string;
+  style?: React.CSSProperties;
 }
 
-function TaskCard({ task, contextParams }: TaskCardProps) {
+const cardStyles = {
+  card: { backgroundColor: '#FFFFFF', borderRadius: '10px', padding: '12px 14px', cursor: 'pointer', marginBottom: '8px' } as const,
+  row: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' } as const,
+  left: { flex: 1, marginRight: '10px' } as const,
+  title: { fontSize: '14px', fontWeight: 600, color: '#1F2937', marginBottom: '2px', lineHeight: 1.3 } as const,
+  barcode: { fontSize: '11px', fontFamily: 'monospace', color: '#6B7280', marginBottom: '4px' } as const,
+  client: { fontSize: '12px', color: '#6B7280' } as const,
+  right: { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' } as const,
+  wfc: { fontSize: '11px', color: '#6B7280', fontWeight: 500 } as const,
+};
+
+const TaskCard = memo(function TaskCard({ task, contextParams, style }: TaskCardProps) {
   const isPending = task.actionStatus === 'Pending';
   const wfc = parseFloat(task.storeWfc);
   const hasWfc = !isNaN(wfc) && wfc > 0;
-
   const taskUrl = contextParams ? `/task/${task.uniqueId}?${contextParams}` : `/task/${task.uniqueId}`;
 
   return (
-    <Link href={taskUrl} data-testid={`task-card-${task.uniqueId}`}>
-      <div
-        style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '10px',
-          padding: '12px 14px',
-          cursor: 'pointer',
-          marginBottom: '8px',
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <div style={{ flex: 1, marginRight: '10px' }}>
-            <h3 style={{ 
-              fontSize: '14px', 
-              fontWeight: 600, 
-              color: '#1F2937', 
-              marginBottom: '2px',
-              lineHeight: 1.3,
-            }}>
-              {task.articleDescription}
-            </h3>
-            
-            <div style={{ 
-              fontSize: '11px', 
-              fontFamily: 'monospace', 
-              color: '#6B7280', 
-              marginBottom: '4px',
-            }}>
-              {task.barcode}
+    <div style={style}>
+      <Link href={taskUrl} data-testid={`task-card-${task.uniqueId}`}>
+        <div style={cardStyles.card}>
+          <div style={cardStyles.row}>
+            <div style={cardStyles.left}>
+              <h3 style={cardStyles.title}>{task.articleDescription}</h3>
+              <div style={cardStyles.barcode}>{task.barcode}</div>
+              <span style={cardStyles.client}>{task.client}</span>
             </div>
-            
-            <span style={{ fontSize: '12px', color: '#6B7280' }}>
-              {task.client}
-            </span>
-          </div>
-          
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '4px' }}>
-            {hasWfc && (
-              <span style={{ fontSize: '11px', color: '#6B7280', fontWeight: 500 }}>
-                WFC: {wfc.toFixed(1)}
-              </span>
-            )}
-            <Badge 
-              variant={isPending ? 'outline' : 'secondary'}
-              style={{
-                fontSize: '10px',
-                backgroundColor: isPending ? 'transparent' : '#DCFCE7',
-                color: isPending ? '#9CA3AF' : '#16A34A',
-                border: isPending ? '1px solid #E5E7EB' : 'none',
-                fontWeight: 400,
-              }}
-            >
-              {task.actionStatus}
-            </Badge>
+            <div style={cardStyles.right as React.CSSProperties}>
+              {hasWfc && <span style={cardStyles.wfc}>{`WFC: ${wfc.toFixed(1)}`}</span>}
+              <Badge 
+                variant={isPending ? 'outline' : 'secondary'}
+                className={isPending ? 'text-[10px] bg-transparent text-gray-400 border border-gray-200' : 'text-[10px] bg-green-100 text-green-600 border-0'}
+              >
+                {task.actionStatus}
+              </Badge>
+            </div>
           </div>
         </div>
-      </div>
-    </Link>
+      </Link>
+    </div>
   );
-}
+});
 
 interface ActionSectionProps {
   action: string;
@@ -113,38 +88,44 @@ interface ActionSectionProps {
   contextParams: string;
 }
 
-function ActionSection({ action, tasks, contextParams }: ActionSectionProps) {
+const sectionStyles = {
+  container: { marginBottom: '16px' } as const,
+  header: { display: 'flex', alignItems: 'center', marginBottom: '8px', paddingLeft: '4px' } as const,
+  indicator: { width: '5px', height: '20px', borderRadius: '2px', marginRight: '10px' } as const,
+  title: { fontSize: '14px', fontWeight: 700, color: '#003B71' } as const,
+};
+
+const ActionSection = memo(function ActionSection({ action, tasks, contextParams }: ActionSectionProps) {
   const color = getActionColor(action);
+  const [showAll, setShowAll] = useState(false);
+  const initialLimit = 15;
+  const displayedTasks = showAll ? tasks : tasks.slice(0, initialLimit);
+  const hasMore = tasks.length > initialLimit;
   
   return (
-    <div 
-      style={{ marginBottom: '16px' }} 
-      data-testid={`section-${action.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}
-    >
-      {/* Section Header */}
-      <div 
-        style={{ 
-          display: 'flex',
-          alignItems: 'center',
-          marginBottom: '8px',
-          paddingLeft: '4px',
-        }}
-      >
-        <div style={{ width: '5px', height: '20px', backgroundColor: color, borderRadius: '2px', marginRight: '10px' }} />
-        <span style={{ fontSize: '14px', fontWeight: 700, color: '#003B71' }}>
-          {action} ({tasks.length})
-        </span>
+    <div style={sectionStyles.container} data-testid={`section-${action.replace(/[^a-zA-Z0-9]/g, '-').toLowerCase()}`}>
+      <div style={sectionStyles.header}>
+        <div style={{ ...sectionStyles.indicator, backgroundColor: color }} />
+        <span style={sectionStyles.title}>{action} ({tasks.length})</span>
       </div>
       
-      {/* Task Cards */}
       <div>
-        {tasks.map((task) => (
+        {displayedTasks.map((task) => (
           <TaskCard key={task.uniqueId} task={task} contextParams={contextParams} />
         ))}
       </div>
+      
+      {hasMore && !showAll && (
+        <button
+          onClick={() => setShowAll(true)}
+          className="w-full py-2 text-sm text-[#003B71] font-medium flex items-center justify-center gap-1 hover:bg-gray-50 rounded-lg"
+        >
+          Show {tasks.length - initialLimit} more <ChevronDown className="w-4 h-4" />
+        </button>
+      )}
     </div>
   );
-}
+});
 
 export default function Dashboard() {
   const [, setLocation] = useLocation();
@@ -178,8 +159,7 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Failed to fetch summary");
       return res.json();
     },
-    refetchOnMount: 'always',
-    staleTime: 0,
+    staleTime: 60000,
   });
 
   const { data, isLoading } = useQuery({
@@ -190,8 +170,7 @@ export default function Dashboard() {
       client: clientFilter,
       article: articleFilter,
     }),
-    refetchOnMount: 'always',
-    staleTime: 0,
+    staleTime: 30000,
   });
 
   const allTasks: Task[] = data?.tasks || [];
