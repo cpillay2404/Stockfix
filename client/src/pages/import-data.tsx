@@ -47,13 +47,23 @@ export default function ImportData() {
 
   const importMutation = useMutation({
     mutationFn: (file: File) => importExcel(file, clearExisting),
-    onSuccess: (data) => {
+    onSuccess: (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
-      toast({
-        title: "Import Successful",
-        description: data.message,
-      });
-      setTimeout(() => setLocation("/"), 1500);
+      // Show diagnostics if available
+      if (data.diagnostics) {
+        const d = data.diagnostics;
+        console.log("Import diagnostics:", d);
+        toast({
+          title: "Import Successful",
+          description: `${data.message}. LINE MANAGER column: ${d.lineManagerColumn}, Sample value: ${d.sampleLineManager}`,
+        });
+      } else {
+        toast({
+          title: "Import Successful",
+          description: data.message,
+        });
+      }
+      setTimeout(() => setLocation("/"), 3000);
     },
     onError: (error: Error) => {
       toast({

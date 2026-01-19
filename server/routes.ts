@@ -1249,10 +1249,25 @@ export async function registerRoutes(
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
 
+      // Get headers for diagnostics
+      const detectedHeaders = data.length > 0 ? Object.keys(data[0] as object) : [];
+      const lineManagerHeader = detectedHeaders.find(h => 
+        h.toLowerCase().includes('line') && h.toLowerCase().includes('manager') ||
+        h.toLowerCase() === 'linemanager' ||
+        h.toLowerCase() === 'line_manager'
+      );
+      const sampleLineManager = lineManagerHeader && data.length > 0 ? (data[0] as any)[lineManagerHeader] : null;
+      
       res.json({ 
         success: true, 
         count: totalCreated,
-        message: `Successfully imported ${totalCreated} tasks` 
+        message: `Successfully imported ${totalCreated} tasks`,
+        diagnostics: {
+          totalRows: data.length,
+          headers: detectedHeaders,
+          lineManagerColumn: lineManagerHeader || 'NOT FOUND',
+          sampleLineManager: sampleLineManager || 'N/A'
+        }
       });
     } catch (error) {
       console.error("Error importing tasks:", error);
