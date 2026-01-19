@@ -288,6 +288,84 @@ export class DatabaseStorage implements IStorage {
       totalOpen: Number(result?.totalOpen) || 0,
     };
   }
+
+  // Get tasks filtered at SQL level - much more efficient than getAllTasks + filter
+  async getTasksFiltered(filters: {
+    weekEndingDate?: string;
+    repName?: string;
+    lineManager?: string;
+    store?: string;
+    client?: string;
+    region?: string;
+    actionStatus?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<Task[]> {
+    let conditions = [];
+    
+    if (filters.weekEndingDate) {
+      conditions.push(eq(tasks.weekEndingDate, filters.weekEndingDate));
+    }
+    if (filters.repName) {
+      conditions.push(eq(tasks.repName, filters.repName));
+    }
+    if (filters.lineManager) {
+      conditions.push(eq(tasks.lineManager, filters.lineManager));
+    }
+    if (filters.store) {
+      conditions.push(eq(tasks.storeName, filters.store));
+    }
+    if (filters.client) {
+      conditions.push(eq(tasks.client, filters.client));
+    }
+    if (filters.region) {
+      conditions.push(eq(tasks.region, filters.region));
+    }
+    if (filters.actionStatus) {
+      conditions.push(eq(tasks.actionStatus, filters.actionStatus));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    let query = db.select().from(tasks).where(whereClause).orderBy(desc(tasks.createdAt));
+    
+    if (filters.limit) {
+      query = query.limit(filters.limit) as any;
+    }
+    if (filters.offset) {
+      query = query.offset(filters.offset) as any;
+    }
+    
+    return await query;
+  }
+
+  // Get task count with filters at SQL level
+  async getTaskCountFiltered(filters: {
+    weekEndingDate?: string;
+    repName?: string;
+    lineManager?: string;
+    actionStatus?: string;
+  }): Promise<number> {
+    let conditions = [];
+    
+    if (filters.weekEndingDate) {
+      conditions.push(eq(tasks.weekEndingDate, filters.weekEndingDate));
+    }
+    if (filters.repName) {
+      conditions.push(eq(tasks.repName, filters.repName));
+    }
+    if (filters.lineManager) {
+      conditions.push(eq(tasks.lineManager, filters.lineManager));
+    }
+    if (filters.actionStatus) {
+      conditions.push(eq(tasks.actionStatus, filters.actionStatus));
+    }
+    
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+    
+    const [result] = await db.select({ count: count() }).from(tasks).where(whereClause);
+    return result?.count || 0;
+  }
 }
 
 export const storage = new DatabaseStorage();

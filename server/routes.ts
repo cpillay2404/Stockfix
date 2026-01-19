@@ -1530,24 +1530,16 @@ export async function registerRoutes(
         return res.status(400).json({ error: "repName is required" });
       }
 
-      const allTasks = await storage.getAllTasks();
-      
-      // Filter to this week only
+      // Get latest week and use SQL-level filtering (MUCH faster than getAllTasks)
       const latestWeek = await storage.getLatestWeekEndingDate();
-      const thisWeekTasks = latestWeek 
-        ? allTasks.filter(t => t.weekEndingDate === latestWeek)
-        : allTasks;
       
-      let repTasks = thisWeekTasks.filter(t => t.repName === repName);
-
-      // Apply store filter
-      if (store) {
-        repTasks = repTasks.filter(t => t.storeName === store);
-      }
-      // Apply client filter
-      if (client) {
-        repTasks = repTasks.filter(t => t.client === client);
-      }
+      // Get tasks filtered at SQL level
+      const repTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+        repName,
+        store,
+        client,
+      });
 
       const openTasks = repTasks.filter(t => t.actionStatus !== 'Completed');
       let completedTasks = repTasks.filter(t => t.actionStatus === 'Completed');
@@ -1799,26 +1791,16 @@ export async function registerRoutes(
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
 
-      const allTasks = await storage.getAllTasks();
-      
-      // Filter to this week only
+      // Use SQL-level filtering instead of loading all 30k+ tasks
       const latestWeek = await storage.getLatestWeekEndingDate();
-      let teamTasks = latestWeek 
-        ? allTasks.filter(t => t.weekEndingDate === latestWeek)
-        : allTasks;
-
-      // Apply manager filter (filter by lineManager to show only that manager's team)
-      if (manager) {
-        teamTasks = teamTasks.filter(t => t.lineManager === manager);
-      }
-      // Apply region filter
-      if (region) {
-        teamTasks = teamTasks.filter(t => t.region === region);
-      }
-      // Apply client filter
-      if (client) {
-        teamTasks = teamTasks.filter(t => t.client === client);
-      }
+      
+      // Get tasks filtered at SQL level (MUCH faster)
+      const teamTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+        lineManager: manager,
+        region,
+        client,
+      });
 
       const openTasks = teamTasks.filter(t => t.actionStatus !== 'Completed');
       let completedTasks = teamTasks.filter(t => t.actionStatus === 'Completed');
