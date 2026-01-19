@@ -35,6 +35,19 @@ export interface IStorage {
   getLatestWeekEndingDate(): Promise<string | null>;
   bulkCreateTasks(tasks: InsertTask[]): Promise<Task[]>;
   bulkCreateTasksIgnoreDuplicates(tasks: InsertTask[]): Promise<Task[]>;
+  getRepStatsAggregated(weekEndingDate?: string, manager?: string): Promise<{
+    repName: string;
+    lineManager: string;
+    region: string;
+    totalTasks: number;
+    completedTasks: number;
+    openTasks: number;
+  }[]>;
+  getTaskKPIs(weekEndingDate?: string, manager?: string): Promise<{
+    totalOpen: number;
+    totalCompleted: number;
+    total: number;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -202,6 +215,78 @@ export class DatabaseStorage implements IStorage {
   async bulkCreateTasksIgnoreDuplicates(insertTasks: InsertTask[]): Promise<Task[]> {
     if (insertTasks.length === 0) return [];
     return await db.insert(tasks).values(insertTasks).onConflictDoNothing().returning();
+  }
+
+  // Efficient aggregation: get rep stats at SQL level for current week
+  async getRepStatsAggregated(weekEndingDate?: string, manager?: string): Promise<{
+    repName: string;
+    lineManager: string;
+    region: string;
+    totalTasks: number;
+    completedTasks: number;
+    openTasks: number;
+  }[]> {
+    let conditions = [];
+    if (weekEndingDate) {
+      conditions.push(eq(tasks.weekEndingDate, weekEndingDate));
+    }
+    if (manager) {
+      conditions.push(eq(tasks.lineManager, manager));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const result = await db
+      .select({
+        repName: tasks.repName,
+        lineManager: tasks.lineManager,
+        region: tasks.region,
+        totalTasks: count(),
+        completedTasks: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
+        openTasks: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} != 'Completed' OR ${tasks.actionStatus} IS NULL THEN 1 ELSE 0 END)`,
+      })
+      .from(tasks)
+      .where(whereClause)
+      .groupBy(tasks.repName, tasks.lineManager, tasks.region);
+
+    return result.map(r => ({
+      repName: r.repName || 'Unknown',
+      lineManager: r.lineManager || '',
+      region: r.region || '',
+      totalTasks: Number(r.totalTasks) || 0,
+      completedTasks: Number(r.completedTasks) || 0,
+      openTasks: Number(r.openTasks) || 0,
+    }));
+  }
+
+  // Efficient aggregation: get task counts for dashboard KPIs
+  async getTaskKPIs(weekEndingDate?: string, manager?: string): Promise<{
+    totalOpen: number;
+    totalCompleted: number;
+    total: number;
+  }> {
+    let conditions = [];
+    if (weekEndingDate) {
+      conditions.push(eq(tasks.weekEndingDate, weekEndingDate));
+    }
+    if (manager) {
+      conditions.push(eq(tasks.lineManager, manager));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [result] = await db
+      .select({
+        total: count(),
+        totalCompleted: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
+        totalOpen: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} != 'Completed' OR ${tasks.actionStatus} IS NULL THEN 1 ELSE 0 END)`,
+      })
+      .from(tasks)
+      .where(whereClause);
+
+    return {
+      total: Number(result?.total) || 0,
+      totalCompleted: Number(result?.totalCompleted) || 0,
+      totalOpen: Number(result?.totalOpen) || 0,
+    };
   }
 }
 

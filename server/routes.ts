@@ -10,7 +10,42 @@ import path from "path";
 import fs from "fs";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendTaskCompletedEmail } from "./email";
-import { calculateRepGamificationStats, getLeaderboard, getTeamStats } from "./gamification";
+import { calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
+
+// Simple in-memory cache for expensive calculations
+interface CacheEntry<T> {
+  data: T;
+  timestamp: number;
+  key: string;
+}
+
+const gamificationCache: Map<string, CacheEntry<{
+  stats: RepGamificationStats[];
+  weekEndingDate: string | null;
+}>> = new Map();
+
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+function getCachedGamificationStats(cacheKey: string): { stats: RepGamificationStats[]; weekEndingDate: string | null } | null {
+  const entry = gamificationCache.get(cacheKey);
+  if (entry && (Date.now() - entry.timestamp) < CACHE_TTL_MS) {
+    return entry.data;
+  }
+  return null;
+}
+
+function setCachedGamificationStats(cacheKey: string, data: { stats: RepGamificationStats[]; weekEndingDate: string | null }) {
+  gamificationCache.set(cacheKey, {
+    data,
+    timestamp: Date.now(),
+    key: cacheKey,
+  });
+}
+
+// Clear cache when tasks are modified
+function invalidateGamificationCache() {
+  gamificationCache.clear();
+}
 
 // Configure multer for file uploads
 const upload = multer({ 
@@ -1214,6 +1249,9 @@ export async function registerRoutes(
       
       const updated = await storage.updateTask(task.id, updates);
       
+      // Invalidate gamification cache when tasks are updated
+      invalidateGamificationCache();
+      
       // Send email notification if this is a task completion submission
       // (actionStatus changed to something other than Pending, or feedback/reasonCode provided)
       const isTaskCompletion = 
@@ -1428,6 +1466,9 @@ export async function registerRoutes(
       
       console.log(`Excel import - Total created: ${totalCreated}, skipped: ${totalSkipped}`);
 
+      // Invalidate gamification cache after import
+      invalidateGamificationCache();
+
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
 
@@ -1557,6 +1598,14 @@ export async function registerRoutes(
       const stores = [...new Set(repTasks.map(t => t.storeName))].sort();
       const clients = [...new Set(repTasks.map(t => t.client))].sort();
 
+      // Pagination for task lists - limit to 50 per page for mobile performance
+      const taskLimit = parseInt(req.query.limit as string) || 50;
+      const openPage = parseInt(req.query.openPage as string) || 1;
+      const completedPage = parseInt(req.query.completedPage as string) || 1;
+
+      const paginatedOpenTasks = openTasks.slice((openPage - 1) * taskLimit, openPage * taskLimit);
+      const paginatedCompletedTasks = completedTasks.slice((completedPage - 1) * taskLimit, completedPage * taskLimit);
+
       res.json({
         kpis: {
           openCount,
@@ -1569,7 +1618,7 @@ export async function registerRoutes(
           openByStore
         },
         tasks: {
-          open: openTasks.map(t => ({
+          open: paginatedOpenTasks.map(t => ({
             uniqueId: t.uniqueId,
             articleDescription: t.articleDescription,
             storeName: t.storeName,
@@ -1581,7 +1630,7 @@ export async function registerRoutes(
             stockClassification: t.stockClassification,
             action: t.action
           })),
-          completed: completedTasks.map(t => ({
+          completed: paginatedCompletedTasks.map(t => ({
             uniqueId: t.uniqueId,
             articleDescription: t.articleDescription,
             storeName: t.storeName,
@@ -1592,7 +1641,12 @@ export async function registerRoutes(
             actionStatus: t.actionStatus,
             stockClassification: t.stockClassification,
             action: t.action
-          }))
+          })),
+          openTotalPages: Math.ceil(openCount / taskLimit),
+          completedTotalPages: Math.ceil(completedCount / taskLimit),
+          openPage,
+          completedPage,
+          limit: taskLimit
         },
         filters: {
           stores,
@@ -1617,25 +1671,36 @@ export async function registerRoutes(
     }
   });
 
-  // GET Gamification Leaderboard (this week only)
+  // GET Gamification Leaderboard (this week only) - with caching
   app.get("/api/gamification/leaderboard", async (req, res) => {
     try {
       const manager = req.query.manager as string | undefined;
       const limit = parseInt(req.query.limit as string) || 10;
+      const cacheKey = `leaderboard_${manager || 'all'}`;
       
-      const allTasks = await storage.getAllTasks();
+      // Try cache first
+      let cachedData = getCachedGamificationStats(cacheKey);
+      let allStats: RepGamificationStats[];
+      let latestWeek: string | null;
       
-      // Filter to this week only
-      const latestWeek = await storage.getLatestWeekEndingDate();
-      let filteredTasks = latestWeek 
-        ? allTasks.filter(t => t.weekEndingDate === latestWeek)
-        : allTasks;
-      
-      if (manager) {
-        filteredTasks = filteredTasks.filter(t => t.lineManager === manager);
+      if (cachedData) {
+        allStats = cachedData.stats;
+        latestWeek = cachedData.weekEndingDate;
+      } else {
+        const allTasks = await storage.getAllTasks();
+        latestWeek = await storage.getLatestWeekEndingDate();
+        let filteredTasks = latestWeek 
+          ? allTasks.filter(t => t.weekEndingDate === latestWeek)
+          : allTasks;
+        
+        if (manager) {
+          filteredTasks = filteredTasks.filter(t => t.lineManager === manager);
+        }
+        
+        allStats = calculateRepGamificationStats(filteredTasks);
+        setCachedGamificationStats(cacheKey, { stats: allStats, weekEndingDate: latestWeek });
       }
       
-      const allStats = calculateRepGamificationStats(filteredTasks);
       const leaderboard = getLeaderboard(allStats, limit);
       const teamStats = getTeamStats(allStats);
       
@@ -1651,20 +1716,31 @@ export async function registerRoutes(
     }
   });
 
-  // GET Individual Rep Gamification Stats (this week only)
+  // GET Individual Rep Gamification Stats (this week only) - with caching
   app.get("/api/gamification/rep/:repName", async (req, res) => {
     try {
       const repName = decodeURIComponent(req.params.repName);
+      const cacheKey = 'leaderboard_all';
       
-      const allTasks = await storage.getAllTasks();
+      // Try cache first (reuse the main leaderboard cache)
+      let cachedData = getCachedGamificationStats(cacheKey);
+      let allStats: RepGamificationStats[];
+      let latestWeek: string | null;
       
-      // Filter to this week only
-      const latestWeek = await storage.getLatestWeekEndingDate();
-      const thisWeekTasks = latestWeek 
-        ? allTasks.filter(t => t.weekEndingDate === latestWeek)
-        : allTasks;
+      if (cachedData) {
+        allStats = cachedData.stats;
+        latestWeek = cachedData.weekEndingDate;
+      } else {
+        const allTasks = await storage.getAllTasks();
+        latestWeek = await storage.getLatestWeekEndingDate();
+        const thisWeekTasks = latestWeek 
+          ? allTasks.filter(t => t.weekEndingDate === latestWeek)
+          : allTasks;
+        
+        allStats = calculateRepGamificationStats(thisWeekTasks);
+        setCachedGamificationStats(cacheKey, { stats: allStats, weekEndingDate: latestWeek });
+      }
       
-      const allStats = calculateRepGamificationStats(thisWeekTasks);
       const repStats = allStats.find(s => s.repName === repName);
       
       if (!repStats) {

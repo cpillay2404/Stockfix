@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, TrendingUp, Clock, CheckCircle, AlertCircle, Search, Trophy, Flame, Award } from "lucide-react";
@@ -136,20 +136,65 @@ export default function RepProgress() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStore, setSelectedStore] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
+  const [openPage, setOpenPage] = useState(1);
+  const [completedPage, setCompletedPage] = useState(1);
+  const [loadedOpenTasks, setLoadedOpenTasks] = useState<any[]>([]);
+  const [loadedCompletedTasks, setLoadedCompletedTasks] = useState<any[]>([]);
 
   const { data, isLoading } = useQuery({
-    queryKey: ["rep-progress", repName, selectedStore, selectedClient],
+    queryKey: ["rep-progress", repName, selectedStore, selectedClient, openPage, completedPage],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
       queryParams.set('repName', repName);
       if (selectedStore) queryParams.set('store', selectedStore);
       if (selectedClient) queryParams.set('client', selectedClient);
+      queryParams.set('openPage', openPage.toString());
+      queryParams.set('completedPage', completedPage.toString());
+      queryParams.set('limit', '50');
       const res = await fetch(`/api/task-progress/rep?${queryParams.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch rep progress");
       return res.json();
     },
     enabled: !!repName,
   });
+
+  // Accumulate tasks when data changes (moved out of queryFn to avoid side effects)
+  useEffect(() => {
+    if (data?.tasks?.open) {
+      if (openPage === 1) {
+        setLoadedOpenTasks(data.tasks.open);
+      } else {
+        setLoadedOpenTasks(prev => {
+          // Avoid duplicates by checking uniqueIds
+          const existingIds = new Set(prev.map((t: any) => t.uniqueId));
+          const newTasks = data.tasks.open.filter((t: any) => !existingIds.has(t.uniqueId));
+          return [...prev, ...newTasks];
+        });
+      }
+    }
+  }, [data?.tasks?.open, openPage]);
+
+  useEffect(() => {
+    if (data?.tasks?.completed) {
+      if (completedPage === 1) {
+        setLoadedCompletedTasks(data.tasks.completed);
+      } else {
+        setLoadedCompletedTasks(prev => {
+          const existingIds = new Set(prev.map((t: any) => t.uniqueId));
+          const newTasks = data.tasks.completed.filter((t: any) => !existingIds.has(t.uniqueId));
+          return [...prev, ...newTasks];
+        });
+      }
+    }
+  }, [data?.tasks?.completed, completedPage]);
+
+  // Reset pagination when filters change
+  useEffect(() => {
+    setOpenPage(1);
+    setCompletedPage(1);
+    setLoadedOpenTasks([]);
+    setLoadedCompletedTasks([]);
+  }, [repName, selectedStore, selectedClient]);
 
   // Fetch gamification stats for this rep
   const { data: gamification } = useQuery<RepGamificationStats>({
@@ -172,13 +217,27 @@ export default function RepProgress() {
     }
   };
 
-  const filteredTasks = (activeTab === 'open' ? data?.tasks?.open : data?.tasks?.completed) || [];
-  const displayTasks = filteredTasks.filter((task: any) => 
+  // Use accumulated tasks from pagination
+  const allTasks = activeTab === 'open' ? loadedOpenTasks : loadedCompletedTasks;
+  const displayTasks = allTasks.filter((task: any) => 
     !searchQuery || 
     task.articleDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
     task.storeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     task.client.toLowerCase().includes(searchQuery.toLowerCase())
   );
+  
+  // Check if there are more pages to load
+  const hasMoreOpen = data?.tasks?.openTotalPages && openPage < data.tasks.openTotalPages;
+  const hasMoreCompleted = data?.tasks?.completedTotalPages && completedPage < data.tasks.completedTotalPages;
+  const hasMore = activeTab === 'open' ? hasMoreOpen : hasMoreCompleted;
+  
+  const loadMore = () => {
+    if (activeTab === 'open') {
+      setOpenPage(prev => prev + 1);
+    } else {
+      setCompletedPage(prev => prev + 1);
+    }
+  };
 
   return (
     <div style={{ 
@@ -434,13 +493,24 @@ export default function RepProgress() {
           borderRadius: '8px',
           padding: '12px',
         }}>
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'open' | 'completed')}>
+          <Tabs value={activeTab} onValueChange={(v) => {
+            const newTab = v as 'open' | 'completed';
+            setActiveTab(newTab);
+            // Reset page when switching tabs
+            if (newTab === 'open') {
+              setOpenPage(1);
+              setLoadedOpenTasks([]);
+            } else {
+              setCompletedPage(1);
+              setLoadedCompletedTasks([]);
+            }
+          }}>
             <TabsList style={{ width: '100%', marginBottom: '12px' }}>
               <TabsTrigger value="open" style={{ flex: 1 }} data-testid="tab-open">
-                Open ({data?.tasks?.open?.length || 0})
+                Open ({data?.kpis?.openCount || 0})
               </TabsTrigger>
               <TabsTrigger value="completed" style={{ flex: 1 }} data-testid="tab-completed">
-                Completed ({data?.tasks?.completed?.length || 0})
+                Completed ({data?.kpis?.completedCount || 0})
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -485,13 +555,37 @@ export default function RepProgress() {
                 No {activeTab} tasks found
               </div>
             ) : (
-              displayTasks.map((task: any) => (
-                <TaskRow
-                  key={task.uniqueId}
-                  task={task}
-                  onClick={() => setLocation(`/task/${encodeURIComponent(task.uniqueId)}`)}
-                />
-              ))
+              <>
+                {displayTasks.map((task: any) => (
+                  <TaskRow
+                    key={task.uniqueId}
+                    task={task}
+                    onClick={() => setLocation(`/task/${encodeURIComponent(task.uniqueId)}`)}
+                  />
+                ))}
+                {hasMore && (
+                  <button
+                    onClick={loadMore}
+                    disabled={isLoading}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      marginTop: '8px',
+                      backgroundColor: '#003B71',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      borderRadius: '8px',
+                      fontSize: '14px',
+                      fontWeight: 600,
+                      cursor: 'pointer',
+                      opacity: isLoading ? 0.7 : 1,
+                    }}
+                    data-testid="load-more-button"
+                  >
+                    {isLoading ? 'Loading...' : 'Load More'}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
