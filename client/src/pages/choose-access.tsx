@@ -19,7 +19,7 @@ export default function ChooseAccess() {
     setAccessMode("manager");
     setSelectedClient(null);
     setClientLocked(false);
-    setLocation("/manager-progress");
+    setLocation("/select-manager");
   };
 
   const handleClientClick = () => {

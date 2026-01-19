@@ -19,6 +19,7 @@ import StoreOverview from "@/pages/store-overview";
 import ExitVisit from "@/pages/exit-visit";
 import RepProgress from "@/pages/rep-progress";
 import ManagerProgress from "@/pages/manager-progress";
+import SelectManager from "@/pages/select-manager";
 
 function Router() {
   return (
@@ -26,6 +27,7 @@ function Router() {
       <Route path="/" component={ChooseAccess} />
       <Route path="/select-rep" component={SelectRepStore} />
       <Route path="/select-client" component={SelectClientStore} />
+      <Route path="/select-manager" component={SelectManager} />
       <Route path="/store-overview" component={StoreOverview} />
       <Route path="/dashboard" component={Home} />
       <Route path="/tasks" component={TaskList} />

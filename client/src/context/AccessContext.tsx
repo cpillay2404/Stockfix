@@ -13,6 +13,8 @@ interface AccessContextType {
   setClientLocked: (locked: boolean) => void;
   selectedStore: string | null;
   setSelectedStore: (store: string | null) => void;
+  selectedManager: string | null;
+  setSelectedManager: (manager: string | null) => void;
   clearAll: () => void;
 }
 
@@ -26,6 +28,7 @@ interface StoredState {
   selectedClient: string | null;
   clientLocked: boolean;
   selectedStore: string | null;
+  selectedManager: string | null;
 }
 
 function loadStoredState(): StoredState {
@@ -43,6 +46,7 @@ function loadStoredState(): StoredState {
     selectedClient: null,
     clientLocked: false,
     selectedStore: null,
+    selectedManager: null,
   };
 }
 
@@ -61,6 +65,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
   const [selectedClient, setSelectedClientState] = useState<string | null>(null);
   const [clientLocked, setClientLockedState] = useState(false);
   const [selectedStore, setSelectedStoreState] = useState<string | null>(null);
+  const [selectedManager, setSelectedManagerState] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = loadStoredState();
@@ -69,6 +74,7 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     setSelectedClientState(stored.selectedClient);
     setClientLockedState(stored.clientLocked);
     setSelectedStoreState(stored.selectedStore);
+    setSelectedManagerState(stored.selectedManager);
     setInitialized(true);
   }, []);
 
@@ -80,9 +86,10 @@ export function AccessProvider({ children }: { children: ReactNode }) {
         selectedClient,
         clientLocked,
         selectedStore,
+        selectedManager,
       });
     }
-  }, [initialized, accessMode, selectedRep, selectedClient, clientLocked, selectedStore]);
+  }, [initialized, accessMode, selectedRep, selectedClient, clientLocked, selectedStore, selectedManager]);
 
   const setAccessMode = (mode: AccessMode) => {
     setAccessModeState(mode);
@@ -104,12 +111,17 @@ export function AccessProvider({ children }: { children: ReactNode }) {
     setSelectedStoreState(store);
   };
 
+  const setSelectedManager = (manager: string | null) => {
+    setSelectedManagerState(manager);
+  };
+
   const clearAll = () => {
     setAccessModeState(null);
     setSelectedRepState(null);
     setSelectedClientState(null);
     setClientLockedState(false);
     setSelectedStoreState(null);
+    setSelectedManagerState(null);
     sessionStorage.removeItem(STORAGE_KEY);
     sessionStorage.removeItem('visitStartTime');
   };
@@ -127,6 +139,8 @@ export function AccessProvider({ children }: { children: ReactNode }) {
         setClientLocked,
         selectedStore,
         setSelectedStore,
+        selectedManager,
+        setSelectedManager,
         clearAll,
       }}
     >
