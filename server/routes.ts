@@ -869,6 +869,7 @@ export async function registerRoutes(
       const repStats: Record<string, { 
         repName: string; 
         lineManager: string;
+        region: string;
         total: number;
         open: number; 
         completed: number; 
@@ -881,6 +882,7 @@ export async function registerRoutes(
           repStats[rep] = { 
             repName: rep, 
             lineManager: task.lineManager || '',
+            region: task.region || '',
             total: 0,
             open: 0, 
             completed: 0,
@@ -899,6 +901,7 @@ export async function registerRoutes(
         const total = rep.open + rep.completed;
         return {
           'Rep Name': rep.repName,
+          'Region': rep.region,
           'Line Manager': rep.lineManager,
           'Total Tasks': total,
           'Open Tasks': rep.open,
