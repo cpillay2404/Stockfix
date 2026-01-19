@@ -795,22 +795,22 @@ export async function registerRoutes(
     }
   });
 
-  // GET export task count - check before export
+  // GET export task count - check before export (lightweight SQL count)
   app.get("/api/tasks/export/count", async (req, res) => {
     try {
-      const allTasks = await storage.getAllTasks();
-      res.json({ count: allTasks.length });
+      const count = await storage.getTaskCount();
+      res.json({ count });
     } catch (error) {
       res.status(500).json({ error: "Failed to count tasks" });
     }
   });
 
-  // GET export ALL tasks as CSV (streaming - recommended for large datasets)
+  // GET export ALL tasks as CSV (true streaming from DB - recommended for large datasets)
   app.get("/api/tasks/export/csv", async (req, res) => {
     try {
-      console.log("Starting CSV export (streaming)...");
-      const allTasks = await storage.getAllTasks();
-      console.log(`Streaming ${allTasks.length} tasks as CSV...`);
+      console.log("Starting CSV export (true streaming from DB)...");
+      const totalCount = await storage.getTaskCount();
+      console.log(`Streaming ${totalCount} tasks as CSV...`);
       
       // Build full URL for images
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
@@ -855,10 +855,15 @@ export async function registerRoutes(
       // Write header row
       res.write(headers.join(',') + '\n');
       
-      // Stream rows in batches to avoid memory buildup
-      const BATCH_SIZE = 1000;
-      for (let i = 0; i < allTasks.length; i += BATCH_SIZE) {
-        const batch = allTasks.slice(i, i + BATCH_SIZE);
+      // Stream rows in batches FROM DATABASE to avoid memory buildup
+      const BATCH_SIZE = 2000;
+      let offset = 0;
+      let batchCount = 0;
+      
+      while (offset < totalCount) {
+        const batch = await storage.getTasksBatch(offset, BATCH_SIZE);
+        if (batch.length === 0) break;
+        
         const lines = batch.map(task => [
           escapeCSV(task.uniqueId),
           escapeCSV(task.key),
@@ -893,9 +898,15 @@ export async function registerRoutes(
         ].join(','));
         
         res.write(lines.join('\n') + '\n');
+        offset += batch.length;
+        batchCount++;
+        
+        if (batchCount % 10 === 0) {
+          console.log(`CSV export progress: ${offset}/${totalCount} rows`);
+        }
       }
       
-      console.log("CSV export complete");
+      console.log(`CSV export complete: ${offset} rows exported`);
       res.end();
     } catch (error) {
       console.error("Error exporting tasks as CSV:", error);
@@ -911,18 +922,23 @@ export async function registerRoutes(
   app.get("/api/tasks/export", async (req, res) => {
     try {
       console.log("Starting Excel export...");
-      const allTasks = await storage.getAllTasks();
-      console.log(`Exporting ${allTasks.length} tasks...`);
       
-      // Limit Excel export to 50k rows for stability
+      // Check count FIRST before loading data to avoid memory issues
       const MAX_EXCEL_ROWS = 50000;
-      if (allTasks.length > MAX_EXCEL_ROWS) {
+      const taskCount = await storage.getTaskCount();
+      console.log(`Task count: ${taskCount}`);
+      
+      if (taskCount > MAX_EXCEL_ROWS) {
         return res.status(400).json({ 
-          error: `Too many tasks (${allTasks.length}) for Excel export. Maximum is ${MAX_EXCEL_ROWS}. Please use CSV export for large datasets.`,
-          count: allTasks.length,
+          error: `Too many tasks (${taskCount}) for Excel export. Maximum is ${MAX_EXCEL_ROWS}. Please use CSV export for large datasets.`,
+          count: taskCount,
           useCSV: true
         });
       }
+      
+      // Now safe to load all tasks into memory
+      const allTasks = await storage.getAllTasks();
+      console.log(`Exporting ${allTasks.length} tasks...`);
       
       // Build full URL for images
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';

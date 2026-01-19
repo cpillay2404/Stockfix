@@ -21,6 +21,8 @@ export interface IStorage {
   
   // Task operations
   getAllTasks(): Promise<Task[]>;
+  getTaskCount(): Promise<number>;
+  getTasksBatch(offset: number, limit: number): Promise<Task[]>;
   getTasksPaginated(page: number, limit: number, search?: string, status?: string, filters?: TaskFilters): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }>;
   getTaskById(id: number): Promise<Task | undefined>;
   getTaskByUniqueId(uniqueId: string): Promise<Task | undefined>;
@@ -56,6 +58,15 @@ export class DatabaseStorage implements IStorage {
   // Task operations
   async getAllTasks(): Promise<Task[]> {
     return await db.select().from(tasks).orderBy(desc(tasks.createdAt));
+  }
+
+  async getTaskCount(): Promise<number> {
+    const [result] = await db.select({ count: count() }).from(tasks);
+    return result?.count || 0;
+  }
+
+  async getTasksBatch(offset: number, limit: number): Promise<Task[]> {
+    return await db.select().from(tasks).orderBy(tasks.id).limit(limit).offset(offset);
   }
 
   async getTasksPaginated(page: number, limit: number, search?: string, status?: string, filters?: TaskFilters): Promise<{ tasks: Task[]; total: number; page: number; totalPages: number }> {
