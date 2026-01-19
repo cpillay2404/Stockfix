@@ -866,7 +866,7 @@ export async function registerRoutes(
     try {
       const allTasks = await storage.getAllTasks();
       
-      const repStats: Record<string, { 
+      const repRegionStats: Record<string, { 
         repName: string; 
         lineManager: string;
         region: string;
@@ -878,26 +878,29 @@ export async function registerRoutes(
       
       allTasks.forEach(task => {
         const rep = task.repName || 'Unknown';
-        if (!repStats[rep]) {
-          repStats[rep] = { 
+        const region = task.region || 'Unknown';
+        const key = `${rep}|${region}`;
+        
+        if (!repRegionStats[key]) {
+          repRegionStats[key] = { 
             repName: rep, 
             lineManager: task.lineManager || '',
-            region: task.region || '',
+            region: region,
             total: 0,
             open: 0, 
             completed: 0,
             completionRate: 0,
           };
         }
-        repStats[rep].total++;
+        repRegionStats[key].total++;
         if (task.actionStatus === 'Completed') {
-          repStats[rep].completed++;
+          repRegionStats[key].completed++;
         } else {
-          repStats[rep].open++;
+          repRegionStats[key].open++;
         }
       });
 
-      const exportData = Object.values(repStats).map(rep => {
+      const exportData = Object.values(repRegionStats).map(rep => {
         const total = rep.open + rep.completed;
         return {
           'Rep Name': rep.repName,
@@ -908,7 +911,12 @@ export async function registerRoutes(
           'Completed Tasks': rep.completed,
           'Completion Rate (%)': total > 0 ? Math.round((rep.completed / total) * 100) : 0,
         };
-      }).sort((a, b) => b['Completion Rate (%)'] - a['Completion Rate (%)']);
+      }).sort((a, b) => {
+        if (a['Rep Name'] !== b['Rep Name']) {
+          return a['Rep Name'].localeCompare(b['Rep Name']);
+        }
+        return b['Completion Rate (%)'] - a['Completion Rate (%)'];
+      });
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
       const workbook = XLSX.utils.book_new();
