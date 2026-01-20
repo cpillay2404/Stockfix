@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, MapPin, Users, Trophy, Flame, Target } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Trophy, Flame, Target, Wrench, Sparkles, Zap } from "lucide-react";
 import { useLocation } from "wouter";
+import meridianLogo from "@/assets/meridian-logo.png";
 
 interface RegionStats {
   region: string;
@@ -205,26 +206,60 @@ export default function AdminLeaderboard() {
       backgroundColor: '#f3f4f6',
     }}>
       <div style={{ 
-        backgroundColor: '#003B71', 
+        background: 'linear-gradient(135deg, #003B71 0%, #002855 50%, #001a3d 100%)',
         color: 'white', 
-        padding: '12px 20px',
+        padding: '14px 20px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <button onClick={() => navigate("/")} data-testid="back-button" style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button onClick={() => navigate("/")} data-testid="back-button" style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer', padding: '4px' }}>
             <ArrowLeft size={20} />
           </button>
-          <Trophy size={24} />
-          <span style={{ fontSize: '18px', fontWeight: 700 }}>Performance Dashboard</span>
-        </div>
-        {data.weekEndingDate && (
-          <div style={{ fontSize: '12px', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <Target size={14} />
-            Week: {data.weekEndingDate}
+          <img src={meridianLogo} alt="Meridian" style={{ height: '32px', objectFit: 'contain' }} />
+          <div style={{ height: '24px', width: '1px', backgroundColor: 'rgba(255,255,255,0.3)' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ 
+              backgroundColor: '#F36C21', 
+              borderRadius: '8px', 
+              padding: '6px', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              boxShadow: '0 2px 8px rgba(243,108,33,0.4)',
+            }}>
+              <Wrench size={18} color="white" />
+            </div>
+            <div>
+              <div style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                StockFix <Sparkles size={14} color="#FFD700" />
+              </div>
+              <div style={{ fontSize: '10px', opacity: 0.8, letterSpacing: '1px' }}>LEADERBOARD</div>
+            </div>
           </div>
-        )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div style={{ 
+            backgroundColor: 'rgba(255,255,255,0.1)', 
+            borderRadius: '20px', 
+            padding: '6px 14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '12px',
+          }}>
+            <Zap size={14} color="#FFD700" />
+            <span style={{ fontWeight: 600 }}>LIVE</span>
+          </div>
+          {data.weekEndingDate && (
+            <div style={{ fontSize: '12px', opacity: 0.8, display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <Target size={14} />
+              Week: {data.weekEndingDate}
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={{ padding: '12px 16px', display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '10px' }}>
@@ -237,7 +272,7 @@ export default function AdminLeaderboard() {
       </div>
 
       <div style={{ flex: 1, padding: '0 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', minHeight: 0 }}>
-        <LeaderboardCard title="Top Regions" icon={<MapPin size={16} />}>
+        <LeaderboardCard title="Top Regions 🌍" icon={<MapPin size={16} />}>
           {topRegions.length >= 3 && (
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '8px', marginBottom: '10px' }}>
               <PodiumCard rank={2} name={topRegions[1].region} rate={topRegions[1].priorityRate} subtitle={`${topRegions[1].repCount} reps`} />
@@ -252,7 +287,7 @@ export default function AdminLeaderboard() {
           </div>
         </LeaderboardCard>
 
-        <LeaderboardCard title="Top Managers" icon={<Users size={16} />}>
+        <LeaderboardCard title="Top Managers 👔" icon={<Users size={16} />}>
           {topManagers.length >= 3 && (
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '8px', marginBottom: '10px' }}>
               <PodiumCard rank={2} name={topManagers[1].manager} rate={topManagers[1].priorityRate} subtitle={`${topManagers[1].repCount} reps`} />
@@ -267,7 +302,7 @@ export default function AdminLeaderboard() {
           </div>
         </LeaderboardCard>
 
-        <LeaderboardCard title="Top Reps" icon={<Trophy size={16} />}>
+        <LeaderboardCard title="Top Reps 🏆" icon={<Trophy size={16} />}>
           {topReps.length >= 3 && (
             <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'center', gap: '8px', marginBottom: '10px' }}>
               <PodiumCard rank={2} name={topReps[1].repName} rate={topReps[1].priorityCompletionRate} subtitle={topReps[1].lineManager} />
