@@ -170,9 +170,9 @@ export default function AdminLeaderboard() {
   }
 
   const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard } = data;
-  const topRegions = regionLeaderboard.slice(0, 6);
-  const topManagers = managerLeaderboard.slice(0, 6);
-  const topReps = repLeaderboard.slice(0, 6);
+  const topRegions = regionLeaderboard.slice(0, 8);
+  const topManagers = managerLeaderboard.slice(0, 8);
+  const topReps = repLeaderboard.slice(0, 8);
   
   const mgrGold = managerLeaderboard.reduce((s, m) => s + m.goldBadges, 0);
   const mgrSilver = managerLeaderboard.reduce((s, m) => s + m.silverBadges, 0);
@@ -281,12 +281,27 @@ export default function AdminLeaderboard() {
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '12px', color: '#F36C21' }}>
               <Trophy size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Badge Count</span>
             </div>
-            <BadgeRow icon="👔" gold={mgrGold} silver={mgrSilver} bronze={mgrBronze} />
-            <BadgeRow icon="🏆" gold={repGold} silver={repSilver} bronze={repBronze} />
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '32px' }}>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '32px', marginBottom: '4px' }}>🥇</div>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repGold}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280' }}>Gold</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '32px', marginBottom: '4px' }}>🥈</div>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repSilver}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280' }}>Silver</div>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <div style={{ fontSize: '32px', marginBottom: '4px' }}>🥉</div>
+                <div style={{ fontSize: '24px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repBronze}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280' }}>Bronze</div>
+              </div>
+            </div>
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px' }}>
