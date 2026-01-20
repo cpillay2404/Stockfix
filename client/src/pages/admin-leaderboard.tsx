@@ -280,9 +280,9 @@ export default function AdminLeaderboard() {
   }
 
   const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard } = data;
-  const topRegions = regionLeaderboard.slice(0, 8);
-  const topManagers = managerLeaderboard.slice(0, 8);
-  const topReps = repLeaderboard.slice(0, 8);
+  const topRegions = regionLeaderboard.slice(0, 12);
+  const topManagers = managerLeaderboard.slice(0, 12);
+  const topReps = repLeaderboard.slice(0, 12);
 
   const goldCount = repLeaderboard.filter(r => r.badge.type === 'gold').length;
   const silverCount = repLeaderboard.filter(r => r.badge.type === 'silver').length;
@@ -332,8 +332,8 @@ export default function AdminLeaderboard() {
         </div>
       </div>
 
-      <div style={{ flex: 1, padding: '10px 12px', display: 'grid', gridTemplateColumns: '200px 1fr 1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '10px', minHeight: 0 }}>
-        <div style={{ gridRow: 'span 2', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+      <div style={{ flex: 1, padding: '10px 12px', display: 'grid', gridTemplateColumns: '200px 1fr 1fr 1fr', gridTemplateRows: '1fr', gap: '10px', minHeight: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Performance Overview</div>
             <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
@@ -417,43 +417,6 @@ export default function AdminLeaderboard() {
           ))}
         </LeaderboardPanel>
 
-        <div style={{ gridColumn: 'span 3', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-          <LeaderboardPanel title="Bottom Regions" emoji="📉" icon={<Target size={14} />}>
-            {[...regionLeaderboard].reverse().slice(0, 8).map((r, idx) => (
-              <LeaderRow 
-                key={r.region} 
-                rank={regionLeaderboard.length - idx} 
-                name={r.region} 
-                rate={r.priorityRate} 
-                subtitle={`${r.repCount} reps`}
-              />
-            ))}
-          </LeaderboardPanel>
-
-          <LeaderboardPanel title="Bottom Managers" emoji="📊" icon={<Target size={14} />}>
-            {[...managerLeaderboard].reverse().slice(0, 8).map((m, idx) => (
-              <LeaderRow 
-                key={m.manager} 
-                rank={managerLeaderboard.length - idx} 
-                name={m.manager} 
-                rate={m.priorityRate} 
-                subtitle={m.region}
-              />
-            ))}
-          </LeaderboardPanel>
-
-          <LeaderboardPanel title="Needs Attention" emoji="⚠️" icon={<Target size={14} />}>
-            {[...repLeaderboard].reverse().slice(0, 8).map((rep, idx) => (
-              <LeaderRow 
-                key={rep.repName} 
-                rank={repLeaderboard.length - idx} 
-                name={rep.repName} 
-                rate={rep.priorityCompletionRate} 
-                subtitle={rep.lineManager}
-              />
-            ))}
-          </LeaderboardPanel>
-        </div>
       </div>
     </div>
   );
