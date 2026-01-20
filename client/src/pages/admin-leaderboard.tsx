@@ -419,7 +419,7 @@ export default function AdminLeaderboard() {
 
         <div style={{ gridColumn: 'span 3', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
           <LeaderboardPanel title="Bottom Regions" emoji="📉" icon={<Target size={14} />}>
-            {[...regionLeaderboard].reverse().slice(0, 5).map((r, idx) => (
+            {[...regionLeaderboard].reverse().slice(0, 8).map((r, idx) => (
               <LeaderRow 
                 key={r.region} 
                 rank={regionLeaderboard.length - idx} 
@@ -431,7 +431,7 @@ export default function AdminLeaderboard() {
           </LeaderboardPanel>
 
           <LeaderboardPanel title="Bottom Managers" emoji="📊" icon={<Target size={14} />}>
-            {[...managerLeaderboard].reverse().slice(0, 5).map((m, idx) => (
+            {[...managerLeaderboard].reverse().slice(0, 8).map((m, idx) => (
               <LeaderRow 
                 key={m.manager} 
                 rank={managerLeaderboard.length - idx} 
@@ -443,7 +443,7 @@ export default function AdminLeaderboard() {
           </LeaderboardPanel>
 
           <LeaderboardPanel title="Needs Attention" emoji="⚠️" icon={<Target size={14} />}>
-            {[...repLeaderboard].reverse().slice(0, 5).map((rep, idx) => (
+            {[...repLeaderboard].reverse().slice(0, 8).map((rep, idx) => (
               <LeaderRow 
                 key={rep.repName} 
                 rank={repLeaderboard.length - idx} 
