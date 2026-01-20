@@ -20,6 +20,7 @@ import ExitVisit from "@/pages/exit-visit";
 import RepProgress from "@/pages/rep-progress";
 import ManagerProgress from "@/pages/manager-progress";
 import SelectManager from "@/pages/select-manager";
+import CompanyLeaderboard from "@/pages/company-leaderboard";
 
 function Router() {
   return (
@@ -32,6 +33,7 @@ function Router() {
       <Route path="/dashboard" component={Home} />
       <Route path="/tasks" component={TaskList} />
       <Route path="/import" component={ImportData} />
+      <Route path="/leaderboard" component={CompanyLeaderboard} />
       <Route path="/task/:id" component={TaskDetail} />
       <Route path="/store/:storeName" component={StoreSummary} />
       <Route path="/exit-visit" component={ExitVisit} />

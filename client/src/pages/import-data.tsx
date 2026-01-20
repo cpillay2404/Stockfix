@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download, FileText } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download, FileText, Trophy } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -132,6 +132,27 @@ export default function ImportData() {
             Cancel
           </Button>
         </div>
+
+        <Card className="bg-gradient-to-r from-[#003B71] to-[#002855] text-white">
+          <CardContent className="py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Trophy className="h-6 w-6 text-[#F36C21]" />
+                <div>
+                  <h3 className="font-semibold">Company Leaderboard</h3>
+                  <p className="text-sm text-white/70">View all reps ranked by priority task completion</p>
+                </div>
+              </div>
+              <Button 
+                variant="secondary"
+                onClick={() => setLocation("/leaderboard")}
+                data-testid="button-view-leaderboard"
+              >
+                View Leaderboard
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader>
