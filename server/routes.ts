@@ -1923,10 +1923,8 @@ export async function registerRoutes(
   app.get("/api/gamification/leaderboard", async (req, res) => {
     try {
       const manager = req.query.manager as string | undefined;
-      const region = req.query.region as string | undefined;
-      const rep = req.query.rep as string | undefined;
       const limit = parseInt(req.query.limit as string) || 10;
-      const cacheKey = `leaderboard_${manager || 'all'}_${region || 'all'}_${rep || 'all'}`;
+      const cacheKey = `leaderboard_${manager || 'all'}`;
       
       // Try cache first
       let cachedData = getCachedGamificationStats(cacheKey);
@@ -1942,8 +1940,6 @@ export async function registerRoutes(
         const filteredTasks = await storage.getTasksFiltered({
           weekEndingDate: latestWeek || undefined,
           lineManager: manager || undefined,
-          region: region || undefined,
-          repName: rep || undefined,
         });
         
         allStats = calculateRepGamificationStats(filteredTasks);
@@ -1953,18 +1949,11 @@ export async function registerRoutes(
       const leaderboard = getLeaderboard(allStats, limit);
       const teamStats = getTeamStats(allStats);
       
-      // Get filter options (unique managers, regions, reps)
-      const allTasksForFilters = await storage.getTasksFiltered({ weekEndingDate: latestWeek || undefined });
-      const managers = [...new Set(allTasksForFilters.map(t => t.lineManager).filter(Boolean))].sort();
-      const regions = [...new Set(allTasksForFilters.map(t => t.region).filter(Boolean))].sort();
-      const reps = [...new Set(allTasksForFilters.map(t => t.repName).filter(Boolean))].sort();
-      
       res.json({
         leaderboard,
         teamStats,
         totalReps: allStats.length,
         weekEndingDate: latestWeek,
-        filterOptions: { managers, regions, reps },
       });
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
