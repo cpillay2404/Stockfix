@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, MapPin, Users, Trophy, Flame, Target, Wrench, Sparkles, Zap, Award, TrendingUp } from "lucide-react";
+import { ArrowLeft, MapPin, Users, Trophy, Flame, Target, Wrench, Sparkles, Zap, Award } from "lucide-react";
 import { useLocation } from "wouter";
 import meridianLogo from "@/assets/meridian-logo.png";
 
@@ -67,41 +67,41 @@ function getRateColor(rate: number): string {
   return '#dc2626';
 }
 
-function CircularProgress({ value, size = 50, strokeWidth = 5, color, label }: { value: number; size?: number; strokeWidth?: number; color: string; label?: string }) {
+function CircularProgress({ value, size = 60, strokeWidth = 6, color, label }: { value: number; size?: number; strokeWidth?: number; color: string; label?: string }) {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (value / 100) * circumference;
   
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <div style={{ position: 'relative', width: size, height: size }}>
         <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
           <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="#e5e7eb" strokeWidth={strokeWidth} />
           <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" />
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: '12px', fontWeight: 700, color, fontFamily: 'monospace' }}>{value}%</span>
+          <span style={{ fontSize: '14px', fontWeight: 700, color, fontFamily: 'monospace' }}>{value}%</span>
         </div>
       </div>
-      {label && <div style={{ fontSize: '8px', color: '#6b7280', textTransform: 'uppercase' }}>{label}</div>}
+      {label && <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', marginTop: '2px' }}>{label}</div>}
     </div>
   );
 }
 
 function RankBadge({ rank }: { rank: number }) {
-  if (rank === 1) return <span style={{ fontSize: '14px' }}>🥇</span>;
-  if (rank === 2) return <span style={{ fontSize: '14px' }}>🥈</span>;
-  if (rank === 3) return <span style={{ fontSize: '14px' }}>🥉</span>;
+  if (rank === 1) return <span style={{ fontSize: '16px' }}>🥇</span>;
+  if (rank === 2) return <span style={{ fontSize: '16px' }}>🥈</span>;
+  if (rank === 3) return <span style={{ fontSize: '16px' }}>🥉</span>;
   return (
     <span style={{ 
       display: 'inline-flex',
-      width: '16px', 
-      height: '16px', 
+      width: '18px', 
+      height: '18px', 
       borderRadius: '50%', 
       backgroundColor: '#e5e7eb', 
       alignItems: 'center', 
       justifyContent: 'center',
-      fontSize: '9px',
+      fontSize: '10px',
       fontWeight: 600,
       color: '#374151',
     }}>
@@ -115,57 +115,36 @@ function LeaderRow({ rank, name, rate, subtitle, badge, streak }: { rank: number
     <div style={{ 
       display: 'flex', 
       alignItems: 'center', 
-      padding: '3px 6px', 
+      padding: '4px 8px', 
       backgroundColor: rank <= 3 ? `rgba(243,108,33,${0.1 - rank * 0.02})` : (rank % 2 === 0 ? '#f9fafb' : 'white'), 
       borderRadius: '4px', 
-      gap: '4px',
-      fontSize: '10px',
+      gap: '6px',
     }}>
       <RankBadge rank={rank} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontWeight: 600, color: '#003B71', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
-        {subtitle && <div style={{ fontSize: '8px', color: '#9ca3af', marginTop: '-1px' }}>{subtitle}</div>}
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#003B71', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</div>
+        {subtitle && <div style={{ fontSize: '9px', color: '#9ca3af' }}>{subtitle}</div>}
       </div>
-      <div style={{ width: '35px', height: '4px', backgroundColor: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
+      <div style={{ width: '40px', height: '5px', backgroundColor: '#e5e7eb', borderRadius: '2px', overflow: 'hidden' }}>
         <div style={{ width: `${Math.min(rate, 100)}%`, height: '100%', backgroundColor: getRateColor(rate) }} />
       </div>
       <div style={{ 
+        fontSize: '10px',
         fontWeight: 700, 
         color: 'white', 
         fontFamily: 'monospace', 
         backgroundColor: getRateColor(rate),
-        padding: '1px 4px',
-        borderRadius: '6px',
-        fontSize: '9px',
+        padding: '2px 6px',
+        borderRadius: '8px',
       }}>
         {rate}%
       </div>
-      {badge && <span style={{ fontSize: '11px' }}>{badge}</span>}
+      {badge && <span style={{ fontSize: '12px' }}>{badge}</span>}
       {streak !== undefined && streak > 0 && (
-        <span style={{ display: 'flex', alignItems: 'center', fontSize: '8px', color: '#F36C21' }}>
-          <Flame size={8} />{streak}
+        <span style={{ display: 'flex', alignItems: 'center', fontSize: '9px', color: '#F36C21', gap: '1px' }}>
+          <Flame size={10} />{streak}
         </span>
       )}
-    </div>
-  );
-}
-
-function StatBox({ icon, value, label }: { icon: React.ReactNode; value: string | number; label: string }) {
-  return (
-    <div style={{ 
-      backgroundColor: 'white', 
-      borderRadius: '6px', 
-      padding: '6px',
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-    }}>
-      <div style={{ color: '#F36C21' }}>{icon}</div>
-      <div>
-        <div style={{ fontSize: '14px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace', lineHeight: 1 }}>{value}</div>
-        <div style={{ fontSize: '7px', color: '#6b7280', textTransform: 'uppercase' }}>{label}</div>
-      </div>
     </div>
   );
 }
@@ -174,27 +153,26 @@ function LeaderboardPanel({ title, emoji, children }: { title: string; emoji: st
   return (
     <div style={{ 
       backgroundColor: 'white', 
-      borderRadius: '8px', 
-      padding: '8px',
+      borderRadius: '10px', 
+      padding: '10px',
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-      overflow: 'hidden',
+      boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
     }}>
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
-        gap: '4px', 
-        marginBottom: '6px',
-        paddingBottom: '4px',
+        gap: '6px', 
+        marginBottom: '8px',
+        paddingBottom: '6px',
         borderBottom: '2px solid #003B71',
       }}>
-        <span style={{ fontSize: '12px' }}>{emoji}</span>
-        <span style={{ fontSize: '10px', fontWeight: 700, color: '#003B71', textTransform: 'uppercase' }}>{title}</span>
-        <Trophy size={10} color="#FFD700" style={{ marginLeft: 'auto' }} />
+        <span style={{ fontSize: '14px' }}>{emoji}</span>
+        <span style={{ fontSize: '11px', fontWeight: 700, color: '#003B71', textTransform: 'uppercase' }}>{title}</span>
+        <Trophy size={12} color="#FFD700" style={{ marginLeft: 'auto' }} />
       </div>
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '3px' }}>
         {children}
       </div>
     </div>
@@ -231,102 +209,72 @@ export default function AdminLeaderboard() {
   }
 
   const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard } = data;
-  const topRegions = regionLeaderboard.slice(0, 10);
-  const topManagers = managerLeaderboard.slice(0, 10);
-  const topReps = repLeaderboard.slice(0, 10);
+  const topRegions = regionLeaderboard.slice(0, 8);
+  const topManagers = managerLeaderboard.slice(0, 8);
+  const topReps = repLeaderboard.slice(0, 8);
 
   const goldCount = repLeaderboard.filter(r => r.badge.type === 'gold').length;
   const silverCount = repLeaderboard.filter(r => r.badge.type === 'silver').length;
   const bronzeCount = repLeaderboard.filter(r => r.badge.type === 'bronze').length;
-  const topStreaks = [...repLeaderboard].filter(r => r.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 3);
+  const topStreaks = [...repLeaderboard].filter(r => r.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 5);
 
   return (
     <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: '#f0f2f5' }}>
       <div style={{ 
         background: 'linear-gradient(135deg, #003B71 0%, #001a3d 100%)',
         color: 'white', 
-        padding: '6px 12px',
+        padding: '8px 16px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
+        flexShrink: 0,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button onClick={() => navigate("/")} data-testid="back-button" style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
-            <ArrowLeft size={14} />
+            <ArrowLeft size={16} />
           </button>
-          <img src={meridianLogo} alt="Meridian" style={{ height: '20px' }} />
-          <div style={{ height: '14px', width: '1px', backgroundColor: 'rgba(255,255,255,0.3)' }} />
-          <div style={{ backgroundColor: '#F36C21', borderRadius: '4px', padding: '2px', display: 'flex' }}>
-            <Wrench size={10} color="white" />
+          <img src={meridianLogo} alt="Meridian" style={{ height: '22px' }} />
+          <div style={{ height: '16px', width: '1px', backgroundColor: 'rgba(255,255,255,0.3)' }} />
+          <div style={{ backgroundColor: '#F36C21', borderRadius: '4px', padding: '3px', display: 'flex' }}>
+            <Wrench size={12} color="white" />
           </div>
-          <span style={{ fontSize: '11px', fontWeight: 700 }}>StockFix</span>
+          <span style={{ fontSize: '12px', fontWeight: 700 }}>StockFix</span>
           <Sparkles size={10} color="#FFD700" />
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '10px', padding: '2px 8px', display: 'flex', alignItems: 'center', gap: '3px', fontSize: '9px' }}>
-            <Zap size={9} color="#FFD700" />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '10px', padding: '3px 10px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}>
+            <Zap size={10} color="#FFD700" />
             <span style={{ fontWeight: 600 }}>LIVE</span>
           </div>
-          {data.weekEndingDate && <span style={{ fontSize: '9px', opacity: 0.8 }}>Week: {data.weekEndingDate}</span>}
+          {data.weekEndingDate && <span style={{ fontSize: '10px', opacity: 0.8 }}>Week: {data.weekEndingDate}</span>}
         </div>
       </div>
 
-      <div style={{ flex: 1, padding: '8px', display: 'grid', gridTemplateColumns: '160px 1fr 1fr 1fr', gap: '8px', minHeight: 0 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '6px' }}>
-            <div style={{ fontSize: '8px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>Performance</div>
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <CircularProgress value={overall.priorityRate} color="#F36C21" size={50} label="Priority" />
-              <CircularProgress value={overall.completionRate} color="#16a34a" size={50} label="Overall" />
-            </div>
-            <div style={{ fontSize: '8px', color: '#003B71', fontWeight: 600 }}>
-              {overall.priorityCompleted}/{overall.priorityTotal} priority
-            </div>
+      <div style={{ flex: 1, padding: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '10px', minHeight: 0 }}>
+        <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+          <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>🎯 Performance</div>
+          <div style={{ display: 'flex', gap: '20px' }}>
+            <CircularProgress value={overall.priorityRate} color="#F36C21" size={60} label="Priority" />
+            <CircularProgress value={overall.completionRate} color="#16a34a" size={60} label="Overall" />
           </div>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-            <StatBox icon={<Users size={12} />} value={overall.totalReps} label="Reps" />
-            <StatBox icon={<Award size={12} />} value={overall.totalManagers} label="Mgrs" />
-            <StatBox icon={<MapPin size={12} />} value={overall.totalRegions} label="Regions" />
-            <StatBox icon={<Target size={12} />} value={overall.totalTasks} label="Tasks" />
-          </div>
-
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
-            <div style={{ fontSize: '8px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, marginBottom: '4px' }}>🏆 Badges</div>
-            <div style={{ display: 'flex', justifyContent: 'space-around' }}>
-              <div style={{ textAlign: 'center' }}><div style={{ fontSize: '14px' }}>🥇</div><div style={{ fontSize: '12px', fontWeight: 700, color: '#003B71' }}>{goldCount}</div></div>
-              <div style={{ textAlign: 'center' }}><div style={{ fontSize: '14px' }}>🥈</div><div style={{ fontSize: '12px', fontWeight: 700, color: '#003B71' }}>{silverCount}</div></div>
-              <div style={{ textAlign: 'center' }}><div style={{ fontSize: '14px' }}>🥉</div><div style={{ fontSize: '12px', fontWeight: 700, color: '#003B71' }}>{bronzeCount}</div></div>
-            </div>
-          </div>
-
-          <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '6px', boxShadow: '0 1px 3px rgba(0,0,0,0.06)', flex: 1 }}>
-            <div style={{ fontSize: '8px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, marginBottom: '4px' }}>🔥 Top Streaks</div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-              {topStreaks.length > 0 ? topStreaks.map((rep, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '3px 6px', backgroundColor: '#fef3c7', borderRadius: '4px', fontSize: '9px' }}>
-                  <Flame size={10} color="#F36C21" />
-                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#92400e', fontWeight: 500 }}>{rep.repName}</span>
-                  <span style={{ fontWeight: 700, color: '#b45309' }}>{rep.streak}d</span>
-                </div>
-              )) : <div style={{ fontSize: '9px', color: '#9ca3af', textAlign: 'center' }}>No streaks</div>}
-            </div>
+          <div style={{ fontSize: '10px', color: '#003B71', fontWeight: 600 }}>
+            {overall.priorityCompleted}/{overall.priorityTotal} priority tasks
           </div>
         </div>
 
-        <LeaderboardPanel title="Regions" emoji="🌍">
+        <LeaderboardPanel title="Top Regions" emoji="🌍">
           {topRegions.map((r, idx) => (
             <LeaderRow key={r.region} rank={idx + 1} name={r.region} rate={r.priorityRate} subtitle={`${r.repCount} reps`} />
           ))}
         </LeaderboardPanel>
 
-        <LeaderboardPanel title="Managers" emoji="👔">
+        <LeaderboardPanel title="Top Managers" emoji="👔">
           {topManagers.map((m, idx) => (
             <LeaderRow key={m.manager} rank={idx + 1} name={m.manager} rate={m.priorityRate} subtitle={m.region} />
           ))}
         </LeaderboardPanel>
 
-        <LeaderboardPanel title="Reps" emoji="🏆">
+        <LeaderboardPanel title="Top Reps" emoji="🏆">
           {topReps.map((rep, idx) => (
             <LeaderRow 
               key={rep.repName} 
@@ -339,6 +287,84 @@ export default function AdminLeaderboard() {
             />
           ))}
         </LeaderboardPanel>
+
+        <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            📊 Stats
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', flex: 1 }}>
+            <div style={{ backgroundColor: '#f0f9ff', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <Users size={18} color="#003B71" />
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{overall.totalReps}</div>
+              <div style={{ fontSize: '8px', color: '#6b7280', textTransform: 'uppercase' }}>Reps</div>
+            </div>
+            <div style={{ backgroundColor: '#f0fdf4', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <Award size={18} color="#16a34a" />
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{overall.totalManagers}</div>
+              <div style={{ fontSize: '8px', color: '#6b7280', textTransform: 'uppercase' }}>Managers</div>
+            </div>
+            <div style={{ backgroundColor: '#fef3c7', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <MapPin size={18} color="#F36C21" />
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{overall.totalRegions}</div>
+              <div style={{ fontSize: '8px', color: '#6b7280', textTransform: 'uppercase' }}>Regions</div>
+            </div>
+            <div style={{ backgroundColor: '#fce7f3', borderRadius: '8px', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+              <Target size={18} color="#db2777" />
+              <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{overall.totalTasks}</div>
+              <div style={{ fontSize: '8px', color: '#6b7280', textTransform: 'uppercase' }}>Tasks</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px' }}>🏆 Badge Count</div>
+          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', flex: 1 }}>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '28px' }}>🥇</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{goldCount}</div>
+              <div style={{ fontSize: '9px', color: '#6b7280' }}>Gold</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '28px' }}>🥈</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{silverCount}</div>
+              <div style={{ fontSize: '9px', color: '#6b7280' }}>Silver</div>
+            </div>
+            <div style={{ textAlign: 'center' }}>
+              <div style={{ fontSize: '28px' }}>🥉</div>
+              <div style={{ fontSize: '22px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{bronzeCount}</div>
+              <div style={{ fontSize: '9px', color: '#6b7280' }}>Bronze</div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ gridColumn: 'span 2', backgroundColor: 'white', borderRadius: '10px', padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            🔥 Top Streaks
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', flex: 1 }}>
+            {topStreaks.length > 0 ? topStreaks.map((rep, idx) => (
+              <div key={idx} style={{ 
+                backgroundColor: '#fef3c7', 
+                borderRadius: '8px', 
+                padding: '10px', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                alignItems: 'center',
+                justifyContent: 'center',
+                border: '1px solid #fcd34d',
+              }}>
+                <Flame size={20} color="#F36C21" />
+                <div style={{ fontSize: '18px', fontWeight: 700, color: '#b45309', fontFamily: 'monospace' }}>{rep.streak}d</div>
+                <div style={{ fontSize: '9px', color: '#92400e', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%', fontWeight: 600 }}>{rep.repName}</div>
+                <div style={{ fontSize: '8px', color: '#a16207', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', width: '100%' }}>{rep.lineManager}</div>
+              </div>
+            )) : (
+              <div style={{ gridColumn: 'span 5', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#9ca3af', fontSize: '12px' }}>
+                No active streaks
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
