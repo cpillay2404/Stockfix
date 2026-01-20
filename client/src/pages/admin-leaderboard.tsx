@@ -71,6 +71,7 @@ function CircularProgress({ value, size = 60, strokeWidth = 6, color, label }: {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (value / 100) * circumference;
+  const fontSize = Math.max(12, size * 0.2);
   
   return (
     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -80,10 +81,10 @@ function CircularProgress({ value, size = 60, strokeWidth = 6, color, label }: {
           <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" />
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: '14px', fontWeight: 700, color, fontFamily: 'monospace' }}>{value}%</span>
+          <span style={{ fontSize: `${fontSize}px`, fontWeight: 700, color, fontFamily: 'monospace' }}>{value}%</span>
         </div>
       </div>
-      {label && <div style={{ fontSize: '9px', color: '#6b7280', textTransform: 'uppercase', marginTop: '2px' }}>{label}</div>}
+      {label && <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', marginTop: '4px', fontWeight: 600 }}>{label}</div>}
     </div>
   );
 }
@@ -251,13 +252,13 @@ export default function AdminLeaderboard() {
       </div>
 
       <div style={{ flex: 1, padding: '10px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gridTemplateRows: '1fr 1fr', gap: '10px', minHeight: 0 }}>
-        <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-          <div style={{ fontSize: '10px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>🎯 Performance</div>
-          <div style={{ display: 'flex', gap: '20px' }}>
-            <CircularProgress value={overall.priorityRate} color="#F36C21" size={60} label="Priority" />
-            <CircularProgress value={overall.completionRate} color="#16a34a" size={60} label="Overall" />
+        <div style={{ backgroundColor: 'white', borderRadius: '10px', padding: '16px', boxShadow: '0 1px 4px rgba(0,0,0,0.08)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+          <div style={{ fontSize: '11px', color: '#6b7280', textTransform: 'uppercase', fontWeight: 600 }}>🎯 Performance</div>
+          <div style={{ display: 'flex', gap: '30px', flex: 1, alignItems: 'center' }}>
+            <CircularProgress value={overall.priorityRate} color="#F36C21" size={100} strokeWidth={10} label="Priority" />
+            <CircularProgress value={overall.completionRate} color="#16a34a" size={100} strokeWidth={10} label="Overall" />
           </div>
-          <div style={{ fontSize: '10px', color: '#003B71', fontWeight: 600 }}>
+          <div style={{ fontSize: '12px', color: '#003B71', fontWeight: 600 }}>
             {overall.priorityCompleted}/{overall.priorityTotal} priority tasks
           </div>
         </div>
