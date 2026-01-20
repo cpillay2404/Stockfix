@@ -1,8 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useAccess } from "@/context/AccessContext";
-import { ArrowLeft, Trophy, Medal, Flame, Target, TrendingUp, Crown } from "lucide-react";
-import BottomNav from "@/components/BottomNav";
+import { ArrowLeft, Trophy, Flame, Target, Crown, Medal, Award } from "lucide-react";
 
 interface RepBadge {
   type: 'gold' | 'silver' | 'bronze' | 'none';
@@ -15,44 +14,22 @@ interface RepStats {
   repName: string;
   lineManager: string;
   region: string;
-  totalTasks: number;
-  completedTasks: number;
-  openTasks: number;
-  completionRate: number;
-  priorityTotalTasks: number;
   priorityCompletedTasks: number;
-  priorityOpenTasks: number;
+  priorityTotalTasks: number;
   priorityCompletionRate: number;
   badge: RepBadge;
   streak: number;
   rank: number;
-  rankChange: 'up' | 'down' | 'same' | 'new';
   isTopPerformer: boolean;
-  storesMastered: number;
 }
 
 interface TeamStats {
   totalReps: number;
-  totalTasks: number;
-  totalCompleted: number;
-  avgCompletionRate: number;
   priorityTotalTasks: number;
   priorityCompletedTasks: number;
   avgPriorityCompletionRate: number;
   badgeCounts: { gold: number; silver: number; bronze: number };
 }
-
-const headerStyle: React.CSSProperties = {
-  background: 'linear-gradient(135deg, #003B71 0%, #002855 100%)',
-  padding: '16px 16px 20px 16px',
-};
-
-const cardStyle: React.CSSProperties = {
-  backgroundColor: '#FFFFFF',
-  borderRadius: '12px',
-  padding: '16px',
-  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-};
 
 export default function CompanyLeaderboard() {
   const [, setLocation] = useLocation();
@@ -61,7 +38,7 @@ export default function CompanyLeaderboard() {
   const { data, isLoading } = useQuery({
     queryKey: ["company-leaderboard"],
     queryFn: async () => {
-      const res = await fetch(`/api/gamification/leaderboard?limit=100`);
+      const res = await fetch(`/api/gamification/leaderboard?limit=10`);
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
       return res.json();
     },
@@ -70,29 +47,19 @@ export default function CompanyLeaderboard() {
 
   if (accessMode !== "manager") {
     return (
-      <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F3F4F6' }}>
         <p style={{ color: '#6B7280' }}>Access restricted to management only.</p>
       </div>
     );
   }
 
-  const leaderboard: RepStats[] = data?.leaderboard || [];
+  const leaderboard: RepStats[] = data?.leaderboard?.slice(0, 5) || [];
   const teamStats: TeamStats = data?.teamStats || {
     totalReps: 0,
-    totalTasks: 0,
-    totalCompleted: 0,
-    avgCompletionRate: 0,
     priorityTotalTasks: 0,
     priorityCompletedTasks: 0,
     avgPriorityCompletionRate: 0,
     badgeCounts: { gold: 0, silver: 0, bronze: 0 },
-  };
-
-  const getRankIcon = (rank: number) => {
-    if (rank === 1) return <Crown style={{ width: '20px', height: '20px', color: '#FFD700' }} />;
-    if (rank === 2) return <Medal style={{ width: '20px', height: '20px', color: '#C0C0C0' }} />;
-    if (rank === 3) return <Medal style={{ width: '20px', height: '20px', color: '#CD7F32' }} />;
-    return <span style={{ fontWeight: 700, color: '#6B7280', fontSize: '14px' }}>#{rank}</span>;
   };
 
   const getPriorityColor = (rate: number) => {
@@ -102,163 +69,152 @@ export default function CompanyLeaderboard() {
     return '#EF4444';
   };
 
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '80px' }}>
-      <div style={headerStyle}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-          <button
-            onClick={() => setLocation('/dashboard')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
-            data-testid="button-back"
-          >
-            <ArrowLeft style={{ width: '24px', height: '24px', color: '#FFFFFF' }} />
-          </button>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Trophy style={{ width: '24px', height: '24px', color: '#F36C21' }} />
-              <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
-                Company Leaderboard
-              </h1>
-            </div>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.7)', marginTop: '4px' }}>
-              Priority Task Performance Rankings
-            </p>
-          </div>
-        </div>
+  const totalBadges = teamStats.badgeCounts.gold + teamStats.badgeCounts.silver + teamStats.badgeCounts.bronze;
+  const goldPct = totalBadges > 0 ? (teamStats.badgeCounts.gold / totalBadges) * 100 : 0;
+  const silverPct = totalBadges > 0 ? (teamStats.badgeCounts.silver / totalBadges) * 100 : 0;
+  const bronzePct = totalBadges > 0 ? (teamStats.badgeCounts.bronze / totalBadges) * 100 : 0;
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
-          <div style={{ 
-            backgroundColor: 'rgba(255,255,255,0.15)', 
-            borderRadius: '8px', 
-            padding: '12px 8px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'monospace' }}>
-              {teamStats.totalReps}
-            </div>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>REPS</div>
-          </div>
-          <div style={{ 
-            backgroundColor: 'rgba(255,255,255,0.15)', 
-            borderRadius: '8px', 
-            padding: '12px 8px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#FFD700', fontFamily: 'monospace' }}>
-              {teamStats.badgeCounts.gold}
-            </div>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>GOLD</div>
-          </div>
-          <div style={{ 
-            backgroundColor: 'rgba(255,255,255,0.15)', 
-            borderRadius: '8px', 
-            padding: '12px 8px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#C0C0C0', fontFamily: 'monospace' }}>
-              {teamStats.badgeCounts.silver}
-            </div>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>SILVER</div>
-          </div>
-          <div style={{ 
-            backgroundColor: 'rgba(255,255,255,0.15)', 
-            borderRadius: '8px', 
-            padding: '12px 8px',
-            textAlign: 'center',
-          }}>
-            <div style={{ fontSize: '22px', fontWeight: 800, color: '#CD7F32', fontFamily: 'monospace' }}>
-              {teamStats.badgeCounts.bronze}
-            </div>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.7)', marginTop: '2px' }}>BRONZE</div>
-          </div>
+  if (isLoading) {
+    return (
+      <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F3F4F6' }}>
+        <p style={{ color: '#6B7280' }}>Loading...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ 
+      height: '100vh', 
+      background: 'linear-gradient(180deg, #003B71 0%, #002855 40%, #F3F4F6 40%)',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+    }}>
+      <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <button
+          onClick={() => setLocation('/import')}
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
+          data-testid="button-back"
+        >
+          <ArrowLeft style={{ width: '22px', height: '22px', color: '#FFFFFF' }} />
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Trophy style={{ width: '22px', height: '22px', color: '#F36C21' }} />
+          <h1 style={{ fontSize: '18px', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+            Company Leaderboard
+          </h1>
         </div>
       </div>
 
-      <div style={{ padding: '16px' }}>
-        <div style={{ ...cardStyle, marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <Target style={{ width: '18px', height: '18px', color: '#F36C21' }} />
-            <span style={{ fontSize: '14px', fontWeight: 600, color: '#003B71' }}>Company Priority Performance</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-            <div>
-              <div style={{ fontSize: '28px', fontWeight: 800, color: getPriorityColor(teamStats.avgPriorityCompletionRate), fontFamily: 'monospace' }}>
-                {teamStats.avgPriorityCompletionRate}%
-              </div>
-              <div style={{ fontSize: '11px', color: '#6B7280' }}>Avg Priority Rate</div>
+      <div style={{ padding: '0 16px 16px', display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+        <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFFFFF', fontFamily: 'monospace' }}>{teamStats.totalReps}</div>
+          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Reps</div>
+        </div>
+        <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#FFD700', fontFamily: 'monospace' }}>{teamStats.badgeCounts.gold}</div>
+          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Gold</div>
+        </div>
+        <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#C0C0C0', fontFamily: 'monospace' }}>{teamStats.badgeCounts.silver}</div>
+          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Silver</div>
+        </div>
+        <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: '8px', padding: '10px', textAlign: 'center' }}>
+          <div style={{ fontSize: '24px', fontWeight: 800, color: '#CD7F32', fontFamily: 'monospace' }}>{teamStats.badgeCounts.bronze}</div>
+          <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase' }}>Bronze</div>
+        </div>
+      </div>
+
+      <div style={{ flex: 1, padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: '12px', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <Target style={{ width: '16px', height: '16px', color: '#F36C21' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#003B71' }}>Priority Performance</span>
             </div>
-            <div>
-              <div style={{ fontSize: '28px', fontWeight: 800, color: '#003B71', fontFamily: 'monospace' }}>
-                {teamStats.priorityCompletedTasks}/{teamStats.priorityTotalTasks}
-              </div>
-              <div style={{ fontSize: '11px', color: '#6B7280' }}>Priority Tasks Done</div>
+            <div style={{ fontSize: '32px', fontWeight: 800, color: getPriorityColor(teamStats.avgPriorityCompletionRate), fontFamily: 'monospace' }}>
+              {teamStats.avgPriorityCompletionRate}%
+            </div>
+            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
+              {teamStats.priorityCompletedTasks}/{teamStats.priorityTotalTasks} tasks done
+            </div>
+          </div>
+
+          <div style={{ background: '#FFFFFF', borderRadius: '12px', padding: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px' }}>
+              <Award style={{ width: '16px', height: '16px', color: '#F36C21' }} />
+              <span style={{ fontSize: '12px', fontWeight: 600, color: '#003B71' }}>Badge Distribution</span>
+            </div>
+            <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', height: '24px', background: '#E5E7EB' }}>
+              {goldPct > 0 && <div style={{ width: `${goldPct}%`, background: '#FFD700' }} />}
+              {silverPct > 0 && <div style={{ width: `${silverPct}%`, background: '#C0C0C0' }} />}
+              {bronzePct > 0 && <div style={{ width: `${bronzePct}%`, background: '#CD7F32' }} />}
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', fontSize: '10px', color: '#6B7280' }}>
+              <span>🥇 {teamStats.badgeCounts.gold}</span>
+              <span>🥈 {teamStats.badgeCounts.silver}</span>
+              <span>🥉 {teamStats.badgeCounts.bronze}</span>
             </div>
           </div>
         </div>
 
-        {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>Loading...</div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <div style={{ flex: 1, background: '#FFFFFF', borderRadius: '12px', padding: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+            <Crown style={{ width: '16px', height: '16px', color: '#FFD700' }} />
+            <span style={{ fontSize: '12px', fontWeight: 600, color: '#003B71' }}>Top 5 Performers</span>
+          </div>
+          
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
             {leaderboard.map((rep, index) => (
               <div
                 key={rep.repName}
                 style={{
-                  ...cardStyle,
-                  padding: '12px 16px',
-                  borderLeft: rep.isTopPerformer ? '4px solid #F36C21' : '4px solid transparent',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '8px 10px',
+                  background: index === 0 ? 'linear-gradient(90deg, rgba(255,215,0,0.1) 0%, rgba(255,215,0,0) 100%)' : '#F9FAFB',
+                  borderRadius: '8px',
+                  borderLeft: index === 0 ? '3px solid #FFD700' : index === 1 ? '3px solid #C0C0C0' : index === 2 ? '3px solid #CD7F32' : '3px solid transparent',
                 }}
                 data-testid={`leaderboard-row-${index}`}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{ width: '36px', display: 'flex', justifyContent: 'center' }}>
-                    {getRankIcon(rep.rank)}
-                  </div>
-                  
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <span style={{ fontWeight: 600, color: '#003B71', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                        {rep.repName}
-                      </span>
-                      {rep.badge.type !== 'none' && (
-                        <span style={{ fontSize: '16px' }}>{rep.badge.emoji}</span>
-                      )}
-                    </div>
-                    <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
-                      {rep.lineManager} • {rep.region}
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ width: '24px', display: 'flex', justifyContent: 'center' }}>
+                  {index === 0 ? <Crown style={{ width: '18px', height: '18px', color: '#FFD700' }} /> :
+                   index === 1 ? <Medal style={{ width: '18px', height: '18px', color: '#C0C0C0' }} /> :
+                   index === 2 ? <Medal style={{ width: '18px', height: '18px', color: '#CD7F32' }} /> :
+                   <span style={{ fontWeight: 700, color: '#9CA3AF', fontSize: '13px' }}>#{index + 1}</span>}
+                </div>
+                
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontWeight: 600, color: '#003B71', fontSize: '13px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      {rep.repName}
+                    </span>
+                    {rep.badge.type !== 'none' && <span style={{ fontSize: '14px' }}>{rep.badge.emoji}</span>}
                     {rep.streak > 0 && (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Flame style={{ width: '14px', height: '14px', color: '#EF4444' }} />
-                        <span style={{ fontSize: '12px', fontWeight: 600, color: '#EF4444' }}>{rep.streak}</span>
-                      </div>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '2px', marginLeft: '4px' }}>
+                        <Flame style={{ width: '12px', height: '12px', color: '#EF4444' }} />
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#EF4444' }}>{rep.streak}</span>
+                      </span>
                     )}
-                    
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ 
-                        fontSize: '18px', 
-                        fontWeight: 800, 
-                        color: getPriorityColor(rep.priorityCompletionRate),
-                        fontFamily: 'monospace',
-                      }}>
-                        {rep.priorityCompletionRate}%
-                      </div>
-                      <div style={{ fontSize: '10px', color: '#6B7280' }}>
-                        {rep.priorityCompletedTasks}/{rep.priorityTotalTasks}
-                      </div>
-                    </div>
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#9CA3AF' }}>{rep.lineManager}</div>
+                </div>
+
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '16px', fontWeight: 800, color: getPriorityColor(rep.priorityCompletionRate), fontFamily: 'monospace' }}>
+                    {rep.priorityCompletionRate}%
+                  </div>
+                  <div style={{ fontSize: '9px', color: '#9CA3AF' }}>
+                    {rep.priorityCompletedTasks}/{rep.priorityTotalTasks}
                   </div>
                 </div>
               </div>
             ))}
           </div>
-        )}
+        </div>
       </div>
-
-      <BottomNav />
     </div>
   );
 }
