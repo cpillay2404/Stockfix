@@ -20,6 +20,7 @@ import ExitVisit from "@/pages/exit-visit";
 import RepProgress from "@/pages/rep-progress";
 import ManagerProgress from "@/pages/manager-progress";
 import SelectManager from "@/pages/select-manager";
+import AdminLeaderboard from "@/pages/admin-leaderboard";
 
 function Router() {
   return (
@@ -37,6 +38,7 @@ function Router() {
       <Route path="/exit-visit" component={ExitVisit} />
       <Route path="/rep-progress" component={RepProgress} />
       <Route path="/manager-progress" component={ManagerProgress} />
+      <Route path="/admin/leaderboard" component={AdminLeaderboard} />
       <Route component={NotFound} />
     </Switch>
   );

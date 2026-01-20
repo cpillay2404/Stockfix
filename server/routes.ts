@@ -2023,6 +2023,141 @@ export async function registerRoutes(
     }
   });
 
+  // GET Admin Leaderboard - comprehensive stats by region, rep, manager (hidden admin page)
+  app.get("/api/admin/leaderboard", async (req, res) => {
+    try {
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      const allTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+      });
+      
+      const allStats = calculateRepGamificationStats(allTasks);
+      
+      // Region breakdown
+      const regionStats: Record<string, { 
+        region: string; 
+        totalTasks: number; 
+        completedTasks: number; 
+        completionRate: number;
+        priorityTasks: number;
+        priorityCompleted: number;
+        priorityRate: number;
+        repCount: number;
+      }> = {};
+      
+      allStats.forEach(rep => {
+        const region = rep.region || 'Unknown';
+        if (!regionStats[region]) {
+          regionStats[region] = {
+            region,
+            totalTasks: 0,
+            completedTasks: 0,
+            completionRate: 0,
+            priorityTasks: 0,
+            priorityCompleted: 0,
+            priorityRate: 0,
+            repCount: 0,
+          };
+        }
+        regionStats[region].totalTasks += rep.totalTasks;
+        regionStats[region].completedTasks += rep.completedTasks;
+        regionStats[region].priorityTasks += rep.priorityTotalTasks;
+        regionStats[region].priorityCompleted += rep.priorityCompletedTasks;
+        regionStats[region].repCount++;
+      });
+      
+      Object.values(regionStats).forEach(r => {
+        r.completionRate = r.totalTasks > 0 ? Math.round((r.completedTasks / r.totalTasks) * 100) : 0;
+        r.priorityRate = r.priorityTasks > 0 ? Math.round((r.priorityCompleted / r.priorityTasks) * 100) : 0;
+      });
+      
+      // Manager breakdown
+      const managerStats: Record<string, {
+        manager: string;
+        region: string;
+        totalTasks: number;
+        completedTasks: number;
+        completionRate: number;
+        priorityTasks: number;
+        priorityCompleted: number;
+        priorityRate: number;
+        repCount: number;
+        goldBadges: number;
+        silverBadges: number;
+        bronzeBadges: number;
+      }> = {};
+      
+      allStats.forEach(rep => {
+        const manager = rep.lineManager || 'Unknown';
+        if (!managerStats[manager]) {
+          managerStats[manager] = {
+            manager,
+            region: rep.region || '',
+            totalTasks: 0,
+            completedTasks: 0,
+            completionRate: 0,
+            priorityTasks: 0,
+            priorityCompleted: 0,
+            priorityRate: 0,
+            repCount: 0,
+            goldBadges: 0,
+            silverBadges: 0,
+            bronzeBadges: 0,
+          };
+        }
+        managerStats[manager].totalTasks += rep.totalTasks;
+        managerStats[manager].completedTasks += rep.completedTasks;
+        managerStats[manager].priorityTasks += rep.priorityTotalTasks;
+        managerStats[manager].priorityCompleted += rep.priorityCompletedTasks;
+        managerStats[manager].repCount++;
+        if (rep.badge.type === 'gold') managerStats[manager].goldBadges++;
+        else if (rep.badge.type === 'silver') managerStats[manager].silverBadges++;
+        else if (rep.badge.type === 'bronze') managerStats[manager].bronzeBadges++;
+      });
+      
+      Object.values(managerStats).forEach(m => {
+        m.completionRate = m.totalTasks > 0 ? Math.round((m.completedTasks / m.totalTasks) * 100) : 0;
+        m.priorityRate = m.priorityTasks > 0 ? Math.round((m.priorityCompleted / m.priorityTasks) * 100) : 0;
+      });
+      
+      // Sort rep leaderboard by priority completion rate
+      const repLeaderboard = [...allStats].sort((a, b) => b.priorityCompletionRate - a.priorityCompletionRate);
+      
+      // Sort manager leaderboard by priority completion rate
+      const managerLeaderboard = Object.values(managerStats).sort((a, b) => b.priorityRate - a.priorityRate);
+      
+      // Sort region stats by priority rate
+      const regionLeaderboard = Object.values(regionStats).sort((a, b) => b.priorityRate - a.priorityRate);
+      
+      // Overall totals
+      const totalTasks = allStats.reduce((sum, r) => sum + r.totalTasks, 0);
+      const totalCompleted = allStats.reduce((sum, r) => sum + r.completedTasks, 0);
+      const priorityTotal = allStats.reduce((sum, r) => sum + r.priorityTotalTasks, 0);
+      const priorityCompleted = allStats.reduce((sum, r) => sum + r.priorityCompletedTasks, 0);
+      
+      res.json({
+        weekEndingDate: latestWeek,
+        overall: {
+          totalTasks,
+          totalCompleted,
+          completionRate: totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0,
+          priorityTotal,
+          priorityCompleted,
+          priorityRate: priorityTotal > 0 ? Math.round((priorityCompleted / priorityTotal) * 100) : 0,
+          totalReps: allStats.length,
+          totalManagers: Object.keys(managerStats).length,
+          totalRegions: Object.keys(regionStats).length,
+        },
+        regionLeaderboard,
+        managerLeaderboard,
+        repLeaderboard,
+      });
+    } catch (error) {
+      console.error("Error fetching admin leaderboard:", error);
+      res.status(500).json({ error: "Failed to fetch admin leaderboard" });
+    }
+  });
+
   // GET Manager Task Progress - shows team-wide progress across all reps (this week only)
   app.get("/api/task-progress/manager", async (req, res) => {
     try {
