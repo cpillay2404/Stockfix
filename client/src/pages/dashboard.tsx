@@ -462,39 +462,37 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* Proceed to Summary Bar - Only show when rep has completed tasks */}
+      {/* Proceed to Summary Button - Only show when rep has completed tasks */}
       {(summary?.completedCount || 0) > 0 && (
-        <div
-          onClick={() => {
-            const params = new URLSearchParams();
-            if (repFilter) params.set('rep', repFilter);
-            if (storeFilter) params.set('store', storeFilter);
-            if (clientFilter) params.set('client', clientFilter);
-            setLocation(`/exit-visit?${params.toString()}`);
-          }}
-          data-testid="proceed-to-summary-bar"
-          style={{
-            position: 'fixed',
-            bottom: '56px',
-            left: 0,
-            right: 0,
-            height: '48px',
-            backgroundColor: '#F36C21',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            cursor: 'pointer',
-            zIndex: 999,
-            boxShadow: '0 -2px 8px rgba(243, 108, 33, 0.3)',
-          }}
-        >
-          <span style={{ color: 'white', fontSize: '15px', fontWeight: 700, letterSpacing: '0.5px' }}>
-            Proceed to Summary
-          </span>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12h14M12 5l7 7-7 7" />
-          </svg>
+        <div style={{
+          position: 'fixed',
+          bottom: '68px',
+          left: '16px',
+          right: '16px',
+          zIndex: 999,
+        }}>
+          <Button
+            onClick={() => {
+              const params = new URLSearchParams();
+              if (repFilter) params.set('rep', repFilter);
+              if (storeFilter) params.set('store', storeFilter);
+              if (clientFilter) params.set('client', clientFilter);
+              setLocation(`/exit-visit?${params.toString()}`);
+            }}
+            data-testid="proceed-to-summary-button"
+            style={{
+              width: '100%',
+              height: '48px',
+              backgroundColor: '#F36C21',
+              color: '#FFFFFF',
+              fontSize: '16px',
+              fontWeight: 600,
+              borderRadius: '10px',
+            }}
+            className="hover:bg-[#E05A10]"
+          >
+            PROCEED TO SUMMARY
+          </Button>
         </div>
       )}
 
