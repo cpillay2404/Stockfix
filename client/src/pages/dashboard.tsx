@@ -275,7 +275,7 @@ export default function Dashboard() {
   }, [repFilter, storeFilter, clientFilter, articleFilter]);
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '80px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '120px' }}>
       {/* Header Section - Blue */}
       <div style={{ backgroundColor: '#003B71', padding: '16px', paddingBottom: '12px' }}>
         {/* Navigation Row */}
@@ -460,6 +460,40 @@ export default function Dashboard() {
             />
           ))
         )}
+      </div>
+
+      {/* Proceed to Summary Bar */}
+      <div
+        onClick={() => {
+          const params = new URLSearchParams();
+          if (repFilter) params.set('rep', repFilter);
+          if (storeFilter) params.set('store', storeFilter);
+          if (clientFilter) params.set('client', clientFilter);
+          setLocation(`/exit-visit?${params.toString()}`);
+        }}
+        data-testid="proceed-to-summary-bar"
+        style={{
+          position: 'fixed',
+          bottom: '56px',
+          left: 0,
+          right: 0,
+          height: '48px',
+          backgroundColor: '#F36C21',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+          cursor: 'pointer',
+          zIndex: 999,
+          boxShadow: '0 -2px 8px rgba(243, 108, 33, 0.3)',
+        }}
+      >
+        <span style={{ color: 'white', fontSize: '15px', fontWeight: 700, letterSpacing: '0.5px' }}>
+          Proceed to Summary
+        </span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12h14M12 5l7 7-7 7" />
+        </svg>
       </div>
 
       {/* Bottom Navigation */}
