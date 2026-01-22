@@ -382,8 +382,22 @@ export class DatabaseStorage implements IStorage {
     if (filters.client) {
       conditions.push(eq(tasks.client, filters.client));
     }
+    
+    // When filtering by article, look up the barcode first and filter by that
+    // This ensures historical data with varying descriptions but same barcode are grouped together
     if (filters.article) {
-      conditions.push(eq(tasks.articleDescription, filters.article));
+      const barcodeResult = await db
+        .select({ barcode: tasks.barcode })
+        .from(tasks)
+        .where(eq(tasks.articleDescription, filters.article))
+        .limit(1);
+      
+      if (barcodeResult.length > 0 && barcodeResult[0].barcode) {
+        conditions.push(eq(tasks.barcode, barcodeResult[0].barcode));
+      } else {
+        // Fallback to article description if no barcode found
+        conditions.push(eq(tasks.articleDescription, filters.article));
+      }
     }
     
     const whereClause = and(...conditions);
