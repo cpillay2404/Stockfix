@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Users, MapPin, Trophy, Flame, Wrench, ClipboardList } from "lucide-react";
+import { ArrowLeft, Users, MapPin, Trophy, Flame, Wrench, ClipboardList, Briefcase } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface RegionStats {
@@ -26,6 +26,13 @@ interface RepStats {
   streak: number;
 }
 
+interface ClientStats {
+  client: string;
+  totalTasks: number;
+  completedTasks: number;
+  completionRate: number;
+}
+
 interface AdminLeaderboardData {
   weekEndingDate: string | null;
   overall: {
@@ -42,6 +49,7 @@ interface AdminLeaderboardData {
   regionLeaderboard: RegionStats[];
   managerLeaderboard: ManagerStats[];
   repLeaderboard: RepStats[];
+  clientLeaderboard: ClientStats[];
 }
 
 function CircularProgress({ value, size = 60, strokeWidth = 5, color = "#F36C21" }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
@@ -169,10 +177,11 @@ export default function AdminLeaderboard() {
     );
   }
 
-  const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard } = data;
+  const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard, clientLeaderboard } = data;
   const topRegions = regionLeaderboard.slice(0, 8);
   const topManagers = managerLeaderboard.slice(0, 8);
   const topReps = repLeaderboard.slice(0, 8);
+  const topClients = clientLeaderboard?.slice(0, 8) || [];
   
   const mgrGold = managerLeaderboard.reduce((s, m) => s + m.goldBadges, 0);
   const mgrSilver = managerLeaderboard.reduce((s, m) => s + m.silverBadges, 0);
@@ -266,7 +275,7 @@ export default function AdminLeaderboard() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 1fr 1fr', gap: '12px' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
               <ClipboardList size={14} />
@@ -277,6 +286,24 @@ export default function AdminLeaderboard() {
               <StatCard icon={<Users size={16} />} value={overall.totalManagers} label="Managers" />
               <StatCard icon={<MapPin size={16} />} value={overall.totalRegions} label="Regions" />
               <StatCard icon={<ClipboardList size={16} />} value={overall.totalTasks} label="Tasks" />
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
+              <Briefcase size={14} />
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Client Capture %</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              {topClients.map((c) => (
+                <div key={c.client} style={{ display: 'flex', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #f3f4f6', gap: '8px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: '10px', fontWeight: 600, color: '#003B71', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.client}</div>
+                    <div style={{ fontSize: '8px', color: '#9ca3af' }}>{c.completedTasks}/{c.totalTasks}</div>
+                  </div>
+                  <SmallCircle value={c.completionRate} color={c.completionRate >= 80 ? '#16a34a' : c.completionRate >= 50 ? '#F36C21' : '#ef4444'} />
+                </div>
+              ))}
             </div>
           </div>
 

@@ -2129,6 +2129,36 @@ export async function registerRoutes(
       // Sort region stats by priority rate
       const regionLeaderboard = Object.values(regionStats).sort((a, b) => b.priorityRate - a.priorityRate);
       
+      // Client capture stats
+      const clientStats: Record<string, {
+        client: string;
+        totalTasks: number;
+        completedTasks: number;
+        completionRate: number;
+      }> = {};
+      
+      allTasks.forEach(task => {
+        const client = task.client || 'Unknown';
+        if (!clientStats[client]) {
+          clientStats[client] = {
+            client,
+            totalTasks: 0,
+            completedTasks: 0,
+            completionRate: 0,
+          };
+        }
+        clientStats[client].totalTasks++;
+        if (task.actionStatus === 'Completed') {
+          clientStats[client].completedTasks++;
+        }
+      });
+      
+      Object.values(clientStats).forEach(c => {
+        c.completionRate = c.totalTasks > 0 ? Math.round((c.completedTasks / c.totalTasks) * 100) : 0;
+      });
+      
+      const clientLeaderboard = Object.values(clientStats).sort((a, b) => b.completionRate - a.completionRate);
+      
       // Overall totals
       const totalTasks = allStats.reduce((sum, r) => sum + r.totalTasks, 0);
       const totalCompleted = allStats.reduce((sum, r) => sum + r.completedTasks, 0);
@@ -2151,6 +2181,7 @@ export async function registerRoutes(
         regionLeaderboard,
         managerLeaderboard,
         repLeaderboard,
+        clientLeaderboard,
       });
     } catch (error) {
       console.error("Error fetching admin leaderboard:", error);
