@@ -342,14 +342,14 @@ export default function ImportData() {
               <div className="text-sm text-blue-900 dark:text-blue-100 space-y-2">
                 <p className="font-medium">Expected Column Headers:</p>
                 <div className="flex flex-wrap gap-1">
-                  {['Rep Name', 'Rep Email', 'Manager Name', 'Manager Email'].map(h => (
+                  {['REP NAME', 'REP EMAIL', 'LINE MANAGER', 'LINE MANAGER EMAIL'].map(h => (
                     <code key={h} className="bg-blue-100 dark:bg-blue-900 px-1.5 py-0.5 rounded text-xs border border-blue-200 dark:border-blue-800">
                       {h}
                     </code>
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  When a rep completes a task, emails will be sent only to their email and their manager's email.
+                  When a rep completes a task, emails will be sent only to their email and their line manager's email.
                 </p>
               </div>
             </div>

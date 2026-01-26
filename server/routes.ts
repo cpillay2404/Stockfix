@@ -2401,7 +2401,7 @@ export async function registerRoutes(
         repName: getValue(row, 'Rep Name', 'REP NAME', 'RepName', 'rep_name', 'rep'),
         repEmail: getValue(row, 'Rep Email', 'REP EMAIL', 'RepEmail', 'rep_email', 'email') || null,
         managerName: getValue(row, 'Manager Name', 'MANAGER NAME', 'ManagerName', 'manager_name', 'manager', 'Line Manager', 'LINE MANAGER') || null,
-        managerEmail: getValue(row, 'Manager Email', 'MANAGER EMAIL', 'ManagerEmail', 'manager_email') || null,
+        managerEmail: getValue(row, 'Manager Email', 'MANAGER EMAIL', 'ManagerEmail', 'manager_email', 'Line Manager Email', 'LINE MANAGER EMAIL') || null,
       })).filter((c: any) => c.repName);
 
       if (contactsToImport.length === 0) {
