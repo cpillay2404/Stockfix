@@ -174,17 +174,25 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     // Remove duplicates
     recipients = [...new Set(recipients)];
     
-    console.log('[Email] Sending to recipients:', recipients);
+    // CC recipients - always included on all task completion emails
+    const ccRecipients = [
+      'jjooste@meridiangroup.co.za',
+      'cpillay@meridiangroup.co.za',
+      'ndunn@meridiangroup.co.za'
+    ];
+    
+    console.log('[Email] Sending to recipients:', recipients, 'CC:', ccRecipients);
     
     for (const recipientEmail of recipients) {
       try {
         const emailParams = new EmailParams()
           .setFrom(sentFrom)
           .setTo([new Recipient(recipientEmail)])
+          .setCc(ccRecipients.map(email => new Recipient(email)))
           .setSubject(subject)
           .setText(body);
         
-        console.log('[Email] Sending email to:', recipientEmail);
+        console.log('[Email] Sending email to:', recipientEmail, 'with CC');
         const result = await mailerSend.email.send(emailParams);
         console.log('[Email] Successfully sent to', recipientEmail);
       } catch (err: any) {
