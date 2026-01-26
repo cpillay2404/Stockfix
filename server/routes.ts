@@ -2372,10 +2372,27 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No file provided" });
       }
 
+      console.log('[Contacts Import] File received:', req.file.originalname, req.file.size, 'bytes');
+      
       const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      
+      if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+        return res.status(400).json({ error: "File contains no sheets. Please upload a valid Excel or CSV file." });
+      }
+      
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
+      
+      if (!worksheet) {
+        return res.status(400).json({ error: "Could not read worksheet. Please check the file format." });
+      }
+      
       const jsonData = XLSX.utils.sheet_to_json(worksheet);
+      console.log('[Contacts Import] Rows found:', jsonData.length);
+      
+      if (jsonData.length > 0) {
+        console.log('[Contacts Import] First row keys:', Object.keys(jsonData[0] as object));
+      }
 
       if (jsonData.length === 0) {
         return res.status(400).json({ error: "File contains no data" });
