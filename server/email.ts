@@ -147,7 +147,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     
     const sentFrom = new Sender(fromEmail, 'StockFix');
     
-    // Build recipient list: try to get rep and manager emails from contacts
+    // Build recipient list: get rep and manager emails from contacts
     let recipients: string[] = [];
     
     if (task.repName) {
@@ -159,14 +159,16 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
         if (contact.repEmail) recipients.push(contact.repEmail);
         if (contact.managerEmail) recipients.push(contact.managerEmail);
       } else {
-        console.log('[Email] No contact found for rep, using fallback recipients');
+        console.log('[Email] No contact found for rep:', task.repName, '- no email will be sent');
       }
+    } else {
+      console.log('[Email] No rep name provided - no email will be sent');
     }
     
-    // If no contacts found, use fallback recipients
+    // If no contacts found, skip sending (only send to rep and manager)
     if (recipients.length === 0) {
-      console.log('[Email] Using fallback recipients');
-      recipients = [...FALLBACK_RECIPIENTS];
+      console.log('[Email] No recipients found for this rep - skipping email');
+      return;
     }
     
     // Remove duplicates
