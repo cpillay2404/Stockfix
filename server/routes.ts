@@ -251,6 +251,21 @@ const upload = multer({
   }
 });
 
+// Memory-based multer for small files like contacts (uses buffer instead of disk)
+const uploadMemory = multer({ 
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for contacts
+  fileFilter: (_req, file, cb) => {
+    const allowedTypes = ['.xlsx', '.xls', '.csv'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowedTypes.includes(ext)) {
+      cb(null, true);
+    } else {
+      cb(new Error(`Invalid file type. Allowed: ${allowedTypes.join(', ')}`));
+    }
+  }
+});
+
 // Multer error handler middleware
 const handleMulterError = (err: any, req: any, res: any, next: any) => {
   if (err instanceof multer.MulterError) {
@@ -2365,8 +2380,8 @@ export async function registerRoutes(
     }
   });
 
-  // POST import contacts from Excel/CSV
-  app.post("/api/contacts/import", upload.single('file'), handleMulterError, async (req, res) => {
+  // POST import contacts from Excel/CSV (uses memory storage for small files)
+  app.post("/api/contacts/import", uploadMemory.single('file'), handleMulterError, async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: "No file provided" });
