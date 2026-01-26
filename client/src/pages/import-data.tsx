@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download, FileText } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download, FileText, Users } from "lucide-react";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -20,6 +20,10 @@ export default function ImportData() {
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState<ImportJobStatus | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Contacts import state
+  const [contactsFile, setContactsFile] = useState<File | null>(null);
+  const contactsFileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: taskCount } = useQuery({
     queryKey: ["task-count"],
@@ -121,6 +125,52 @@ export default function ImportData() {
   const handleUpload = () => {
     if (!file) return;
     importMutation.mutate(file);
+  };
+
+  // Contacts import mutation
+  const contactsImportMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/contacts/import', {
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to import contacts');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["contacts"] });
+      toast({
+        title: "Contacts Imported",
+        description: data.message,
+      });
+      setContactsFile(null);
+      if (contactsFileInputRef.current) {
+        contactsFileInputRef.current.value = '';
+      }
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Import Failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleContactsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setContactsFile(e.target.files[0]);
+    }
+  };
+
+  const handleContactsUpload = () => {
+    if (!contactsFile) return;
+    contactsImportMutation.mutate(contactsFile);
   };
 
   return (
@@ -238,6 +288,87 @@ export default function ImportData() {
                 <>
                   <Upload className="mr-2 h-4 w-4" />
                   Import Tasks
+                </>
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Import Contacts
+            </CardTitle>
+            <CardDescription>
+              Upload rep and manager contact information for email notifications. Supported formats: .xlsx, .csv
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid w-full max-w-sm items-center gap-1.5">
+              <Label htmlFor="contacts-upload">Contacts File</Label>
+              <input 
+                ref={contactsFileInputRef}
+                id="contacts-upload" 
+                type="file" 
+                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                onChange={handleContactsFileChange}
+                disabled={contactsImportMutation.isPending}
+                data-testid="input-contacts-file"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            {contactsFile && (
+              <div className="bg-muted/50 p-4 rounded-lg flex items-start gap-3">
+                {contactsImportMutation.isSuccess ? (
+                  <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                ) : (
+                  <FileSpreadsheet className="h-5 w-5 text-blue-600 mt-0.5" />
+                )}
+                <div className="space-y-1 flex-1">
+                  <p className="font-medium text-sm">{contactsFile.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {(contactsFile.size / 1024).toFixed(2)} KB
+                    {contactsImportMutation.isSuccess && " • Import Complete"}
+                    {!contactsImportMutation.isSuccess && " • Ready to upload"}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-900/50 flex gap-3">
+              <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
+              <div className="text-sm text-blue-900 dark:text-blue-100 space-y-2">
+                <p className="font-medium">Expected Column Headers:</p>
+                <div className="flex flex-wrap gap-1">
+                  {['Rep Name', 'Rep Email', 'Manager Name', 'Manager Email'].map(h => (
+                    <code key={h} className="bg-blue-100 dark:bg-blue-900 px-1.5 py-0.5 rounded text-xs border border-blue-200 dark:border-blue-800">
+                      {h}
+                    </code>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  When a rep completes a task, emails will be sent only to their email and their manager's email.
+                </p>
+              </div>
+            </div>
+
+            <Button 
+              className="w-full sm:w-auto" 
+              onClick={handleContactsUpload} 
+              disabled={!contactsFile || contactsImportMutation.isPending}
+              data-testid="button-import-contacts"
+            >
+              {contactsImportMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Upload className="mr-2 h-4 w-4" />
+                  Import Contacts
                 </>
               )}
             </Button>
