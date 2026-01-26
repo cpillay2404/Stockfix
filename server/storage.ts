@@ -1,4 +1,4 @@
-import { users, tasks, type User, type InsertUser, type Task, type InsertTask } from "@shared/schema";
+import { users, tasks, contacts, type User, type InsertUser, type Task, type InsertTask, type Contact, type InsertContact } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, ilike, or, and, sql, count } from "drizzle-orm";
 
@@ -422,6 +422,52 @@ export class DatabaseStorage implements IStorage {
       sellOutP4Sum: Math.round(Number(r.sellOutP4Sum) || 0),
       wfcAvg: Math.round((Number(r.wfcAvg) || 0) * 10) / 10,
     }));
+  }
+
+  // Contact operations
+  async getContactByRepName(repName: string): Promise<Contact | undefined> {
+    const [contact] = await db.select().from(contacts).where(eq(contacts.repName, repName));
+    return contact || undefined;
+  }
+
+  async getAllContacts(): Promise<Contact[]> {
+    return await db.select().from(contacts).orderBy(contacts.repName);
+  }
+
+  async createContact(contact: InsertContact): Promise<Contact> {
+    const [created] = await db.insert(contacts).values(contact).returning();
+    return created;
+  }
+
+  async upsertContact(contact: InsertContact): Promise<Contact> {
+    const existing = await this.getContactByRepName(contact.repName);
+    if (existing) {
+      const [updated] = await db
+        .update(contacts)
+        .set({
+          repEmail: contact.repEmail,
+          managerName: contact.managerName,
+          managerEmail: contact.managerEmail,
+          updatedAt: new Date(),
+        })
+        .where(eq(contacts.id, existing.id))
+        .returning();
+      return updated;
+    }
+    return this.createContact(contact);
+  }
+
+  async bulkUpsertContacts(contactList: InsertContact[]): Promise<number> {
+    let count = 0;
+    for (const contact of contactList) {
+      await this.upsertContact(contact);
+      count++;
+    }
+    return count;
+  }
+
+  async deleteAllContacts(): Promise<void> {
+    await db.delete(contacts);
   }
 }
 

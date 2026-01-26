@@ -2354,5 +2354,110 @@ export async function registerRoutes(
     }
   });
 
+  // GET all contacts
+  app.get("/api/contacts", async (req, res) => {
+    try {
+      const allContacts = await storage.getAllContacts();
+      res.json({ contacts: allContacts, count: allContacts.length });
+    } catch (error) {
+      console.error("Error fetching contacts:", error);
+      res.status(500).json({ error: "Failed to fetch contacts" });
+    }
+  });
+
+  // POST import contacts from Excel/CSV
+  app.post("/api/contacts/import", upload.single('file'), handleMulterError, async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: "No file provided" });
+      }
+
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
+
+      if (jsonData.length === 0) {
+        return res.status(400).json({ error: "File contains no data" });
+      }
+
+      // Helper to get value from row with flexible column matching
+      const getValue = (row: any, ...possibleKeys: string[]): string => {
+        for (const key of possibleKeys) {
+          if (row[key] !== undefined && row[key] !== null) {
+            return String(row[key]).trim();
+          }
+          const lowerKey = key.toLowerCase();
+          for (const rowKey of Object.keys(row)) {
+            if (rowKey.toLowerCase() === lowerKey || rowKey.toLowerCase().replace(/[^a-z0-9]/g, '') === lowerKey.replace(/[^a-z0-9]/g, '')) {
+              return String(row[rowKey]).trim();
+            }
+          }
+        }
+        return '';
+      };
+
+      const contactsToImport = jsonData.map((row: any) => ({
+        repName: getValue(row, 'Rep Name', 'REP NAME', 'RepName', 'rep_name', 'rep'),
+        repEmail: getValue(row, 'Rep Email', 'REP EMAIL', 'RepEmail', 'rep_email', 'email') || null,
+        managerName: getValue(row, 'Manager Name', 'MANAGER NAME', 'ManagerName', 'manager_name', 'manager', 'Line Manager', 'LINE MANAGER') || null,
+        managerEmail: getValue(row, 'Manager Email', 'MANAGER EMAIL', 'ManagerEmail', 'manager_email') || null,
+      })).filter((c: any) => c.repName);
+
+      if (contactsToImport.length === 0) {
+        return res.status(400).json({ error: "No valid contacts found. Make sure you have a 'Rep Name' column." });
+      }
+
+      const count = await storage.bulkUpsertContacts(contactsToImport);
+      
+      res.json({ 
+        success: true, 
+        imported: count,
+        message: `Successfully imported ${count} contacts` 
+      });
+    } catch (error: any) {
+      console.error("Error importing contacts:", error);
+      res.status(500).json({ error: error.message || "Failed to import contacts" });
+    }
+  });
+
+  // DELETE all contacts
+  app.delete("/api/contacts", async (req, res) => {
+    try {
+      await storage.deleteAllContacts();
+      res.json({ success: true, message: "All contacts deleted" });
+    } catch (error) {
+      console.error("Error deleting contacts:", error);
+      res.status(500).json({ error: "Failed to delete contacts" });
+    }
+  });
+
+  // GET contact emails for a specific rep (used by email service)
+  app.get("/api/contacts/emails/:repName", async (req, res) => {
+    try {
+      const repName = decodeURIComponent(req.params.repName);
+      const contact = await storage.getContactByRepName(repName);
+      
+      if (!contact) {
+        return res.json({ found: false, emails: [] });
+      }
+      
+      const emails: string[] = [];
+      if (contact.repEmail) emails.push(contact.repEmail);
+      if (contact.managerEmail) emails.push(contact.managerEmail);
+      
+      res.json({ 
+        found: true, 
+        emails,
+        repEmail: contact.repEmail,
+        managerEmail: contact.managerEmail,
+        managerName: contact.managerName
+      });
+    } catch (error) {
+      console.error("Error fetching contact emails:", error);
+      res.status(500).json({ error: "Failed to fetch contact emails" });
+    }
+  });
+
   return httpServer;
 }

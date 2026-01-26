@@ -1,7 +1,9 @@
 // MailerSend integration for email notifications
 import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+import { storage } from './storage';
 
-const RECIPIENTS = [
+// Fallback recipients when no contact is found for a rep
+const FALLBACK_RECIPIENTS = [
   'jjooste@meridiangroup.co.za',
   'cpillay@meridiangroup.co.za',
   'carin.pillay@gmail.com'
@@ -145,7 +147,34 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     
     const sentFrom = new Sender(fromEmail, 'StockFix');
     
-    for (const recipientEmail of RECIPIENTS) {
+    // Build recipient list: try to get rep and manager emails from contacts
+    let recipients: string[] = [];
+    
+    if (task.repName) {
+      console.log('[Email] Looking up contact for rep:', task.repName);
+      const contact = await storage.getContactByRepName(task.repName);
+      
+      if (contact) {
+        console.log('[Email] Found contact:', contact.repEmail, contact.managerEmail);
+        if (contact.repEmail) recipients.push(contact.repEmail);
+        if (contact.managerEmail) recipients.push(contact.managerEmail);
+      } else {
+        console.log('[Email] No contact found for rep, using fallback recipients');
+      }
+    }
+    
+    // If no contacts found, use fallback recipients
+    if (recipients.length === 0) {
+      console.log('[Email] Using fallback recipients');
+      recipients = [...FALLBACK_RECIPIENTS];
+    }
+    
+    // Remove duplicates
+    recipients = [...new Set(recipients)];
+    
+    console.log('[Email] Sending to recipients:', recipients);
+    
+    for (const recipientEmail of recipients) {
       try {
         const emailParams = new EmailParams()
           .setFrom(sentFrom)
