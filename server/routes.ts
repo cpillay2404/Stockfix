@@ -2043,34 +2043,35 @@ export async function registerRoutes(
     try {
       const period = req.query.period as string || 'week';
       
-      // Calculate date range based on period
-      const now = new Date();
-      let startDate: Date | null = null;
+      // Get latest week ending date as reference point
+      const latestWeek = await storage.getLatestWeekEndingDate();
       
-      switch (period) {
-        case 'week':
-          startDate = new Date(now);
-          startDate.setDate(startDate.getDate() - 7);
-          break;
-        case 'month':
-          startDate = new Date(now);
-          startDate.setMonth(startDate.getMonth() - 1);
-          break;
-        case '3months':
-          startDate = new Date(now);
-          startDate.setMonth(startDate.getMonth() - 3);
-          break;
-        case '6months':
-          startDate = new Date(now);
-          startDate.setMonth(startDate.getMonth() - 6);
-          break;
-        default:
-          startDate = new Date(now);
-          startDate.setDate(startDate.getDate() - 7);
+      let allTasks: any[];
+      
+      if (period === 'week') {
+        // For "past week", just use the latest week's data (most recent import)
+        allTasks = await storage.getTasksFiltered({
+          weekEndingDate: latestWeek || undefined,
+        });
+      } else {
+        // For longer periods, calculate date range from latest week
+        const referenceDate = latestWeek ? new Date(latestWeek) : new Date();
+        let startDate = new Date(referenceDate);
+        
+        switch (period) {
+          case 'month':
+            startDate.setDate(startDate.getDate() - 30);
+            break;
+          case '3months':
+            startDate.setDate(startDate.getDate() - 90);
+            break;
+          case '6months':
+            startDate.setDate(startDate.getDate() - 180);
+            break;
+        }
+        
+        allTasks = await storage.getTasksInDateRange(startDate, referenceDate);
       }
-      
-      // Get all tasks within the date range
-      const allTasks = await storage.getTasksInDateRange(startDate, now);
       
       const allStats = calculateRepGamificationStats(allTasks);
       
@@ -2207,7 +2208,7 @@ export async function registerRoutes(
       const priorityCompleted = allStats.reduce((sum, r) => sum + r.priorityCompletedTasks, 0);
       
       res.json({
-        weekEndingDate: null, // Now using period-based filtering
+        weekEndingDate: latestWeek,
         period,
         overall: {
           totalTasks,
