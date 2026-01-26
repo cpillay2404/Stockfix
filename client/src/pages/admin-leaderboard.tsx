@@ -371,12 +371,12 @@ export default function AdminLeaderboard() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80px' }}>
               {topStreaks.length > 0 ? (
-                <div style={{ display: 'flex', gap: '16px' }}>
+                <div style={{ display: 'flex', gap: '24px' }}>
                   {topStreaks.map((s, i) => (
-                    <div key={i} style={{ textAlign: 'center' }}>
+                    <div key={i} style={{ textAlign: 'center', flex: 1 }}>
                       <div style={{ fontSize: '24px' }}>🔥</div>
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#F36C21' }}>{s.streak}d</div>
-                      <div style={{ fontSize: '10px', color: '#6b7280', maxWidth: '60px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.repName}</div>
+                      <div style={{ fontSize: '10px', color: '#6b7280', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.repName}>{s.repName}</div>
                     </div>
                   ))}
                 </div>
