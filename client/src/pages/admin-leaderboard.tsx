@@ -168,6 +168,7 @@ export default function AdminLeaderboard() {
       return res.json();
     },
     staleTime: 60000,
+    refetchInterval: 60000, // Auto-refresh every 1 minute for office display
   });
 
   if (isLoading) {
@@ -242,8 +243,8 @@ export default function AdminLeaderboard() {
               ))}
             </select>
           </div>
-          <div style={{ backgroundColor: '#16a34a', borderRadius: '12px', padding: '4px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-            <div style={{ width: '6px', height: '6px', backgroundColor: 'white', borderRadius: '50%' }} />
+          <div style={{ backgroundColor: '#dc2626', borderRadius: '12px', padding: '4px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ width: '6px', height: '6px', backgroundColor: 'white', borderRadius: '50%', animation: 'pulse 1.5s infinite' }} />
             <span style={{ color: 'white', fontSize: '11px', fontWeight: 600 }}>LIVE</span>
           </div>
         </div>
@@ -376,7 +377,7 @@ export default function AdminLeaderboard() {
                     <div key={i} style={{ textAlign: 'center', flex: 1 }}>
                       <div style={{ fontSize: '24px' }}>🔥</div>
                       <div style={{ fontSize: '14px', fontWeight: 700, color: '#F36C21' }}>{s.streak}d</div>
-                      <div style={{ fontSize: '10px', color: '#6b7280', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={s.repName}>{s.repName}</div>
+                      <div style={{ fontSize: '9px', color: '#6b7280', lineHeight: 1.2 }}>{s.repName}</div>
                     </div>
                   ))}
                 </div>
