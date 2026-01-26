@@ -1,6 +1,6 @@
 import { users, tasks, contacts, type User, type InsertUser, type Task, type InsertTask, type Contact, type InsertContact } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, ilike, or, and, sql, count } from "drizzle-orm";
+import { eq, desc, ilike, or, and, sql, count, gte, lte } from "drizzle-orm";
 
 export interface TaskFilters {
   region?: string;
@@ -337,6 +337,19 @@ export class DatabaseStorage implements IStorage {
     }
     
     return await query;
+  }
+
+  // Get tasks within a date range based on weekEndingDate
+  async getTasksInDateRange(startDate: Date, endDate: Date): Promise<Task[]> {
+    const startStr = startDate.toISOString().split('T')[0];
+    const endStr = endDate.toISOString().split('T')[0];
+    
+    return await db.select().from(tasks)
+      .where(and(
+        gte(tasks.weekEndingDate, startStr),
+        lte(tasks.weekEndingDate, endStr)
+      ))
+      .orderBy(desc(tasks.weekEndingDate));
   }
 
   // Get task count with filters at SQL level

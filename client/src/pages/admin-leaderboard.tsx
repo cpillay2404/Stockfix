@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Users, MapPin, Trophy, Flame, Wrench, ClipboardList, Briefcase } from "lucide-react";
+import { ArrowLeft, Users, MapPin, Trophy, Flame, Wrench, ClipboardList, Briefcase, Calendar } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface RegionStats {
@@ -148,13 +149,21 @@ function BadgeRow({ icon, gold, silver, bronze }: { icon: string; gold: number; 
   );
 }
 
+const periodOptions = [
+  { value: 'week', label: 'Past Week' },
+  { value: 'month', label: 'Past Month' },
+  { value: '3months', label: 'Past 3 Months' },
+  { value: '6months', label: 'Past 6 Months' },
+];
+
 export default function AdminLeaderboard() {
   const [, navigate] = useLocation();
+  const [period, setPeriod] = useState('week');
 
   const { data, isLoading, error } = useQuery<AdminLeaderboardData>({
-    queryKey: ["admin-leaderboard"],
+    queryKey: ["admin-leaderboard", period],
     queryFn: async () => {
-      const res = await fetch("/api/admin/leaderboard");
+      const res = await fetch(`/api/admin/leaderboard?period=${period}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -207,12 +216,36 @@ export default function AdminLeaderboard() {
             <span style={{ color: 'white', fontWeight: 700, fontSize: '16px' }}>StockFix</span>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Calendar size={14} color="rgba(255,255,255,0.8)" />
+            <select 
+              value={period} 
+              onChange={(e) => setPeriod(e.target.value)}
+              data-testid="period-selector"
+              style={{ 
+                backgroundColor: 'rgba(255,255,255,0.15)', 
+                color: 'white', 
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '6px',
+                padding: '4px 8px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                outline: 'none',
+              }}
+            >
+              {periodOptions.map(opt => (
+                <option key={opt.value} value={opt.value} style={{ color: '#003B71' }}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
           <div style={{ backgroundColor: '#16a34a', borderRadius: '12px', padding: '4px 12px', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <div style={{ width: '6px', height: '6px', backgroundColor: 'white', borderRadius: '50%' }} />
             <span style={{ color: 'white', fontSize: '11px', fontWeight: 600 }}>LIVE</span>
           </div>
-          {data.weekEndingDate && <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: '12px' }}>Week: {data.weekEndingDate}</span>}
         </div>
       </div>
 

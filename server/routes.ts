@@ -2041,10 +2041,36 @@ export async function registerRoutes(
   // GET Admin Leaderboard - comprehensive stats by region, rep, manager (hidden admin page)
   app.get("/api/admin/leaderboard", async (req, res) => {
     try {
-      const latestWeek = await storage.getLatestWeekEndingDate();
-      const allTasks = await storage.getTasksFiltered({
-        weekEndingDate: latestWeek || undefined,
-      });
+      const period = req.query.period as string || 'week';
+      
+      // Calculate date range based on period
+      const now = new Date();
+      let startDate: Date | null = null;
+      
+      switch (period) {
+        case 'week':
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 7);
+          break;
+        case 'month':
+          startDate = new Date(now);
+          startDate.setMonth(startDate.getMonth() - 1);
+          break;
+        case '3months':
+          startDate = new Date(now);
+          startDate.setMonth(startDate.getMonth() - 3);
+          break;
+        case '6months':
+          startDate = new Date(now);
+          startDate.setMonth(startDate.getMonth() - 6);
+          break;
+        default:
+          startDate = new Date(now);
+          startDate.setDate(startDate.getDate() - 7);
+      }
+      
+      // Get all tasks within the date range
+      const allTasks = await storage.getTasksInDateRange(startDate, now);
       
       const allStats = calculateRepGamificationStats(allTasks);
       
@@ -2181,7 +2207,8 @@ export async function registerRoutes(
       const priorityCompleted = allStats.reduce((sum, r) => sum + r.priorityCompletedTasks, 0);
       
       res.json({
-        weekEndingDate: latestWeek,
+        weekEndingDate: null, // Now using period-based filtering
+        period,
         overall: {
           totalTasks,
           totalCompleted,
