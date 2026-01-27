@@ -1,0 +1,44 @@
+2026-01-27 14:23:04.10
+ae9b1982
+User
+'cpillay@meridiangroup.co.za',
+2026-01-27 14:23:04.10
+ae9b1982
+User
+'jjooste@meridiangroup.co.za',
+2026-01-27 14:23:04.11
+ae9b1982
+User
+[Email] Sending email to: LNgubeni@meridiangroup.co.za with CC
+2026-01-27 14:23:04.51
+ae9b1982
+User
+[Email] Sending email to: smagibisela@meridiangroup.co.za with CC
+2026-01-27 14:23:04.51
+ae9b1982
+User
+[Email] Successfully sent to LNgubeni@meridiangroup.co.za
+2026-01-27 14:23:04.56
+ae9b1982
+User
+12:23:04 PM [express] GET /api/tasks/CLICKSEASTGATE-4015400267638-2026-01-21 200 in 45ms :: {"id":1652598,"uniqueId":"CLICKSEASTGATE-4015400267638-2026-01-21","key":"CLICKS EASTGATE-4015400267638","client":"P&G","banner":"CLICKS","region":"GAUTENG","storeName":"CLICKS EASTGATE","repName":"Lindiwe Ngubeni","lineManager":"SIYANDA MAGIBISELA","category":"","barcode":"4015400267638","articleDescription":"Always Thick Mesh Normal 20s","dcSoh":"480","storeSoh":"0","p4WeekSales":"8","missedSales":"0","storeWfc":"0","stockClassification":"Out of Stock","weekEnding":"Wednesday, January 21, 2026","weekEndingDate":"2026-01-21","action":"Urgent: Place Order - DC has stock","actionDate":"2026-01-27","feedback":"Physical stock = 10 units\nStore system =10 units\nP&G stock fix counts SOH = 10 units","captureDate":"2026-01-27T12:23:03.344Z","actionStatus":"Completed","reasonCode":"Count corrected – system = physical count","actionTakenComment":"Loaded perp count on system ","physicalCount":"10","variance":"10","systemAdjusted":"Yes","image1":"/objects/uploads/bfcf6e87-91bc-4542-a68e-333fb8d66505","image2":"/objects/uploads/e2bc8e45-2840-4089-a01b-c8fa8a38cb1c","systemImage":"","piImage":null,"createdAt":"2026-01-23T07:19:48.866Z","updatedAt":"2026-01-27T12:23:04.000Z"}
+2026-01-27 14:23:04.82
+ae9b1982
+User
+[Email] Completed sending to all recipients
+2026-01-27 14:23:04.82
+ae9b1982
+User
+[Email] Successfully sent to smagibisela@meridiangroup.co.za
+2026-01-27 14:23:04.82
+ae9b1982
+User
+[Email] Subject: StockFix | P&G | CLICKS EASTGATE | Urgent: Place Order - DC has stock
+2026-01-27 14:23:05.45
+ae9b1982
+User
+12:23:05 PM [express] GET /api/tasks/summary 200 in 456ms :: {"latestWeekEnding":"2026-01-21","totalTasks":11,"pendingCount":10,"pendingCountExcludingOptimal":10,"completedCount":1,"pendingActionCounts":{"Check Count: No Sales in 30 Days":6,"Urgent: Place Order - DC has stock":4},"completedActionCounts":{"Urgent: Place Order - DC has stock":1},"articles":["Always Thick Mesh Normal 20s","Always Ultra Mesh Normal 20s","H&S SHAMPOO CLASSIC CLEAN 600ML","OLAY RETINOL NIGHT CREAM 50G","OLAY RETINOL SERUM 30ML","OLAY Total Effects Featherweight Moisturiser SPF15 50ML","Old Spice Clear Gel 70ml - WHITEWATER","Oral B Refill - EB50 CrossAction 2ct","Oral B Refill Kids - EB10 Frozen 2ct","VICKS HONEY & GINGER COUGH SYRUP 100ML","VICKS ORANGE 2.5G 24SX6X16 ZA"]}
+2026-01-27 14:23:05.95
+ae9b1982
+User
+12:23:05 PM [express] GET /api/tasks 200 in 937ms :: {"tasks":[{"id":1652603,"uniqueId":"CLICKSEASTGATE-4015600997748-2026-01-21","key":"CLICKS EASTGATE-4015600997748","client":"P&G","banner":"CLICKS","region":"GAUTENG","storeName":"CLICKS EASTGATE","repName":"Lindiwe Ngubeni","lineManager":"SIYANDA MAGIBISELA","category":"","barcode":"4015600997748","articleDescription":"H&S SHAMPOO CLASSIC CLEAN 600ML","dcSoh":"125","storeSoh":"4","p4WeekSales":"0","missedSales":"0","storeWfc":"0","stockClassification":"No Sales (Idle Stock)","weekEnding":"Wednesday, January 21, 2026","weekEndingDate":"2026-01-21","action":"Check Count: No Sales in 30 Days","actionDate":null,"feedback":null,"captureDate":null,"actionStatus":"Pending","reasonCode":null,"actionTakenComment":null,"physicalCount":null,"variance":null,"systemAdjusted":null,"image1":null,"image2":null,"systemImage":"","piImage":null,"createdAt":"2026-01-23T07:19:48.866Z","updatedAt":"2026-01-23T07:19:48.866Z"},{"id":1652605,"uniqueId":"CLICKSEASTGATE-408450077421
