@@ -153,14 +153,20 @@ export default function TaskDetail() {
   const [feedback, setFeedback] = useState("");
   const [image1, setImage1] = useState<string | null>(null);
   const [image2, setImage2] = useState<string | null>(null);
-  const [uploadingImage, setUploadingImage] = useState<1 | 2 | null>(null);
+  const [image3, setImage3] = useState<string | null>(null);
+  const [image4, setImage4] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState<1 | 2 | 3 | 4 | null>(null);
   const [showPhotoChoice, setShowPhotoChoice] = useState(false);
-  const [activePhotoSlot, setActivePhotoSlot] = useState<1 | 2>(1);
+  const [activePhotoSlot, setActivePhotoSlot] = useState<1 | 2 | 3 | 4>(1);
   
   const cameraInput1 = useRef<HTMLInputElement>(null);
   const cameraInput2 = useRef<HTMLInputElement>(null);
+  const cameraInput3 = useRef<HTMLInputElement>(null);
+  const cameraInput4 = useRef<HTMLInputElement>(null);
   const galleryInput1 = useRef<HTMLInputElement>(null);
   const galleryInput2 = useRef<HTMLInputElement>(null);
+  const galleryInput3 = useRef<HTMLInputElement>(null);
+  const galleryInput4 = useRef<HTMLInputElement>(null);
 
   const { data: task, isLoading } = useQuery({
     queryKey: ["task", params?.id],
@@ -225,6 +231,8 @@ export default function TaskDetail() {
       setFeedback(task.feedback || "");
       setImage1(task.image1 || null);
       setImage2(task.image2 || null);
+      setImage3(task.image3 || null);
+      setImage4(task.image4 || null);
     }
   }, [task]);
 
@@ -352,7 +360,7 @@ export default function TaskDetail() {
       return;
     }
 
-    if (!image1 && !image2) {
+    if (!image1 && !image2 && !image3 && !image4) {
       toast({
         title: "Photo Required",
         description: "Please capture at least one photo.",
@@ -371,36 +379,38 @@ export default function TaskDetail() {
       feedback: feedback || null,
       image1: image1 || null,
       image2: image2 || null,
+      image3: image3 || null,
+      image4: image4 || null,
       captureDate: new Date().toISOString(),
     });
   };
 
-  const handleImageClick = (slot: 1 | 2) => {
+  const handleImageClick = (slot: 1 | 2 | 3 | 4) => {
     setActivePhotoSlot(slot);
     setShowPhotoChoice(true);
   };
 
   const handleCameraChoice = () => {
     setShowPhotoChoice(false);
-    if (activePhotoSlot === 1) cameraInput1.current?.click();
-    else cameraInput2.current?.click();
+    const cameraInputs = { 1: cameraInput1, 2: cameraInput2, 3: cameraInput3, 4: cameraInput4 };
+    cameraInputs[activePhotoSlot].current?.click();
   };
 
   const handleGalleryChoice = () => {
     setShowPhotoChoice(false);
-    if (activePhotoSlot === 1) galleryInput1.current?.click();
-    else galleryInput2.current?.click();
+    const galleryInputs = { 1: galleryInput1, 2: galleryInput2, 3: galleryInput3, 4: galleryInput4 };
+    galleryInputs[activePhotoSlot].current?.click();
   };
 
-  const handleFileChange = async (slot: 1 | 2, e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (slot: 1 | 2 | 3 | 4, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingImage(slot);
     try {
       const result = await uploadImage(file);
-      if (slot === 1) setImage1(result.url);
-      else setImage2(result.url);
+      const setters = { 1: setImage1, 2: setImage2, 3: setImage3, 4: setImage4 };
+      setters[slot](result.url);
       
       toast({
         title: "Image Uploaded",
@@ -423,41 +433,15 @@ export default function TaskDetail() {
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '140px' }}>
       {/* Camera inputs */}
-      <input 
-        ref={cameraInput1} 
-        type="file" 
-        accept="image/*" 
-        capture="environment"
-        style={{ display: 'none' }}
-        onChange={(e) => handleFileChange(1, e)}
-        disabled={isCompleted}
-      />
-      <input 
-        ref={cameraInput2} 
-        type="file" 
-        accept="image/*" 
-        capture="environment"
-        style={{ display: 'none' }}
-        onChange={(e) => handleFileChange(2, e)}
-        disabled={isCompleted}
-      />
+      <input ref={cameraInput1} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handleFileChange(1, e)} disabled={isCompleted} />
+      <input ref={cameraInput2} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handleFileChange(2, e)} disabled={isCompleted} />
+      <input ref={cameraInput3} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handleFileChange(3, e)} disabled={isCompleted} />
+      <input ref={cameraInput4} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={(e) => handleFileChange(4, e)} disabled={isCompleted} />
       {/* Gallery inputs */}
-      <input 
-        ref={galleryInput1} 
-        type="file" 
-        accept="image/*"
-        style={{ display: 'none' }}
-        onChange={(e) => handleFileChange(1, e)}
-        disabled={isCompleted}
-      />
-      <input 
-        ref={galleryInput2} 
-        type="file" 
-        accept="image/*"
-        style={{ display: 'none' }}
-        onChange={(e) => handleFileChange(2, e)}
-        disabled={isCompleted}
-      />
+      <input ref={galleryInput1} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileChange(1, e)} disabled={isCompleted} />
+      <input ref={galleryInput2} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileChange(2, e)} disabled={isCompleted} />
+      <input ref={galleryInput3} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileChange(3, e)} disabled={isCompleted} />
+      <input ref={galleryInput4} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileChange(4, e)} disabled={isCompleted} />
 
       {/* Photo Choice Modal */}
       {showPhotoChoice && (
@@ -756,10 +740,13 @@ export default function TaskDetail() {
           {/* Photo Section */}
           <div style={{ paddingBottom: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-              <Label style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937' }}>Add Photo <span style={{ color: '#DC2626' }}>*</span></Label>
-              {!isCompleted && (!image1 || !image2) && (
+              <Label style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937' }}>Add Photos <span style={{ color: '#DC2626' }}>*</span> <span style={{ fontWeight: 400, color: '#6B7280' }}>(up to 4)</span></Label>
+              {!isCompleted && [image1, image2, image3, image4].filter(Boolean).length < 4 && (
                 <button
-                  onClick={() => handleImageClick(image1 ? 2 : 1)}
+                  onClick={() => {
+                    const nextSlot = !image1 ? 1 : !image2 ? 2 : !image3 ? 3 : 4;
+                    handleImageClick(nextSlot as 1 | 2 | 3 | 4);
+                  }}
                   data-testid="button-add-photo"
                   style={{ color: '#003B71', fontSize: '13px', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '4px', background: 'none', border: 'none', cursor: 'pointer' }}
                 >
@@ -769,60 +756,41 @@ export default function TaskDetail() {
               )}
             </div>
             
-            <div style={{ display: 'flex', gap: '12px' }}>
-              {image1 ? (
-                <div style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-                  <img src={image1} alt="Photo 1" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  {!isCompleted && (
-                    <button 
-                      onClick={() => setImage1(null)}
-                      style={{ position: 'absolute', top: '4px', right: '4px', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '2px', border: 'none', cursor: 'pointer' }}
-                    >
-                      <X style={{ width: '12px', height: '12px', color: '#FFFFFF' }} />
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <button
-                  onClick={() => handleImageClick(1)}
-                  disabled={isCompleted || uploadingImage !== null}
-                  data-testid="button-add-photo-1"
-                  style={{ width: '80px', height: '80px', border: '2px dashed #D1D5DB', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', background: 'none', cursor: 'pointer' }}
-                >
-                  {uploadingImage === 1 ? (
-                    <Loader2 style={{ width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />
-                  ) : (
-                    <Camera style={{ width: '20px', height: '20px' }} />
-                  )}
-                </button>
-              )}
-              
-              {image2 ? (
-                <div style={{ position: 'relative', width: '80px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
-                  <img src={image2} alt="Photo 2" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  {!isCompleted && (
-                    <button 
-                      onClick={() => setImage2(null)}
-                      style={{ position: 'absolute', top: '4px', right: '4px', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '2px', border: 'none', cursor: 'pointer' }}
-                    >
-                      <X style={{ width: '12px', height: '12px', color: '#FFFFFF' }} />
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <button
-                  onClick={() => handleImageClick(2)}
-                  disabled={isCompleted || uploadingImage !== null}
-                  data-testid="button-add-photo-2"
-                  style={{ width: '80px', height: '80px', border: '2px dashed #D1D5DB', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', background: 'none', cursor: 'pointer' }}
-                >
-                  {uploadingImage === 2 ? (
-                    <Loader2 style={{ width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />
-                  ) : (
-                    <Camera style={{ width: '20px', height: '20px' }} />
-                  )}
-                </button>
-              )}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+              {([
+                { img: image1, setImg: setImage1, slot: 1 as const },
+                { img: image2, setImg: setImage2, slot: 2 as const },
+                { img: image3, setImg: setImage3, slot: 3 as const },
+                { img: image4, setImg: setImage4, slot: 4 as const },
+              ]).map(({ img, setImg, slot }) => (
+                img ? (
+                  <div key={slot} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
+                    <img src={img} alt={`Photo ${slot}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    {!isCompleted && (
+                      <button 
+                        onClick={() => setImg(null)}
+                        style={{ position: 'absolute', top: '2px', right: '2px', backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: '50%', padding: '2px', border: 'none', cursor: 'pointer' }}
+                      >
+                        <X style={{ width: '10px', height: '10px', color: '#FFFFFF' }} />
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <button
+                    key={slot}
+                    onClick={() => handleImageClick(slot)}
+                    disabled={isCompleted || uploadingImage !== null}
+                    data-testid={`button-add-photo-${slot}`}
+                    style={{ width: '70px', height: '70px', border: '2px dashed #D1D5DB', borderRadius: '8px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#9CA3AF', background: 'none', cursor: 'pointer' }}
+                  >
+                    {uploadingImage === slot ? (
+                      <Loader2 style={{ width: '18px', height: '18px', animation: 'spin 1s linear infinite' }} />
+                    ) : (
+                      <Camera style={{ width: '18px', height: '18px' }} />
+                    )}
+                  </button>
+                )
+              ))}
             </div>
           </div>
         </div>

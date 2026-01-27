@@ -1049,7 +1049,7 @@ export async function registerRoutes(
         'Supplying dc soh', 'Store SOH', 'Sell out p4 weeks', 'Missed Sales (This Week)',
         'WFC', 'Stock Classification (This Week)', 'week ending', 'Action Column',
         'Action Date', 'Action Status', 'physicalCount', 'variance', 'systemAdjusted',
-        'reasonCode', 'actionTakenComment', 'feedback', 'captureDate', 'image1', 'image2'
+        'reasonCode', 'actionTakenComment', 'feedback', 'captureDate', 'image1', 'image2', 'image3', 'image4'
       ];
       
       // Helper to escape CSV values
@@ -1113,6 +1113,8 @@ export async function registerRoutes(
           escapeCSV(task.captureDate),
           escapeCSV(getFullImageUrl(task.image1)),
           escapeCSV(getFullImageUrl(task.image2)),
+          escapeCSV(getFullImageUrl(task.image3)),
+          escapeCSV(getFullImageUrl(task.image4)),
         ].join(','));
         
         res.write(lines.join('\n') + '\n');
@@ -1217,6 +1219,8 @@ export async function registerRoutes(
         'captureDate': task.captureDate || '',
         'image1': getFullImageUrl(task.image1),
         'image2': getFullImageUrl(task.image2),
+        'image3': getFullImageUrl(task.image3),
+        'image4': getFullImageUrl(task.image4),
       }));
 
       console.log("Creating Excel workbook...");
