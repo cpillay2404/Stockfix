@@ -1,20 +1,28 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, CheckCircle2, Clock, Camera, AlertCircle, Store, Wrench } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Camera, AlertCircle, Store, Wrench, LogOut } from "lucide-react";
 import { Task } from "@shared/schema";
 import { fetchTasks } from "@/lib/api";
 import { useAccess } from "@/context/AccessContext";
 
 export default function ExitVisit() {
   const [, setLocation] = useLocation();
-  const { clearAll } = useAccess();
+  const { accessMode, clientLocked, clearAll, selectedClient: contextClient, selectedStore: contextStore } = useAccess();
   const searchString = useSearch();
   const urlParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
   
-  const repFilter = urlParams.get('rep') || '';
-  const storeFilter = urlParams.get('store') || '';
-  const clientFilter = urlParams.get('client') || '';
+  const isClientMode = accessMode === 'client' && clientLocked;
+  
+  useEffect(() => {
+    if (isClientMode && (!contextClient || !contextStore)) {
+      setLocation('/select-client');
+    }
+  }, [isClientMode, contextClient, contextStore, setLocation]);
+  
+  const repFilter = isClientMode ? '' : (urlParams.get('rep') || '');
+  const storeFilter = isClientMode && contextStore ? contextStore : (urlParams.get('store') || '');
+  const clientFilter = isClientMode && contextClient ? contextClient : (urlParams.get('client') || '');
   const articleFilter = urlParams.get('article') || '';
 
   const [visitStartTime] = useState(() => {
@@ -169,21 +177,45 @@ export default function ExitVisit() {
     <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <div style={{ backgroundColor: '#003B71', padding: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button
-          onClick={handleBack}
-          data-testid="button-back"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            color: 'white',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-          }}
-        >
-          <ArrowLeft style={{ width: '20px', height: '20px' }} />
-        </button>
+        {isClientMode ? (
+          <button
+            onClick={() => {
+              clearAll();
+              setLocation('/');
+            }}
+            data-testid="button-logout"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              color: 'white',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+              fontSize: '14px',
+            }}
+          >
+            <LogOut style={{ width: '18px', height: '18px' }} />
+            <span>Logout</span>
+          </button>
+        ) : (
+          <button
+            onClick={handleBack}
+            data-testid="button-back"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              color: 'white',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            <ArrowLeft style={{ width: '20px', height: '20px' }} />
+          </button>
+        )}
         <h1 style={{ fontSize: '18px', fontWeight: 600, color: 'white', margin: 0 }}>
           Close & Sync Visit
         </h1>

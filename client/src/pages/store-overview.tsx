@@ -252,14 +252,23 @@ export default function StoreOverview() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
-  const { accessMode, clientLocked, clearAll } = useAccess();
-  
-  const rep = params.get('rep') || '';
-  const store = params.get('store') || '';
-  const initialClient = params.get('client') || 'All Clients';
-  const initialArticle = params.get('article') || 'All Articles';
+  const { accessMode, clientLocked, clearAll, selectedClient: contextClient, selectedStore: contextStore } = useAccess();
   
   const isClientMode = accessMode === 'client' && clientLocked;
+  
+  useEffect(() => {
+    if (isClientMode && (!contextClient || !contextStore)) {
+      setLocation('/select-client');
+    }
+  }, [isClientMode, contextClient, contextStore, setLocation]);
+  
+  const rep = isClientMode ? '' : (params.get('rep') || '');
+  const store = isClientMode && contextStore ? contextStore : (params.get('store') || '');
+  
+  const initialClient = isClientMode && contextClient 
+    ? contextClient 
+    : (params.get('client') || 'All Clients');
+  const initialArticle = params.get('article') || 'All Articles';
   
   const [selectedClient, setSelectedClient] = useState(initialClient);
   const [selectedArticle, setSelectedArticle] = useState(initialArticle);
@@ -471,13 +480,33 @@ export default function StoreOverview() {
             <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginBottom: '3px', display: 'block' }}>
               Client
             </label>
-            <SearchableSelect
-              value={selectedClient}
-              onValueChange={setSelectedClient}
-              options={clientOptions}
-              placeholder="All Clients"
-              testId="select-client-filter"
-            />
+            {isClientMode ? (
+              <div
+                data-testid="text-client-locked"
+                style={{
+                  width: '100%',
+                  height: '40px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  fontSize: '14px',
+                  color: '#FFFFFF',
+                  backgroundColor: 'rgba(255,255,255,0.15)',
+                  padding: '0 12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                }}
+              >
+                {selectedClient}
+              </div>
+            ) : (
+              <SearchableSelect
+                value={selectedClient}
+                onValueChange={setSelectedClient}
+                options={clientOptions}
+                placeholder="All Clients"
+                testId="select-client-filter"
+              />
+            )}
           </div>
           <div>
             <label style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', marginBottom: '3px', display: 'block' }}>

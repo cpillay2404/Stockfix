@@ -14,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import BottomNav from "@/components/BottomNav";
+import { useAccess } from "@/context/AccessContext";
 
 const REASON_CODES = [
   "Awaiting delivery / stock not received",
@@ -127,9 +128,19 @@ export default function TaskDetail() {
   const [, setLocation] = useLocation();
   const search = useSearch();
   const urlParams = new URLSearchParams(search);
-  const repFilter = urlParams.get('rep') || '';
-  const storeFilter = urlParams.get('store') || '';
-  const clientFilter = urlParams.get('client') || '';
+  const { accessMode, clientLocked, clearAll, selectedClient: contextClient, selectedStore: contextStore } = useAccess();
+  
+  const isClientMode = accessMode === 'client' && clientLocked;
+  
+  useEffect(() => {
+    if (isClientMode && (!contextClient || !contextStore)) {
+      setLocation('/select-client');
+    }
+  }, [isClientMode, contextClient, contextStore, setLocation]);
+  
+  const repFilter = isClientMode ? '' : (urlParams.get('rep') || '');
+  const storeFilter = isClientMode && contextStore ? contextStore : (urlParams.get('store') || '');
+  const clientFilter = isClientMode && contextClient ? contextClient : (urlParams.get('client') || '');
   const articleFilter = urlParams.get('article') || '';
   const fromPage = urlParams.get('from') || '';
   const { toast } = useToast();
@@ -417,14 +428,28 @@ export default function TaskDetail() {
       {/* Header */}
       <div style={{ backgroundColor: '#003B71', padding: '16px', paddingBottom: '12px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', marginBottom: '12px' }}>
-          <button 
-            onClick={handleBackToTasks}
-            data-testid="button-back"
-            style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.85)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
-          >
-            <ArrowLeft style={{ width: '18px', height: '18px' }} />
-            <span>Back</span>
-          </button>
+          {isClientMode ? (
+            <button 
+              onClick={() => {
+                clearAll();
+                setLocation('/');
+              }}
+              data-testid="button-logout"
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.85)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
+            >
+              <LogOut style={{ width: '18px', height: '18px' }} />
+              <span>Logout</span>
+            </button>
+          ) : (
+            <button 
+              onClick={handleBackToTasks}
+              data-testid="button-back"
+              style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'rgba(255,255,255,0.85)', background: 'none', border: 'none', cursor: 'pointer', fontSize: '14px' }}
+            >
+              <ArrowLeft style={{ width: '18px', height: '18px' }} />
+              <span>Back</span>
+            </button>
+          )}
           <h1 style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', fontSize: '18px', fontWeight: 600, color: '#FFFFFF', margin: 0 }}>
             Task Feedback
           </h1>

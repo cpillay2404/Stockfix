@@ -6,6 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SplashScreen } from "@/components/splash-screen";
 import { AccessProvider } from "@/context/AccessContext";
+import { ClientGuard } from "@/components/ClientGuard";
 import NotFound from "@/pages/not-found";
 import ChooseAccess from "@/pages/choose-access";
 import SelectRepStore from "@/pages/select-rep-store";
@@ -26,19 +27,19 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={ChooseAccess} />
-      <Route path="/select-rep" component={SelectRepStore} />
+      <Route path="/select-rep">{() => <ClientGuard><SelectRepStore /></ClientGuard>}</Route>
       <Route path="/select-client" component={SelectClientStore} />
-      <Route path="/select-manager" component={SelectManager} />
+      <Route path="/select-manager">{() => <ClientGuard><SelectManager /></ClientGuard>}</Route>
       <Route path="/store-overview" component={StoreOverview} />
-      <Route path="/dashboard" component={Home} />
+      <Route path="/dashboard">{() => <ClientGuard><Home /></ClientGuard>}</Route>
       <Route path="/tasks" component={TaskList} />
-      <Route path="/import" component={ImportData} />
+      <Route path="/import">{() => <ClientGuard><ImportData /></ClientGuard>}</Route>
       <Route path="/task/:id" component={TaskDetail} />
-      <Route path="/store/:storeName" component={StoreSummary} />
+      <Route path="/store/:storeName">{() => <ClientGuard><StoreSummary /></ClientGuard>}</Route>
       <Route path="/exit-visit" component={ExitVisit} />
-      <Route path="/rep-progress" component={RepProgress} />
-      <Route path="/manager-progress" component={ManagerProgress} />
-      <Route path="/admin/leaderboard" component={AdminLeaderboard} />
+      <Route path="/rep-progress">{() => <ClientGuard><RepProgress /></ClientGuard>}</Route>
+      <Route path="/manager-progress">{() => <ClientGuard><ManagerProgress /></ClientGuard>}</Route>
+      <Route path="/admin/leaderboard">{() => <ClientGuard><AdminLeaderboard /></ClientGuard>}</Route>
       <Route component={NotFound} />
     </Switch>
   );

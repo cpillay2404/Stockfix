@@ -9,6 +9,7 @@ import { Search, ArrowLeft, LogOut, User, MapPin, ChevronDown } from "lucide-rea
 import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@shared/schema";
 import BottomNav from "@/components/BottomNav";
+import { useAccess } from "@/context/AccessContext";
 
 const ACTION_PRIORITY_ORDER = [
   "URGENT: PLACE ORDER DC HAS STOCK",
@@ -135,10 +136,19 @@ export default function Dashboard() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const urlParams = useMemo(() => new URLSearchParams(searchString), [searchString]);
+  const { accessMode, clientLocked, clearAll, selectedClient: contextClient, selectedStore: contextStore } = useAccess();
   
-  const repFilter = urlParams.get('rep') || '';
-  const storeFilter = urlParams.get('store') || '';
-  const clientFilter = urlParams.get('client') || '';
+  const isClientMode = accessMode === 'client' && clientLocked;
+  
+  useEffect(() => {
+    if (isClientMode && (!contextClient || !contextStore)) {
+      setLocation('/select-client');
+    }
+  }, [isClientMode, contextClient, contextStore, setLocation]);
+  
+  const repFilter = isClientMode ? '' : (urlParams.get('rep') || '');
+  const storeFilter = isClientMode && contextStore ? contextStore : (urlParams.get('store') || '');
+  const clientFilter = isClientMode && contextClient ? contextClient : (urlParams.get('client') || '');
   const articleFilter = urlParams.get('article') || '';
   const issueFilter = urlParams.get('issue') || '';
 
@@ -280,24 +290,48 @@ export default function Dashboard() {
       <div style={{ backgroundColor: '#003B71', padding: '16px', paddingBottom: '12px' }}>
         {/* Navigation Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px', position: 'relative' }}>
-          <button
-            onClick={handleBack}
-            data-testid="button-back"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              color: 'rgba(255,255,255,0.85)',
-              fontSize: '14px',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-            }}
-          >
-            <ArrowLeft style={{ width: '18px', height: '18px' }} />
-            <span>Back</span>
-          </button>
+          {isClientMode ? (
+            <button
+              onClick={() => {
+                clearAll();
+                setLocation('/');
+              }}
+              data-testid="button-logout"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: 'rgba(255,255,255,0.85)',
+                fontSize: '14px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              <LogOut style={{ width: '18px', height: '18px' }} />
+              <span>Logout</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleBack}
+              data-testid="button-back"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: 'rgba(255,255,255,0.85)',
+                fontSize: '14px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              <ArrowLeft style={{ width: '18px', height: '18px' }} />
+              <span>Back</span>
+            </button>
+          )}
           
           {/* Centered Title */}
           <h1 
