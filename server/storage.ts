@@ -496,8 +496,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async setClientPassword(clientName: string, password: string): Promise<ClientPassword> {
+    const normalizedName = clientName.toUpperCase().trim();
     const hashedPassword = await bcrypt.hash(password, 10);
-    const existing = await this.getClientPassword(clientName);
+    const existing = await this.getClientPassword(normalizedName);
     if (existing) {
       const [updated] = await db.update(clientPasswords)
         .set({ password: hashedPassword, updatedAt: new Date() })
@@ -505,7 +506,7 @@ export class DatabaseStorage implements IStorage {
         .returning();
       return updated;
     }
-    const [created] = await db.insert(clientPasswords).values({ clientName, password: hashedPassword }).returning();
+    const [created] = await db.insert(clientPasswords).values({ clientName: normalizedName, password: hashedPassword }).returning();
     return created;
   }
 
