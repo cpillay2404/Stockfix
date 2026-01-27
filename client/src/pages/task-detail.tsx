@@ -402,13 +402,80 @@ export default function TaskDetail() {
     galleryInputs[activePhotoSlot].current?.click();
   };
 
+  const addTimestampToImage = (file: File): Promise<File> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const reader = new FileReader();
+      
+      reader.onload = (e) => {
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            reject(new Error('Could not get canvas context'));
+            return;
+          }
+          
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          // Draw the original image
+          ctx.drawImage(img, 0, 0);
+          
+          // Format timestamp in SA format: dd/mm/yy hh:mm
+          const now = new Date();
+          const timestamp = now.toLocaleString('en-ZA', { 
+            day: '2-digit', 
+            month: '2-digit', 
+            year: '2-digit', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+          
+          // Calculate font size based on image dimensions (approx 3% of image height)
+          const fontSize = Math.max(20, Math.floor(img.height * 0.03));
+          const padding = Math.floor(fontSize * 0.5);
+          
+          ctx.font = `bold ${fontSize}px monospace`;
+          const textWidth = ctx.measureText(timestamp).width;
+          
+          // Draw semi-transparent background for timestamp
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+          ctx.fillRect(0, img.height - fontSize - padding * 2, textWidth + padding * 2, fontSize + padding * 2);
+          
+          // Draw timestamp text
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fillText(timestamp, padding, img.height - padding);
+          
+          // Convert canvas to blob
+          canvas.toBlob((blob) => {
+            if (!blob) {
+              reject(new Error('Could not create blob'));
+              return;
+            }
+            const newFile = new File([blob], file.name, { type: 'image/jpeg' });
+            resolve(newFile);
+          }, 'image/jpeg', 0.9);
+        };
+        
+        img.onerror = () => reject(new Error('Could not load image'));
+        img.src = e.target?.result as string;
+      };
+      
+      reader.onerror = () => reject(new Error('Could not read file'));
+      reader.readAsDataURL(file);
+    });
+  };
+
   const handleFileChange = async (slot: 1 | 2 | 3 | 4, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploadingImage(slot);
     try {
-      const result = await uploadImage(file);
+      // Add timestamp to image before uploading
+      const timestampedFile = await addTimestampToImage(file);
+      const result = await uploadImage(timestampedFile);
       const setters = { 1: setImage1, 2: setImage2, 3: setImage3, 4: setImage4 };
       setters[slot](result.url);
       
@@ -766,20 +833,6 @@ export default function TaskDetail() {
                 img ? (
                   <div key={slot} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
                     <img src={img} alt={`Photo ${slot}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <div style={{ 
-                      position: 'absolute', 
-                      bottom: 0, 
-                      left: 0, 
-                      right: 0, 
-                      backgroundColor: 'rgba(0,0,0,0.7)', 
-                      color: 'white', 
-                      fontSize: '7px', 
-                      padding: '2px', 
-                      textAlign: 'center',
-                      fontFamily: 'monospace'
-                    }}>
-                      {task.captureDate ? new Date(task.captureDate).toLocaleString('en-ZA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleString('en-ZA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
-                    </div>
                     {!isCompleted && (
                       <button 
                         onClick={() => setImg(null)}
