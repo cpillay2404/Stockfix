@@ -201,7 +201,7 @@ export default function AdminLeaderboard() {
   const repSilver = repLeaderboard.filter(r => r.badge.type === 'silver').length;
   const repBronze = repLeaderboard.filter(r => r.badge.type === 'bronze').length;
   
-  const topStreaks = repLeaderboard.filter(r => r.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 3);
+  const topStreaks = repLeaderboard.filter(r => r.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 5);
 
   return (
     <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: '#f0f2f5' }}>
@@ -342,25 +342,31 @@ export default function AdminLeaderboard() {
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '12px', color: '#F36C21' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
               <Trophy size={14} />
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Badge Count</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Rep Badges</span>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '32px' }}>
+            <div style={{ fontSize: '9px', color: '#6b7280', textAlign: 'center', marginBottom: '8px' }}>
+              Reps earn badges based on task completion rate
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '24px' }}>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '32px', marginBottom: '4px' }}>🥇</div>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repGold}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280' }}>Gold</div>
+                <div style={{ fontSize: '28px', marginBottom: '2px' }}>🥇</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repGold}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600 }}>Gold</div>
+                <div style={{ fontSize: '8px', color: '#9ca3af' }}>100%+</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '32px', marginBottom: '4px' }}>🥈</div>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repSilver}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280' }}>Silver</div>
+                <div style={{ fontSize: '28px', marginBottom: '2px' }}>🥈</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repSilver}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600 }}>Silver</div>
+                <div style={{ fontSize: '8px', color: '#9ca3af' }}>90%+</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '32px', marginBottom: '4px' }}>🥉</div>
-                <div style={{ fontSize: '24px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repBronze}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280' }}>Bronze</div>
+                <div style={{ fontSize: '28px', marginBottom: '2px' }}>🥉</div>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repBronze}</div>
+                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600 }}>Bronze</div>
+                <div style={{ fontSize: '8px', color: '#9ca3af' }}>80%+</div>
               </div>
             </div>
           </div>
