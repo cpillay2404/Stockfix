@@ -1755,15 +1755,18 @@ export async function registerRoutes(
   // GET Rep Task Progress - shows progress for a specific rep across all stores (this week only)
   app.get("/api/task-progress/rep", async (req, res) => {
     try {
-      const repName = req.query.repName as string;
+      const repNameRaw = req.query.repName as string;
       const store = req.query.store as string | undefined;
       const client = req.query.client as string | undefined;
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
 
-      if (!repName) {
+      if (!repNameRaw) {
         return res.status(400).json({ error: "repName is required" });
       }
+      
+      // Normalize repName: decode URI and trim whitespace
+      const repName = decodeURIComponent(repNameRaw).trim();
 
       // Get latest week and use SQL-level filtering (MUCH faster than getAllTasks)
       const latestWeek = await storage.getLatestWeekEndingDate();
