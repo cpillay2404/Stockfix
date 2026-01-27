@@ -1,6 +1,7 @@
 import { users, tasks, contacts, clientPasswords, type User, type InsertUser, type Task, type InsertTask, type Contact, type InsertContact, type ClientPassword, type InsertClientPassword } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, ilike, or, and, sql, count, gte, lte } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export interface TaskFilters {
   region?: string;
@@ -491,19 +492,20 @@ export class DatabaseStorage implements IStorage {
   async verifyClientPassword(clientName: string, password: string): Promise<boolean> {
     const clientPwd = await this.getClientPassword(clientName);
     if (!clientPwd) return false;
-    return clientPwd.password === password;
+    return await bcrypt.compare(password, clientPwd.password);
   }
 
   async setClientPassword(clientName: string, password: string): Promise<ClientPassword> {
+    const hashedPassword = await bcrypt.hash(password, 10);
     const existing = await this.getClientPassword(clientName);
     if (existing) {
       const [updated] = await db.update(clientPasswords)
-        .set({ password, updatedAt: new Date() })
+        .set({ password: hashedPassword, updatedAt: new Date() })
         .where(eq(clientPasswords.id, existing.id))
         .returning();
       return updated;
     }
-    const [created] = await db.insert(clientPasswords).values({ clientName, password }).returning();
+    const [created] = await db.insert(clientPasswords).values({ clientName, password: hashedPassword }).returning();
     return created;
   }
 
