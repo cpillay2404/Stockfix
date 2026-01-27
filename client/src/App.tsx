@@ -29,6 +29,7 @@ function Router() {
       <Route path="/" component={ChooseAccess} />
       <Route path="/select-rep">{() => <ClientGuard><SelectRepStore /></ClientGuard>}</Route>
       <Route path="/select-client" component={SelectClientStore} />
+      <Route path="/select-client-store" component={SelectClientStore} />
       <Route path="/select-manager">{() => <ClientGuard><SelectManager /></ClientGuard>}</Route>
       <Route path="/store-overview" component={StoreOverview} />
       <Route path="/dashboard">{() => <ClientGuard><Home /></ClientGuard>}</Route>
