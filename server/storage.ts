@@ -113,27 +113,27 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(tasks.actionStatus, status === 'pending' ? 'Pending' : 'Completed'));
     }
     
-    // Apply additional filters
+    // Apply additional filters (case-insensitive for text fields)
     if (filters?.region) {
-      conditions.push(eq(tasks.region, filters.region));
+      conditions.push(ilike(tasks.region, filters.region));
     }
     if (filters?.rep) {
-      conditions.push(eq(tasks.repName, filters.rep));
+      conditions.push(ilike(tasks.repName, filters.rep));
     }
     if (filters?.store) {
-      conditions.push(eq(tasks.storeName, filters.store));
+      conditions.push(ilike(tasks.storeName, filters.store));
     }
     if (filters?.client) {
-      conditions.push(eq(tasks.client, filters.client));
+      conditions.push(ilike(tasks.client, filters.client));
     }
     if (filters?.issue) {
-      conditions.push(eq(tasks.stockClassification, filters.issue));
+      conditions.push(ilike(tasks.stockClassification, filters.issue));
     }
     if (filters?.category) {
-      conditions.push(eq(tasks.category, filters.category));
+      conditions.push(ilike(tasks.category, filters.category));
     }
     if (filters?.article) {
-      conditions.push(eq(tasks.articleDescription, filters.article));
+      conditions.push(ilike(tasks.articleDescription, filters.article));
     }
     if (filters?.weekEndingDate) {
       conditions.push(eq(tasks.weekEndingDate, filters.weekEndingDate));
@@ -307,19 +307,19 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(tasks.weekEndingDate, filters.weekEndingDate));
     }
     if (filters.repName) {
-      conditions.push(eq(tasks.repName, filters.repName));
+      conditions.push(ilike(tasks.repName, filters.repName));
     }
     if (filters.lineManager) {
-      conditions.push(eq(tasks.lineManager, filters.lineManager));
+      conditions.push(ilike(tasks.lineManager, filters.lineManager));
     }
     if (filters.store) {
-      conditions.push(eq(tasks.storeName, filters.store));
+      conditions.push(ilike(tasks.storeName, filters.store));
     }
     if (filters.client) {
-      conditions.push(eq(tasks.client, filters.client));
+      conditions.push(ilike(tasks.client, filters.client));
     }
     if (filters.region) {
-      conditions.push(eq(tasks.region, filters.region));
+      conditions.push(ilike(tasks.region, filters.region));
     }
     if (filters.actionStatus) {
       conditions.push(eq(tasks.actionStatus, filters.actionStatus));
@@ -365,10 +365,10 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(tasks.weekEndingDate, filters.weekEndingDate));
     }
     if (filters.repName) {
-      conditions.push(eq(tasks.repName, filters.repName));
+      conditions.push(ilike(tasks.repName, filters.repName));
     }
     if (filters.lineManager) {
-      conditions.push(eq(tasks.lineManager, filters.lineManager));
+      conditions.push(ilike(tasks.lineManager, filters.lineManager));
     }
     if (filters.actionStatus) {
       conditions.push(eq(tasks.actionStatus, filters.actionStatus));
@@ -387,13 +387,13 @@ export class DatabaseStorage implements IStorage {
     article?: string;
     limit?: number;
   }): Promise<{ weekEnding: string; storeSohSum: number; sellOutP4Sum: number; wfcAvg: number }[]> {
-    let conditions = [eq(tasks.storeName, filters.store)];
+    let conditions = [ilike(tasks.storeName, filters.store)];
     
     if (filters.repName) {
-      conditions.push(eq(tasks.repName, filters.repName));
+      conditions.push(ilike(tasks.repName, filters.repName));
     }
     if (filters.client) {
-      conditions.push(eq(tasks.client, filters.client));
+      conditions.push(ilike(tasks.client, filters.client));
     }
     
     // When filtering by article, look up the barcode first and filter by that
