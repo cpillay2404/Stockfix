@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { ArrowLeft, Camera, CheckCircle2, AlertCircle, Loader2, X, Plus, LogOut, ClipboardEdit } from "lucide-react";
+import { ArrowLeft, Camera, CheckCircle2, AlertCircle, Loader2, X, Plus, LogOut, ClipboardEdit, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -154,9 +154,13 @@ export default function TaskDetail() {
   const [image1, setImage1] = useState<string | null>(null);
   const [image2, setImage2] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState<1 | 2 | null>(null);
+  const [showPhotoChoice, setShowPhotoChoice] = useState(false);
+  const [activePhotoSlot, setActivePhotoSlot] = useState<1 | 2>(1);
   
-  const fileInput1 = useRef<HTMLInputElement>(null);
-  const fileInput2 = useRef<HTMLInputElement>(null);
+  const cameraInput1 = useRef<HTMLInputElement>(null);
+  const cameraInput2 = useRef<HTMLInputElement>(null);
+  const galleryInput1 = useRef<HTMLInputElement>(null);
+  const galleryInput2 = useRef<HTMLInputElement>(null);
 
   const { data: task, isLoading } = useQuery({
     queryKey: ["task", params?.id],
@@ -372,8 +376,20 @@ export default function TaskDetail() {
   };
 
   const handleImageClick = (slot: 1 | 2) => {
-    if (slot === 1) fileInput1.current?.click();
-    else fileInput2.current?.click();
+    setActivePhotoSlot(slot);
+    setShowPhotoChoice(true);
+  };
+
+  const handleCameraChoice = () => {
+    setShowPhotoChoice(false);
+    if (activePhotoSlot === 1) cameraInput1.current?.click();
+    else cameraInput2.current?.click();
+  };
+
+  const handleGalleryChoice = () => {
+    setShowPhotoChoice(false);
+    if (activePhotoSlot === 1) galleryInput1.current?.click();
+    else galleryInput2.current?.click();
   };
 
   const handleFileChange = async (slot: 1 | 2, e: React.ChangeEvent<HTMLInputElement>) => {
@@ -406,8 +422,9 @@ export default function TaskDetail() {
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '140px' }}>
+      {/* Camera inputs */}
       <input 
-        ref={fileInput1} 
+        ref={cameraInput1} 
         type="file" 
         accept="image/*" 
         capture="environment"
@@ -416,7 +433,7 @@ export default function TaskDetail() {
         disabled={isCompleted}
       />
       <input 
-        ref={fileInput2} 
+        ref={cameraInput2} 
         type="file" 
         accept="image/*" 
         capture="environment"
@@ -424,6 +441,115 @@ export default function TaskDetail() {
         onChange={(e) => handleFileChange(2, e)}
         disabled={isCompleted}
       />
+      {/* Gallery inputs */}
+      <input 
+        ref={galleryInput1} 
+        type="file" 
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => handleFileChange(1, e)}
+        disabled={isCompleted}
+      />
+      <input 
+        ref={galleryInput2} 
+        type="file" 
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={(e) => handleFileChange(2, e)}
+        disabled={isCompleted}
+      />
+
+      {/* Photo Choice Modal */}
+      {showPhotoChoice && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+          }}
+          onClick={() => setShowPhotoChoice(false)}
+        >
+          <div 
+            style={{
+              backgroundColor: '#FFFFFF',
+              borderRadius: '16px',
+              padding: '24px',
+              width: '300px',
+              maxWidth: 'calc(100% - 32px)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#003B71', marginBottom: '20px', textAlign: 'center' }}>
+              Add Photo
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <button
+                onClick={handleCameraChoice}
+                data-testid="button-take-photo"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '16px',
+                  backgroundColor: '#003B71',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '16px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                <Camera style={{ width: '24px', height: '24px' }} />
+                Take Photo
+              </button>
+              <button
+                onClick={handleGalleryChoice}
+                data-testid="button-choose-gallery"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  padding: '16px',
+                  backgroundColor: '#F36C21',
+                  color: '#FFFFFF',
+                  border: 'none',
+                  borderRadius: '10px',
+                  fontSize: '16px',
+                  fontWeight: 500,
+                  cursor: 'pointer',
+                }}
+              >
+                <Image style={{ width: '24px', height: '24px' }} />
+                Choose from Gallery
+              </button>
+              <button
+                onClick={() => setShowPhotoChoice(false)}
+                data-testid="button-cancel-photo"
+                style={{
+                  padding: '12px',
+                  backgroundColor: 'transparent',
+                  color: '#6B7280',
+                  border: '1px solid #D1D5DB',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  marginTop: '4px',
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Header */}
       <div style={{ backgroundColor: '#003B71', padding: '16px', paddingBottom: '12px' }}>
