@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download, FileText, Users } from "lucide-react";
+import { Upload, FileSpreadsheet, AlertCircle, Loader2, CheckCircle2, Trash2, Download, FileText, Users, Lock, Eye, EyeOff } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
@@ -24,6 +25,60 @@ export default function ImportData() {
   // Contacts import state
   const [contactsFile, setContactsFile] = useState<File | null>(null);
   const contactsFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Client password management state
+  const [newClientName, setNewClientName] = useState("");
+  const [newClientPassword, setNewClientPassword] = useState("");
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [savingPassword, setSavingPassword] = useState(false);
+
+  const { data: clientPasswords, refetch: refetchPasswords } = useQuery({
+    queryKey: ["client-passwords"],
+    queryFn: async () => {
+      const res = await fetch('/api/client-auth/all');
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  const handleSetPassword = async () => {
+    if (!newClientName.trim() || !newClientPassword.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter both client name and password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSavingPassword(true);
+    try {
+      const res = await fetch('/api/client-auth/set-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientName: newClientName.trim(), password: newClientPassword }),
+      });
+      
+      if (!res.ok) throw new Error('Failed to set password');
+      
+      toast({
+        title: "Password Set",
+        description: `Password set for ${newClientName}.`,
+      });
+      
+      setNewClientName("");
+      setNewClientPassword("");
+      refetchPasswords();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to set password. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingPassword(false);
+    }
+  };
 
   const { data: taskCount } = useQuery({
     queryKey: ["task-count"],
@@ -475,6 +530,80 @@ export default function ImportData() {
                 )}
               </Button>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Client Password Management */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Client Access Passwords
+            </CardTitle>
+            <CardDescription>
+              Manage passwords for client access to the app
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Add New Password */}
+            <div className="space-y-3 p-4 bg-gray-50 rounded-lg">
+              <Label className="text-sm font-medium">Set Client Password</Label>
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Client Name"
+                  value={newClientName}
+                  onChange={(e) => setNewClientName(e.target.value)}
+                  className="flex-1"
+                  data-testid="input-client-name"
+                />
+                <Input
+                  type="password"
+                  placeholder="Password"
+                  value={newClientPassword}
+                  onChange={(e) => setNewClientPassword(e.target.value)}
+                  className="flex-1"
+                  data-testid="input-client-password"
+                />
+                <Button
+                  onClick={handleSetPassword}
+                  disabled={savingPassword}
+                  data-testid="button-set-password"
+                >
+                  {savingPassword ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Set"
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Existing Passwords */}
+            {clientPasswords && clientPasswords.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Configured Clients</Label>
+                <div className="space-y-2">
+                  {clientPasswords.map((client: { clientName: string; hasPassword: boolean }) => (
+                    <div 
+                      key={client.clientName}
+                      className="flex items-center justify-between p-3 bg-white border rounded-lg"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Lock className="h-4 w-4 text-green-600" />
+                        <span className="font-medium">{client.clientName}</span>
+                      </div>
+                      <span className="text-sm text-green-600">Password Set</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {(!clientPasswords || clientPasswords.length === 0) && (
+              <p className="text-sm text-gray-500 text-center py-4">
+                No client passwords configured yet
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
