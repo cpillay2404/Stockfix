@@ -8,6 +8,7 @@ import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin, AlertTriangle, Che
 import { cn } from "@/lib/utils";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import BottomNav from "@/components/BottomNav";
+import { useAccess } from "@/context/AccessContext";
 import { TopAttentionModal } from "@/components/TopAttentionModal";
 
 interface SearchableSelectProps {
@@ -251,11 +252,14 @@ export default function StoreOverview() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
+  const { accessMode, clientLocked, clearAll } = useAccess();
   
   const rep = params.get('rep') || '';
   const store = params.get('store') || '';
   const initialClient = params.get('client') || 'All Clients';
   const initialArticle = params.get('article') || 'All Articles';
+  
+  const isClientMode = accessMode === 'client' && clientLocked;
   
   const [selectedClient, setSelectedClient] = useState(initialClient);
   const [selectedArticle, setSelectedArticle] = useState(initialArticle);
@@ -350,25 +354,50 @@ export default function StoreOverview() {
       <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
         {/* Navigation Row */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px', position: 'relative' }}>
-          <button
-            onClick={() => setLocation('/')}
-            data-testid="button-back"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              color: 'rgba(255,255,255,0.8)',
-              fontSize: '14px',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-              zIndex: 1,
-            }}
-          >
-            <ArrowLeft style={{ width: '18px', height: '18px' }} />
-            <span>Back</span>
-          </button>
+          {isClientMode ? (
+            <button
+              onClick={() => {
+                clearAll();
+                setLocation('/');
+              }}
+              data-testid="button-logout"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: 'rgba(255,255,255,0.8)',
+                fontSize: '14px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+                zIndex: 1,
+              }}
+            >
+              <LogOut style={{ width: '18px', height: '18px' }} />
+              <span>Logout</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setLocation('/')}
+              data-testid="button-back"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: 'rgba(255,255,255,0.8)',
+                fontSize: '14px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+                zIndex: 1,
+              }}
+            >
+              <ArrowLeft style={{ width: '18px', height: '18px' }} />
+              <span>Back</span>
+            </button>
+          )}
           
           <h1 
             style={{ 

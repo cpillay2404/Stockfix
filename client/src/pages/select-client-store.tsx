@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Check, ChevronDown, Wrench } from "lucide-react";
+import { Check, ChevronDown, Wrench } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -138,10 +138,6 @@ export default function SelectClientStore() {
     setStoreValue("");
   };
 
-  const handleBack = () => {
-    setLocation("/");
-  };
-
   const handleStartVisit = () => {
     if (clientValue && storeValue) {
       setSelectedClient(clientValue);
@@ -193,25 +189,16 @@ export default function SelectClientStore() {
           boxShadow: '0px 16px 40px rgba(0,0,0,0.25)',
         }}
       >
-        <button
-          onClick={handleBack}
-          data-testid="button-back"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#003B71',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 0,
-            marginBottom: '20px',
-            fontSize: '14px',
-          }}
-        >
-          <ArrowLeft style={{ width: '18px', height: '18px' }} />
-          Back
-        </button>
+        <div style={{ marginBottom: '20px' }}>
+          <p style={{ 
+            fontSize: '14px', 
+            color: '#6B7280', 
+            textAlign: 'center',
+            margin: 0,
+          }}>
+            Please select your company and store to continue
+          </p>
+        </div>
 
         <div style={{ marginBottom: '16px' }}>
           <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>

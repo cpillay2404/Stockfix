@@ -1,4 +1,5 @@
 import { useLocation } from "wouter";
+import { useEffect } from "react";
 import { User, Building2, Wrench, Users } from "lucide-react";
 import { useAccess } from "@/context/AccessContext";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
@@ -6,7 +7,15 @@ import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
 
 export default function ChooseAccess() {
   const [, setLocation] = useLocation();
-  const { setAccessMode, setSelectedRep, setSelectedClient, setClientLocked } = useAccess();
+  const { accessMode, clientLocked, selectedClient, selectedStore, setAccessMode, setSelectedRep, setSelectedClient, setClientLocked } = useAccess();
+
+  useEffect(() => {
+    if (accessMode === "client" && clientLocked && selectedClient && selectedStore) {
+      setLocation(`/store-overview?store=${encodeURIComponent(selectedStore)}&client=${encodeURIComponent(selectedClient)}`);
+    } else if (accessMode === "client" && clientLocked) {
+      setLocation("/select-client");
+    }
+  }, [accessMode, clientLocked, selectedClient, selectedStore, setLocation]);
 
   const handleRepClick = () => {
     setAccessMode("rep");
