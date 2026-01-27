@@ -65,9 +65,11 @@ export const tasks = pgTable("tasks", {
   variance: text("variance"),
   systemAdjusted: text("system_adjusted"),
   
-  // Images
+  // Images (up to 4 captured by rep)
   image1: text("image1"),
   image2: text("image2"),
+  image3: text("image3"),
+  image4: text("image4"),
   systemImage: text("system_image"),
   piImage: text("pi_image"),
   
