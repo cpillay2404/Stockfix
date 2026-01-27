@@ -192,13 +192,26 @@ export default function RepProgress() {
     }
   }, [data?.tasks?.completed, completedPage]);
 
-  // Reset pagination when filters change
+  // Reset pagination when filters change (but not on initial load)
+  const [initialRepName] = useState(repName);
   useEffect(() => {
-    setOpenPage(1);
-    setCompletedPage(1);
-    setLoadedOpenTasks([]);
-    setLoadedCompletedTasks([]);
-  }, [repName, selectedStore, selectedClient]);
+    // Only reset if repName actually changed after initial load
+    if (repName && repName !== initialRepName) {
+      setOpenPage(1);
+      setCompletedPage(1);
+      setLoadedOpenTasks([]);
+      setLoadedCompletedTasks([]);
+    }
+  }, [repName, initialRepName]);
+  
+  useEffect(() => {
+    if (selectedStore || selectedClient) {
+      setOpenPage(1);
+      setCompletedPage(1);
+      setLoadedOpenTasks([]);
+      setLoadedCompletedTasks([]);
+    }
+  }, [selectedStore, selectedClient]);
 
   // Fetch gamification stats for this rep
   const { data: gamification } = useQuery<RepGamificationStats>({

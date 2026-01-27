@@ -1779,12 +1779,6 @@ export async function registerRoutes(
       const openTasks = repTasks.filter(t => t.actionStatus !== 'Completed');
       let completedTasks = repTasks.filter(t => t.actionStatus === 'Completed');
 
-      // Debug logging
-      console.log(`[DEBUG task-progress] repName="${repName}", repTasks=${repTasks.length}, openTasks=${openTasks.length}, completedTasks=${completedTasks.length}`);
-      if (repTasks.length > 0) {
-        console.log(`[DEBUG] Sample task actionStatus: "${repTasks[0].actionStatus}"`);
-      }
-
       // Apply date range filter for completed tasks
       if (dateFrom || dateTo) {
         completedTasks = completedTasks.filter(t => {
