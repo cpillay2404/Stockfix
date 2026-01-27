@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Check, ChevronDown, Wrench, Lock, AlertCircle, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Wrench, Lock, AlertCircle, Loader2, ArrowLeft } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -226,6 +226,28 @@ export default function SelectClientStore() {
           Client Visit Setup
         </p>
       </div>
+
+      <button
+        onClick={() => setLocation("/")}
+        data-testid="button-back"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '10px 16px',
+          backgroundColor: 'rgba(255,255,255,0.15)',
+          border: 'none',
+          borderRadius: '8px',
+          color: '#FFFFFF',
+          fontSize: '14px',
+          fontWeight: 500,
+          cursor: 'pointer',
+          marginBottom: '16px',
+        }}
+      >
+        <ArrowLeft style={{ width: '18px', height: '18px' }} />
+        Back
+      </button>
 
       <div 
         style={{
