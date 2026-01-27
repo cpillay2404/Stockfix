@@ -766,6 +766,20 @@ export default function TaskDetail() {
                 img ? (
                   <div key={slot} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '8px', overflow: 'hidden', border: '1px solid #E5E7EB' }}>
                     <img src={img} alt={`Photo ${slot}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <div style={{ 
+                      position: 'absolute', 
+                      bottom: 0, 
+                      left: 0, 
+                      right: 0, 
+                      backgroundColor: 'rgba(0,0,0,0.7)', 
+                      color: 'white', 
+                      fontSize: '7px', 
+                      padding: '2px', 
+                      textAlign: 'center',
+                      fontFamily: 'monospace'
+                    }}>
+                      {task.captureDate ? new Date(task.captureDate).toLocaleString('en-ZA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : new Date().toLocaleString('en-ZA', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })}
+                    </div>
                     {!isCompleted && (
                       <button 
                         onClick={() => setImg(null)}
