@@ -228,7 +228,8 @@ export default function SelectClientStore() {
       </div>
 
       <button
-        onClick={() => setLocation("/")}
+        type="button"
+        onClick={() => { setLocation("/"); }}
         data-testid="button-back"
         style={{
           display: 'flex',
