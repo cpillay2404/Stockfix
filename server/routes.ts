@@ -2519,5 +2519,54 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/client-auth/verify", async (req, res) => {
+    try {
+      const { clientName, password } = req.body;
+      if (!clientName || !password) {
+        return res.status(400).json({ error: "Client name and password required" });
+      }
+      const valid = await storage.verifyClientPassword(clientName, password);
+      res.json({ valid });
+    } catch (error) {
+      console.error("Error verifying client password:", error);
+      res.status(500).json({ error: "Failed to verify password" });
+    }
+  });
+
+  app.get("/api/client-auth/has-password/:clientName", async (req, res) => {
+    try {
+      const { clientName } = req.params;
+      const clientPwd = await storage.getClientPassword(decodeURIComponent(clientName));
+      res.json({ hasPassword: !!clientPwd });
+    } catch (error) {
+      console.error("Error checking client password:", error);
+      res.status(500).json({ error: "Failed to check password" });
+    }
+  });
+
+  app.post("/api/client-auth/set-password", async (req, res) => {
+    try {
+      const { clientName, password } = req.body;
+      if (!clientName || !password) {
+        return res.status(400).json({ error: "Client name and password required" });
+      }
+      await storage.setClientPassword(clientName, password);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error setting client password:", error);
+      res.status(500).json({ error: "Failed to set password" });
+    }
+  });
+
+  app.get("/api/client-auth/all", async (req, res) => {
+    try {
+      const passwords = await storage.getAllClientPasswords();
+      res.json(passwords.map(p => ({ clientName: p.clientName, hasPassword: true })));
+    } catch (error) {
+      console.error("Error fetching client passwords:", error);
+      res.status(500).json({ error: "Failed to fetch passwords" });
+    }
+  });
+
   return httpServer;
 }

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { Check, ChevronDown, Wrench } from "lucide-react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { Check, ChevronDown, Wrench, Lock, AlertCircle, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
@@ -102,6 +102,9 @@ export default function SelectClientStore() {
   const { accessMode, setAccessMode, setClientLocked, setSelectedClient, setSelectedStore: setContextStore } = useAccess();
   const [clientValue, setClientValue] = useState("");
   const [storeValue, setStoreValue] = useState("");
+  const [password, setPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
     if (accessMode !== "client") {
@@ -119,15 +122,51 @@ export default function SelectClientStore() {
     },
   });
 
+  const { data: hasPasswordData } = useQuery({
+    queryKey: ["client-has-password", clientValue],
+    queryFn: async () => {
+      if (!clientValue) return { hasPassword: false };
+      const res = await fetch(`/api/client-auth/has-password/${encodeURIComponent(clientValue)}`);
+      if (!res.ok) throw new Error("Failed to check password");
+      return res.json();
+    },
+    enabled: !!clientValue,
+  });
+
+  const requiresPassword = hasPasswordData?.hasPassword === true;
+
   const { data: storesData, isLoading: storesLoading } = useQuery({
-    queryKey: ["client-stores", clientValue],
+    queryKey: ["client-stores", clientValue, isAuthenticated, requiresPassword],
     queryFn: async () => {
       if (!clientValue) return { stores: [] };
       const res = await fetch(`/api/clients/${encodeURIComponent(clientValue)}/stores`);
       if (!res.ok) throw new Error("Failed to fetch stores");
       return res.json();
     },
-    enabled: !!clientValue,
+    enabled: !!clientValue && (isAuthenticated || !requiresPassword),
+  });
+
+  const verifyMutation = useMutation({
+    mutationFn: async ({ clientName, pwd }: { clientName: string; pwd: string }) => {
+      const res = await fetch("/api/client-auth/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientName, password: pwd }),
+      });
+      if (!res.ok) throw new Error("Failed to verify password");
+      return res.json();
+    },
+    onSuccess: (data) => {
+      if (data.valid) {
+        setIsAuthenticated(true);
+        setPasswordError("");
+      } else {
+        setPasswordError("Incorrect password. Please try again.");
+      }
+    },
+    onError: () => {
+      setPasswordError("Failed to verify password. Please try again.");
+    },
   });
 
   const clients = stats?.filters?.clients || [];
@@ -136,10 +175,19 @@ export default function SelectClientStore() {
   const handleClientChange = (newClient: string) => {
     setClientValue(newClient);
     setStoreValue("");
+    setPassword("");
+    setPasswordError("");
+    setIsAuthenticated(false);
+  };
+
+  const handleVerifyPassword = () => {
+    if (clientValue && password) {
+      verifyMutation.mutate({ clientName: clientValue, pwd: password });
+    }
   };
 
   const handleStartVisit = () => {
-    if (clientValue && storeValue) {
+    if (clientValue && storeValue && (isAuthenticated || !requiresPassword)) {
       setSelectedClient(clientValue);
       setContextStore(storeValue);
       sessionStorage.setItem('visitStartTime', new Date().toISOString());
@@ -152,7 +200,7 @@ export default function SelectClientStore() {
     }
   };
 
-  const canStart = clientValue && storeValue;
+  const canStart = clientValue && storeValue && (isAuthenticated || !requiresPassword);
 
   return (
     <div 
@@ -213,6 +261,66 @@ export default function SelectClientStore() {
           />
         </div>
 
+        {clientValue && requiresPassword && !isAuthenticated && (
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
+              <Lock style={{ width: '14px', height: '14px', display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
+              Enter Access Code <span style={{ color: '#F36C21' }}>*</span>
+            </label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => { setPassword(e.target.value); setPasswordError(""); }}
+                onKeyDown={(e) => { if (e.key === 'Enter') handleVerifyPassword(); }}
+                placeholder="Enter password"
+                data-testid="input-client-password"
+                style={{
+                  flex: 1,
+                  height: '48px',
+                  borderRadius: '8px',
+                  border: passwordError ? '1px solid #EF4444' : '1px solid #D1D5DB',
+                  fontSize: '16px',
+                  color: '#003B71',
+                  backgroundColor: '#FFFFFF',
+                  padding: '0 16px',
+                }}
+              />
+              <button
+                onClick={handleVerifyPassword}
+                disabled={!password || verifyMutation.isPending}
+                data-testid="button-verify-password"
+                style={{
+                  padding: '0 20px',
+                  height: '48px',
+                  backgroundColor: password ? '#003B71' : '#D1D5DB',
+                  color: '#FFFFFF',
+                  fontSize: '14px',
+                  fontWeight: 600,
+                  borderRadius: '8px',
+                  border: 'none',
+                  cursor: password ? 'pointer' : 'not-allowed',
+                }}
+              >
+                {verifyMutation.isPending ? <Loader2 style={{ width: '18px', height: '18px', animation: 'spin 1s linear infinite' }} /> : 'Verify'}
+              </button>
+            </div>
+            {passwordError && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', color: '#EF4444', fontSize: '13px' }}>
+                <AlertCircle style={{ width: '14px', height: '14px' }} />
+                {passwordError}
+              </div>
+            )}
+          </div>
+        )}
+
+        {clientValue && requiresPassword && isAuthenticated && (
+          <div style={{ marginBottom: '16px', backgroundColor: '#D1FAE5', borderRadius: '8px', padding: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Check style={{ width: '18px', height: '18px', color: '#059669' }} />
+            <span style={{ color: '#059669', fontSize: '14px', fontWeight: 500 }}>Access verified</span>
+          </div>
+        )}
+
         <div style={{ marginBottom: '20px' }}>
           <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
             Select Store <span style={{ color: '#F36C21' }}>*</span>
@@ -221,11 +329,11 @@ export default function SelectClientStore() {
             value={storeValue}
             onValueChange={setStoreValue}
             options={stores}
-            placeholder={clientValue ? "Select Store" : "Select client first"}
+            placeholder={!clientValue ? "Select client first" : (requiresPassword && !isAuthenticated) ? "Verify access first" : "Select Store"}
             testId="select-store"
-            disabled={!clientValue}
+            disabled={!clientValue || (requiresPassword && !isAuthenticated)}
           />
-          {clientValue && stores.length === 0 && !storesLoading && (
+          {clientValue && (isAuthenticated || !requiresPassword) && stores.length === 0 && !storesLoading && (
             <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
               No stores found for this client
             </p>

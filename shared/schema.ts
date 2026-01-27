@@ -102,3 +102,20 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
 
 export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contacts.$inferSelect;
+
+export const clientPasswords = pgTable("client_passwords", {
+  id: serial("id").primaryKey(),
+  clientName: text("client_name").notNull().unique(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertClientPasswordSchema = createInsertSchema(clientPasswords).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertClientPassword = z.infer<typeof insertClientPasswordSchema>;
+export type ClientPassword = typeof clientPasswords.$inferSelect;

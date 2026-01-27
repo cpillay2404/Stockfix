@@ -1,4 +1,4 @@
-import { users, tasks, contacts, type User, type InsertUser, type Task, type InsertTask, type Contact, type InsertContact } from "@shared/schema";
+import { users, tasks, contacts, clientPasswords, type User, type InsertUser, type Task, type InsertTask, type Contact, type InsertContact, type ClientPassword, type InsertClientPassword } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, ilike, or, and, sql, count, gte, lte } from "drizzle-orm";
 
@@ -481,6 +481,39 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllContacts(): Promise<void> {
     await db.delete(contacts);
+  }
+
+  async getClientPassword(clientName: string): Promise<ClientPassword | undefined> {
+    const [result] = await db.select().from(clientPasswords).where(ilike(clientPasswords.clientName, clientName));
+    return result || undefined;
+  }
+
+  async verifyClientPassword(clientName: string, password: string): Promise<boolean> {
+    const clientPwd = await this.getClientPassword(clientName);
+    if (!clientPwd) return false;
+    return clientPwd.password === password;
+  }
+
+  async setClientPassword(clientName: string, password: string): Promise<ClientPassword> {
+    const existing = await this.getClientPassword(clientName);
+    if (existing) {
+      const [updated] = await db.update(clientPasswords)
+        .set({ password, updatedAt: new Date() })
+        .where(eq(clientPasswords.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(clientPasswords).values({ clientName, password }).returning();
+    return created;
+  }
+
+  async getAllClientPasswords(): Promise<ClientPassword[]> {
+    return await db.select().from(clientPasswords).orderBy(clientPasswords.clientName);
+  }
+
+  async deleteClientPassword(clientName: string): Promise<boolean> {
+    const result = await db.delete(clientPasswords).where(ilike(clientPasswords.clientName, clientName));
+    return true;
   }
 }
 
