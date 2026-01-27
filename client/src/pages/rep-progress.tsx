@@ -163,55 +163,34 @@ export default function RepProgress() {
     enabled: !!repName,
   });
 
-  // Accumulate tasks when data changes (moved out of queryFn to avoid side effects)
+  // Accumulate tasks for pagination - only add when loading additional pages
   useEffect(() => {
-    if (data?.tasks?.open) {
-      if (openPage === 1) {
-        setLoadedOpenTasks(data.tasks.open);
-      } else {
-        setLoadedOpenTasks(prev => {
-          // Avoid duplicates by checking uniqueIds
-          const existingIds = new Set(prev.map((t: any) => t.uniqueId));
-          const newTasks = data.tasks.open.filter((t: any) => !existingIds.has(t.uniqueId));
-          return [...prev, ...newTasks];
-        });
-      }
+    if (data?.tasks?.open && openPage > 1) {
+      setLoadedOpenTasks(prev => {
+        const existingIds = new Set(prev.map((t: any) => t.uniqueId));
+        const newTasks = data.tasks.open.filter((t: any) => !existingIds.has(t.uniqueId));
+        return [...prev, ...newTasks];
+      });
     }
   }, [data?.tasks?.open, openPage]);
 
   useEffect(() => {
-    if (data?.tasks?.completed) {
-      if (completedPage === 1) {
-        setLoadedCompletedTasks(data.tasks.completed);
-      } else {
-        setLoadedCompletedTasks(prev => {
-          const existingIds = new Set(prev.map((t: any) => t.uniqueId));
-          const newTasks = data.tasks.completed.filter((t: any) => !existingIds.has(t.uniqueId));
-          return [...prev, ...newTasks];
-        });
-      }
+    if (data?.tasks?.completed && completedPage > 1) {
+      setLoadedCompletedTasks(prev => {
+        const existingIds = new Set(prev.map((t: any) => t.uniqueId));
+        const newTasks = data.tasks.completed.filter((t: any) => !existingIds.has(t.uniqueId));
+        return [...prev, ...newTasks];
+      });
     }
   }, [data?.tasks?.completed, completedPage]);
 
-  // Reset pagination when filters actually change (not on initial load)
+  // Reset accumulated tasks when filters change
   useEffect(() => {
-    const prev = prevFiltersRef.current;
-    const filtersChanged = (
-      (prev.repName && prev.repName !== repName) ||
-      (prev.store !== selectedStore) ||
-      (prev.client !== selectedClient)
-    );
-    
-    if (filtersChanged) {
-      setOpenPage(1);
-      setCompletedPage(1);
-      setLoadedOpenTasks([]);
-      setLoadedCompletedTasks([]);
-    }
-    
-    // Update ref after check
-    prevFiltersRef.current = { repName, store: selectedStore, client: selectedClient };
-  }, [repName, selectedStore, selectedClient]);
+    setLoadedOpenTasks([]);
+    setLoadedCompletedTasks([]);
+    setOpenPage(1);
+    setCompletedPage(1);
+  }, [selectedStore, selectedClient]);
 
   // Fetch gamification stats for this rep
   const { data: gamification } = useQuery<RepGamificationStats>({
@@ -234,8 +213,17 @@ export default function RepProgress() {
     }
   };
 
-  // Use accumulated tasks from pagination
-  const allTasks = activeTab === 'open' ? loadedOpenTasks : loadedCompletedTasks;
+  // Combine page 1 data with accumulated pagination data
+  const openTasksList = [
+    ...(data?.tasks?.open || []),
+    ...loadedOpenTasks
+  ];
+  const completedTasksList = [
+    ...(data?.tasks?.completed || []),
+    ...loadedCompletedTasks
+  ];
+  
+  const allTasks = activeTab === 'open' ? openTasksList : completedTasksList;
   const displayTasks = allTasks.filter((task: any) => 
     !searchQuery || 
     task.articleDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
