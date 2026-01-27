@@ -197,9 +197,9 @@ export default function AdminLeaderboard() {
   const mgrSilver = managerLeaderboard.reduce((s, m) => s + m.silverBadges, 0);
   const mgrBronze = managerLeaderboard.reduce((s, m) => s + m.bronzeBadges, 0);
   
-  const repGold = repLeaderboard.filter(r => r.badge.type === 'gold').length;
-  const repSilver = repLeaderboard.filter(r => r.badge.type === 'silver').length;
-  const repBronze = repLeaderboard.filter(r => r.badge.type === 'bronze').length;
+  const goldReps = repLeaderboard.filter(r => r.badge.type === 'gold');
+  const silverReps = repLeaderboard.filter(r => r.badge.type === 'silver');
+  const bronzeReps = repLeaderboard.filter(r => r.badge.type === 'bronze');
   
   const topStreaks = repLeaderboard.filter(r => r.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 5);
 
@@ -341,32 +341,42 @@ export default function AdminLeaderboard() {
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
               <Trophy size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Rep Badges</span>
+              <span style={{ fontSize: '9px', color: '#6b7280', marginLeft: 'auto' }}>Based on completion rate</span>
             </div>
-            <div style={{ fontSize: '9px', color: '#6b7280', textAlign: 'center', marginBottom: '8px' }}>
-              Reps earn badges based on task completion rate
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '24px' }}>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '28px', marginBottom: '2px' }}>🥇</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repGold}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600 }}>Gold</div>
-                <div style={{ fontSize: '8px', color: '#9ca3af' }}>100%+</div>
+            <div style={{ display: 'flex', gap: '12px', height: '85px' }}>
+              <div style={{ flex: 1, backgroundColor: '#FEF9C3', borderRadius: '8px', padding: '8px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '16px' }}>🥇</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#854D0E' }}>Gold ({goldReps.length})</span>
+                  <span style={{ fontSize: '8px', color: '#A16207' }}>100%+</span>
+                </div>
+                <div style={{ fontSize: '9px', color: '#713F12', lineHeight: 1.3, maxHeight: '52px', overflow: 'hidden' }}>
+                  {goldReps.length > 0 ? goldReps.slice(0, 4).map(r => r.repName).join(', ') + (goldReps.length > 4 ? ` +${goldReps.length - 4} more` : '') : 'No reps yet'}
+                </div>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '28px', marginBottom: '2px' }}>🥈</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repSilver}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600 }}>Silver</div>
-                <div style={{ fontSize: '8px', color: '#9ca3af' }}>90%+</div>
+              <div style={{ flex: 1, backgroundColor: '#F1F5F9', borderRadius: '8px', padding: '8px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '16px' }}>🥈</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>Silver ({silverReps.length})</span>
+                  <span style={{ fontSize: '8px', color: '#64748B' }}>90%+</span>
+                </div>
+                <div style={{ fontSize: '9px', color: '#334155', lineHeight: 1.3, maxHeight: '52px', overflow: 'hidden' }}>
+                  {silverReps.length > 0 ? silverReps.slice(0, 4).map(r => r.repName).join(', ') + (silverReps.length > 4 ? ` +${silverReps.length - 4} more` : '') : 'No reps yet'}
+                </div>
               </div>
-              <div style={{ textAlign: 'center' }}>
-                <div style={{ fontSize: '28px', marginBottom: '2px' }}>🥉</div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{repBronze}</div>
-                <div style={{ fontSize: '10px', color: '#6b7280', fontWeight: 600 }}>Bronze</div>
-                <div style={{ fontSize: '8px', color: '#9ca3af' }}>80%+</div>
+              <div style={{ flex: 1, backgroundColor: '#FEF3C7', borderRadius: '8px', padding: '8px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '16px' }}>🥉</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#92400E' }}>Bronze ({bronzeReps.length})</span>
+                  <span style={{ fontSize: '8px', color: '#B45309' }}>80%+</span>
+                </div>
+                <div style={{ fontSize: '9px', color: '#78350F', lineHeight: 1.3, maxHeight: '52px', overflow: 'hidden' }}>
+                  {bronzeReps.length > 0 ? bronzeReps.slice(0, 4).map(r => r.repName).join(', ') + (bronzeReps.length > 4 ? ` +${bronzeReps.length - 4} more` : '') : 'No reps yet'}
+                </div>
               </div>
             </div>
           </div>
