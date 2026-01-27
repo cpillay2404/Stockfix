@@ -229,7 +229,13 @@ export default function SelectClientStore() {
 
       <button
         type="button"
-        onClick={() => { setLocation("/"); }}
+        onClick={() => { 
+          setAccessMode(null);
+          setClientLocked(false);
+          setSelectedClient(null);
+          setContextStore(null);
+          setLocation("/"); 
+        }}
         data-testid="button-back"
         style={{
           display: 'flex',
