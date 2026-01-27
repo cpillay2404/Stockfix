@@ -2004,7 +2004,7 @@ export async function registerRoutes(
         setCachedGamificationStats(cacheKey, { stats: allStats, weekEndingDate: latestWeek });
       }
       
-      const repStats = allStats.find(s => s.repName === repName);
+      const repStats = allStats.find(s => s.repName.toLowerCase() === repName.toLowerCase());
       
       if (!repStats) {
         return res.json({ 
@@ -2016,7 +2016,7 @@ export async function registerRoutes(
       
       // Find rep's rank
       const sortedByCompletion = [...allStats].sort((a, b) => b.completionRate - a.completionRate);
-      const rank = sortedByCompletion.findIndex(s => s.repName === repName) + 1;
+      const rank = sortedByCompletion.findIndex(s => s.repName.toLowerCase() === repName.toLowerCase()) + 1;
       
       // Team averages for comparison
       const teamAvgCompletion = allStats.length > 0 
