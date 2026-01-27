@@ -437,9 +437,9 @@ export class DatabaseStorage implements IStorage {
     }));
   }
 
-  // Contact operations
+  // Contact operations (case-insensitive lookup)
   async getContactByRepName(repName: string): Promise<Contact | undefined> {
-    const [contact] = await db.select().from(contacts).where(eq(contacts.repName, repName));
+    const [contact] = await db.select().from(contacts).where(ilike(contacts.repName, repName));
     return contact || undefined;
   }
 
