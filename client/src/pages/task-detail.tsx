@@ -131,6 +131,7 @@ export default function TaskDetail() {
   const storeFilter = urlParams.get('store') || '';
   const clientFilter = urlParams.get('client') || '';
   const articleFilter = urlParams.get('article') || '';
+  const fromPage = urlParams.get('from') || '';
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
@@ -218,7 +219,13 @@ export default function TaskDetail() {
     if (storeFilter) params.set('store', storeFilter);
     if (clientFilter) params.set('client', clientFilter);
     if (articleFilter) params.set('article', articleFilter);
-    setLocation(`/tasks?${params.toString()}`);
+    
+    // Navigate back to the page they came from
+    if (fromPage === 'rep-progress' && repFilter) {
+      setLocation(`/rep-progress?${params.toString()}`);
+    } else {
+      setLocation(`/tasks?${params.toString()}`);
+    }
   };
 
   const handleExitVisit = () => {

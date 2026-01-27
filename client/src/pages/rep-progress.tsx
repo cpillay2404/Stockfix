@@ -565,7 +565,7 @@ export default function RepProgress() {
                   <TaskRow
                     key={task.uniqueId}
                     task={task}
-                    onClick={() => setLocation(`/task/${encodeURIComponent(task.uniqueId)}`)}
+                    onClick={() => setLocation(`/task/${encodeURIComponent(task.uniqueId)}?rep=${encodeURIComponent(repName)}&from=rep-progress`)}
                   />
                 ))}
                 {hasMore && (
