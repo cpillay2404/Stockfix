@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, TrendingUp, Clock, CheckCircle, AlertCircle, Search, Trophy, Flame, Award } from "lucide-react";
@@ -144,6 +144,7 @@ export default function RepProgress() {
   const [completedPage, setCompletedPage] = useState(1);
   const [loadedOpenTasks, setLoadedOpenTasks] = useState<any[]>([]);
   const [loadedCompletedTasks, setLoadedCompletedTasks] = useState<any[]>([]);
+  const prevFiltersRef = useRef({ repName: '', store: '', client: '' });
 
   const { data, isLoading } = useQuery({
     queryKey: ["rep-progress", repName, selectedStore, selectedClient, openPage, completedPage],
@@ -192,26 +193,25 @@ export default function RepProgress() {
     }
   }, [data?.tasks?.completed, completedPage]);
 
-  // Reset pagination when filters change (but not on initial load)
-  const [initialRepName] = useState(repName);
+  // Reset pagination when filters actually change (not on initial load)
   useEffect(() => {
-    // Only reset if repName actually changed after initial load
-    if (repName && repName !== initialRepName) {
+    const prev = prevFiltersRef.current;
+    const filtersChanged = (
+      (prev.repName && prev.repName !== repName) ||
+      (prev.store !== selectedStore) ||
+      (prev.client !== selectedClient)
+    );
+    
+    if (filtersChanged) {
       setOpenPage(1);
       setCompletedPage(1);
       setLoadedOpenTasks([]);
       setLoadedCompletedTasks([]);
     }
-  }, [repName, initialRepName]);
-  
-  useEffect(() => {
-    if (selectedStore || selectedClient) {
-      setOpenPage(1);
-      setCompletedPage(1);
-      setLoadedOpenTasks([]);
-      setLoadedCompletedTasks([]);
-    }
-  }, [selectedStore, selectedClient]);
+    
+    // Update ref after check
+    prevFiltersRef.current = { repName, store: selectedStore, client: selectedClient };
+  }, [repName, selectedStore, selectedClient]);
 
   // Fetch gamification stats for this rep
   const { data: gamification } = useQuery<RepGamificationStats>({
