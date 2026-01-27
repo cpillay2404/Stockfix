@@ -58,7 +58,7 @@ export function calculateBadge(completionRate: number): RepBadge {
 }
 
 export function calculateStreak(tasks: Task[], repName: string): number {
-  const repTasks = tasks.filter(t => t.repName?.toLowerCase() === repName.toLowerCase() && t.actionStatus === 'Completed' && t.captureDate);
+  const repTasks = tasks.filter(t => t.repName === repName && t.actionStatus === 'Completed' && t.captureDate);
   
   if (repTasks.length === 0) return 0;
   
@@ -109,7 +109,7 @@ export function calculateStreak(tasks: Task[], repName: string): number {
 }
 
 export function calculateStoresMastered(tasks: Task[], repName: string): number {
-  const repTasks = tasks.filter(t => t.repName?.toLowerCase() === repName.toLowerCase());
+  const repTasks = tasks.filter(t => t.repName === repName);
   const storeStats: Record<string, { total: number; completed: number }> = {};
   
   repTasks.forEach(task => {
