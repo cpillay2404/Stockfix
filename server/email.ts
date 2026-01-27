@@ -165,21 +165,24 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       console.log('[Email] No rep name provided - no email will be sent');
     }
     
-    // If no contacts found, skip sending (only send to rep and manager)
+    // Always-notify recipients - these always get the email
+    const alwaysNotify = [
+      'jjooste@meridiangroup.co.za',
+      'cpillay@meridiangroup.co.za',
+      'ndunn@meridiangroup.co.za'
+    ];
+    
+    // If no contact found for rep, send to always-notify list as primary recipients
     if (recipients.length === 0) {
-      console.log('[Email] No recipients found for this rep - skipping email');
-      return;
+      console.log('[Email] No contact found for rep - sending to always-notify list only');
+      recipients = [...alwaysNotify];
     }
     
     // Remove duplicates
     recipients = [...new Set(recipients)];
     
-    // CC recipients - always included on all task completion emails
-    const ccRecipients = [
-      'jjooste@meridiangroup.co.za',
-      'cpillay@meridiangroup.co.za',
-      'ndunn@meridiangroup.co.za'
-    ];
+    // CC recipients - always included (but exclude any that are already primary recipients)
+    const ccRecipients = alwaysNotify.filter(email => !recipients.includes(email));
     
     // Client-specific CC recipients
     const clientCcMap: Record<string, string> = {
