@@ -404,7 +404,7 @@ export default function TaskDetail() {
 
   const addTimestampToImage = (file: File): Promise<File> => {
     return new Promise((resolve, reject) => {
-      const img = new Image();
+      const img = document.createElement('img');
       const reader = new FileReader();
       
       reader.onload = (e) => {
@@ -473,9 +473,16 @@ export default function TaskDetail() {
 
     setUploadingImage(slot);
     try {
-      // Add timestamp to image before uploading
-      const timestampedFile = await addTimestampToImage(file);
-      const result = await uploadImage(timestampedFile);
+      // Try to add timestamp to image, fall back to original if it fails
+      let fileToUpload = file;
+      try {
+        fileToUpload = await addTimestampToImage(file);
+      } catch (timestampError) {
+        console.warn('Could not add timestamp, uploading original:', timestampError);
+        // Continue with original file if timestamp fails
+      }
+      
+      const result = await uploadImage(fileToUpload);
       const setters = { 1: setImage1, 2: setImage2, 3: setImage3, 4: setImage4 };
       setters[slot](result.url);
       
@@ -484,6 +491,7 @@ export default function TaskDetail() {
         description: `Photo ${slot} attached successfully.`,
       });
     } catch (error) {
+      console.error('Upload error:', error);
       toast({
         title: "Upload Failed",
         description: "Failed to upload image. Please try again.",
