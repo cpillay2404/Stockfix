@@ -184,27 +184,29 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     // CC recipients - always included (but exclude any that are already primary recipients)
     const ccRecipients = alwaysNotify.filter(email => !recipients.includes(email));
     
-    // Client-specific CC recipients
-    const clientCcMap: Record<string, string> = {
-      'AQUELLE': 'cperumal@meridiangroup.co.za',
-      'ASPEN': 'snaidoo@meridiangroup.co.za',
-      'LINDT': 'snaidoo@meridiangroup.co.za',
-      'WILMAR': 'ldiale@meridiangroup.co.za',
-      'SODASTREAM': 'gswart@meridiangroup.co.za',
-      'ALPEN': 'gswart@meridiangroup.co.za',
-      'ANCHOR': 'gswart@meridiangroup.co.za',
-      'DURACELL': 'gswart@meridiangroup.co.za',
-      'SOUTHERN OIL': 'gswart@meridiangroup.co.za',
+    // Client-specific CC recipients (supports multiple emails per client)
+    const clientCcMap: Record<string, string[]> = {
+      'AQUELLE': ['cperumal@meridiangroup.co.za', 'SuzelleS@aquelle.co.za', 'EstelleP@aquelle.co.za'],
+      'ASPEN': ['snaidoo@meridiangroup.co.za'],
+      'LINDT': ['snaidoo@meridiangroup.co.za'],
+      'WILMAR': ['ldiale@meridiangroup.co.za'],
+      'SODASTREAM': ['gswart@meridiangroup.co.za'],
+      'ALPEN': ['gswart@meridiangroup.co.za'],
+      'ANCHOR': ['gswart@meridiangroup.co.za'],
+      'DURACELL': ['gswart@meridiangroup.co.za'],
+      'SOUTHERN OIL': ['gswart@meridiangroup.co.za'],
     };
     
     // Add client-specific CC if applicable
     if (task.client) {
       const clientUpper = task.client.toUpperCase();
-      for (const [clientName, email] of Object.entries(clientCcMap)) {
+      for (const [clientName, emails] of Object.entries(clientCcMap)) {
         if (clientUpper.includes(clientName)) {
-          if (!ccRecipients.includes(email)) {
-            ccRecipients.push(email);
-            console.log('[Email] Adding client-specific CC for', clientName, ':', email);
+          for (const email of emails) {
+            if (!ccRecipients.includes(email)) {
+              ccRecipients.push(email);
+              console.log('[Email] Adding client-specific CC for', clientName, ':', email);
+            }
           }
           break;
         }
