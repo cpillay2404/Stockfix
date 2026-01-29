@@ -190,7 +190,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'ASPEN': ['snaidoo@meridiangroup.co.za'],
       'LINDT': ['snaidoo@meridiangroup.co.za'],
       'WILMAR': ['ldiale@meridiangroup.co.za'],
-      'SODASTREAM': ['gswart@meridiangroup.co.za'],
+      'SODASTREAM': ['gswart@meridiangroup.co.za', 'nikhil.bassdev@pepsico.com', 'craig.naude@pepsico.com', 'christopher.makgatho@pepsico.com'],
       'ALPEN': ['gswart@meridiangroup.co.za'],
       'ANCHOR': ['gswart@meridiangroup.co.za'],
       'DURACELL': ['gswart@meridiangroup.co.za'],
