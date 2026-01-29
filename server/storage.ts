@@ -341,15 +341,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Get tasks within a date range based on weekEndingDate
-  async getTasksInDateRange(startDate: Date, endDate: Date): Promise<Task[]> {
+  async getTasksInDateRange(startDate: Date, endDate: Date, client?: string): Promise<Task[]> {
     const startStr = startDate.toISOString().split('T')[0];
     const endStr = endDate.toISOString().split('T')[0];
     
+    const conditions = [
+      gte(tasks.weekEndingDate, startStr),
+      lte(tasks.weekEndingDate, endStr)
+    ];
+    
+    if (client) {
+      conditions.push(eq(tasks.client, client));
+    }
+    
     return await db.select().from(tasks)
-      .where(and(
-        gte(tasks.weekEndingDate, startStr),
-        lte(tasks.weekEndingDate, endStr)
-      ))
+      .where(and(...conditions))
       .orderBy(desc(tasks.weekEndingDate));
   }
 

@@ -1938,6 +1938,21 @@ export async function registerRoutes(
     }
   });
 
+  // GET Clients list
+  app.get("/api/clients", async (req, res) => {
+    try {
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      const allTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+      });
+      const clients = [...new Set(allTasks.map(t => t.client).filter(Boolean))].sort() as string[];
+      res.json(clients);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+      res.status(500).json({ error: "Failed to fetch clients" });
+    }
+  });
+
   // GET Gamification Leaderboard (this week only) - with caching
   app.get("/api/gamification/leaderboard", async (req, res) => {
     try {
@@ -2046,6 +2061,7 @@ export async function registerRoutes(
   app.get("/api/admin/leaderboard", async (req, res) => {
     try {
       const period = req.query.period as string || 'week';
+      const clientFilter = req.query.client as string || '';
       
       // Get latest week ending date as reference point
       const latestWeek = await storage.getLatestWeekEndingDate();
@@ -2056,6 +2072,7 @@ export async function registerRoutes(
         // For "past week", just use the latest week's data (most recent import)
         allTasks = await storage.getTasksFiltered({
           weekEndingDate: latestWeek || undefined,
+          client: clientFilter || undefined,
         });
       } else {
         // For longer periods, calculate date range from latest week
@@ -2074,7 +2091,7 @@ export async function registerRoutes(
             break;
         }
         
-        allTasks = await storage.getTasksInDateRange(startDate, referenceDate);
+        allTasks = await storage.getTasksInDateRange(startDate, referenceDate, clientFilter || undefined);
       }
       
       const allStats = calculateRepGamificationStats(allTasks);

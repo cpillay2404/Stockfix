@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Users, MapPin, Trophy, Flame, Wrench, ClipboardList, Briefcase, Calendar } from "lucide-react";
+import { ArrowLeft, Users, MapPin, Trophy, Flame, Wrench, ClipboardList, Briefcase, Calendar, Building2 } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface RegionStats {
@@ -159,11 +159,25 @@ const periodOptions = [
 export default function AdminLeaderboard() {
   const [, navigate] = useLocation();
   const [period, setPeriod] = useState('week');
+  const [clientFilter, setClientFilter] = useState('');
+
+  // Fetch available clients for dropdown
+  const { data: clientsData } = useQuery<string[]>({
+    queryKey: ["clients"],
+    queryFn: async () => {
+      const res = await fetch("/api/clients");
+      if (!res.ok) throw new Error("Failed to fetch");
+      return res.json();
+    },
+    staleTime: 300000,
+  });
 
   const { data, isLoading, error } = useQuery<AdminLeaderboardData>({
-    queryKey: ["admin-leaderboard", period],
+    queryKey: ["admin-leaderboard", period, clientFilter],
     queryFn: async () => {
-      const res = await fetch(`/api/admin/leaderboard?period=${period}`);
+      const params = new URLSearchParams({ period });
+      if (clientFilter) params.append('client', clientFilter);
+      const res = await fetch(`/api/admin/leaderboard?${params}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -218,6 +232,33 @@ export default function AdminLeaderboard() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Building2 size={14} color="rgba(255,255,255,0.8)" />
+            <select 
+              value={clientFilter} 
+              onChange={(e) => setClientFilter(e.target.value)}
+              data-testid="client-selector"
+              style={{ 
+                backgroundColor: 'rgba(255,255,255,0.15)', 
+                color: 'white', 
+                border: '1px solid rgba(255,255,255,0.3)',
+                borderRadius: '6px',
+                padding: '4px 8px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                outline: 'none',
+                maxWidth: '140px',
+              }}
+            >
+              <option value="" style={{ color: '#003B71' }}>All Clients</option>
+              {(clientsData || []).map(client => (
+                <option key={client} value={client} style={{ color: '#003B71' }}>
+                  {client}
+                </option>
+              ))}
+            </select>
+          </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <Calendar size={14} color="rgba(255,255,255,0.8)" />
             <select 
