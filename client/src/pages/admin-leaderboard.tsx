@@ -388,35 +388,35 @@ export default function AdminLeaderboard() {
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Rep Badges</span>
               <span style={{ fontSize: '9px', color: '#6b7280', marginLeft: 'auto' }}>Based on completion rate</span>
             </div>
-            <div style={{ display: 'flex', gap: '12px', height: '85px' }}>
-              <div style={{ flex: 1, backgroundColor: '#FEF9C3', borderRadius: '8px', padding: '8px', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '16px' }}>🥇</span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#854D0E' }}>Gold ({goldReps.length})</span>
-                  <span style={{ fontSize: '8px', color: '#A16207' }}>100%+</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              <div style={{ backgroundColor: '#FEF9C3', borderRadius: '8px', padding: '10px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '20px' }}>🥇</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#854D0E' }}>Gold ({goldReps.length})</span>
+                  <span style={{ fontSize: '10px', color: '#A16207' }}>100%+</span>
                 </div>
-                <div style={{ fontSize: '9px', color: '#713F12', lineHeight: 1.3, maxHeight: '52px', overflow: 'hidden' }}>
-                  {goldReps.length > 0 ? goldReps.slice(0, 4).map(r => r.repName).join(', ') + (goldReps.length > 4 ? ` +${goldReps.length - 4} more` : '') : 'No reps yet'}
-                </div>
-              </div>
-              <div style={{ flex: 1, backgroundColor: '#F1F5F9', borderRadius: '8px', padding: '8px', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '16px' }}>🥈</span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#475569' }}>Silver ({silverReps.length})</span>
-                  <span style={{ fontSize: '8px', color: '#64748B' }}>90%+</span>
-                </div>
-                <div style={{ fontSize: '9px', color: '#334155', lineHeight: 1.3, maxHeight: '52px', overflow: 'hidden' }}>
-                  {silverReps.length > 0 ? silverReps.slice(0, 4).map(r => r.repName).join(', ') + (silverReps.length > 4 ? ` +${silverReps.length - 4} more` : '') : 'No reps yet'}
+                <div style={{ fontSize: '10px', color: '#713F12', lineHeight: 1.4 }}>
+                  {goldReps.length > 0 ? goldReps.slice(0, 6).map(r => r.repName).join(', ') + (goldReps.length > 6 ? ` +${goldReps.length - 6} more` : '') : 'No reps yet'}
                 </div>
               </div>
-              <div style={{ flex: 1, backgroundColor: '#FEF3C7', borderRadius: '8px', padding: '8px', overflow: 'hidden' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '16px' }}>🥉</span>
-                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#92400E' }}>Bronze ({bronzeReps.length})</span>
-                  <span style={{ fontSize: '8px', color: '#B45309' }}>80%+</span>
+              <div style={{ backgroundColor: '#F1F5F9', borderRadius: '8px', padding: '10px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '20px' }}>🥈</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#475569' }}>Silver ({silverReps.length})</span>
+                  <span style={{ fontSize: '10px', color: '#64748B' }}>90%+</span>
                 </div>
-                <div style={{ fontSize: '9px', color: '#78350F', lineHeight: 1.3, maxHeight: '52px', overflow: 'hidden' }}>
-                  {bronzeReps.length > 0 ? bronzeReps.slice(0, 4).map(r => r.repName).join(', ') + (bronzeReps.length > 4 ? ` +${bronzeReps.length - 4} more` : '') : 'No reps yet'}
+                <div style={{ fontSize: '10px', color: '#334155', lineHeight: 1.4 }}>
+                  {silverReps.length > 0 ? silverReps.slice(0, 6).map(r => r.repName).join(', ') + (silverReps.length > 6 ? ` +${silverReps.length - 6} more` : '') : 'No reps yet'}
+                </div>
+              </div>
+              <div style={{ backgroundColor: '#FEF3C7', borderRadius: '8px', padding: '10px', overflow: 'hidden' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '20px' }}>🥉</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#92400E' }}>Bronze ({bronzeReps.length})</span>
+                  <span style={{ fontSize: '10px', color: '#B45309' }}>80%+</span>
+                </div>
+                <div style={{ fontSize: '10px', color: '#78350F', lineHeight: 1.4 }}>
+                  {bronzeReps.length > 0 ? bronzeReps.slice(0, 6).map(r => r.repName).join(', ') + (bronzeReps.length > 6 ? ` +${bronzeReps.length - 6} more` : '') : 'No reps yet'}
                 </div>
               </div>
             </div>
