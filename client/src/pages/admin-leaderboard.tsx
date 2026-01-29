@@ -422,29 +422,29 @@ export default function AdminLeaderboard() {
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
               <Flame size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Top Streaks</span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '80px' }}>
-              {topStreaks.length > 0 ? (
-                <div style={{ display: 'flex', gap: '24px' }}>
-                  {topStreaks.map((s, i) => (
-                    <div key={i} style={{ textAlign: 'center', flex: 1 }}>
-                      <div style={{ fontSize: '24px' }}>🔥</div>
-                      <div style={{ fontSize: '14px', fontWeight: 700, color: '#F36C21' }}>{s.streak}d</div>
-                      <div style={{ fontSize: '9px', color: '#6b7280', lineHeight: 1.2 }}>{s.repName}</div>
+            {topStreaks.length > 0 ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {topStreaks.slice(0, 8).map((s, i) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <span style={{ fontSize: '16px' }}>🔥</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#003B71', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.repName}</div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div style={{ textAlign: 'center', color: '#9ca3af' }}>
-                  <div style={{ fontSize: '32px', marginBottom: '4px' }}>🔥</div>
-                  <div style={{ fontSize: '12px' }}>No active streaks</div>
-                </div>
-              )}
-            </div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#F36C21' }}>{s.streak}d</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ textAlign: 'center', color: '#9ca3af', padding: '20px 0' }}>
+                <div style={{ fontSize: '32px', marginBottom: '4px' }}>🔥</div>
+                <div style={{ fontSize: '12px' }}>No active streaks</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
