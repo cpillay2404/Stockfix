@@ -188,7 +188,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     const clientCcMap: Record<string, string[]> = {
       'AQUELLE': ['cperumal@meridiangroup.co.za', 'SuzelleS@aquelle.co.za', 'EstelleP@aquelle.co.za'],
       'ASPEN': ['snaidoo@meridiangroup.co.za', 'kpillay5@aspenpharma.com', 'gpilcher@aspenpharma.com', 'mhadebe2@aspenpharma.com'],
-      'LINDT': ['snaidoo@meridiangroup.co.za'],
+      'LINDT': ['snaidoo@meridiangroup.co.za', 'mhoosen@lindt.com'],
       'WILMAR': ['ldiale@meridiangroup.co.za'],
       'SODASTREAM': ['gswart@meridiangroup.co.za', 'nikhil.bassdev@pepsico.com', 'craig.naude@pepsico.com', 'christopher.makgatho@pepsico.com'],
       'ALPEN': ['gswart@meridiangroup.co.za'],
