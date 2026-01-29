@@ -205,7 +205,7 @@ export default function AdminLeaderboard() {
   const topRegions = regionLeaderboard.slice(0, 8);
   const topManagers = managerLeaderboard.slice(0, 8);
   const topReps = repLeaderboard.slice(0, 8);
-  const topClients = clientLeaderboard?.slice(0, 8) || [];
+  const topClients = clientLeaderboard || [];
   
   const mgrGold = managerLeaderboard.reduce((s, m) => s + m.goldBadges, 0);
   const mgrSilver = managerLeaderboard.reduce((s, m) => s + m.silverBadges, 0);
@@ -215,7 +215,7 @@ export default function AdminLeaderboard() {
   const silverReps = repLeaderboard.filter(r => r.badge.type === 'silver');
   const bronzeReps = repLeaderboard.filter(r => r.badge.type === 'bronze');
   
-  const topStreaks = repLeaderboard.filter(r => r.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 5);
+  const topStreaks = repLeaderboard.filter(r => r.streak > 0).sort((a, b) => b.streak - a.streak).slice(0, 10);
 
   return (
     <div style={{ height: '100vh', overflow: 'hidden', display: 'flex', flexDirection: 'column', backgroundColor: '#f0f2f5' }}>
