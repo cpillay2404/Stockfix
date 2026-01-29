@@ -213,6 +213,27 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       }
     }
     
+    // Region-specific CC recipients
+    const regionCcMap: Record<string, string[]> = {
+      'WESTERN CAPE': ['glwigington@meridiangroup.co.za'],
+    };
+    
+    // Add region-specific CC if applicable
+    if (task.region) {
+      const regionUpper = task.region.toUpperCase();
+      for (const [regionName, emails] of Object.entries(regionCcMap)) {
+        if (regionUpper.includes(regionName)) {
+          for (const email of emails) {
+            if (!ccRecipients.includes(email)) {
+              ccRecipients.push(email);
+              console.log('[Email] Adding region-specific CC for', regionName, ':', email);
+            }
+          }
+          break;
+        }
+      }
+    }
+    
     console.log('[Email] Sending to recipients:', recipients, 'CC:', ccRecipients);
     
     for (const recipientEmail of recipients) {
