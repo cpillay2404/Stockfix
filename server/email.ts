@@ -195,6 +195,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'ANCHOR': ['gswart@meridiangroup.co.za', 'ftmodeya@lallemand.com', 'ncoetzee@anchor.co.za'],
       'DURACELL': ['gswart@meridiangroup.co.za', 'eksteen.l@duracell.com', 'craig.t@duracell.com'],
       'SOUTHERN OIL': ['gswart@meridiangroup.co.za', 'jeandre@soill.co.za'],
+      'P&G': ['lukhna.k@pg.com'],
     };
     
     // Add client-specific CC if applicable
