@@ -2589,5 +2589,17 @@ export async function registerRoutes(
     }
   });
 
+  // Test endpoint to trigger executive weekly email manually
+  app.post("/api/admin/send-executive-email", async (req, res) => {
+    try {
+      const { sendExecutiveWeeklyEmail } = await import("./scheduled-emails");
+      await sendExecutiveWeeklyEmail();
+      res.json({ success: true, message: "Executive email sent successfully" });
+    } catch (error: any) {
+      console.error("Error sending executive email:", error);
+      res.status(500).json({ error: error.message || "Failed to send email" });
+    }
+  });
+
   return httpServer;
 }

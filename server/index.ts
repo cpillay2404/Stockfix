@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
+import { startWeeklyEmailScheduler } from "./scheduled-emails";
 
 const app = express();
 
@@ -105,6 +106,7 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      startWeeklyEmailScheduler();
     },
   );
 })();
