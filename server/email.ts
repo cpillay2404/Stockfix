@@ -193,7 +193,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'SODASTREAM': ['gswart@meridiangroup.co.za', 'nikhil.bassdev@pepsico.com', 'craig.naude@pepsico.com', 'christopher.makgatho@pepsico.com'],
       'ALPEN': ['gswart@meridiangroup.co.za'],
       'ANCHOR': ['gswart@meridiangroup.co.za', 'ftmodeya@lallemand.com', 'ncoetzee@anchor.co.za'],
-      'DURACELL': ['gswart@meridiangroup.co.za', 'eksteen.l@duracell.com', 'craig.t@duracell.com'],
+      'DURACELL': ['gswart@meridiangroup.co.za', 'craig.t@duracell.com'],
       'SOUTHERN OIL': ['gswart@meridiangroup.co.za', 'jeandre@soill.co.za'],
       'P&G': ['lukhna.k@pg.com'],
     };
