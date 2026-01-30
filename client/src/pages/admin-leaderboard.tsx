@@ -181,8 +181,8 @@ export default function AdminLeaderboard() {
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
-    staleTime: 60000,
-    refetchInterval: 60000, // Auto-refresh every 1 minute for office display
+    staleTime: 10000,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds for office display
   });
 
   if (isLoading) {
