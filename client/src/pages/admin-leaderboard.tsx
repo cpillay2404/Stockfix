@@ -72,19 +72,19 @@ function CircularProgress({ value, size = 60, strokeWidth = 5, color = "#F36C21"
 }
 
 function SmallCircle({ value, color = "#F36C21" }: { value: number; color?: string }) {
-  const size = 36;
+  const size = 40;
   const strokeWidth = 3;
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (value / 100) * circumference;
   
   return (
-    <div style={{ position: 'relative', width: size, height: size }}>
+    <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
       <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
         <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke="#e5e7eb" strokeWidth={strokeWidth} />
         <circle cx={size/2} cy={size/2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" />
       </svg>
-      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>
+      <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>
         {value}%
       </div>
     </div>
@@ -292,7 +292,7 @@ export default function AdminLeaderboard() {
       </div>
 
       <div style={{ flex: 1, padding: '12px', display: 'grid', gridTemplateRows: '1fr auto', gap: '12px', overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 1fr 1fr', gap: '12px', minHeight: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 200px) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0 }}>
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '12px', color: '#F36C21' }}>
               <Trophy size={14} />
@@ -350,7 +350,7 @@ export default function AdminLeaderboard() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr 1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 200px) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
               <ClipboardList size={14} />
