@@ -291,9 +291,9 @@ export default function AdminLeaderboard() {
         </div>
       </div>
 
-      <div style={{ flex: 1, padding: '12px', display: 'grid', gridTemplateRows: '1fr auto', gap: '12px', overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 200px) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0 }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <div style={{ flex: 1, padding: '12px', display: 'grid', gridTemplateRows: '1fr 1fr', gap: '12px', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 200px) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '12px', color: '#F36C21' }}>
               <Trophy size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Performance</span>
@@ -313,36 +313,36 @@ export default function AdminLeaderboard() {
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
               <MapPin size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Top Regions</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: 1 }}>
               {topRegions.map((r, idx) => (
                 <LeaderRow key={r.region} rank={idx + 1} name={r.region} subtitle={`${r.repCount} reps`} rate={r.priorityRate} />
               ))}
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
               <Users size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Top Managers</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: 1 }}>
               {topManagers.map((m, idx) => (
                 <LeaderRow key={m.manager} rank={idx + 1} name={m.manager} subtitle={m.region} rate={m.priorityRate} />
               ))}
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
               <Trophy size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Top Reps</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: 1 }}>
               {topReps.map((rep, idx) => (
                 <LeaderRow key={rep.repName} rank={idx + 1} name={rep.repName} subtitle={rep.lineManager} rate={rep.priorityCompletionRate} />
               ))}
@@ -350,8 +350,8 @@ export default function AdminLeaderboard() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 200px) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 200px) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
               <ClipboardList size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Stats</span>
@@ -364,12 +364,12 @@ export default function AdminLeaderboard() {
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
               <Briefcase size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Client Capture %</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', overflow: 'auto', flex: 1 }}>
               {topClients.map((c) => (
                 <div key={c.client} style={{ display: 'flex', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #f3f4f6', gap: '8px' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -382,13 +382,13 @@ export default function AdminLeaderboard() {
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
               <Trophy size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Rep Badges</span>
               <span style={{ fontSize: '9px', color: '#6b7280', marginLeft: 'auto' }}>Based on completion rate</span>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', overflow: 'auto', flex: 1 }}>
               <div style={{ backgroundColor: '#FEF9C3', borderRadius: '8px', padding: '10px', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                   <span style={{ fontSize: '20px' }}>🥇</span>
@@ -422,13 +422,13 @@ export default function AdminLeaderboard() {
             </div>
           </div>
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
               <Flame size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Top Streaks</span>
             </div>
             {topStreaks.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'auto', flex: 1 }}>
                 {topStreaks.slice(0, 8).map((s, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 0', borderBottom: '1px solid #f3f4f6' }}>
                     <span style={{ fontSize: '16px' }}>🔥</span>
