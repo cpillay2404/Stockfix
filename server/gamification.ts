@@ -66,6 +66,14 @@ export function calculateStreak(tasks: Task[], repName: string): number {
     .map(t => {
       const dateStr = t.captureDate;
       if (!dateStr) return null;
+      
+      // Try ISO format first (2026-02-03T08:27:41.750Z)
+      if (dateStr.includes('T') || dateStr.match(/^\d{4}-\d{2}-\d{2}/)) {
+        const d = new Date(dateStr);
+        if (!isNaN(d.getTime())) return d;
+      }
+      
+      // Fallback to DD/MM/YYYY or DD-MM-YYYY format
       const parts = dateStr.split(/[\/\-]/);
       if (parts.length >= 3) {
         const year = parts[2]?.length === 4 ? parseInt(parts[2]) : 2000 + parseInt(parts[2] || '0');
