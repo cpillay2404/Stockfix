@@ -11,6 +11,8 @@ import fs from "fs";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendTaskCompletedEmail } from "./email";
 import { calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
+import { db } from "./db";
+import { sql } from "drizzle-orm";
 
 // Async import job tracking
 interface ImportJob {
