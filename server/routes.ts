@@ -2601,5 +2601,22 @@ export async function registerRoutes(
     }
   });
 
+  // Admin endpoint to update line manager names
+  app.post("/api/admin/update-line-manager", async (req, res) => {
+    try {
+      const { oldName, newName } = req.body;
+      if (!oldName || !newName) {
+        return res.status(400).json({ error: "oldName and newName are required" });
+      }
+      const result = await db.execute(
+        sql`UPDATE tasks SET line_manager = ${newName} WHERE line_manager = ${oldName}`
+      );
+      res.json({ success: true, message: `Updated line manager from "${oldName}" to "${newName}"`, rowsAffected: result.rowCount });
+    } catch (error: any) {
+      console.error("Error updating line manager:", error);
+      res.status(500).json({ error: error.message || "Failed to update" });
+    }
+  });
+
   return httpServer;
 }
