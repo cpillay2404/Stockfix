@@ -25,26 +25,7 @@ export default function ExitVisit() {
   const clientFilter = isClientMode && contextClient ? contextClient : (urlParams.get('client') || '');
   const articleFilter = urlParams.get('article') || '';
 
-  const [visitStartTime] = useState(() => {
-    const stored = sessionStorage.getItem('visitStartTime');
-    return stored ? new Date(stored) : new Date();
-  });
-
-  const [timeSpent, setTimeSpent] = useState('0 minutes');
   const [isSyncing, setIsSyncing] = useState(false);
-
-  useEffect(() => {
-    const now = new Date();
-    const diffMs = now.getTime() - visitStartTime.getTime();
-    const diffMins = Math.round(diffMs / 60000);
-    if (diffMins < 60) {
-      setTimeSpent(`${diffMins} minutes`);
-    } else {
-      const hours = Math.floor(diffMins / 60);
-      const mins = diffMins % 60;
-      setTimeSpent(`${hours}h ${mins}m`);
-    }
-  }, [visitStartTime]);
 
   const { data: pendingData } = useQuery({
     queryKey: ["exit-pending", repFilter, storeFilter, clientFilter, articleFilter],
@@ -68,6 +49,71 @@ export default function ExitVisit() {
 
   const completedTasks: Task[] = completedData?.tasks || [];
   const pendingTasks: Task[] = pendingData?.tasks || [];
+
+  // Calculate time spent based on task completion timestamps (more reliable than sessionStorage)
+  const timeSpent = useMemo(() => {
+    if (completedTasks.length === 0) {
+      // Fallback to sessionStorage if no completed tasks
+      const stored = sessionStorage.getItem('visitStartTime');
+      if (stored) {
+        const startTime = new Date(stored);
+        const now = new Date();
+        const diffMs = now.getTime() - startTime.getTime();
+        const diffMins = Math.round(diffMs / 60000);
+        if (diffMins < 60) {
+          return `${diffMins} minutes`;
+        } else {
+          const hours = Math.floor(diffMins / 60);
+          const mins = diffMins % 60;
+          return `${hours}h ${mins}m`;
+        }
+      }
+      return '0 minutes';
+    }
+
+    // Get capture dates from completed tasks
+    const captureDates: Date[] = [];
+    for (const task of completedTasks) {
+      if (task.captureDate) {
+        const date = new Date(task.captureDate);
+        if (!isNaN(date.getTime())) {
+          captureDates.push(date);
+        }
+      }
+    }
+
+    if (captureDates.length === 0) {
+      return '0 minutes';
+    }
+
+    // Find earliest and latest capture times
+    const earliest = new Date(Math.min(...captureDates.map(d => d.getTime())));
+    const latest = new Date(Math.max(...captureDates.map(d => d.getTime())));
+    
+    // Use sessionStorage start time if earlier than first capture
+    const storedStart = sessionStorage.getItem('visitStartTime');
+    let startTime = earliest;
+    if (storedStart) {
+      const sessionStart = new Date(storedStart);
+      if (!isNaN(sessionStart.getTime()) && sessionStart < earliest) {
+        startTime = sessionStart;
+      }
+    }
+
+    // Calculate time from start to latest capture (or now if still working)
+    const now = new Date();
+    const endTime = latest;
+    const diffMs = endTime.getTime() - startTime.getTime();
+    const diffMins = Math.max(1, Math.round(diffMs / 60000)); // At least 1 minute if tasks completed
+
+    if (diffMins < 60) {
+      return `${diffMins} minutes`;
+    } else {
+      const hours = Math.floor(diffMins / 60);
+      const mins = diffMins % 60;
+      return `${hours}h ${mins}m`;
+    }
+  }, [completedTasks]);
 
   const photosCount = useMemo(() => {
     let count = 0;
