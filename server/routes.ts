@@ -546,6 +546,13 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Store is required" });
       }
       
+      // Check cache first
+      const cacheKey = `store_overview_${store}_${rep || 'all'}_${client || 'all'}_${article || 'all'}`;
+      const cached = dashboardStatsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+        return res.json(cached.data);
+      }
+      
       // Get latest week ending date for THIS SPECIFIC STORE (not global)
       const latestWeekEnding = await storage.getLatestWeekEndingDateForStore(store, rep || undefined);
       
@@ -626,7 +633,7 @@ export async function registerRoutes(
       const clients = [...new Set(scopedTasks.map(t => t.client).filter(Boolean))].sort();
       const articles = [...new Set(scopedTasks.map(t => t.articleDescription).filter(Boolean))].sort();
       
-      res.json({
+      const response = {
         storeName: store,
         region: latestWeekTasks[0]?.region || '',
         repName: rep,
@@ -638,7 +645,12 @@ export async function registerRoutes(
           wfc: wfcData,
         },
         filters: { clients, articles },
-      });
+      };
+      
+      // Cache the response
+      dashboardStatsCache.set(cacheKey, { data: response, timestamp: Date.now(), key: cacheKey });
+      
+      res.json(response);
     } catch (error) {
       console.error("Error fetching store overview:", error);
       res.status(500).json({ error: "Failed to fetch store overview" });
@@ -854,6 +866,13 @@ export async function registerRoutes(
       const client = req.query.client as string | undefined;
       const article = req.query.article as string | undefined;
       
+      // Check cache first
+      const cacheKey = `tasks_summary_${rep || 'all'}_${store || 'all'}_${client || 'all'}_${article || 'all'}`;
+      const cached = dashboardStatsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+        return res.json(cached.data);
+      }
+      
       // Use store-specific latest week to avoid week mismatch issues
       const latestWeekEnding = store 
         ? await storage.getLatestWeekEndingDateForStore(store, rep)
@@ -893,7 +912,7 @@ export async function registerRoutes(
       // Get unique articles for filter dropdown
       const articles = [...new Set(scopedTasks.map(t => t.articleDescription).filter(Boolean))].sort();
       
-      res.json({
+      const response = {
         latestWeekEnding,
         totalTasks: scopedTasks.length,
         pendingCount,
@@ -902,7 +921,12 @@ export async function registerRoutes(
         pendingActionCounts,
         completedActionCounts,
         articles,
-      });
+      };
+      
+      // Cache the response
+      dashboardStatsCache.set(cacheKey, { data: response, timestamp: Date.now(), key: cacheKey });
+      
+      res.json(response);
     } catch (error) {
       console.error("Error fetching task summary:", error);
       res.status(500).json({ error: "Failed to fetch task summary" });
