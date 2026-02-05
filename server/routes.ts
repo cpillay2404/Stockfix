@@ -2575,7 +2575,7 @@ export async function registerRoutes(
   });
 
   // Admin endpoint to delete tasks by client and week
-  app.delete("/api/admin/tasks", async (req, res) => {
+  app.post("/api/admin/delete-tasks", async (req, res) => {
     try {
       const client = req.query.client as string;
       const weekEndingDate = req.query.weekEndingDate as string;
