@@ -2624,5 +2624,18 @@ export async function registerRoutes(
     }
   });
 
+  // Admin endpoint to clean up tasks with invalid dates
+  app.post("/api/admin/cleanup-bad-dates", async (req, res) => {
+    try {
+      const result = await db.execute(
+        sql`DELETE FROM tasks WHERE week_ending_date < '2020-01-01' OR week_ending_date > '2030-01-01'`
+      );
+      res.json({ success: true, message: `Deleted ${result.rowCount} tasks with invalid dates` });
+    } catch (error: any) {
+      console.error("Error cleaning up bad dates:", error);
+      res.status(500).json({ error: error.message || "Failed to cleanup" });
+    }
+  });
+
   return httpServer;
 }
