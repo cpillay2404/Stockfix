@@ -12,7 +12,8 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { sendTaskCompletedEmail } from "./email";
 import { calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
-import { sql } from "drizzle-orm";
+import { sql, eq, and } from "drizzle-orm";
+import { tasks } from "@shared/schema";
 
 // Async import job tracking
 interface ImportJob {
@@ -2570,6 +2571,30 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error clearing cache:", error);
       res.status(500).json({ error: error.message || "Failed to clear cache" });
+    }
+  });
+
+  // Admin endpoint to delete tasks by client and week
+  app.delete("/api/admin/tasks", async (req, res) => {
+    try {
+      const client = req.query.client as string;
+      const weekEndingDate = req.query.weekEndingDate as string;
+      
+      if (!client || !weekEndingDate) {
+        return res.status(400).json({ error: "client and weekEndingDate are required" });
+      }
+      
+      const result = await db.delete(tasks)
+        .where(and(
+          eq(tasks.client, client),
+          eq(tasks.weekEndingDate, weekEndingDate)
+        ));
+      
+      clearAllCaches();
+      res.json({ success: true, message: `Deleted tasks for ${client} week ${weekEndingDate}` });
+    } catch (error: any) {
+      console.error("Error deleting tasks:", error);
+      res.status(500).json({ error: error.message || "Failed to delete tasks" });
     }
   });
 
