@@ -11,7 +11,7 @@ import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
 
 // MAINTENANCE BANNER - Set to true to show, false to hide
 const SHOW_MAINTENANCE_BANNER = true;
-const MAINTENANCE_MESSAGE = "New weekly data is being loaded. Tasks will update shortly.";
+const MAINTENANCE_MESSAGE = "Data loading in progress - please wait for tasks to update.";
 
 interface SearchableSelectProps {
   value: string;
