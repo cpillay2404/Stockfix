@@ -834,8 +834,10 @@ export async function registerRoutes(
       const client = req.query.client as string | undefined;
       const article = req.query.article as string | undefined;
       
-      // Use SQL-level filtering for performance
-      const latestWeekEnding = await storage.getLatestWeekEndingDate();
+      // Use store-specific latest week to avoid week mismatch issues
+      const latestWeekEnding = store 
+        ? await storage.getLatestWeekEndingDateForStore(store, rep)
+        : await storage.getLatestWeekEndingDate();
       
       let scopedTasks = await storage.getTasksFiltered({
         weekEndingDate: latestWeekEnding || undefined,
