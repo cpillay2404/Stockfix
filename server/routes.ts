@@ -1899,8 +1899,8 @@ export async function registerRoutes(
         allStats = cachedData.stats;
         latestWeek = cachedData.weekEndingDate;
       } else {
-        // Use SQL-level filtering for performance
-        latestWeek = await storage.getLatestWeekEndingDate();
+        // Use the week with the most client data (not just the absolute latest)
+        latestWeek = await storage.getMostPopulatedWeekEndingDate();
         const filteredTasks = await storage.getTasksFiltered({
           weekEndingDate: latestWeek || undefined,
           lineManager: manager || undefined,
