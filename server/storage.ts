@@ -41,6 +41,7 @@ export interface IStorage {
   deleteTask(id: number): Promise<boolean>;
   deleteAllTasks(): Promise<void>;
   getLatestWeekEndingDate(): Promise<string | null>;
+  getLatestWeekEndingDateForStore(store: string, repName?: string): Promise<string | null>;
   bulkCreateTasks(tasks: InsertTask[]): Promise<Task[]>;
   bulkCreateTasksIgnoreDuplicates(tasks: InsertTask[]): Promise<Task[]>;
   getRepStatsAggregated(weekEndingDate?: string, manager?: string): Promise<{
@@ -212,6 +213,18 @@ export class DatabaseStorage implements IStorage {
     const [result] = await db
       .select({ maxDate: sql<string>`MAX(${tasks.weekEndingDate})` })
       .from(tasks);
+    return result?.maxDate || null;
+  }
+
+  async getLatestWeekEndingDateForStore(store: string, repName?: string): Promise<string | null> {
+    const conditions = [eq(tasks.storeName, store)];
+    if (repName) {
+      conditions.push(eq(tasks.repName, repName));
+    }
+    const [result] = await db
+      .select({ maxDate: sql<string>`MAX(${tasks.weekEndingDate})` })
+      .from(tasks)
+      .where(and(...conditions));
     return result?.maxDate || null;
   }
 

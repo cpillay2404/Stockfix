@@ -525,8 +525,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Store is required" });
       }
       
-      // Get latest week ending date first for efficiency
-      const latestWeekEnding = await storage.getLatestWeekEndingDate();
+      // Get latest week ending date for THIS SPECIFIC STORE (not global)
+      const latestWeekEnding = await storage.getLatestWeekEndingDateForStore(store, rep || undefined);
       
       // Use SQL-level filtering for performance - filter by latest week
       let scopedTasks = await storage.getTasksFiltered({
