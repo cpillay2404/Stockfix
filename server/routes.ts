@@ -1054,13 +1054,17 @@ export async function registerRoutes(
         'reasonCode', 'actionTakenComment', 'feedback', 'captureDate', 'image1', 'image2', 'image3', 'image4'
       ];
       
-      // Helper to escape CSV values
-      const escapeCSV = (val: string | null | undefined): string => {
-        const str = val || '';
-        if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-          return `"${str.replace(/"/g, '""')}"`;
+      // Helper to escape CSV values - handle all special characters
+      const escapeCSV = (val: string | number | null | undefined): string => {
+        if (val === null || val === undefined) return '';
+        const str = String(val);
+        // Remove or replace line breaks and carriage returns
+        const cleanStr = str.replace(/[\r\n]+/g, ' ').trim();
+        // Always quote if contains comma, quote, or any whitespace issues
+        if (cleanStr.includes(',') || cleanStr.includes('"') || cleanStr.includes('\t')) {
+          return `"${cleanStr.replace(/"/g, '""')}"`;
         }
-        return str;
+        return cleanStr;
       };
       
       // Set headers for streaming CSV download
