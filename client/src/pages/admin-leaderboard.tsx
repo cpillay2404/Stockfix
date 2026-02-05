@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Users, MapPin, Trophy, Flame, Wrench, ClipboardList, Briefcase, Calendar, Building2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, Users, MapPin, Trophy, Flame, Wrench, ClipboardList, Briefcase, Calendar, Building2, RefreshCw } from "lucide-react";
 import { useLocation } from "wouter";
 
 interface RegionStats {
@@ -160,6 +160,19 @@ export default function AdminLeaderboard() {
   const [, navigate] = useLocation();
   const [period, setPeriod] = useState('week');
   const [clientFilter, setClientFilter] = useState('');
+  const [clearing, setClearing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleClearCache = async () => {
+    setClearing(true);
+    try {
+      await fetch('/api/admin/clear-cache', { method: 'POST' });
+      queryClient.invalidateQueries();
+    } catch (e) {
+      console.error('Failed to clear cache', e);
+    }
+    setClearing(false);
+  };
 
   // Fetch available clients for dropdown
   const { data: clientsData } = useQuery<string[]>({
@@ -288,6 +301,28 @@ export default function AdminLeaderboard() {
             <div style={{ width: '6px', height: '6px', backgroundColor: 'white', borderRadius: '50%', animation: 'pulse 1.5s infinite' }} />
             <span style={{ color: 'white', fontSize: '11px', fontWeight: 600 }}>LIVE</span>
           </div>
+          <button 
+            onClick={handleClearCache}
+            disabled={clearing}
+            data-testid="clear-cache-button"
+            style={{ 
+              backgroundColor: 'rgba(255,255,255,0.15)', 
+              color: 'white', 
+              border: '1px solid rgba(255,255,255,0.3)',
+              borderRadius: '6px',
+              padding: '4px 10px',
+              fontSize: '11px',
+              fontWeight: 500,
+              cursor: clearing ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px',
+              opacity: clearing ? 0.7 : 1,
+            }}
+          >
+            <RefreshCw size={12} style={{ animation: clearing ? 'spin 1s linear infinite' : 'none' }} />
+            {clearing ? 'Refreshing...' : 'Refresh Data'}
+          </button>
         </div>
       </div>
 
