@@ -2190,6 +2190,43 @@ export async function registerRoutes(
     }
   });
 
+  // GET Admin diagnostic - check task distribution by week/client
+  app.get("/api/admin/task-distribution", async (req, res) => {
+    try {
+      const client = req.query.client as string || '';
+      
+      // Get task count by week for specified client (or all clients)
+      let query;
+      if (client) {
+        query = sql`
+          SELECT week_ending_date, client, COUNT(*) as task_count
+          FROM tasks
+          WHERE client = ${client}
+          GROUP BY week_ending_date, client
+          ORDER BY week_ending_date DESC
+        `;
+      } else {
+        query = sql`
+          SELECT week_ending_date, client, COUNT(*) as task_count
+          FROM tasks
+          GROUP BY week_ending_date, client
+          ORDER BY week_ending_date DESC, task_count DESC
+        `;
+      }
+      
+      const result = await db.execute(query);
+      const mostPopulatedWeek = await storage.getMostPopulatedWeekEndingDate();
+      
+      res.json({
+        mostPopulatedWeek,
+        distribution: result.rows
+      });
+    } catch (error) {
+      console.error("Error fetching task distribution:", error);
+      res.status(500).json({ error: "Failed to fetch task distribution" });
+    }
+  });
+
   // GET Manager Task Progress - shows team-wide progress across all reps (this week only)
   app.get("/api/task-progress/manager", async (req, res) => {
     try {
