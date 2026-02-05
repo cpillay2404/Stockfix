@@ -1886,12 +1886,8 @@ export async function registerRoutes(
   // GET Clients list
   app.get("/api/clients", async (req, res) => {
     try {
-      const latestWeek = await storage.getLatestWeekEndingDate();
-      const allTasks = await storage.getTasksFiltered({
-        weekEndingDate: latestWeek || undefined,
-      });
-      const clients = [...new Set(allTasks.map(t => t.client).filter(Boolean))].sort() as string[];
-      res.json(clients);
+      const filters = await storage.getDistinctFilters();
+      res.json(filters.clients);
     } catch (error) {
       console.error("Error fetching clients:", error);
       res.status(500).json({ error: "Failed to fetch clients" });
