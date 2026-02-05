@@ -6,12 +6,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
 import { Check, ChevronDown, Wrench, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import meridianGroupLogo from "@/assets/meridian-group-logo.png";
+import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
 
 // MAINTENANCE BANNER - Set to true to show, false to hide
 const SHOW_MAINTENANCE_BANNER = true;
 const MAINTENANCE_MESSAGE = "New weekly data is being loaded. Tasks will update shortly.";
-import meridianGroupLogo from "@/assets/meridian-group-logo.png";
-import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
 
 interface SearchableSelectProps {
   value: string;
