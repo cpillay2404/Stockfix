@@ -1902,8 +1902,8 @@ export async function registerRoutes(
         allStats = cachedData.stats;
         latestWeek = cachedData.weekEndingDate;
       } else {
-        // Use the week with the most client data (not just the absolute latest)
-        latestWeek = await storage.getMostPopulatedWeekEndingDate();
+        // Use the absolute latest week - this is what reps are working on
+        latestWeek = await storage.getLatestWeekEndingDate();
         const filteredTasks = await storage.getTasksFiltered({
           weekEndingDate: latestWeek || undefined,
           lineManager: manager || undefined,
@@ -1996,9 +1996,8 @@ export async function registerRoutes(
       const period = req.query.period as string || 'week';
       const clientFilter = req.query.client as string || '';
       
-      // Get latest week ending date that has the most clients (not just the absolute latest)
-      // This prevents showing only one client when a partial import happened
-      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
+      // Get the absolute latest week ending date - this is what reps are working on
+      const latestWeek = await storage.getLatestWeekEndingDate();
       
       console.log(`[Admin Leaderboard] period=${period}, latestWeek=${latestWeek}, clientFilter=${clientFilter}`);
       
