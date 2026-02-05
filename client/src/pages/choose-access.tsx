@@ -1,9 +1,12 @@
 import { useLocation } from "wouter";
 import { useEffect } from "react";
-import { User, Building2, Wrench, Users } from "lucide-react";
+import { User, Building2, Wrench, Users, AlertTriangle } from "lucide-react";
 import { useAccess } from "@/context/AccessContext";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
+
+// MAINTENANCE BANNER - Set to false to hide
+const SHOW_MAINTENANCE_BANNER = true;
 
 export default function ChooseAccess() {
   const [, setLocation] = useLocation();
@@ -43,7 +46,28 @@ export default function ChooseAccess() {
       className="h-screen flex flex-col items-center overflow-hidden"
       style={{ background: 'linear-gradient(180deg, #003B71 0%, #002F5A 100%)' }}
     >
-      <div style={{ paddingTop: '32px', paddingBottom: '20px' }}>
+      {/* Maintenance Banner */}
+      {SHOW_MAINTENANCE_BANNER && (
+        <div 
+          style={{
+            width: '100%',
+            backgroundColor: '#F97316',
+            padding: '12px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+          }}
+          data-testid="banner-maintenance"
+        >
+          <AlertTriangle style={{ width: '20px', height: '20px', color: '#FFFFFF', flexShrink: 0 }} />
+          <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF', textAlign: 'center' }}>
+            Under maintenance - new tasks loading. Please be patient.
+          </span>
+        </div>
+      )}
+
+      <div style={{ paddingTop: SHOW_MAINTENANCE_BANNER ? '16px' : '32px', paddingBottom: '20px' }}>
         <img 
           src={meridianGroupLogo} 
           alt="Meridian Group" 

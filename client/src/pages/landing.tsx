@@ -9,9 +9,9 @@ import { cn } from "@/lib/utils";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
 
-// MAINTENANCE BANNER - Set to true to show, false to hide
+// MAINTENANCE BANNER - Set to false to hide the banner
 const SHOW_MAINTENANCE_BANNER = true;
-const MAINTENANCE_MESSAGE = "Data loading in progress - please wait for tasks to update.";
+const MAINTENANCE_MESSAGE = "Under maintenance - new tasks loading. Please be patient.";
 
 interface SearchableSelectProps {
   value: string;
@@ -154,26 +154,24 @@ export default function Landing() {
       className="h-screen flex flex-col items-center overflow-hidden"
       style={{ background: 'linear-gradient(180deg, #003B71 0%, #002F5A 100%)' }}
     >
-      {/* Maintenance Banner */}
-      {SHOW_MAINTENANCE_BANNER && (
-        <div 
-          style={{
-            width: '100%',
-            backgroundColor: '#F97316',
-            padding: '10px 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-          }}
-          data-testid="banner-maintenance"
-        >
-          <AlertTriangle style={{ width: '18px', height: '18px', color: '#FFFFFF', flexShrink: 0 }} />
-          <span style={{ fontSize: '13px', fontWeight: 500, color: '#FFFFFF', textAlign: 'center' }}>
-            {MAINTENANCE_MESSAGE}
-          </span>
-        </div>
-      )}
+      {/* Maintenance Banner - Always visible when enabled */}
+      <div 
+        style={{
+          width: '100%',
+          backgroundColor: '#F97316',
+          padding: '12px 16px',
+          display: SHOW_MAINTENANCE_BANNER ? 'flex' : 'none',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: '8px',
+        }}
+        data-testid="banner-maintenance"
+      >
+        <AlertTriangle style={{ width: '20px', height: '20px', color: '#FFFFFF', flexShrink: 0 }} />
+        <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF', textAlign: 'center' }}>
+          Under maintenance - new tasks loading. Please be patient.
+        </span>
+      </div>
 
       {/* Top Header: Meridian Logo */}
       <div style={{ paddingTop: SHOW_MAINTENANCE_BANNER ? '16px' : '32px', paddingBottom: '20px' }}>
