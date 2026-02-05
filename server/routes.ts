@@ -71,11 +71,23 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
       return '';
     };
 
-    const parseToISODate = (dateStr: string): string => {
-      if (!dateStr) return new Date().toISOString().split('T')[0];
+    const parseToISODate = (dateVal: any): string => {
+      if (!dateVal) return new Date().toISOString().split('T')[0];
       try {
-        const parsed = new Date(dateStr);
-        if (!isNaN(parsed.getTime())) {
+        // Handle Excel serial numbers (numbers like 46057)
+        if (typeof dateVal === 'number' || !isNaN(Number(dateVal))) {
+          const num = Number(dateVal);
+          // Excel serial numbers are typically between 1 and 100000
+          if (num > 1 && num < 100000) {
+            // Excel date: days since Dec 30, 1899
+            const excelEpoch = new Date(1899, 11, 30);
+            const resultDate = new Date(excelEpoch.getTime() + num * 24 * 60 * 60 * 1000);
+            return resultDate.toISOString().split('T')[0];
+          }
+        }
+        // Try parsing as date string
+        const parsed = new Date(String(dateVal));
+        if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000 && parsed.getFullYear() < 2100) {
           return parsed.toISOString().split('T')[0];
         }
       } catch (e) {}
@@ -1625,12 +1637,23 @@ export async function registerRoutes(
       };
 
       // Helper to parse date string to ISO format (YYYY-MM-DD)
-      const parseToISODate = (dateStr: string): string => {
-        if (!dateStr) return new Date().toISOString().split('T')[0];
+      const parseToISODate = (dateVal: any): string => {
+        if (!dateVal) return new Date().toISOString().split('T')[0];
         try {
-          // Try parsing various formats
-          const parsed = new Date(dateStr);
-          if (!isNaN(parsed.getTime())) {
+          // Handle Excel serial numbers (numbers like 46057)
+          if (typeof dateVal === 'number' || !isNaN(Number(dateVal))) {
+            const num = Number(dateVal);
+            // Excel serial numbers are typically between 1 and 100000
+            if (num > 1 && num < 100000) {
+              // Excel date: days since Dec 30, 1899
+              const excelEpoch = new Date(1899, 11, 30);
+              const resultDate = new Date(excelEpoch.getTime() + num * 24 * 60 * 60 * 1000);
+              return resultDate.toISOString().split('T')[0];
+            }
+          }
+          // Try parsing as date string
+          const parsed = new Date(String(dateVal));
+          if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000 && parsed.getFullYear() < 2100) {
             return parsed.toISOString().split('T')[0];
           }
         } catch (e) {}
