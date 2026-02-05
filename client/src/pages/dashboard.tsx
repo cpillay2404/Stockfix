@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo, memo } from "react";
 import { Link, useSearch, useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { fetchTasks } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, LogOut, User, MapPin, ChevronDown } from "lucide-react";
+import { Search, ArrowLeft, LogOut, User, MapPin, ChevronDown, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@shared/schema";
 import BottomNav from "@/components/BottomNav";
@@ -155,6 +155,19 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<"pending" | "completed">("pending");
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetch('/api/admin/clear-cache', { method: 'POST' });
+      queryClient.invalidateQueries();
+    } catch (e) {
+      console.error('Failed to refresh', e);
+    }
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(search), 300);
@@ -350,24 +363,43 @@ export default function Dashboard() {
             Tasks
           </h1>
           
-          <button
-            onClick={handleExitVisit}
-            data-testid="button-exit-visit"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px',
-              color: 'rgba(255,255,255,0.85)',
-              fontSize: '14px',
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 0,
-            }}
-          >
-            <LogOut style={{ width: '16px', height: '16px' }} />
-            <span>Close & Sync</span>
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              data-testid="button-refresh"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                color: 'rgba(255,255,255,0.85)',
+                background: 'none',
+                border: 'none',
+                cursor: refreshing ? 'wait' : 'pointer',
+                padding: '4px',
+                opacity: refreshing ? 0.6 : 1,
+              }}
+            >
+              <RefreshCw style={{ width: '16px', height: '16px', animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+            </button>
+            <button
+              onClick={handleExitVisit}
+              data-testid="button-exit-visit"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                color: 'rgba(255,255,255,0.85)',
+                fontSize: '14px',
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                padding: 0,
+              }}
+            >
+              <LogOut style={{ width: '16px', height: '16px' }} />
+              <span>Close & Sync</span>
+            </button>
+          </div>
         </div>
 
         {/* Rep and Store Context Row - Centered */}

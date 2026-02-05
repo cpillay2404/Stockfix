@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, TrendingUp, CheckCircle, AlertCircle, AlertTriangle, Users, Store, Trophy } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, TrendingUp, CheckCircle, AlertCircle, AlertTriangle, Users, Store, Trophy, RefreshCw } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import BottomNav from "@/components/BottomNav";
 import Leaderboard from "@/components/Leaderboard";
@@ -180,6 +180,19 @@ export default function ManagerProgress() {
   const [, setLocation] = useLocation();
   const [selectedRegion, setSelectedRegion] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetch('/api/admin/clear-cache', { method: 'POST' });
+      queryClient.invalidateQueries();
+    } catch (e) {
+      console.error('Failed to refresh', e);
+    }
+    setRefreshing(false);
+  };
 
   // Get manager from URL query params
   const urlParams = new URLSearchParams(window.location.search);
@@ -257,6 +270,24 @@ export default function ManagerProgress() {
               Manager Overview
             </p>
           </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            data-testid="button-refresh"
+            style={{
+              background: 'rgba(255,255,255,0.2)',
+              border: 'none',
+              borderRadius: '8px',
+              padding: '8px',
+              cursor: refreshing ? 'wait' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: refreshing ? 0.6 : 1,
+            }}
+          >
+            <RefreshCw style={{ width: '18px', height: '18px', color: '#FFFFFF', animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+          </button>
         </div>
 
         {selectedManager && (

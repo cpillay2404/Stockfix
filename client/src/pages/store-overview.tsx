@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { useLocation, useSearch } from "wouter";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin, AlertTriangle, ChevronRight, TrendingUp } from "lucide-react";
+import { Check, ChevronDown, ArrowLeft, LogOut, User, MapPin, AlertTriangle, ChevronRight, TrendingUp, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
 import BottomNav from "@/components/BottomNav";
@@ -273,6 +273,19 @@ export default function StoreOverview() {
   const [selectedClient, setSelectedClient] = useState(initialClient);
   const [selectedArticle, setSelectedArticle] = useState(initialArticle);
   const [showAttentionModal, setShowAttentionModal] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const queryClient = useQueryClient();
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetch('/api/admin/clear-cache', { method: 'POST' });
+      queryClient.invalidateQueries();
+    } catch (e) {
+      console.error('Failed to refresh', e);
+    }
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     if (!sessionStorage.getItem('visitStartTime')) {
@@ -424,7 +437,23 @@ export default function StoreOverview() {
             Store Overview
           </h1>
           
-          <div style={{ width: '70px' }} />
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            data-testid="button-refresh"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              color: 'rgba(255,255,255,0.85)',
+              background: 'none',
+              border: 'none',
+              cursor: refreshing ? 'wait' : 'pointer',
+              padding: '4px',
+              opacity: refreshing ? 0.6 : 1,
+            }}
+          >
+            <RefreshCw style={{ width: '18px', height: '18px', animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+          </button>
         </div>
 
         {/* Context Row - Rep and Store */}
