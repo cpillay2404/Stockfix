@@ -2255,6 +2255,15 @@ export async function registerRoutes(
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
 
+      // Check cache first (only if no date filters)
+      const cacheKey = `manager_progress_${manager || 'all'}_${region || 'all'}_${client || 'all'}`;
+      if (!dateFrom && !dateTo) {
+        const cached = dashboardStatsCache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+          return res.json(cached.data);
+        }
+      }
+
       // Use SQL-level filtering instead of loading all 30k+ tasks
       const latestWeek = await storage.getLatestWeekEndingDate();
       
@@ -2384,7 +2393,7 @@ export async function registerRoutes(
       const regions = [...new Set(teamTasks.map(t => t.region))].filter(Boolean).sort();
       const clients = [...new Set(teamTasks.map(t => t.client))].filter(Boolean).sort();
 
-      res.json({
+      const response = {
         kpis: {
           totalOpen,
           totalCompleted,
@@ -2404,7 +2413,14 @@ export async function registerRoutes(
           regions,
           clients
         }
-      });
+      };
+      
+      // Cache response if no date filters
+      if (!dateFrom && !dateTo) {
+        dashboardStatsCache.set(cacheKey, { data: response, timestamp: Date.now(), key: cacheKey });
+      }
+      
+      res.json(response);
     } catch (error) {
       console.error("Error fetching manager task progress:", error);
       res.status(500).json({ error: "Failed to fetch manager task progress" });
