@@ -2000,6 +2000,8 @@ export async function registerRoutes(
       // This prevents showing only one client when a partial import happened
       const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       
+      console.log(`[Admin Leaderboard] period=${period}, latestWeek=${latestWeek}, clientFilter=${clientFilter}`);
+      
       let allTasks: any[];
       
       if (period === 'week') {
@@ -2008,6 +2010,7 @@ export async function registerRoutes(
           weekEndingDate: latestWeek || undefined,
           client: clientFilter || undefined,
         });
+        console.log(`[Admin Leaderboard] Fetched ${allTasks.length} tasks for week ${latestWeek}`);
       } else {
         // For longer periods, calculate date range from latest week
         const referenceDate = latestWeek ? new Date(latestWeek) : new Date();
