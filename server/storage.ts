@@ -42,6 +42,7 @@ export interface IStorage {
   deleteAllTasks(): Promise<void>;
   getLatestWeekEndingDate(): Promise<string | null>;
   getLatestWeekEndingDateForStore(store: string, repName?: string): Promise<string | null>;
+  getMostPopulatedWeekEndingDate(): Promise<string | null>;
   bulkCreateTasks(tasks: InsertTask[]): Promise<Task[]>;
   bulkCreateTasksIgnoreDuplicates(tasks: InsertTask[]): Promise<Task[]>;
   getRepStatsAggregated(weekEndingDate?: string, manager?: string): Promise<{
@@ -226,6 +227,20 @@ export class DatabaseStorage implements IStorage {
       .from(tasks)
       .where(and(...conditions));
     return result?.maxDate || null;
+  }
+
+  async getMostPopulatedWeekEndingDate(): Promise<string | null> {
+    // Get the week ending date that has the most clients with data
+    // This prevents partial imports (like only LINDT) from dominating the view
+    const result = await db.execute(sql`
+      SELECT week_ending_date, COUNT(DISTINCT client) as client_count, COUNT(*) as task_count
+      FROM tasks
+      GROUP BY week_ending_date
+      ORDER BY client_count DESC, week_ending_date DESC
+      LIMIT 1
+    `);
+    const rows = result.rows as any[];
+    return rows[0]?.week_ending_date || null;
   }
 
   async bulkCreateTasks(insertTasks: InsertTask[]): Promise<Task[]> {

@@ -1993,13 +1993,14 @@ export async function registerRoutes(
       const period = req.query.period as string || 'week';
       const clientFilter = req.query.client as string || '';
       
-      // Get latest week ending date as reference point
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      // Get latest week ending date that has the most clients (not just the absolute latest)
+      // This prevents showing only one client when a partial import happened
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       
       let allTasks: any[];
       
       if (period === 'week') {
-        // For "past week", just use the latest week's data (most recent import)
+        // For "past week", use the week with most client data
         allTasks = await storage.getTasksFiltered({
           weekEndingDate: latestWeek || undefined,
           client: clientFilter || undefined,
