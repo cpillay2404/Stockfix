@@ -4,8 +4,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, CommandItem } from "@/components/ui/command";
-import { Check, ChevronDown, Wrench } from "lucide-react";
+import { Check, ChevronDown, Wrench, AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+// MAINTENANCE BANNER - Set to true to show, false to hide
+const SHOW_MAINTENANCE_BANNER = true;
+const MAINTENANCE_MESSAGE = "New weekly data is being loaded. Tasks will update shortly.";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
 
@@ -150,8 +154,29 @@ export default function Landing() {
       className="h-screen flex flex-col items-center overflow-hidden"
       style={{ background: 'linear-gradient(180deg, #003B71 0%, #002F5A 100%)' }}
     >
+      {/* Maintenance Banner */}
+      {SHOW_MAINTENANCE_BANNER && (
+        <div 
+          style={{
+            width: '100%',
+            backgroundColor: '#F97316',
+            padding: '10px 16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+          }}
+          data-testid="banner-maintenance"
+        >
+          <AlertTriangle style={{ width: '18px', height: '18px', color: '#FFFFFF', flexShrink: 0 }} />
+          <span style={{ fontSize: '13px', fontWeight: 500, color: '#FFFFFF', textAlign: 'center' }}>
+            {MAINTENANCE_MESSAGE}
+          </span>
+        </div>
+      )}
+
       {/* Top Header: Meridian Logo */}
-      <div style={{ paddingTop: '32px', paddingBottom: '20px' }}>
+      <div style={{ paddingTop: SHOW_MAINTENANCE_BANNER ? '16px' : '32px', paddingBottom: '20px' }}>
         <img 
           src={meridianGroupLogo} 
           alt="Meridian Group" 
