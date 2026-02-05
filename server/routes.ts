@@ -393,10 +393,20 @@ export async function registerRoutes(
     try {
       const repName = decodeURIComponent(req.params.repName);
       
+      // Check cache first
+      const cacheKey = `rep_stores_${repName}`;
+      const cached = dashboardStatsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+        return res.json(cached.data);
+      }
+      
       // Use SQL DISTINCT for performance
       const stores = await storage.getStoresForRep(repName);
       
-      res.json({ stores });
+      const response = { stores };
+      dashboardStatsCache.set(cacheKey, { data: response, timestamp: Date.now(), key: cacheKey });
+      
+      res.json(response);
     } catch (error) {
       console.error("Error fetching rep stores:", error);
       res.status(500).json({ error: "Failed to fetch rep stores" });
@@ -413,6 +423,13 @@ export async function registerRoutes(
       
       if (!store) {
         return res.status(400).json({ error: "Store is required" });
+      }
+      
+      // Check cache first
+      const cacheKey = `top_attention_skus_${store}_${rep || 'all'}_${client || 'all'}_${article || 'all'}`;
+      const cached = dashboardStatsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+        return res.json(cached.data);
       }
       
       // Use store-specific latest week to avoid week mismatch issues
@@ -512,7 +529,10 @@ export async function registerRoutes(
         }
       }
       
-      res.json({ skus: topSkus });
+      const response = { skus: topSkus };
+      dashboardStatsCache.set(cacheKey, { data: response, timestamp: Date.now(), key: cacheKey });
+      
+      res.json(response);
     } catch (error) {
       console.error("Error fetching top attention SKUs:", error);
       res.status(500).json({ error: "Failed to fetch top attention SKUs" });
@@ -524,10 +544,20 @@ export async function registerRoutes(
     try {
       const clientName = decodeURIComponent(req.params.clientName);
       
+      // Check cache first
+      const cacheKey = `client_stores_${clientName}`;
+      const cached = dashboardStatsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+        return res.json(cached.data);
+      }
+      
       // Use SQL DISTINCT for performance
       const stores = await storage.getStoresForClient(clientName);
       
-      res.json({ stores });
+      const response = { stores };
+      dashboardStatsCache.set(cacheKey, { data: response, timestamp: Date.now(), key: cacheKey });
+      
+      res.json(response);
     } catch (error) {
       console.error("Error fetching client stores:", error);
       res.status(500).json({ error: "Failed to fetch client stores" });
@@ -963,7 +993,22 @@ export async function registerRoutes(
         weekEndingDate,
       };
       
+      // Check cache - only cache if no search term (searches should be fresh)
+      const cacheKey = search ? null : `tasks_list_${page}_${limit}_${status}_${Object.values(filters).join('_')}`;
+      if (cacheKey) {
+        const cached = dashboardStatsCache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+          return res.json(cached.data);
+        }
+      }
+      
       const result = await storage.getTasksPaginated(page, limit, search, status, filters);
+      
+      // Cache the result if no search term
+      if (cacheKey) {
+        dashboardStatsCache.set(cacheKey, { data: result, timestamp: Date.now(), key: cacheKey });
+      }
+      
       res.json(result);
     } catch (error) {
       console.error("Error fetching tasks:", error);
