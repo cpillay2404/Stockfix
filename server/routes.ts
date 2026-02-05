@@ -364,18 +364,9 @@ export async function registerRoutes(
   app.get("/api/reps/:repName/stores", async (req, res) => {
     try {
       const repName = decodeURIComponent(req.params.repName);
-      const includeAll = req.query.includeAll === 'true';
       
-      // Use SQL-level filtering for performance
-      const latestWeek = includeAll ? undefined : await storage.getLatestWeekEndingDate();
-      
-      const repTasks = await storage.getTasksFiltered({
-        weekEndingDate: latestWeek || undefined,
-        repName,
-      });
-      
-      // Get unique stores for this rep
-      const stores = [...new Set(repTasks.map(t => t.storeName).filter(Boolean))].sort();
+      // Use SQL DISTINCT for performance
+      const stores = await storage.getStoresForRep(repName);
       
       res.json({ stores });
     } catch (error) {
@@ -504,18 +495,9 @@ export async function registerRoutes(
   app.get("/api/clients/:clientName/stores", async (req, res) => {
     try {
       const clientName = decodeURIComponent(req.params.clientName);
-      const includeAll = req.query.includeAll === 'true';
       
-      // Use SQL-level filtering for performance
-      const latestWeek = includeAll ? undefined : await storage.getLatestWeekEndingDate();
-      
-      const clientTasks = await storage.getTasksFiltered({
-        weekEndingDate: latestWeek || undefined,
-        client: clientName,
-      });
-      
-      // Get unique stores for this client
-      const stores = [...new Set(clientTasks.map(t => t.storeName).filter(Boolean))].sort();
+      // Use SQL DISTINCT for performance
+      const stores = await storage.getStoresForClient(clientName);
       
       res.json({ stores });
     } catch (error) {

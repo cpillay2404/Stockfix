@@ -579,6 +579,20 @@ export class DatabaseStorage implements IStorage {
     filtersCache.timestamp = 0;
   }
 
+  async getStoresForRep(repName: string): Promise<string[]> {
+    const result = await db.selectDistinct({ value: tasks.storeName })
+      .from(tasks)
+      .where(eq(tasks.repName, repName));
+    return result.map(r => r.value).filter(Boolean).sort() as string[];
+  }
+
+  async getStoresForClient(clientName: string): Promise<string[]> {
+    const result = await db.selectDistinct({ value: tasks.storeName })
+      .from(tasks)
+      .where(eq(tasks.client, clientName));
+    return result.map(r => r.value).filter(Boolean).sort() as string[];
+  }
+
   async getDashboardStatsOptimized(filters?: { client?: string; region?: string; weekEndingDate?: string }): Promise<{
     statusCounts: Record<string, number>;
     totalTasks: number;
