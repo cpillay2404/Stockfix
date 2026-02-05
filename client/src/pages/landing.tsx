@@ -10,7 +10,7 @@ import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
 
 // MAINTENANCE BANNER - Set to false to hide the banner
-const SHOW_MAINTENANCE_BANNER = true;
+const SHOW_MAINTENANCE_BANNER = false;
 const MAINTENANCE_MESSAGE = "Under maintenance - new tasks loading. Please be patient.";
 
 interface SearchableSelectProps {
