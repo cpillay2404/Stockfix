@@ -228,7 +228,10 @@ const gamificationCache: Map<string, CacheEntry<{
   weekEndingDate: string | null;
 }>> = new Map();
 
+const dashboardStatsCache: Map<string, CacheEntry<any>> = new Map();
+
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const DASHBOARD_CACHE_TTL_MS = 60 * 1000; // 1 minute for dashboard stats
 
 function getCachedGamificationStats(cacheKey: string): { stats: RepGamificationStats[]; weekEndingDate: string | null } | null {
   const entry = gamificationCache.get(cacheKey);
@@ -255,6 +258,7 @@ function invalidateGamificationCache() {
 // Clear all caches endpoint
 function clearAllCaches() {
   gamificationCache.clear();
+  dashboardStatsCache.clear();
   storage.clearFiltersCache();
 }
 
@@ -343,13 +347,24 @@ export async function registerRoutes(
       const regionFilter = req.query.region as string | undefined;
       const clientFilter = req.query.client as string | undefined;
       
+      // Check cache first
+      const cacheKey = `dashboard_${regionFilter || 'all'}_${clientFilter || 'all'}`;
+      const cached = dashboardStatsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+        return res.json(cached.data);
+      }
+      
+      // Get latest week for filtering - only show current week's data
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      
       // Use optimized SQL-based method instead of loading all tasks
       const result = await storage.getDashboardStatsOptimized({
         region: regionFilter,
         client: clientFilter,
+        weekEndingDate: latestWeek || undefined,
       });
       
-      res.json({
+      const response = {
         totalTasks: result.totalTasks,
         totalStores: result.filters.stores.length,
         pendingCount: result.statusCounts['Pending'] || 0,
@@ -361,7 +376,12 @@ export async function registerRoutes(
           stores: result.filters.stores,
           clients: result.filters.clients,
         },
-      });
+      };
+      
+      // Cache the response
+      dashboardStatsCache.set(cacheKey, { data: response, timestamp: Date.now(), key: cacheKey });
+      
+      res.json(response);
     } catch (error) {
       console.error("Error fetching dashboard stats:", error);
       res.status(500).json({ error: "Failed to fetch dashboard stats" });
