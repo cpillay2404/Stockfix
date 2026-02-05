@@ -395,8 +395,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "Store is required" });
       }
       
-      // Use SQL-level filtering for performance
-      const latestWeekEnding = await storage.getLatestWeekEndingDate();
+      // Use store-specific latest week to avoid week mismatch issues
+      const latestWeekEnding = await storage.getLatestWeekEndingDateForStore(store, rep);
       
       if (!latestWeekEnding) {
         return res.json({ skus: [] });
