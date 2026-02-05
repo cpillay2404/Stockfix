@@ -334,108 +334,24 @@ export async function registerRoutes(
     try {
       const regionFilter = req.query.region as string | undefined;
       const clientFilter = req.query.client as string | undefined;
-      const includeAll = req.query.includeAll === 'true';
       
-      // Use SQL-level filtering for much better performance
-      const latestWeek = includeAll ? undefined : await storage.getLatestWeekEndingDate();
-      
-      const tasks = await storage.getTasksFiltered({
-        weekEndingDate: latestWeek || undefined,
+      // Use optimized SQL-based method instead of loading all tasks
+      const result = await storage.getDashboardStatsOptimized({
         region: regionFilter,
         client: clientFilter,
       });
       
-      // Count by action status
-      const statusCounts: Record<string, number> = {};
-      const actionCounts: Record<string, number> = {};
-      const storeCounts: Record<string, number> = {};
-      const repCounts: Record<string, number> = {};
-      const clientCounts: Record<string, number> = {};
-      
-      tasks.forEach(task => {
-        // Status counts
-        statusCounts[task.actionStatus] = (statusCounts[task.actionStatus] || 0) + 1;
-        
-        // Action type counts
-        const actionType = task.action.split(':')[0].trim();
-        actionCounts[actionType] = (actionCounts[actionType] || 0) + 1;
-        
-        // Store counts
-        storeCounts[task.storeName] = (storeCounts[task.storeName] || 0) + 1;
-        
-        // Rep counts
-        if (task.repName) {
-          repCounts[task.repName] = (repCounts[task.repName] || 0) + 1;
-        }
-        
-        // Client counts
-        if (task.client) {
-          clientCounts[task.client] = (clientCounts[task.client] || 0) + 1;
-        }
-      });
-      
-      // Top 5 stores by task count
-      const topStores = Object.entries(storeCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, count]) => ({ name, count }));
-      
-      // Top reps by task count
-      const topReps = Object.entries(repCounts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
-        .map(([name, count]) => ({ name, count }));
-      
-      // All clients with task counts
-      const clients = Object.entries(clientCounts)
-        .sort((a, b) => b[1] - a[1])
-        .map(([name, count]) => ({ name, count }));
-      
-      // Action breakdown for chart
-      const actionBreakdown = Object.entries(actionCounts)
-        .sort((a, b) => b[1] - a[1])
-        .map(([action, count]) => ({ action, count }));
-      
-      // Stock classification counts
-      const stockClassificationCounts: Record<string, number> = {};
-      let totalP4WeekSales = 0;
-      
-      tasks.forEach(task => {
-        if (task.stockClassification) {
-          stockClassificationCounts[task.stockClassification] = (stockClassificationCounts[task.stockClassification] || 0) + 1;
-        }
-        totalP4WeekSales += parseFloat(task.p4WeekSales) || 0;
-      });
-      
-      const stockClassifications = Object.entries(stockClassificationCounts)
-        .sort((a, b) => b[1] - a[1])
-        .map(([classification, count]) => ({ classification, count }));
-      
-      // Get unique filter values
-      const regions = [...new Set(tasks.map(t => t.region).filter(Boolean))].sort();
-      const reps = [...new Set(tasks.map(t => t.repName).filter(Boolean))].sort();
-      const stores = [...new Set(tasks.map(t => t.storeName).filter(Boolean))].sort();
-      const clientList = [...new Set(tasks.map(t => t.client).filter(Boolean))].sort();
-      const issueTypes = [...new Set(tasks.map(t => t.stockClassification).filter(Boolean))].sort();
-      
       res.json({
-        totalTasks: tasks.length,
-        totalStores: Object.keys(storeCounts).length,
-        pendingCount: statusCounts['Pending'] || 0,
-        completedCount: statusCounts['Completed'] || 0,
-        totalP4WeekSales,
-        statusCounts,
-        actionBreakdown,
-        stockClassifications,
-        topStores,
-        topReps,
-        clients,
+        totalTasks: result.totalTasks,
+        totalStores: result.filters.stores.length,
+        pendingCount: result.statusCounts['Pending'] || 0,
+        completedCount: result.statusCounts['Completed'] || 0,
+        statusCounts: result.statusCounts,
         filters: {
-          regions,
-          reps,
-          stores,
-          clients: clientList,
-          issueTypes,
+          regions: result.filters.regions,
+          reps: result.filters.reps,
+          stores: result.filters.stores,
+          clients: result.filters.clients,
         },
       });
     } catch (error) {

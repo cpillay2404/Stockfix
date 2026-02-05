@@ -3,6 +3,13 @@ import { db } from "./db";
 import { eq, desc, ilike, or, and, sql, count, gte, lte } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
+interface FiltersCache {
+  data: { reps: string[]; stores: string[]; clients: string[]; regions: string[] } | null;
+  timestamp: number;
+}
+const filtersCache: FiltersCache = { data: null, timestamp: 0 };
+const CACHE_TTL = 5 * 60 * 1000;
+
 export interface TaskFilters {
   region?: string;
   rep?: string;
@@ -523,6 +530,92 @@ export class DatabaseStorage implements IStorage {
   async deleteClientPassword(clientName: string): Promise<boolean> {
     const result = await db.delete(clientPasswords).where(ilike(clientPasswords.clientName, clientName));
     return true;
+  }
+
+  async getDistinctFilters(filters?: { client?: string; region?: string }): Promise<{
+    reps: string[];
+    stores: string[];
+    clients: string[];
+    regions: string[];
+  }> {
+    const noFilters = !filters?.client && !filters?.region;
+    if (noFilters && filtersCache.data && (Date.now() - filtersCache.timestamp) < CACHE_TTL) {
+      return filtersCache.data;
+    }
+
+    let conditions: any[] = [];
+    if (filters?.client) {
+      conditions.push(eq(tasks.client, filters.client));
+    }
+    if (filters?.region) {
+      conditions.push(eq(tasks.region, filters.region));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [repsResult, storesResult, clientsResult, regionsResult] = await Promise.all([
+      db.selectDistinct({ value: tasks.repName }).from(tasks).where(whereClause),
+      db.selectDistinct({ value: tasks.storeName }).from(tasks).where(whereClause),
+      db.selectDistinct({ value: tasks.client }).from(tasks).where(whereClause),
+      db.selectDistinct({ value: tasks.region }).from(tasks).where(whereClause),
+    ]);
+
+    const result = {
+      reps: repsResult.map(r => r.value).filter(Boolean).sort() as string[],
+      stores: storesResult.map(r => r.value).filter(Boolean).sort() as string[],
+      clients: clientsResult.map(r => r.value).filter(Boolean).sort() as string[],
+      regions: regionsResult.map(r => r.value).filter(Boolean).sort() as string[],
+    };
+
+    if (noFilters) {
+      filtersCache.data = result;
+      filtersCache.timestamp = Date.now();
+    }
+
+    return result;
+  }
+
+  clearFiltersCache() {
+    filtersCache.data = null;
+    filtersCache.timestamp = 0;
+  }
+
+  async getDashboardStatsOptimized(filters?: { client?: string; region?: string; weekEndingDate?: string }): Promise<{
+    statusCounts: Record<string, number>;
+    totalTasks: number;
+    filters: { reps: string[]; stores: string[]; clients: string[]; regions: string[] };
+  }> {
+    let conditions: any[] = [];
+    if (filters?.client) {
+      conditions.push(eq(tasks.client, filters.client));
+    }
+    if (filters?.region) {
+      conditions.push(eq(tasks.region, filters.region));
+    }
+    if (filters?.weekEndingDate) {
+      conditions.push(eq(tasks.weekEndingDate, filters.weekEndingDate));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const [statusResults, filterData] = await Promise.all([
+      db.select({ 
+        status: tasks.actionStatus, 
+        cnt: count() 
+      }).from(tasks).where(whereClause).groupBy(tasks.actionStatus),
+      this.getDistinctFilters(filters),
+    ]);
+
+    const statusCounts: Record<string, number> = {};
+    let totalTasks = 0;
+    statusResults.forEach(r => {
+      statusCounts[r.status] = Number(r.cnt);
+      totalTasks += Number(r.cnt);
+    });
+
+    return {
+      statusCounts,
+      totalTasks,
+      filters: filterData,
+    };
   }
 }
 
