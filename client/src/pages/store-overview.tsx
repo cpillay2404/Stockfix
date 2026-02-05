@@ -296,7 +296,8 @@ export default function StoreOverview() {
       if (!res.ok) throw new Error("Failed to fetch store overview");
       return res.json();
     },
-    staleTime: 60000,
+    staleTime: 30000,
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
     enabled: !!store,
   });
 

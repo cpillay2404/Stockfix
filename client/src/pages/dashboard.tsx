@@ -173,7 +173,8 @@ export default function Dashboard() {
       if (!res.ok) throw new Error("Failed to fetch summary");
       return res.json();
     },
-    staleTime: 60000,
+    staleTime: 30000,
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
   const { data, isLoading } = useQuery({
@@ -185,6 +186,7 @@ export default function Dashboard() {
       article: articleFilter,
     }),
     staleTime: 30000,
+    refetchInterval: 30000, // Auto-refresh every 30 seconds
   });
 
   const allTasks: Task[] = data?.tasks || [];
