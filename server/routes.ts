@@ -248,6 +248,13 @@ function setCachedGamificationStats(cacheKey: string, data: { stats: RepGamifica
 // Clear cache when tasks are modified
 function invalidateGamificationCache() {
   gamificationCache.clear();
+  storage.clearFiltersCache();
+}
+
+// Clear all caches endpoint
+function clearAllCaches() {
+  gamificationCache.clear();
+  storage.clearFiltersCache();
 }
 
 // Configure multer for file uploads - increased to 150MB for large imports
@@ -2551,6 +2558,17 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error cleaning up bad dates:", error);
       res.status(500).json({ error: error.message || "Failed to cleanup" });
+    }
+  });
+
+  // Admin endpoint to clear all caches
+  app.post("/api/admin/clear-cache", async (_req, res) => {
+    try {
+      clearAllCaches();
+      res.json({ success: true, message: "All caches cleared" });
+    } catch (error: any) {
+      console.error("Error clearing cache:", error);
+      res.status(500).json({ error: error.message || "Failed to clear cache" });
     }
   });
 
