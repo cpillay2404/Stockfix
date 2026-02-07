@@ -1583,11 +1583,14 @@ export async function registerRoutes(
         });
       }
 
-      // For large files (>20MB), use async processing
-      const isLargeFile = req.file.size > 20 * 1024 * 1024;
+      // For large files (>20MB), use async processing (but not for dry runs)
+      const isLargeFile = req.file.size > 20 * 1024 * 1024 && !isDryRun;
       
       // Check if we should clear existing tasks first (full refresh)
       const clearExisting = req.query.clear === 'true' || req.body?.clear === 'true';
+      
+      // Check if this is a dry run (parse and validate only, don't save)
+      const isDryRun = req.query.dryRun === 'true' || req.body?.dryRun === 'true';
       
       // Store file path for async processing
       const filePath = req.file.path;
@@ -1788,6 +1791,58 @@ export async function registerRoutes(
 
       // Validate tasks
       const validatedTasks = validTasks.map((task: any) => insertTaskSchema.parse(task));
+      
+      // DRY RUN: Return parsed data summary without saving to database
+      if (isDryRun) {
+        fs.unlinkSync(req.file.path);
+        
+        const actionCounts: Record<string, number> = {};
+        const regionCounts: Record<string, number> = {};
+        const storeCounts: Record<string, number> = {};
+        const clientCounts: Record<string, number> = {};
+        const repCounts: Record<string, number> = {};
+        
+        validatedTasks.forEach((task: any) => {
+          actionCounts[task.action] = (actionCounts[task.action] || 0) + 1;
+          if (task.region) regionCounts[task.region] = (regionCounts[task.region] || 0) + 1;
+          if (task.storeName) storeCounts[task.storeName] = (storeCounts[task.storeName] || 0) + 1;
+          if (task.client) clientCounts[task.client] = (clientCounts[task.client] || 0) + 1;
+          if (task.repName) repCounts[task.repName] = (repCounts[task.repName] || 0) + 1;
+        });
+        
+        const sampleTasks = validatedTasks.slice(0, 5).map((t: any) => ({
+          uniqueId: t.uniqueId,
+          storeName: t.storeName,
+          barcode: t.barcode,
+          articleDescription: t.articleDescription,
+          action: t.action,
+          repName: t.repName,
+          region: t.region,
+          weekEndingDate: t.weekEndingDate,
+          storeSoh: t.storeSoh,
+          stockClassification: t.stockClassification,
+        }));
+        
+        return res.json({
+          success: true,
+          dryRun: true,
+          message: `DRY RUN: ${validatedTasks.length} tasks parsed and validated (nothing saved)`,
+          summary: {
+            totalRowsInFile: data.length,
+            validTasksWithBarcode: validTasks.length,
+            skippedNoBarcode: mappedTasks.length - validTasks.length,
+            uniqueStores: Object.keys(storeCounts).length,
+            uniqueReps: Object.keys(repCounts).length,
+            uniqueRegions: Object.keys(regionCounts).length,
+            actionBreakdown: actionCounts,
+            regionBreakdown: regionCounts,
+            clientBreakdown: clientCounts,
+            weekEndingDates: [...new Set(validatedTasks.map((t: any) => t.weekEndingDate))],
+          },
+          sampleTasks,
+          detectedHeaders: data.length > 0 ? Object.keys(data[0] as object) : [],
+        });
+      }
       
       // Insert in batches of 100, skip duplicates
       const BATCH_SIZE = 100;
