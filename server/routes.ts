@@ -80,6 +80,18 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
       return '';
     };
 
+    // Sanitize barcode - convert scientific notation (e.g. "6.01E+12") to full number string
+    const sanitizeBarcode = (val: string): string => {
+      if (!val || val === '' || val === '0') return '';
+      let cleaned = val.trim();
+      if (/[eE]\+/.test(cleaned)) {
+        const num = Number(cleaned);
+        if (!isNaN(num)) return num.toFixed(0);
+      }
+      cleaned = cleaned.replace(/\.0+$/, '');
+      return cleaned;
+    };
+
     // Sanitize numeric values - handle comma decimal separators (e.g. "1,901975" -> "1.901975")
     const sanitizeNumeric = (val: string): string => {
       if (!val || val === '' || val === '0') return '0';
@@ -126,7 +138,7 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
     // Map and validate tasks
     const mappedTasks = data.map((row: any, index: number) => {
       const storeVal = getValue(row, 'cleaned store name', 'STORE NAME', 'Store Name', 'StoreName', 'store_name', 'Store');
-      const barcodeVal = getValue(row, 'barcode', 'Barcode', 'BARCODE', 'SKU', 'sku');
+      const barcodeVal = sanitizeBarcode(getValue(row, 'barcode', 'Barcode', 'BARCODE', 'SKU', 'sku'));
       const weekEndingVal = getValue(row, 'week ending', 'Week Ending', 'WeekEnding', 'week_ending', 'Date');
       const weekEndingISO = parseToISODate(weekEndingVal);
       
@@ -1661,6 +1673,18 @@ export async function registerRoutes(
         return '';
       };
 
+      // Sanitize barcode - convert scientific notation (e.g. "6.01E+12") to full number string
+      const sanitizeBarcode = (val: string): string => {
+        if (!val || val === '' || val === '0') return '';
+        let cleaned = val.trim();
+        if (/[eE]\+/.test(cleaned)) {
+          const num = Number(cleaned);
+          if (!isNaN(num)) return num.toFixed(0);
+        }
+        cleaned = cleaned.replace(/\.0+$/, '');
+        return cleaned;
+      };
+
       // Sanitize numeric values - handle comma decimal separators (e.g. "1,901975" -> "1.901975")
       const sanitizeNumeric = (val: string): string => {
         if (!val || val === '' || val === '0') return '0';
@@ -1709,7 +1733,7 @@ export async function registerRoutes(
       const mappedTasks = data.map((row: any, index: number) => {
         // Generate unique ID from store + barcode + week ending
         const storeVal = getValue(row, 'cleaned store name', 'STORE NAME', 'Store Name', 'StoreName', 'store_name', 'Store');
-        const barcodeVal = getValue(row, 'barcode', 'Barcode', 'BARCODE', 'SKU', 'sku');
+        const barcodeVal = sanitizeBarcode(getValue(row, 'barcode', 'Barcode', 'BARCODE', 'SKU', 'sku'));
         const weekEndingVal = getValue(row, 'week ending', 'Week Ending', 'WeekEnding', 'week_ending', 'Date');
         const weekEndingISO = parseToISODate(weekEndingVal);
         
