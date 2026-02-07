@@ -31,16 +31,10 @@ const REASON_CODES = [
   "Other"
 ];
 
-const ACTIONS_REQUIRING_PHYSICAL_COUNT = [
-  "Fix Counts: Negative SOH",
-  "Check Count: No Sales in 30 Days"
-];
-
 const requiresPhysicalCountForAction = (action: string): boolean => {
   if (!action) return false;
-  return ACTIONS_REQUIRING_PHYSICAL_COUNT.some(
-    requiredAction => action === requiredAction || action.includes(requiredAction)
-  );
+  const a = action.toLowerCase();
+  return a.includes('fix counts: negative') || a.includes('check count: no sales');
 };
 
 interface ChartDataPoint {
