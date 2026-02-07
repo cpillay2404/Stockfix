@@ -80,10 +80,10 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
       return '';
     };
 
-    // Sanitize barcode - convert scientific notation (e.g. "6.01E+12") to full number string
+    // Sanitize barcode - convert scientific notation (e.g. "6.01E+12" or "6,01E+12") to full number string
     const sanitizeBarcode = (val: string): string => {
       if (!val || val === '' || val === '0') return '';
-      let cleaned = val.trim();
+      let cleaned = val.trim().replace(',', '.');
       if (/[eE]\+/.test(cleaned)) {
         const num = Number(cleaned);
         if (!isNaN(num)) return num.toFixed(0);
@@ -1673,10 +1673,10 @@ export async function registerRoutes(
         return '';
       };
 
-      // Sanitize barcode - convert scientific notation (e.g. "6.01E+12") to full number string
+      // Sanitize barcode - convert scientific notation (e.g. "6.01E+12" or "6,01E+12") to full number string
       const sanitizeBarcode = (val: string): string => {
         if (!val || val === '' || val === '0') return '';
-        let cleaned = val.trim();
+        let cleaned = val.trim().replace(',', '.');
         if (/[eE]\+/.test(cleaned)) {
           const num = Number(cleaned);
           if (!isNaN(num)) return num.toFixed(0);
