@@ -1,0 +1,71 @@
+PS C:\Users\CarinPillay> & C:/Users/CarinPillay/AppData/Local/Python/pythoncore-3.14-64/python.exe "c:/Users/CarinPillay/OneDrive - Meridian Group/App Output Data/Python Scripts/aPP IMPORT TEST.py"
+============================================================
+  StockFix Import Script - ALPEN
+============================================================
+
+[LOCAL] Excel created: C:\Users\CarinPillay\OneDrive - Meridian Group\App Output Data\ALPEN\ALPEN_SEND_EXPORT_2026-02-04.xlsx
+[LOCAL] Final rows exported: 7,191
+[LOCAL] Send keys this week: 1,805
+[LOCAL] This week actions: {'Monitor: Possible Overstock': 4665, 'Optimal': 2687, 'Urgent: DC OOS': 1443, 'Review: Risk of OOS': 1361, 'Urgent: Place Order - DC has stock': 362, 'Check Count: No Sales in 30 Days': 77, 'Fix Counts: Negative SOH': 5, 'OOS – Stock on Order': 2}
+[LOCAL] This week classifications: {'Understock': 1680, 'No Sales (Idle Stock)': 77, 'Out of Stock': 47, 'Negative SOH': 1}
+
+============================================================
+  UPLOADING TO STOCKFIX APP
+============================================================
+[MODE] DRY RUN - file will be parsed and validated but NOT saved
+[URL] https://202f0b6a-cb3d-4fc3-8b37-dc6f9df5de6c-00-1caag6lmp08eu.picard.replit.dev
+[FILE] C:\Users\CarinPillay\OneDrive - Meridian Group\App Output Data\ALPEN\ALPEN_SEND_EXPORT_2026-02-04.xlsx      
+
+[UPLOAD] Sending file to StockFix...
+[RESPONSE] Status: 200
+
+============================================================
+  DRY RUN RESULTS (nothing was saved)
+============================================================
+  Total rows in file:        7,191
+  Valid tasks (barcode):      7,191
+  Skipped (no barcode):           0
+  Unique stores:              1,084
+  Unique reps:                  107
+  Unique regions:                10
+
+  Action Breakdown:
+    Review: Risk of OOS                            3,317
+    Optimal                                        1,724
+    Urgent: Place Order - DC has stock               824
+    Monitor: Possible Overstock                      573
+    Urgent: DC OOS                                   495
+    Check Count: No Sales in 30 Days                 231
+    Fix Counts: Negative SOH                          26
+    OOS – Stock on Order                               1
+
+  Region Breakdown:
+    GAUTENG                         2,197
+    WESTERN CAPE                    1,484
+    MPUMALANGA                        572
+    KWAZULU NATAL                     556
+    PORT ELIZABETH                    556
+    EAST LONDON                       480
+    FREE STATE                        444
+    NORTH WEST                        336
+    LIMPOPO                           330
+    SWD                               236
+
+  Week Ending Dates:
+    2026-02-04
+    2026-01-14
+    2026-01-21
+    2026-01-28
+
+  Sample Tasks (first 5):
+    1. SHOPRITE ELSIES RIVER | 6009606260300 | ALPEN NUTRIFIC 225GR | Review: Risk of OOS
+    2. SHOPRITE KWAGGAFONTEIN | 6009606260324 | ALPEN NUTRIFIC 900GR | Review: Risk of OOS
+    3. CHECKERS FX DURBANVILLE | 6009606260089 | ALPEN MUESLI LITE 500GR | Review: Risk of OOS
+    4. CHECKERS FX DURBANVILLE | 6009606260317 | ALPEN NUTRIFIC 450GR | Review: Risk of OOS
+    5. SHOPRITE GRABOUW | 6009606260317 | ALPEN NUTRIFIC 450GR | Review: Risk of OOS
+
+============================================================
+  Everything looks good? Set DRY_RUN = False and run again!
+============================================================
+
+Done.
