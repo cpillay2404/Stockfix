@@ -56,7 +56,8 @@ function formatWfc(value: any): string {
   if (value === null || value === undefined || value === '') {
     return 'N/A';
   }
-  const num = parseFloat(String(value));
+  const cleaned = String(value).replace(',', '.');
+  const num = parseFloat(cleaned);
   if (isNaN(num)) return String(value);
   return num.toFixed(1);
 }
