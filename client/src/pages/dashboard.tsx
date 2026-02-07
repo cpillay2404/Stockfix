@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@shared/schema";
 import BottomNav from "@/components/BottomNav";
 import { useAccess } from "@/context/AccessContext";
+import { safeParseFloat } from "@/lib/utils";
 
 const ACTION_PRIORITY_ORDER = [
   "URGENT: PLACE ORDER DC HAS STOCK",
@@ -57,8 +58,8 @@ const cardStyles = {
 
 const TaskCard = memo(function TaskCard({ task, contextParams, style }: TaskCardProps) {
   const isPending = task.actionStatus === 'Pending';
-  const wfc = parseFloat(task.storeWfc);
-  const hasWfc = !isNaN(wfc) && wfc > 0;
+  const wfc = safeParseFloat(task.storeWfc);
+  const hasWfc = wfc > 0;
   const taskUrl = contextParams ? `/task/${task.uniqueId}?${contextParams}` : `/task/${task.uniqueId}`;
 
   return (

@@ -5,6 +5,7 @@ import { ArrowLeft, TrendingUp, Clock, CheckCircle, AlertCircle, Search, Trophy,
 import { Bar, XAxis, YAxis, ResponsiveContainer, LabelList, BarChart, Cell, PieChart, Pie } from "recharts";
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { safeParseFloat } from "@/lib/utils";
 
 interface RepGamificationStats {
   found: boolean;
@@ -113,7 +114,7 @@ function TaskRow({ task, onClick }: TaskRowProps) {
             {task.storeName}
           </div>
           <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>
-            {task.client} • WFC: {parseFloat(task.storeWfc || '0').toFixed(1)}
+            {task.client} • WFC: {safeParseFloat(task.storeWfc || '0').toFixed(1)}
           </div>
         </div>
         <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '8px' }}>

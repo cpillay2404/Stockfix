@@ -13,6 +13,14 @@ import { sendTaskCompletedEmail } from "./email";
 import { calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
+
+function safeParseFloat(val: string | number | null | undefined): number {
+  if (val === null || val === undefined) return 0;
+  if (typeof val === 'number') return val;
+  const cleaned = val.replace(',', '.');
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
+}
 import { tasks } from "@shared/schema";
 
 // Async import job tracking
@@ -72,6 +80,26 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
       return '';
     };
 
+    // Sanitize numeric values - handle comma decimal separators (e.g. "1,901975" -> "1.901975")
+    const sanitizeNumeric = (val: string): string => {
+      if (!val || val === '' || val === '0') return '0';
+      let cleaned = val.trim();
+      const hasDot = cleaned.includes('.');
+      const hasComma = cleaned.includes(',');
+      if (hasDot && hasComma) {
+        const lastDot = cleaned.lastIndexOf('.');
+        const lastComma = cleaned.lastIndexOf(',');
+        if (lastComma > lastDot) {
+          cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+        } else {
+          cleaned = cleaned.replace(/,/g, '');
+        }
+      } else if (hasComma) {
+        cleaned = cleaned.replace(',', '.');
+      }
+      return cleaned;
+    };
+
     const parseToISODate = (dateVal: any): string => {
       if (!dateVal) return new Date().toISOString().split('T')[0];
       try {
@@ -114,11 +142,11 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
         category: getValue(row, 'Category', 'CATEGORY', 'category') || '',
         barcode: barcodeVal || '',
         articleDescription: getValue(row, 'article description', 'Article Description', 'ArticleDescription', 'Description', 'Product', 'Product Name') || 'No Description',
-        dcSoh: getValue(row, 'Supplying dc soh', 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh', 'Supplying DC SOH') || '0',
-        storeSoh: getValue(row, 'Store SOH', 'STORE_SOH', 'StoreSoh', 'store_soh') || '0',
-        p4WeekSales: getValue(row, 'Sell out p4 weeks', 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales', 'Sell out P4 weeks') || '0',
-        missedSales: getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales') || '0',
-        storeWfc: getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc') || '0',
+        dcSoh: sanitizeNumeric(getValue(row, 'Supplying dc soh', 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh', 'Supplying DC SOH')),
+        storeSoh: sanitizeNumeric(getValue(row, 'Store SOH', 'STORE_SOH', 'StoreSoh', 'store_soh', 'store soh')),
+        p4WeekSales: sanitizeNumeric(getValue(row, 'Sell out p4 weeks', 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales', 'Sell out P4 weeks', 'sell out p4 weeks')),
+        missedSales: sanitizeNumeric(getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales')),
+        storeWfc: sanitizeNumeric(getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc')),
         stockClassification: getValue(row, 'Stock Classification (This Week)', 'Stock Classification', 'StockClassification', 'stock_classification') || '',
         weekEnding: weekEndingVal || new Date().toISOString().split('T')[0],
         weekEndingDate: weekEndingISO,
@@ -462,7 +490,7 @@ export async function registerRoutes(
       
       // Calculate sales statistics for the store
       const sellOutValues = latestWeekTasks
-        .map(t => parseFloat(t.p4WeekSales) || 0)
+        .map(t => safeParseFloat(t.p4WeekSales))
         .filter(v => !isNaN(v))
         .sort((a, b) => a - b);
       
@@ -487,14 +515,14 @@ export async function registerRoutes(
         else if (actionText.includes('Monitor: Possible Overstock')) baseScore = 40;
         
         // Sales score
-        const sellOut = parseFloat(task.p4WeekSales) || 0;
+        const sellOut = safeParseFloat(task.p4WeekSales);
         let salesScore = 0;
         if (sellOut >= p75) salesScore = 30;
         else if (sellOut > median) salesScore = 15;
         
         // Risk score
-        const soh = parseFloat(task.storeSoh) || 0;
-        const wfc = task.storeWfc ? parseFloat(task.storeWfc) : 999;
+        const soh = safeParseFloat(task.storeSoh);
+        const wfc = task.storeWfc ? safeParseFloat(task.storeWfc) : 999;
         let riskScore = 0;
         if (soh < 0) riskScore += 25;
         else if (soh === 0) riskScore += 20;
@@ -722,7 +750,7 @@ export async function registerRoutes(
         const weekTask = skuTasks.find(t => t.weekEndingDate === week);
         return { 
           weekEnding: week, 
-          value: weekTask ? (parseFloat(weekTask.storeSoh) || 0) : 0 
+          value: weekTask ? safeParseFloat(weekTask.storeSoh) : 0 
         };
       });
       
@@ -731,7 +759,7 @@ export async function registerRoutes(
         const weekTask = skuTasks.find(t => t.weekEndingDate === week);
         return { 
           weekEnding: week, 
-          value: weekTask ? (parseFloat(weekTask.p4WeekSales) || 0) : 0 
+          value: weekTask ? safeParseFloat(weekTask.p4WeekSales) : 0 
         };
       });
       
@@ -740,7 +768,7 @@ export async function registerRoutes(
         const weekTask = skuTasks.find(t => t.weekEndingDate === week);
         return { 
           weekEnding: week, 
-          value: weekTask ? (parseFloat(weekTask.storeWfc) || 0) : 0 
+          value: weekTask ? safeParseFloat(weekTask.storeWfc) : 0 
         };
       });
       
@@ -779,12 +807,12 @@ export async function registerRoutes(
       const completedTasks = storeTasks.filter(t => t.actionStatus === 'Completed').length;
       
       const totalP4WeekSales = storeTasks.reduce((sum, t) => {
-        const sales = parseFloat(t.p4WeekSalesUnits || '0') || 0;
+        const sales = safeParseFloat(t.p4WeekSalesUnits || '0');
         return sum + sales;
       }, 0);
       
       const totalSOH = storeTasks.reduce((sum, t) => {
-        const soh = parseFloat(t.soh || '0') || 0;
+        const soh = safeParseFloat(t.soh || '0');
         return sum + soh;
       }, 0);
 
@@ -1633,6 +1661,26 @@ export async function registerRoutes(
         return '';
       };
 
+      // Sanitize numeric values - handle comma decimal separators (e.g. "1,901975" -> "1.901975")
+      const sanitizeNumeric = (val: string): string => {
+        if (!val || val === '' || val === '0') return '0';
+        let cleaned = val.trim();
+        const hasDot = cleaned.includes('.');
+        const hasComma = cleaned.includes(',');
+        if (hasDot && hasComma) {
+          const lastDot = cleaned.lastIndexOf('.');
+          const lastComma = cleaned.lastIndexOf(',');
+          if (lastComma > lastDot) {
+            cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+          } else {
+            cleaned = cleaned.replace(/,/g, '');
+          }
+        } else if (hasComma) {
+          cleaned = cleaned.replace(',', '.');
+        }
+        return cleaned;
+      };
+
       // Helper to parse date string to ISO format (YYYY-MM-DD)
       const parseToISODate = (dateVal: any): string => {
         if (!dateVal) return new Date().toISOString().split('T')[0];
@@ -1677,11 +1725,11 @@ export async function registerRoutes(
           category: getValue(row, 'Category', 'CATEGORY', 'category') || '',
           barcode: barcodeVal || '',
           articleDescription: getValue(row, 'article description', 'Article Description', 'ArticleDescription', 'Description', 'Product', 'Product Name') || 'No Description',
-          dcSoh: getValue(row, 'Supplying dc soh', 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh', 'Supplying DC SOH') || '0',
-          storeSoh: getValue(row, 'Store SOH', 'STORE_SOH', 'StoreSoh', 'store_soh') || '0',
-          p4WeekSales: getValue(row, 'Sell out p4 weeks', 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales', 'Sell out P4 weeks') || '0',
-          missedSales: getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales') || '0',
-          storeWfc: getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc') || '0',
+          dcSoh: sanitizeNumeric(getValue(row, 'Supplying dc soh', 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh', 'Supplying DC SOH')),
+          storeSoh: sanitizeNumeric(getValue(row, 'Store SOH', 'STORE_SOH', 'StoreSoh', 'store_soh', 'store soh')),
+          p4WeekSales: sanitizeNumeric(getValue(row, 'Sell out p4 weeks', 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales', 'Sell out P4 weeks', 'sell out p4 weeks')),
+          missedSales: sanitizeNumeric(getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales')),
+          storeWfc: sanitizeNumeric(getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc')),
           stockClassification: getValue(row, 'Stock Classification (This Week)', 'Stock Classification', 'StockClassification', 'stock_classification') || '',
           weekEnding: weekEndingVal || new Date().toISOString().split('T')[0],
           weekEndingDate: weekEndingISO,

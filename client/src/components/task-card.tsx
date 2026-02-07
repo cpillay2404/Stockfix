@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Box, AlertCircle, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
-import { cn } from "@/lib/utils";
+import { cn, safeParseFloat } from "@/lib/utils";
 
 interface TaskCardProps {
   task: Task;
@@ -12,7 +12,7 @@ interface TaskCardProps {
 export function TaskCard({ task }: TaskCardProps) {
   const isPending = task.actionStatus === 'Pending';
   
-  const missedSales = parseFloat(task.missedSales);
+  const missedSales = safeParseFloat(task.missedSales);
   const isHighPriority = missedSales > 100;
 
   return (

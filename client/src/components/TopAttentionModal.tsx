@@ -36,7 +36,8 @@ export function TopAttentionModal({ open, onOpenChange, skus, rep, store, client
   };
 
   const formatWfc = (val: string) => {
-    const num = parseFloat(val);
+    const cleaned = val ? val.replace(',', '.') : '';
+    const num = parseFloat(cleaned);
     if (isNaN(num)) return 'N/A';
     return num.toFixed(1);
   };

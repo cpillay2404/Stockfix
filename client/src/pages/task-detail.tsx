@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { ArrowLeft, Camera, CheckCircle2, AlertCircle, Loader2, X, Plus, LogOut, ClipboardEdit, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from "@/lib/utils";
+import { cn, safeParseFloat } from "@/lib/utils";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ComposedChart, Bar, Line, XAxis, YAxis, ResponsiveContainer, LabelList } from "recharts";
@@ -308,7 +308,7 @@ export default function TaskDetail() {
     );
   }
 
-  const storeSohNum = parseFloat(task.storeSoh || "0") || 0;
+  const storeSohNum = safeParseFloat(task.storeSoh || "0");
   const physicalCountNum = parseFloat(physicalCount) || 0;
   const variance = physicalCount ? physicalCountNum - storeSohNum : null;
 
@@ -682,7 +682,7 @@ export default function TaskDetail() {
           </div>
           <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
             <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>WFC</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{(parseFloat(task.storeWfc || '0') || 0).toFixed(1)}</div>
+            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{safeParseFloat(task.storeWfc || '0').toFixed(1)}</div>
           </div>
         </div>
       </div>
