@@ -396,7 +396,7 @@ export default function TaskDetail() {
     galleryInputs[activePhotoSlot].current?.click();
   };
 
-  const addTimestampToImage = (file: File): Promise<File> => {
+  const addTimestampToImage = (file: File, storeName?: string, articleDesc?: string): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = document.createElement('img');
       const reader = new FileReader();
@@ -434,17 +434,28 @@ export default function TaskDetail() {
               minute: '2-digit' 
             });
             
-            const fontSize = Math.max(20, Math.floor(h * 0.035));
+            const fontSize = Math.max(16, Math.floor(h * 0.028));
             const padding = Math.floor(fontSize * 0.5);
+            const lineHeight = Math.floor(fontSize * 1.4);
+            
+            const lines: string[] = [];
+            if (storeName) lines.push(storeName);
+            if (articleDesc) lines.push(articleDesc);
+            lines.push(timestamp);
             
             ctx.font = `bold ${fontSize}px monospace`;
-            const textWidth = ctx.measureText(timestamp).width;
+            const maxTextWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
+            
+            const blockHeight = lines.length * lineHeight + padding;
+            const blockY = h - blockHeight - padding;
             
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.fillRect(0, h - fontSize - padding * 2, textWidth + padding * 2, fontSize + padding * 2);
+            ctx.fillRect(0, blockY, maxTextWidth + padding * 2, blockHeight + padding);
             
             ctx.fillStyle = '#FFFFFF';
-            ctx.fillText(timestamp, padding, h - padding);
+            lines.forEach((line, i) => {
+              ctx.fillText(line, padding, blockY + padding + (i + 1) * lineHeight - Math.floor(fontSize * 0.3));
+            });
             
             canvas.toBlob((blob) => {
               if (!blob) {
@@ -476,11 +487,11 @@ export default function TaskDetail() {
     try {
       let fileToUpload = file;
       try {
-        fileToUpload = await addTimestampToImage(file);
+        fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription);
       } catch (timestampError) {
         console.warn('Timestamp attempt 1 failed, retrying:', timestampError);
         try {
-          fileToUpload = await addTimestampToImage(file);
+          fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription);
         } catch (retryError) {
           console.warn('Timestamp retry failed, uploading without stamp:', retryError);
           toast({
