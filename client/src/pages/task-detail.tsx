@@ -396,7 +396,25 @@ export default function TaskDetail() {
     galleryInputs[activePhotoSlot].current?.click();
   };
 
-  const addTimestampToImage = (file: File, storeName?: string, articleDesc?: string): Promise<File> => {
+  const getGeoLocation = (): Promise<string> => {
+    return new Promise((resolve) => {
+      if (!navigator.geolocation) {
+        resolve('');
+        return;
+      }
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude.toFixed(5);
+          const lng = pos.coords.longitude.toFixed(5);
+          resolve(`GPS: ${lat}, ${lng}`);
+        },
+        () => resolve(''),
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
+      );
+    });
+  };
+
+  const addTimestampToImage = (file: File, storeName?: string, articleDesc?: string, geoTag?: string): Promise<File> => {
     return new Promise((resolve, reject) => {
       const img = document.createElement('img');
       const reader = new FileReader();
@@ -442,6 +460,7 @@ export default function TaskDetail() {
             if (storeName) lines.push(storeName);
             if (articleDesc) lines.push(articleDesc);
             lines.push(timestamp);
+            if (geoTag) lines.push(geoTag);
             
             ctx.font = `bold ${fontSize}px monospace`;
             const maxTextWidth = Math.max(...lines.map(l => ctx.measureText(l).width));
@@ -485,13 +504,14 @@ export default function TaskDetail() {
 
     setUploadingImage(slot);
     try {
+      const geo = await getGeoLocation();
       let fileToUpload = file;
       try {
-        fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription);
+        fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription, geo);
       } catch (timestampError) {
         console.warn('Timestamp attempt 1 failed, retrying:', timestampError);
         try {
-          fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription);
+          fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription, geo);
         } catch (retryError) {
           console.warn('Timestamp retry failed, uploading without stamp:', retryError);
           toast({
