@@ -403,53 +403,60 @@ export default function TaskDetail() {
       
       reader.onload = (e) => {
         img.onload = () => {
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          if (!ctx) {
-            reject(new Error('Could not get canvas context'));
-            return;
-          }
-          
-          canvas.width = img.width;
-          canvas.height = img.height;
-          
-          // Draw the original image
-          ctx.drawImage(img, 0, 0);
-          
-          // Format timestamp in SA format: dd/mm/yy hh:mm
-          const now = new Date();
-          const timestamp = now.toLocaleString('en-ZA', { 
-            day: '2-digit', 
-            month: '2-digit', 
-            year: '2-digit', 
-            hour: '2-digit', 
-            minute: '2-digit' 
-          });
-          
-          // Calculate font size based on image dimensions (approx 3% of image height)
-          const fontSize = Math.max(20, Math.floor(img.height * 0.03));
-          const padding = Math.floor(fontSize * 0.5);
-          
-          ctx.font = `bold ${fontSize}px monospace`;
-          const textWidth = ctx.measureText(timestamp).width;
-          
-          // Draw semi-transparent background for timestamp
-          ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-          ctx.fillRect(0, img.height - fontSize - padding * 2, textWidth + padding * 2, fontSize + padding * 2);
-          
-          // Draw timestamp text
-          ctx.fillStyle = '#FFFFFF';
-          ctx.fillText(timestamp, padding, img.height - padding);
-          
-          // Convert canvas to blob
-          canvas.toBlob((blob) => {
-            if (!blob) {
-              reject(new Error('Could not create blob'));
+          try {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              reject(new Error('Could not get canvas context'));
               return;
             }
-            const newFile = new File([blob], file.name, { type: 'image/jpeg' });
-            resolve(newFile);
-          }, 'image/jpeg', 0.9);
+            
+            const MAX_DIM = 2048;
+            let w = img.width;
+            let h = img.height;
+            if (w > MAX_DIM || h > MAX_DIM) {
+              const scale = MAX_DIM / Math.max(w, h);
+              w = Math.round(w * scale);
+              h = Math.round(h * scale);
+            }
+            
+            canvas.width = w;
+            canvas.height = h;
+            
+            ctx.drawImage(img, 0, 0, w, h);
+            
+            const now = new Date();
+            const timestamp = now.toLocaleString('en-ZA', { 
+              day: '2-digit', 
+              month: '2-digit', 
+              year: '2-digit', 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            });
+            
+            const fontSize = Math.max(20, Math.floor(h * 0.035));
+            const padding = Math.floor(fontSize * 0.5);
+            
+            ctx.font = `bold ${fontSize}px monospace`;
+            const textWidth = ctx.measureText(timestamp).width;
+            
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(0, h - fontSize - padding * 2, textWidth + padding * 2, fontSize + padding * 2);
+            
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillText(timestamp, padding, h - padding);
+            
+            canvas.toBlob((blob) => {
+              if (!blob) {
+                reject(new Error('Could not create blob'));
+                return;
+              }
+              const newFile = new File([blob], file.name, { type: 'image/jpeg' });
+              resolve(newFile);
+            }, 'image/jpeg', 0.85);
+          } catch (err) {
+            reject(err);
+          }
         };
         
         img.onerror = () => reject(new Error('Could not load image'));
@@ -467,13 +474,21 @@ export default function TaskDetail() {
 
     setUploadingImage(slot);
     try {
-      // Try to add timestamp to image, fall back to original if it fails
       let fileToUpload = file;
       try {
         fileToUpload = await addTimestampToImage(file);
       } catch (timestampError) {
-        console.warn('Could not add timestamp, uploading original:', timestampError);
-        // Continue with original file if timestamp fails
+        console.warn('Timestamp attempt 1 failed, retrying:', timestampError);
+        try {
+          fileToUpload = await addTimestampToImage(file);
+        } catch (retryError) {
+          console.warn('Timestamp retry failed, uploading without stamp:', retryError);
+          toast({
+            title: "Photo uploaded without timestamp",
+            description: "The date/time stamp could not be added to this photo.",
+            variant: "destructive",
+          });
+        }
       }
       
       const result = await uploadImage(fileToUpload);
