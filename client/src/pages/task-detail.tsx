@@ -152,6 +152,7 @@ export default function TaskDetail() {
   const [uploadingImage, setUploadingImage] = useState<1 | 2 | 3 | 4 | null>(null);
   const [showPhotoChoice, setShowPhotoChoice] = useState(false);
   const [activePhotoSlot, setActivePhotoSlot] = useState<1 | 2 | 3 | 4>(1);
+  const [cachedGeo, setCachedGeo] = useState<string>('');
   
   const cameraInput1 = useRef<HTMLInputElement>(null);
   const cameraInput2 = useRef<HTMLInputElement>(null);
@@ -215,6 +216,24 @@ export default function TaskDetail() {
       });
     },
   });
+
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const lat = position.coords.latitude.toFixed(6);
+          const lng = position.coords.longitude.toFixed(6);
+          setCachedGeo(`${lat}, ${lng}`);
+          console.log('GPS location cached:', lat, lng);
+        },
+        (err) => {
+          console.log('GPS permission denied or unavailable:', err.message);
+          setCachedGeo('');
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+      );
+    }
+  }, []);
 
   useEffect(() => {
     if (task) {
@@ -398,6 +417,10 @@ export default function TaskDetail() {
 
   const getGeoLocation = (): Promise<string> => {
     return new Promise((resolve) => {
+      if (cachedGeo) {
+        resolve(`GPS: ${cachedGeo}`);
+        return;
+      }
       if (!navigator.geolocation) {
         resolve('');
         return;
@@ -406,7 +429,9 @@ export default function TaskDetail() {
         (pos) => {
           const lat = pos.coords.latitude.toFixed(5);
           const lng = pos.coords.longitude.toFixed(5);
-          resolve(`GPS: ${lat}, ${lng}`);
+          const geo = `${lat}, ${lng}`;
+          setCachedGeo(geo);
+          resolve(`GPS: ${geo}`);
         },
         () => resolve(''),
         { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
