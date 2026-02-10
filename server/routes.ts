@@ -2871,5 +2871,19 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/fix-week-ending", async (req, res) => {
+    try {
+      const { client, fromDate, toDate } = req.body;
+      if (!client || !fromDate || !toDate) {
+        return res.status(400).json({ error: "client, fromDate, toDate required" });
+      }
+      const result = await db.execute(sql`UPDATE tasks SET week_ending_date = ${toDate} WHERE client = ${client} AND week_ending_date = ${fromDate}`);
+      res.json({ success: true, message: `Updated week ending date from ${fromDate} to ${toDate} for ${client}` });
+    } catch (error: any) {
+      console.error("Error fixing week ending:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
