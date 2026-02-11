@@ -10,7 +10,7 @@ import path from "path";
 import fs from "fs";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendTaskCompletedEmail } from "./email";
-import { calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
+import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
 
@@ -2109,7 +2109,6 @@ export async function registerRoutes(
       const limit = parseInt(req.query.limit as string) || 10;
       const cacheKey = `leaderboard_${manager || 'all'}`;
       
-      // Try cache first
       let cachedData = getCachedGamificationStats(cacheKey);
       let allStats: RepGamificationStats[];
       let latestWeek: string | null;
@@ -2118,14 +2117,47 @@ export async function registerRoutes(
         allStats = cachedData.stats;
         latestWeek = cachedData.weekEndingDate;
       } else {
-        // Use the absolute latest week - this is what reps are working on
         latestWeek = await storage.getLatestWeekEndingDate();
-        const filteredTasks = await storage.getTasksFiltered({
-          weekEndingDate: latestWeek || undefined,
-          lineManager: manager || undefined,
+        if (!latestWeek) {
+          return res.json({ leaderboard: [], teamStats: {}, totalReps: 0, weekEndingDate: null });
+        }
+        
+        const repStatsRaw = await storage.getLeaderboardAggregated(latestWeek);
+        
+        let filteredStats = repStatsRaw;
+        if (manager) {
+          filteredStats = repStatsRaw.filter(r => r.lineManager === manager);
+        }
+        
+        allStats = filteredStats.map(rep => {
+          const completionRate = rep.totalTasks > 0 ? Math.round((rep.completedTasks / rep.totalTasks) * 100) : 0;
+          const priorityCompletionRate = rep.priorityTotalTasks > 0 ? Math.round((rep.priorityCompletedTasks / rep.priorityTotalTasks) * 100) : 0;
+          return {
+            repName: rep.repName,
+            lineManager: rep.lineManager,
+            region: rep.region,
+            totalTasks: rep.totalTasks,
+            completedTasks: rep.completedTasks,
+            openTasks: rep.totalTasks - rep.completedTasks,
+            completionRate,
+            priorityTotalTasks: rep.priorityTotalTasks,
+            priorityCompletedTasks: rep.priorityCompletedTasks,
+            priorityOpenTasks: rep.priorityTotalTasks - rep.priorityCompletedTasks,
+            priorityCompletionRate,
+            badge: calculateBadge(priorityCompletionRate),
+            streak: 0,
+            storesMastered: rep.storesMastered,
+            rank: 0,
+            rankChange: 'same' as const,
+            isTopPerformer: false,
+          };
+        }).sort((a, b) => b.priorityCompletionRate - a.priorityCompletionRate);
+        
+        allStats.forEach((rep, index) => {
+          rep.rank = index + 1;
+          rep.isTopPerformer = index < 3;
         });
         
-        allStats = calculateRepGamificationStats(filteredTasks);
         setCachedGamificationStats(cacheKey, { stats: allStats, weekEndingDate: latestWeek });
       }
       
@@ -2150,7 +2182,6 @@ export async function registerRoutes(
       const repName = decodeURIComponent(req.params.repName);
       const cacheKey = 'leaderboard_all';
       
-      // Try cache first (reuse the main leaderboard cache)
       let cachedData = getCachedGamificationStats(cacheKey);
       let allStats: RepGamificationStats[];
       let latestWeek: string | null;
@@ -2159,13 +2190,24 @@ export async function registerRoutes(
         allStats = cachedData.stats;
         latestWeek = cachedData.weekEndingDate;
       } else {
-        // Use SQL-level filtering for performance
         latestWeek = await storage.getLatestWeekEndingDate();
-        const thisWeekTasks = await storage.getTasksFiltered({
-          weekEndingDate: latestWeek || undefined,
-        });
-        
-        allStats = calculateRepGamificationStats(thisWeekTasks);
+        if (!latestWeek) {
+          return res.json({ found: false, repName, weekEndingDate: null });
+        }
+        const repStatsRaw = await storage.getLeaderboardAggregated(latestWeek);
+        allStats = repStatsRaw.map(rep => {
+          const completionRate = rep.totalTasks > 0 ? Math.round((rep.completedTasks / rep.totalTasks) * 100) : 0;
+          const priorityCompletionRate = rep.priorityTotalTasks > 0 ? Math.round((rep.priorityCompletedTasks / rep.priorityTotalTasks) * 100) : 0;
+          return {
+            repName: rep.repName, lineManager: rep.lineManager, region: rep.region,
+            totalTasks: rep.totalTasks, completedTasks: rep.completedTasks, openTasks: rep.totalTasks - rep.completedTasks,
+            completionRate, priorityTotalTasks: rep.priorityTotalTasks, priorityCompletedTasks: rep.priorityCompletedTasks,
+            priorityOpenTasks: rep.priorityTotalTasks - rep.priorityCompletedTasks, priorityCompletionRate,
+            badge: calculateBadge(priorityCompletionRate), streak: 0, storesMastered: rep.storesMastered,
+            rank: 0, rankChange: 'same' as const, isTopPerformer: false,
+          };
+        }).sort((a, b) => b.priorityCompletionRate - a.priorityCompletionRate);
+        allStats.forEach((rep, index) => { rep.rank = index + 1; rep.isTopPerformer = index < 3; });
         setCachedGamificationStats(cacheKey, { stats: allStats, weekEndingDate: latestWeek });
       }
       
@@ -2212,114 +2254,67 @@ export async function registerRoutes(
       const period = req.query.period as string || 'week';
       const clientFilter = req.query.client as string || '';
       
-      // Get the absolute latest week ending date - this is what reps are working on
       const latestWeek = await storage.getLatestWeekEndingDate();
+      if (!latestWeek) {
+        return res.json({ weekEndingDate: null, period, overall: {}, regionLeaderboard: [], managerLeaderboard: [], repLeaderboard: [], clientLeaderboard: [] });
+      }
       
       console.log(`[Admin Leaderboard] period=${period}, latestWeek=${latestWeek}, clientFilter=${clientFilter}`);
       
-      let allTasks: any[];
+      const [repStatsRaw, clientStatsRaw] = await Promise.all([
+        storage.getLeaderboardAggregated(latestWeek, clientFilter || undefined),
+        storage.getClientStatsAggregated(latestWeek),
+      ]);
       
-      if (period === 'week') {
-        // For "past week", use the week with most client data
-        allTasks = await storage.getTasksFiltered({
-          weekEndingDate: latestWeek || undefined,
-          client: clientFilter || undefined,
-        });
-        console.log(`[Admin Leaderboard] Fetched ${allTasks.length} tasks for week ${latestWeek}`);
-      } else {
-        // For longer periods, calculate date range from latest week
-        const referenceDate = latestWeek ? new Date(latestWeek) : new Date();
-        let startDate = new Date(referenceDate);
-        
-        switch (period) {
-          case 'month':
-            startDate.setDate(startDate.getDate() - 30);
-            break;
-          case '3months':
-            startDate.setDate(startDate.getDate() - 90);
-            break;
-          case '6months':
-            startDate.setDate(startDate.getDate() - 180);
-            break;
-        }
-        
-        allTasks = await storage.getTasksInDateRange(startDate, referenceDate, clientFilter || undefined);
-      }
+      console.log(`[Admin Leaderboard] Got ${repStatsRaw.length} rep stats via SQL aggregation`);
       
-      const allStats = calculateRepGamificationStats(allTasks);
+      const repLeaderboard = repStatsRaw.map((rep, _idx) => {
+        const completionRate = rep.totalTasks > 0 ? Math.round((rep.completedTasks / rep.totalTasks) * 100) : 0;
+        const priorityCompletionRate = rep.priorityTotalTasks > 0 ? Math.round((rep.priorityCompletedTasks / rep.priorityTotalTasks) * 100) : 0;
+        const badge = priorityCompletionRate >= 100 ? { type: 'gold' as const, label: 'Gold', color: '#FFD700', emoji: '🥇' }
+          : priorityCompletionRate >= 90 ? { type: 'silver' as const, label: 'Silver', color: '#C0C0C0', emoji: '🥈' }
+          : priorityCompletionRate >= 80 ? { type: 'bronze' as const, label: 'Bronze', color: '#CD7F32', emoji: '🥉' }
+          : { type: 'none' as const, label: '', color: '', emoji: '' };
+        return {
+          repName: rep.repName,
+          lineManager: rep.lineManager,
+          region: rep.region,
+          totalTasks: rep.totalTasks,
+          completedTasks: rep.completedTasks,
+          openTasks: rep.totalTasks - rep.completedTasks,
+          completionRate,
+          priorityTotalTasks: rep.priorityTotalTasks,
+          priorityCompletedTasks: rep.priorityCompletedTasks,
+          priorityOpenTasks: rep.priorityTotalTasks - rep.priorityCompletedTasks,
+          priorityCompletionRate,
+          badge,
+          streak: 0,
+          storesMastered: rep.storesMastered,
+          rank: 0,
+          rankChange: 'same' as const,
+          isTopPerformer: false,
+        };
+      }).sort((a, b) => b.priorityCompletionRate - a.priorityCompletionRate);
       
-      // Region breakdown
-      const regionStats: Record<string, { 
-        region: string; 
-        totalTasks: number; 
-        completedTasks: number; 
-        completionRate: number;
-        priorityTasks: number;
-        priorityCompleted: number;
-        priorityRate: number;
-        repCount: number;
-      }> = {};
+      repLeaderboard.forEach((rep, index) => {
+        rep.rank = index + 1;
+        rep.isTopPerformer = index < 3;
+      });
       
-      allStats.forEach(rep => {
+      const regionStats: Record<string, { region: string; totalTasks: number; completedTasks: number; completionRate: number; priorityTasks: number; priorityCompleted: number; priorityRate: number; repCount: number }> = {};
+      const managerStats: Record<string, { manager: string; region: string; totalTasks: number; completedTasks: number; completionRate: number; priorityTasks: number; priorityCompleted: number; priorityRate: number; repCount: number; goldBadges: number; silverBadges: number; bronzeBadges: number }> = {};
+      
+      repLeaderboard.forEach(rep => {
         const region = rep.region || 'Unknown';
-        if (!regionStats[region]) {
-          regionStats[region] = {
-            region,
-            totalTasks: 0,
-            completedTasks: 0,
-            completionRate: 0,
-            priorityTasks: 0,
-            priorityCompleted: 0,
-            priorityRate: 0,
-            repCount: 0,
-          };
-        }
+        if (!regionStats[region]) regionStats[region] = { region, totalTasks: 0, completedTasks: 0, completionRate: 0, priorityTasks: 0, priorityCompleted: 0, priorityRate: 0, repCount: 0 };
         regionStats[region].totalTasks += rep.totalTasks;
         regionStats[region].completedTasks += rep.completedTasks;
         regionStats[region].priorityTasks += rep.priorityTotalTasks;
         regionStats[region].priorityCompleted += rep.priorityCompletedTasks;
         regionStats[region].repCount++;
-      });
-      
-      Object.values(regionStats).forEach(r => {
-        r.completionRate = r.totalTasks > 0 ? Math.round((r.completedTasks / r.totalTasks) * 100) : 0;
-        r.priorityRate = r.priorityTasks > 0 ? Math.round((r.priorityCompleted / r.priorityTasks) * 100) : 0;
-      });
-      
-      // Manager breakdown
-      const managerStats: Record<string, {
-        manager: string;
-        region: string;
-        totalTasks: number;
-        completedTasks: number;
-        completionRate: number;
-        priorityTasks: number;
-        priorityCompleted: number;
-        priorityRate: number;
-        repCount: number;
-        goldBadges: number;
-        silverBadges: number;
-        bronzeBadges: number;
-      }> = {};
-      
-      allStats.forEach(rep => {
+        
         const manager = rep.lineManager || 'Unknown';
-        if (!managerStats[manager]) {
-          managerStats[manager] = {
-            manager,
-            region: rep.region || '',
-            totalTasks: 0,
-            completedTasks: 0,
-            completionRate: 0,
-            priorityTasks: 0,
-            priorityCompleted: 0,
-            priorityRate: 0,
-            repCount: 0,
-            goldBadges: 0,
-            silverBadges: 0,
-            bronzeBadges: 0,
-          };
-        }
+        if (!managerStats[manager]) managerStats[manager] = { manager, region: rep.region || '', totalTasks: 0, completedTasks: 0, completionRate: 0, priorityTasks: 0, priorityCompleted: 0, priorityRate: 0, repCount: 0, goldBadges: 0, silverBadges: 0, bronzeBadges: 0 };
         managerStats[manager].totalTasks += rep.totalTasks;
         managerStats[manager].completedTasks += rep.completedTasks;
         managerStats[manager].priorityTasks += rep.priorityTotalTasks;
@@ -2330,55 +2325,29 @@ export async function registerRoutes(
         else if (rep.badge.type === 'bronze') managerStats[manager].bronzeBadges++;
       });
       
+      Object.values(regionStats).forEach(r => {
+        r.completionRate = r.totalTasks > 0 ? Math.round((r.completedTasks / r.totalTasks) * 100) : 0;
+        r.priorityRate = r.priorityTasks > 0 ? Math.round((r.priorityCompleted / r.priorityTasks) * 100) : 0;
+      });
       Object.values(managerStats).forEach(m => {
         m.completionRate = m.totalTasks > 0 ? Math.round((m.completedTasks / m.totalTasks) * 100) : 0;
         m.priorityRate = m.priorityTasks > 0 ? Math.round((m.priorityCompleted / m.priorityTasks) * 100) : 0;
       });
       
-      // Sort rep leaderboard by priority completion rate
-      const repLeaderboard = [...allStats].sort((a, b) => b.priorityCompletionRate - a.priorityCompletionRate);
-      
-      // Sort manager leaderboard by priority completion rate
       const managerLeaderboard = Object.values(managerStats).sort((a, b) => b.priorityRate - a.priorityRate);
-      
-      // Sort region stats by priority rate
       const regionLeaderboard = Object.values(regionStats).sort((a, b) => b.priorityRate - a.priorityRate);
       
-      // Client capture stats
-      const clientStats: Record<string, {
-        client: string;
-        totalTasks: number;
-        completedTasks: number;
-        completionRate: number;
-      }> = {};
+      const clientLeaderboard = clientStatsRaw.map(c => ({
+        client: c.client,
+        totalTasks: c.totalTasks,
+        completedTasks: c.completedTasks,
+        completionRate: c.totalTasks > 0 ? Math.round((c.completedTasks / c.totalTasks) * 100) : 0,
+      })).sort((a, b) => b.completionRate - a.completionRate);
       
-      allTasks.forEach(task => {
-        const client = task.client || 'Unknown';
-        if (!clientStats[client]) {
-          clientStats[client] = {
-            client,
-            totalTasks: 0,
-            completedTasks: 0,
-            completionRate: 0,
-          };
-        }
-        clientStats[client].totalTasks++;
-        if (task.actionStatus === 'Completed') {
-          clientStats[client].completedTasks++;
-        }
-      });
-      
-      Object.values(clientStats).forEach(c => {
-        c.completionRate = c.totalTasks > 0 ? Math.round((c.completedTasks / c.totalTasks) * 100) : 0;
-      });
-      
-      const clientLeaderboard = Object.values(clientStats).sort((a, b) => b.completionRate - a.completionRate);
-      
-      // Overall totals
-      const totalTasks = allStats.reduce((sum, r) => sum + r.totalTasks, 0);
-      const totalCompleted = allStats.reduce((sum, r) => sum + r.completedTasks, 0);
-      const priorityTotal = allStats.reduce((sum, r) => sum + r.priorityTotalTasks, 0);
-      const priorityCompleted = allStats.reduce((sum, r) => sum + r.priorityCompletedTasks, 0);
+      const totalTasks = repLeaderboard.reduce((sum, r) => sum + r.totalTasks, 0);
+      const totalCompleted = repLeaderboard.reduce((sum, r) => sum + r.completedTasks, 0);
+      const priorityTotal = repLeaderboard.reduce((sum, r) => sum + r.priorityTotalTasks, 0);
+      const priorityCompleted = repLeaderboard.reduce((sum, r) => sum + r.priorityCompletedTasks, 0);
       
       res.json({
         weekEndingDate: latestWeek,
@@ -2390,7 +2359,7 @@ export async function registerRoutes(
           priorityTotal,
           priorityCompleted,
           priorityRate: priorityTotal > 0 ? Math.round((priorityCompleted / priorityTotal) * 100) : 0,
-          totalReps: allStats.length,
+          totalReps: repLeaderboard.length,
           totalManagers: Object.keys(managerStats).length,
           totalRegions: Object.keys(regionStats).length,
         },

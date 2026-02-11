@@ -58,6 +58,21 @@ export interface IStorage {
     totalCompleted: number;
     total: number;
   }>;
+  getLeaderboardAggregated(weekEndingDate: string, client?: string): Promise<{
+    repName: string;
+    lineManager: string;
+    region: string;
+    totalTasks: number;
+    completedTasks: number;
+    priorityTotalTasks: number;
+    priorityCompletedTasks: number;
+    storesMastered: number;
+  }[]>;
+  getClientStatsAggregated(weekEndingDate: string): Promise<{
+    client: string;
+    totalTasks: number;
+    completedTasks: number;
+  }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -323,6 +338,93 @@ export class DatabaseStorage implements IStorage {
       totalCompleted: Number(result?.totalCompleted) || 0,
       totalOpen: Number(result?.totalOpen) || 0,
     };
+  }
+
+  async getLeaderboardAggregated(weekEndingDate: string, client?: string): Promise<{
+    repName: string;
+    lineManager: string;
+    region: string;
+    totalTasks: number;
+    completedTasks: number;
+    priorityTotalTasks: number;
+    priorityCompletedTasks: number;
+    storesMastered: number;
+  }[]> {
+    const conditions = [eq(tasks.weekEndingDate, weekEndingDate)];
+    if (client) {
+      conditions.push(eq(tasks.client, client));
+    }
+    const whereClause = and(...conditions);
+
+    const result = await db
+      .select({
+        repName: tasks.repName,
+        lineManager: tasks.lineManager,
+        region: tasks.region,
+        totalTasks: count(),
+        completedTasks: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
+        priorityTotalTasks: sql<number>`SUM(CASE WHEN LOWER(${tasks.action}) LIKE '%urgent: place order%' OR LOWER(${tasks.action}) LIKE '%fix counts: negative%' OR LOWER(${tasks.action}) LIKE '%negative soh%' OR LOWER(${tasks.action}) LIKE '%check count: no sales%' THEN 1 ELSE 0 END)`,
+        priorityCompletedTasks: sql<number>`SUM(CASE WHEN (LOWER(${tasks.action}) LIKE '%urgent: place order%' OR LOWER(${tasks.action}) LIKE '%fix counts: negative%' OR LOWER(${tasks.action}) LIKE '%negative soh%' OR LOWER(${tasks.action}) LIKE '%check count: no sales%') AND ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
+      })
+      .from(tasks)
+      .where(whereClause)
+      .groupBy(tasks.repName, tasks.lineManager, tasks.region);
+
+    const repNames = result.map(r => r.repName).filter(Boolean);
+    let storesMasteredMap: Record<string, number> = {};
+    
+    if (repNames.length > 0) {
+      const storesResult = await db.execute(sql`
+        SELECT rep_name, COUNT(*) as mastered
+        FROM (
+          SELECT rep_name, store_name,
+            COUNT(*) as total,
+            SUM(CASE WHEN action_status = 'Completed' THEN 1 ELSE 0 END) as completed
+          FROM tasks
+          WHERE week_ending_date = ${weekEndingDate}
+          ${client ? sql`AND client = ${client}` : sql``}
+          GROUP BY rep_name, store_name
+          HAVING COUNT(*) > 0 AND SUM(CASE WHEN action_status = 'Completed' THEN 1 ELSE 0 END) = COUNT(*)
+        ) sub
+        GROUP BY rep_name
+      `);
+      for (const row of storesResult.rows as any[]) {
+        storesMasteredMap[row.rep_name] = Number(row.mastered) || 0;
+      }
+    }
+
+    return result.map(r => ({
+      repName: r.repName || 'Unknown',
+      lineManager: r.lineManager || '',
+      region: r.region || '',
+      totalTasks: Number(r.totalTasks) || 0,
+      completedTasks: Number(r.completedTasks) || 0,
+      priorityTotalTasks: Number(r.priorityTotalTasks) || 0,
+      priorityCompletedTasks: Number(r.priorityCompletedTasks) || 0,
+      storesMastered: storesMasteredMap[r.repName || ''] || 0,
+    }));
+  }
+
+  async getClientStatsAggregated(weekEndingDate: string): Promise<{
+    client: string;
+    totalTasks: number;
+    completedTasks: number;
+  }[]> {
+    const result = await db
+      .select({
+        client: tasks.client,
+        totalTasks: count(),
+        completedTasks: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
+      })
+      .from(tasks)
+      .where(eq(tasks.weekEndingDate, weekEndingDate))
+      .groupBy(tasks.client);
+
+    return result.map(r => ({
+      client: r.client || 'Unknown',
+      totalTasks: Number(r.totalTasks) || 0,
+      completedTasks: Number(r.completedTasks) || 0,
+    }));
   }
 
   // Get tasks filtered at SQL level - much more efficient than getAllTasks + filter
