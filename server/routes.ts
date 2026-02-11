@@ -1583,14 +1583,14 @@ export async function registerRoutes(
         });
       }
 
-      // For large files (>20MB), use async processing (but not for dry runs)
-      const isLargeFile = req.file.size > 20 * 1024 * 1024 && !isDryRun;
-      
       // Check if we should clear existing tasks first (full refresh)
       const clearExisting = req.query.clear === 'true' || req.body?.clear === 'true';
       
       // Check if this is a dry run (parse and validate only, don't save)
       const isDryRun = req.query.dryRun === 'true' || req.body?.dryRun === 'true';
+      
+      // For files >5MB, use async processing (but not for dry runs)
+      const isLargeFile = req.file.size > 5 * 1024 * 1024 && !isDryRun;
       
       // Store file path for async processing
       const filePath = req.file.path;
