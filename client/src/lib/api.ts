@@ -174,54 +174,60 @@ export async function importExcel(
     onProgress({ status: 'processing', progress: 0, totalRows: 0, processedRows: 0, createdCount: 0, skippedCount: 0, message: `Uploading ${(file.size / (1024 * 1024)).toFixed(1)}MB file...` });
   }
   
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
-  
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      method: "POST",
-      body: formData,
-      signal: controller.signal,
-    });
-  } catch (err: any) {
-    clearTimeout(timeoutId);
-    if (err.name === 'AbortError') {
-      throw new Error("Upload timed out. The file may be too large. Please try again.");
-    }
-    throw new Error(`Upload failed: ${err.message || 'Network error. Check your connection and try again.'}`);
-  }
-  clearTimeout(timeoutId);
-  
-  if (!res.ok) {
-    let errorMessage = `Upload failed with status ${res.status}`;
-    try {
-      const text = await res.text();
-      try {
-        const errorData = JSON.parse(text);
-        errorMessage = errorData.error || errorMessage;
-      } catch {
-        if (text) errorMessage = text;
+  const result = await new Promise<any>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url, true);
+    xhr.timeout = 15 * 60 * 1000;
+    
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable && onProgress) {
+        const uploadPercent = Math.round((e.loaded / e.total) * 100);
+        onProgress({ 
+          status: 'processing', 
+          progress: 0, 
+          totalRows: 0, 
+          processedRows: 0, 
+          createdCount: 0, 
+          skippedCount: 0, 
+          message: `Uploading... ${uploadPercent}% (${(e.loaded / (1024*1024)).toFixed(1)}MB / ${(e.total / (1024*1024)).toFixed(1)}MB)` 
+        });
       }
-    } catch {
-      // Could not read response body
-    }
-    throw new Error(errorMessage);
-  }
-  
-  let result;
-  try {
-    result = await res.json();
-  } catch {
-    throw new Error("Invalid response from server");
-  }
+    };
+    
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch {
+          reject(new Error("Invalid response from server"));
+        }
+      } else {
+        let errorMessage = `Upload failed with status ${xhr.status}`;
+        try {
+          const errorData = JSON.parse(xhr.responseText);
+          errorMessage = errorData.error || errorMessage;
+        } catch {
+          if (xhr.responseText) errorMessage = xhr.responseText;
+        }
+        reject(new Error(errorMessage));
+      }
+    };
+    
+    xhr.onerror = () => reject(new Error("Network error. Check your connection and try again."));
+    xhr.ontimeout = () => reject(new Error("Upload timed out after 15 minutes. Please try again."));
+    
+    xhr.send(formData);
+  });
   
   // If async import, poll for status
   if (result.async && result.jobId) {
     return new Promise((resolve, reject) => {
+      let consecutiveErrors = 0;
+      const maxConsecutiveErrors = 5;
       const pollInterval = setInterval(async () => {
         try {
           const status = await checkImportStatus(result.jobId);
+          consecutiveErrors = 0;
           
           if (onProgress) {
             onProgress(status);
@@ -239,10 +245,14 @@ export async function importExcel(
             reject(new Error(status.error || 'Import failed'));
           }
         } catch (err) {
-          clearInterval(pollInterval);
-          reject(err);
+          consecutiveErrors++;
+          console.warn(`Import status poll error (${consecutiveErrors}/${maxConsecutiveErrors}):`, err);
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            clearInterval(pollInterval);
+            reject(new Error('Lost connection to import job. The import may still be processing on the server - check back shortly.'));
+          }
         }
-      }, 2000); // Poll every 2 seconds
+      }, 3000);
     });
   }
   
