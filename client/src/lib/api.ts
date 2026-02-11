@@ -144,11 +144,20 @@ export interface ImportJobStatus {
 }
 
 export async function checkImportStatus(jobId: string): Promise<ImportJobStatus> {
-  const res = await fetch(`${API_BASE}/tasks/import/status/${jobId}`);
-  if (!res.ok) {
-    throw new Error("Failed to check import status");
+  let lastError: Error | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}/tasks/import/status/${jobId}`);
+      if (!res.ok) {
+        throw new Error("Failed to check import status");
+      }
+      return res.json();
+    } catch (err: any) {
+      lastError = err;
+      await new Promise(r => setTimeout(r, 2000));
+    }
   }
-  return res.json();
+  throw lastError || new Error("Failed to check import status");
 }
 
 export async function importExcel(
@@ -166,7 +175,7 @@ export async function importExcel(
   }
   
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+  const timeoutId = setTimeout(() => controller.abort(), 10 * 60 * 1000);
   
   let res: Response;
   try {
