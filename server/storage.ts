@@ -73,6 +73,7 @@ export interface IStorage {
     totalTasks: number;
     completedTasks: number;
   }[]>;
+  getRepStreaks(): Promise<Record<string, number>>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -428,6 +429,44 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Get tasks filtered at SQL level - much more efficient than getAllTasks + filter
+  async getRepStreaks(): Promise<Record<string, number>> {
+    const result = await db.execute(sql`
+      SELECT rep_name, ARRAY_AGG(DISTINCT capture_date::date ORDER BY capture_date::date DESC) as dates
+      FROM tasks
+      WHERE action_status = 'Completed' AND capture_date IS NOT NULL AND capture_date != ''
+      GROUP BY rep_name
+    `);
+    
+    const streaks: Record<string, number> = {};
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    for (const row of result.rows as any[]) {
+      const repName = row.rep_name;
+      const dates = row.dates;
+      if (!dates || dates.length === 0) continue;
+      
+      const parsedDates = dates
+        .map((d: string) => { const dt = new Date(d); dt.setHours(0, 0, 0, 0); return dt; })
+        .filter((d: Date) => !isNaN(d.getTime()))
+        .sort((a: Date, b: Date) => b.getTime() - a.getTime());
+      
+      if (parsedDates.length === 0) continue;
+      
+      const daysSinceLast = Math.floor((today.getTime() - parsedDates[0].getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSinceLast > 1) { streaks[repName] = 0; continue; }
+      
+      let streak = 1;
+      for (let i = 1; i < parsedDates.length; i++) {
+        const diff = Math.floor((parsedDates[i - 1].getTime() - parsedDates[i].getTime()) / (1000 * 60 * 60 * 24));
+        if (diff === 1) streak++;
+        else break;
+      }
+      streaks[repName] = streak;
+    }
+    return streaks;
+  }
+
   async getTasksFiltered(filters: {
     weekEndingDate?: string;
     repName?: string;
