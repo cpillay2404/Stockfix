@@ -12,15 +12,26 @@ import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { importExcel, type ImportJobStatus } from "@/lib/api";
 
+interface FileQueueItem {
+  file: File;
+  status: 'pending' | 'importing' | 'completed' | 'failed';
+  progress?: ImportJobStatus;
+  result?: string;
+  error?: string;
+}
+
 export default function ImportData() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
+  const [fileQueue, setFileQueue] = useState<FileQueueItem[]>([]);
+  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const [clearExisting, setClearExisting] = useState(true);
   const [isExporting, setIsExporting] = useState<string | null>(null);
   const [importProgress, setImportProgress] = useState<ImportJobStatus | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const multiFileInputRef = useRef<HTMLInputElement>(null);
   
   // Contacts import state
   const [contactsFile, setContactsFile] = useState<File | null>(null);
@@ -181,6 +192,69 @@ export default function ImportData() {
     if (!file) return;
     importMutation.mutate(file);
   };
+
+  const handleMultiFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const newItems: FileQueueItem[] = Array.from(e.target.files).map(f => ({
+        file: f,
+        status: 'pending' as const,
+      }));
+      setFileQueue(prev => [...prev, ...newItems]);
+    }
+    if (multiFileInputRef.current) {
+      multiFileInputRef.current.value = '';
+    }
+  };
+
+  const removeFromQueue = (index: number) => {
+    setFileQueue(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const processQueue = async () => {
+    if (fileQueue.length === 0) return;
+    setIsProcessingQueue(true);
+
+    for (let i = 0; i < fileQueue.length; i++) {
+      if (fileQueue[i].status === 'completed' || fileQueue[i].status === 'failed') continue;
+
+      setFileQueue(prev => prev.map((item, idx) => 
+        idx === i ? { ...item, status: 'importing' as const } : item
+      ));
+
+      try {
+        const shouldClear = clearExisting && i === 0;
+        const result = await importExcel(fileQueue[i].file, shouldClear, (status) => {
+          setFileQueue(prev => prev.map((item, idx) => 
+            idx === i ? { ...item, progress: status } : item
+          ));
+        });
+
+        setFileQueue(prev => prev.map((item, idx) => 
+          idx === i ? { ...item, status: 'completed' as const, result: result.message } : item
+        ));
+      } catch (error: any) {
+        setFileQueue(prev => prev.map((item, idx) => 
+          idx === i ? { ...item, status: 'failed' as const, error: error.message } : item
+        ));
+      }
+    }
+
+    setIsProcessingQueue(false);
+    queryClient.invalidateQueries({ queryKey: ["tasks"] });
+    toast({
+      title: "Queue Complete",
+      description: `Finished processing ${fileQueue.length} files.`,
+    });
+  };
+
+  const clearQueue = () => {
+    if (isProcessingQueue) return;
+    setFileQueue([]);
+  };
+
+  const queuePendingCount = fileQueue.filter(f => f.status === 'pending').length;
+  const queueCompletedCount = fileQueue.filter(f => f.status === 'completed').length;
+  const queueFailedCount = fileQueue.filter(f => f.status === 'failed').length;
 
   // Contacts import mutation
   const contactsImportMutation = useMutation({
