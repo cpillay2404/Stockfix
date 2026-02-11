@@ -8,7 +8,8 @@ const PRIORITY_PATTERNS = [
   'urgent: place order',
   'fix counts: negative',
   'negative soh',
-  'check count: no sales',
+  'check count: no sales in 60',
+  'check count: no sales in 15',
 ];
 
 // Check if a task is a priority task (what reps are measured on)

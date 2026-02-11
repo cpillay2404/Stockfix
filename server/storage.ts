@@ -364,8 +364,8 @@ export class DatabaseStorage implements IStorage {
         region: tasks.region,
         totalTasks: count(),
         completedTasks: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
-        priorityTotalTasks: sql<number>`SUM(CASE WHEN LOWER(${tasks.action}) LIKE '%urgent: place order%' OR LOWER(${tasks.action}) LIKE '%fix counts: negative%' OR LOWER(${tasks.action}) LIKE '%negative soh%' OR LOWER(${tasks.action}) LIKE '%check count: no sales%' THEN 1 ELSE 0 END)`,
-        priorityCompletedTasks: sql<number>`SUM(CASE WHEN (LOWER(${tasks.action}) LIKE '%urgent: place order%' OR LOWER(${tasks.action}) LIKE '%fix counts: negative%' OR LOWER(${tasks.action}) LIKE '%negative soh%' OR LOWER(${tasks.action}) LIKE '%check count: no sales%') AND ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
+        priorityTotalTasks: sql<number>`SUM(CASE WHEN LOWER(${tasks.action}) LIKE '%urgent: place order%' OR LOWER(${tasks.action}) LIKE '%fix counts: negative%' OR LOWER(${tasks.action}) LIKE '%negative soh%' OR LOWER(${tasks.action}) LIKE '%check count: no sales in 60%' OR LOWER(${tasks.action}) LIKE '%check count: no sales in 15%' THEN 1 ELSE 0 END)`,
+        priorityCompletedTasks: sql<number>`SUM(CASE WHEN (LOWER(${tasks.action}) LIKE '%urgent: place order%' OR LOWER(${tasks.action}) LIKE '%fix counts: negative%' OR LOWER(${tasks.action}) LIKE '%negative soh%' OR LOWER(${tasks.action}) LIKE '%check count: no sales in 60%' OR LOWER(${tasks.action}) LIKE '%check count: no sales in 15%') AND ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
       })
       .from(tasks)
       .where(whereClause)

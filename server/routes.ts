@@ -259,9 +259,7 @@ const PRIORITY_ACTIONS = [
   { pattern: 'negative soh', priority: 1 },
   { pattern: 'check count: no sales in 60', priority: 2 },
   { pattern: 'check count: no sales in 15', priority: 3 },
-  { pattern: 'check count: no sales in 30', priority: 4 },
-  { pattern: 'check count: no sales', priority: 5 },
-  { pattern: 'urgent: place order', priority: 6 },
+  { pattern: 'urgent: place order', priority: 4 },
 ];
 
 // Returns priority level (1=highest, 999=lowest/normal)
