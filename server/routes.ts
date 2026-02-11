@@ -2340,11 +2340,15 @@ export async function registerRoutes(
       
       console.log(`[Admin Leaderboard] period=${period}, latestWeek=${latestWeek}, clientFilter=${clientFilter}`);
       
-      const [repStatsRaw, clientStatsRaw, adminStreaks] = await Promise.all([
+      const [repStatsRaw, clientStatsRawAll, adminStreaks] = await Promise.all([
         storage.getLeaderboardAggregated(latestWeek, clientFilter || undefined),
         storage.getClientStatsAggregated(latestWeek),
         storage.getRepStreaks(),
       ]);
+      
+      const clientStatsRaw = clientFilter 
+        ? clientStatsRawAll.filter(c => c.client === clientFilter)
+        : clientStatsRawAll;
       
       console.log(`[Admin Leaderboard] Got ${repStatsRaw.length} rep stats via SQL aggregation`);
       
