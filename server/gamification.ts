@@ -10,6 +10,7 @@ const PRIORITY_PATTERNS = [
   'negative soh',
   'check count: no sales in 60',
   'check count: no sales in 15',
+  'check count: no sales in 30',
 ];
 
 // Check if a task is a priority task (what reps are measured on)
