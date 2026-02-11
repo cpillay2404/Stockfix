@@ -190,6 +190,15 @@ export default function ImportData() {
 
   const handleUpload = () => {
     if (!file) return;
+    if (clearExisting) {
+      const confirmed = window.confirm(
+        "⚠️ WARNING: Full Refresh is ON!\n\n" +
+        "This will DELETE ALL existing tasks before importing.\n" +
+        "Any completed task feedback, photos, and comments will be lost.\n\n" +
+        "Are you sure you want to continue?"
+      );
+      if (!confirmed) return;
+    }
     importMutation.mutate(file);
   };
 
@@ -212,6 +221,15 @@ export default function ImportData() {
 
   const processQueue = async () => {
     if (fileQueue.length === 0) return;
+    if (clearExisting) {
+      const confirmed = window.confirm(
+        "⚠️ WARNING: Full Refresh is ON!\n\n" +
+        "This will DELETE ALL existing tasks before importing the first file.\n" +
+        "Any completed task feedback, photos, and comments will be lost.\n\n" +
+        "Are you sure you want to continue?"
+      );
+      if (!confirmed) return;
+    }
     setIsProcessingQueue(true);
 
     for (let i = 0; i < fileQueue.length; i++) {
