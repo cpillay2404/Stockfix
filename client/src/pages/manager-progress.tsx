@@ -198,6 +198,15 @@ export default function ManagerProgress() {
   const urlParams = new URLSearchParams(window.location.search);
   const selectedManager = urlParams.get('manager') || '';
 
+  const { data: clientsList } = useQuery({
+    queryKey: ["clients-list"],
+    queryFn: async () => {
+      const res = await fetch('/api/clients');
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   const { data, isLoading } = useQuery({
     queryKey: ["manager-progress", selectedManager, selectedRegion, selectedClient],
     queryFn: async () => {
@@ -389,6 +398,40 @@ export default function ManagerProgress() {
             </div>
           </div>
         )}
+
+        {/* Client Filter */}
+        <div style={{
+          backgroundColor: '#FFFFFF',
+          borderRadius: '8px',
+          padding: '12px',
+          marginBottom: '12px',
+        }}>
+          <label style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '6px', display: 'block' }}>
+            Filter by Client
+          </label>
+          <select
+            data-testid="select-client-filter"
+            value={selectedClient}
+            onChange={(e) => setSelectedClient(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              border: '1px solid #D1D5DB',
+              fontSize: '14px',
+              color: '#003B71',
+              backgroundColor: '#F9FAFB',
+              fontWeight: 500,
+              cursor: 'pointer',
+              appearance: 'auto' as any,
+            }}
+          >
+            <option value="">All Clients</option>
+            {(clientsList || []).map((c: string) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+        </div>
 
         {/* Team Task Status - moved below achievements */}
         <div style={{
