@@ -599,12 +599,13 @@ export async function registerRoutes(
         };
       });
       
-      // Sort by attention score descending and get unique barcodes (top 5)
-      scoredTasks.sort((a, b) => b.attentionScore - a.attentionScore);
+      // Filter to only priority/critical tasks, then sort by attention score
+      const criticalTasks = scoredTasks.filter(t => isPriorityTask(t.action));
+      criticalTasks.sort((a, b) => b.attentionScore - a.attentionScore);
       
       const seenBarcodes = new Set<string>();
       const topSkus = [];
-      for (const task of scoredTasks) {
+      for (const task of criticalTasks) {
         if (!seenBarcodes.has(task.barcode)) {
           seenBarcodes.add(task.barcode);
           topSkus.push(task);
