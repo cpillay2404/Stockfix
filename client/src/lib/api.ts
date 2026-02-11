@@ -160,10 +160,30 @@ export async function importExcel(
   formData.append("file", file);
   
   const url = clearExisting ? `${API_BASE}/tasks/import?clear=true` : `${API_BASE}/tasks/import`;
-  const res = await fetch(url, {
-    method: "POST",
-    body: formData,
-  });
+  
+  if (onProgress) {
+    onProgress({ status: 'processing', progress: 0, totalRows: 0, processedRows: 0, createdCount: 0, skippedCount: 0, message: `Uploading ${(file.size / (1024 * 1024)).toFixed(1)}MB file...` });
+  }
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5 * 60 * 1000);
+  
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+    });
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    if (err.name === 'AbortError') {
+      throw new Error("Upload timed out. The file may be too large. Please try again.");
+    }
+    throw new Error(`Upload failed: ${err.message || 'Network error. Check your connection and try again.'}`);
+  }
+  clearTimeout(timeoutId);
+  
   if (!res.ok) {
     let errorMessage = `Upload failed with status ${res.status}`;
     try {
