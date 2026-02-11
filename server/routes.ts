@@ -44,6 +44,103 @@ function generateJobId(): string {
 }
 
 // Async import processing function for large files
+function mapRowToTask(row: any, index: number, getValue: (row: any, ...keys: string[]) => string, sanitizeBarcode: (val: string) => string, sanitizeNumeric: (val: string) => string, parseToISODate: (val: any) => string) {
+  const storeVal = getValue(row, 'cleaned store name', 'STORE NAME', 'Store Name', 'StoreName', 'store_name', 'Store');
+  const barcodeVal = sanitizeBarcode(getValue(row, 'barcode', 'Barcode', 'BARCODE', 'SKU', 'sku'));
+  const weekEndingVal = getValue(row, 'week ending', 'Week Ending', 'WeekEnding', 'week_ending', 'Date');
+  const weekEndingISO = parseToISODate(weekEndingVal);
+  
+  return {
+    uniqueId: `${storeVal}-${barcodeVal}-${weekEndingISO}`.replace(/[^a-zA-Z0-9-]/g, '') || `task-${Date.now()}-${index}`,
+    key: `${storeVal}-${barcodeVal}`.substring(0, 100) || `key-${index}`,
+    client: getValue(row, 'client', 'Client', 'CLIENT') || 'Unknown',
+    banner: getValue(row, 'BANNER.1', 'BANNER', 'Banner', 'banner') || '',
+    region: getValue(row, 'REGION.1', 'REGION', 'Region', 'region') || '',
+    storeName: storeVal || 'Unknown Store',
+    repName: getValue(row, 'REP NAME', 'Rep Name', 'RepName', 'rep_name', 'Rep') || '',
+    lineManager: getValue(row, 'LINE MANAGER', 'Line Manager', 'LineManager', 'line_manager') || '',
+    category: getValue(row, 'Category', 'CATEGORY', 'category') || '',
+    barcode: barcodeVal || '',
+    articleDescription: getValue(row, 'article description', 'Article Description', 'ArticleDescription', 'Description', 'Product', 'Product Name') || 'No Description',
+    dcSoh: sanitizeNumeric(getValue(row, 'Supplying dc soh', 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh', 'Supplying DC SOH')),
+    storeSoh: sanitizeNumeric(getValue(row, 'Store SOH', 'STORE_SOH', 'StoreSoh', 'store_soh', 'store soh')),
+    p4WeekSales: sanitizeNumeric(getValue(row, 'Sell out p4 weeks', 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales', 'Sell out P4 weeks', 'sell out p4 weeks')),
+    missedSales: sanitizeNumeric(getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales')),
+    storeWfc: sanitizeNumeric(getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc')),
+    stockClassification: getValue(row, 'Stock Classification (This Week)', 'Stock Classification', 'StockClassification', 'stock_classification') || '',
+    weekEnding: weekEndingVal || new Date().toISOString().split('T')[0],
+    weekEndingDate: weekEndingISO,
+    action: getValue(row, 'Action Column', 'Action', 'ACTION', 'action', 'Task', 'Required Action') || 'Review stock',
+    actionDate: null,
+    actionStatus: getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status') || 'Pending',
+    systemImage: getValue(row, 'System Image', 'SystemImage', 'system_image', 'Image') || '',
+  };
+}
+
+const getValueHelper = (row: any, ...possibleKeys: string[]): string => {
+  for (const key of possibleKeys) {
+    if (row[key] !== undefined && row[key] !== null) {
+      return String(row[key]);
+    }
+    const lowerKey = key.toLowerCase();
+    for (const rowKey of Object.keys(row)) {
+      if (rowKey.toLowerCase() === lowerKey || rowKey.toLowerCase().replace(/[^a-z0-9]/g, '') === lowerKey.replace(/[^a-z0-9]/g, '')) {
+        return String(row[rowKey]);
+      }
+    }
+  }
+  return '';
+};
+
+const sanitizeBarcodeHelper = (val: string): string => {
+  if (!val || val === '' || val === '0') return '';
+  let cleaned = val.trim().replace(',', '.');
+  if (/[eE]\+/.test(cleaned)) {
+    const num = Number(cleaned);
+    if (!isNaN(num)) return num.toFixed(0);
+  }
+  cleaned = cleaned.replace(/\.0+$/, '');
+  return cleaned;
+};
+
+const sanitizeNumericHelper = (val: string): string => {
+  if (!val || val === '' || val === '0') return '0';
+  let cleaned = val.trim();
+  const hasDot = cleaned.includes('.');
+  const hasComma = cleaned.includes(',');
+  if (hasDot && hasComma) {
+    const lastDot = cleaned.lastIndexOf('.');
+    const lastComma = cleaned.lastIndexOf(',');
+    if (lastComma > lastDot) {
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (hasComma) {
+    cleaned = cleaned.replace(',', '.');
+  }
+  return cleaned;
+};
+
+const parseToISODateHelper = (dateVal: any): string => {
+  if (!dateVal) return new Date().toISOString().split('T')[0];
+  try {
+    if (typeof dateVal === 'number' || !isNaN(Number(dateVal))) {
+      const num = Number(dateVal);
+      if (num > 1 && num < 100000) {
+        const excelEpoch = new Date(1899, 11, 30);
+        const resultDate = new Date(excelEpoch.getTime() + num * 24 * 60 * 60 * 1000);
+        return resultDate.toISOString().split('T')[0];
+      }
+    }
+    const parsed = new Date(String(dateVal));
+    if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000 && parsed.getFullYear() < 2100) {
+      return parsed.toISOString().split('T')[0];
+    }
+  } catch (e) {}
+  return new Date().toISOString().split('T')[0];
+};
+
 async function processImportAsync(filePath: string, clearExisting: boolean, jobId: string): Promise<void> {
   const job = importJobs.get(jobId);
   if (!job) return;
@@ -56,132 +153,73 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
       await storage.deleteAllTasks();
     }
 
-    const workbook = XLSX.readFile(filePath);
+    const fileStats = fs.statSync(filePath);
+    const fileSizeMB = (fileStats.size / (1024 * 1024)).toFixed(2);
+    console.log(`Async import [${jobId}] - Reading file (${fileSizeMB}MB)...`);
+    
+    const workbook = XLSX.readFile(filePath, { cellDates: false, cellFormula: false, cellHTML: false, cellStyles: false, cellNF: false });
     const sheetName = workbook.SheetNames[0];
     const sheet = workbook.Sheets[sheetName];
     const data = XLSX.utils.sheet_to_json(sheet);
     
     job.totalRows = data.length;
-    console.log(`Async import [${jobId}] - Total rows: ${data.length}`);
+    console.log(`Async import [${jobId}] - Total rows: ${data.length}, parsing and inserting...`);
 
-    // Helper to get value from row with flexible column matching
-    const getValue = (row: any, ...possibleKeys: string[]): string => {
-      for (const key of possibleKeys) {
-        if (row[key] !== undefined && row[key] !== null) {
-          return String(row[key]);
-        }
-        const lowerKey = key.toLowerCase();
-        for (const rowKey of Object.keys(row)) {
-          if (rowKey.toLowerCase() === lowerKey || rowKey.toLowerCase().replace(/[^a-z0-9]/g, '') === lowerKey.replace(/[^a-z0-9]/g, '')) {
-            return String(row[rowKey]);
-          }
-        }
-      }
-      return '';
-    };
-
-    // Sanitize barcode - convert scientific notation (e.g. "6.01E+12" or "6,01E+12") to full number string
-    const sanitizeBarcode = (val: string): string => {
-      if (!val || val === '' || val === '0') return '';
-      let cleaned = val.trim().replace(',', '.');
-      if (/[eE]\+/.test(cleaned)) {
-        const num = Number(cleaned);
-        if (!isNaN(num)) return num.toFixed(0);
-      }
-      cleaned = cleaned.replace(/\.0+$/, '');
-      return cleaned;
-    };
-
-    // Sanitize numeric values - handle comma decimal separators (e.g. "1,901975" -> "1.901975")
-    const sanitizeNumeric = (val: string): string => {
-      if (!val || val === '' || val === '0') return '0';
-      let cleaned = val.trim();
-      const hasDot = cleaned.includes('.');
-      const hasComma = cleaned.includes(',');
-      if (hasDot && hasComma) {
-        const lastDot = cleaned.lastIndexOf('.');
-        const lastComma = cleaned.lastIndexOf(',');
-        if (lastComma > lastDot) {
-          cleaned = cleaned.replace(/\./g, '').replace(',', '.');
-        } else {
-          cleaned = cleaned.replace(/,/g, '');
-        }
-      } else if (hasComma) {
-        cleaned = cleaned.replace(',', '.');
-      }
-      return cleaned;
-    };
-
-    const parseToISODate = (dateVal: any): string => {
-      if (!dateVal) return new Date().toISOString().split('T')[0];
-      try {
-        // Handle Excel serial numbers (numbers like 46057)
-        if (typeof dateVal === 'number' || !isNaN(Number(dateVal))) {
-          const num = Number(dateVal);
-          // Excel serial numbers are typically between 1 and 100000
-          if (num > 1 && num < 100000) {
-            // Excel date: days since Dec 30, 1899
-            const excelEpoch = new Date(1899, 11, 30);
-            const resultDate = new Date(excelEpoch.getTime() + num * 24 * 60 * 60 * 1000);
-            return resultDate.toISOString().split('T')[0];
-          }
-        }
-        // Try parsing as date string
-        const parsed = new Date(String(dateVal));
-        if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000 && parsed.getFullYear() < 2100) {
-          return parsed.toISOString().split('T')[0];
-        }
-      } catch (e) {}
-      return new Date().toISOString().split('T')[0];
-    };
-
-    // Map and validate tasks
-    const mappedTasks = data.map((row: any, index: number) => {
-      const storeVal = getValue(row, 'cleaned store name', 'STORE NAME', 'Store Name', 'StoreName', 'store_name', 'Store');
-      const barcodeVal = sanitizeBarcode(getValue(row, 'barcode', 'Barcode', 'BARCODE', 'SKU', 'sku'));
-      const weekEndingVal = getValue(row, 'week ending', 'Week Ending', 'WeekEnding', 'week_ending', 'Date');
-      const weekEndingISO = parseToISODate(weekEndingVal);
+    const BATCH_SIZE = 500;
+    let batchTasks: any[] = [];
+    
+    for (let i = 0; i < data.length; i++) {
+      const row = data[i];
+      const mapped = mapRowToTask(row, i, getValueHelper, sanitizeBarcodeHelper, sanitizeNumericHelper, parseToISODateHelper);
       
-      return {
-        uniqueId: `${storeVal}-${barcodeVal}-${weekEndingISO}`.replace(/[^a-zA-Z0-9-]/g, '') || `task-${Date.now()}-${index}`,
-        key: `${storeVal}-${barcodeVal}`.substring(0, 100) || `key-${index}`,
-        client: getValue(row, 'client', 'Client', 'CLIENT') || 'Unknown',
-        banner: getValue(row, 'BANNER.1', 'BANNER', 'Banner', 'banner') || '',
-        region: getValue(row, 'REGION.1', 'REGION', 'Region', 'region') || '',
-        storeName: storeVal || 'Unknown Store',
-        repName: getValue(row, 'REP NAME', 'Rep Name', 'RepName', 'rep_name', 'Rep') || '',
-        lineManager: getValue(row, 'LINE MANAGER', 'Line Manager', 'LineManager', 'line_manager') || '',
-        category: getValue(row, 'Category', 'CATEGORY', 'category') || '',
-        barcode: barcodeVal || '',
-        articleDescription: getValue(row, 'article description', 'Article Description', 'ArticleDescription', 'Description', 'Product', 'Product Name') || 'No Description',
-        dcSoh: sanitizeNumeric(getValue(row, 'Supplying dc soh', 'DC SOH', 'DC_SOH', 'DCSOH', 'dc_soh', 'Supplying DC SOH')),
-        storeSoh: sanitizeNumeric(getValue(row, 'Store SOH', 'STORE_SOH', 'StoreSoh', 'store_soh', 'store soh')),
-        p4WeekSales: sanitizeNumeric(getValue(row, 'Sell out p4 weeks', 'P4 week Sales', 'P4WeekSales', 'p4_week_sales', 'P4 Sales', 'Sell out P4 weeks', 'sell out p4 weeks')),
-        missedSales: sanitizeNumeric(getValue(row, 'Missed Sales (This Week)', 'Missed Sales', 'MissedSales', 'missed_sales')),
-        storeWfc: sanitizeNumeric(getValue(row, 'WFC', ' WFC', 'Store WFC (This Week)', 'Store WFC', 'StoreWfc', 'store_wfc')),
-        stockClassification: getValue(row, 'Stock Classification (This Week)', 'Stock Classification', 'StockClassification', 'stock_classification') || '',
-        weekEnding: weekEndingVal || new Date().toISOString().split('T')[0],
-        weekEndingDate: weekEndingISO,
-        action: getValue(row, 'Action Column', 'Action', 'ACTION', 'action', 'Task', 'Required Action') || 'Review stock',
-        actionDate: null,
-        actionStatus: getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status') || 'Pending',
-        systemImage: getValue(row, 'System Image', 'SystemImage', 'system_image', 'Image') || '',
-      };
-    });
-
-    const validTasks = mappedTasks.filter((task: any) => task.barcode && task.barcode !== '');
-    const validatedTasks = validTasks.map((task: any) => insertTaskSchema.parse(task));
-    
-    // Insert in batches
-    const BATCH_SIZE = 100;
-    
-    for (let i = 0; i < validatedTasks.length; i += BATCH_SIZE) {
-      const batch = validatedTasks.slice(i, i + BATCH_SIZE);
+      if (!mapped.barcode || mapped.barcode === '') {
+        job.skippedCount++;
+        continue;
+      }
+      
       try {
-        const created = await storage.bulkCreateTasksIgnoreDuplicates(batch);
-        job.createdCount += created.length;
+        const validated = insertTaskSchema.parse(mapped);
+        batchTasks.push(validated);
+      } catch {
+        job.skippedCount++;
+      }
+      
+      if (batchTasks.length >= BATCH_SIZE) {
+        const batchLen = batchTasks.length;
+        try {
+          const inserted = await db.insert(tasks).values(batchTasks).onConflictDoNothing().returning({ id: tasks.id });
+          job.createdCount += inserted.length;
+          job.skippedCount += batchLen - inserted.length;
+        } catch (err) {
+          for (const task of batchTasks) {
+            try {
+              await storage.createTask(task);
+              job.createdCount++;
+            } catch {
+              job.skippedCount++;
+            }
+          }
+        }
+        batchTasks = [];
+        job.processedRows = i + 1;
+        job.progress = Math.round(((i + 1) / data.length) * 100);
+        
+        if (i % 5000 === 0) {
+          console.log(`Async import [${jobId}] - Progress: ${job.progress}% (${i + 1}/${data.length})`);
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1));
+      }
+    }
+    
+    if (batchTasks.length > 0) {
+      const batchLen = batchTasks.length;
+      try {
+        const inserted = await db.insert(tasks).values(batchTasks).onConflictDoNothing().returning({ id: tasks.id });
+        job.createdCount += inserted.length;
+        job.skippedCount += batchLen - inserted.length;
       } catch (err) {
-        for (const task of batch) {
+        for (const task of batchTasks) {
           try {
             await storage.createTask(task);
             job.createdCount++;
@@ -190,11 +228,11 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
           }
         }
       }
-      job.processedRows = Math.min(i + BATCH_SIZE, validatedTasks.length);
-      job.progress = Math.round((job.processedRows / validatedTasks.length) * 100);
     }
+    
+    job.processedRows = data.length;
+    job.progress = 100;
 
-    // Clean up and complete
     fs.unlinkSync(filePath);
     invalidateGamificationCache();
     
@@ -1595,14 +1633,14 @@ export async function registerRoutes(
       // Check if this is a dry run (parse and validate only, don't save)
       const isDryRun = req.query.dryRun === 'true' || req.body?.dryRun === 'true';
       
-      // For files >5MB, use async processing (but not for dry runs)
-      const isLargeFile = req.file.size > 5 * 1024 * 1024 && !isDryRun;
+      // All non-dry-run imports use async processing to avoid timeouts
+      const useAsync = !isDryRun;
       
       // Store file path for async processing
       const filePath = req.file.path;
       
-      // For large files, return immediately and process in background
-      if (isLargeFile) {
+      // Process in background to avoid HTTP timeout
+      if (useAsync) {
         const jobId = generateJobId();
         const job: ImportJob = {
           id: jobId,

@@ -133,7 +133,7 @@ export interface ImportResult {
 }
 
 export interface ImportJobStatus {
-  id: string;
+  id?: string;
   status: 'processing' | 'completed' | 'failed';
   progress: number;
   totalRows: number;
@@ -141,6 +141,7 @@ export interface ImportJobStatus {
   createdCount: number;
   skippedCount: number;
   error?: string;
+  message?: string;
 }
 
 export async function checkImportStatus(jobId: string): Promise<ImportJobStatus> {
