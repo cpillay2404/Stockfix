@@ -426,6 +426,123 @@ export default function ImportData() {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5" />
+              Batch Import (Multiple Files)
+            </CardTitle>
+            <CardDescription>
+              Select multiple files to import them one after another automatically. Only the first file will clear existing data (if enabled above).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid w-full max-w-sm items-center gap-1.5">
+              <Label htmlFor="multi-upload">Add Files to Queue</Label>
+              <input
+                ref={multiFileInputRef}
+                id="multi-upload"
+                type="file"
+                multiple
+                accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
+                onChange={handleMultiFileChange}
+                disabled={isProcessingQueue}
+                data-testid="input-multi-file"
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+              />
+            </div>
+
+            {fileQueue.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    {fileQueue.length} file{fileQueue.length !== 1 ? 's' : ''} in queue
+                    {queueCompletedCount > 0 && ` • ${queueCompletedCount} done`}
+                    {queueFailedCount > 0 && ` • ${queueFailedCount} failed`}
+                  </p>
+                  {!isProcessingQueue && (
+                    <Button variant="ghost" size="sm" onClick={clearQueue} data-testid="button-clear-queue">
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Clear
+                    </Button>
+                  )}
+                </div>
+
+                <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                  {fileQueue.map((item, index) => (
+                    <div
+                      key={`${item.file.name}-${index}`}
+                      className={`p-3 rounded-lg border flex items-start gap-3 ${
+                        item.status === 'completed' ? 'bg-green-50 border-green-200' :
+                        item.status === 'failed' ? 'bg-red-50 border-red-200' :
+                        item.status === 'importing' ? 'bg-blue-50 border-blue-200' :
+                        'bg-muted/50 border-border'
+                      }`}
+                    >
+                      {item.status === 'completed' ? (
+                        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 shrink-0" />
+                      ) : item.status === 'failed' ? (
+                        <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 shrink-0" />
+                      ) : item.status === 'importing' ? (
+                        <Loader2 className="h-4 w-4 text-blue-600 mt-0.5 shrink-0 animate-spin" />
+                      ) : (
+                        <FileSpreadsheet className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{item.file.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(item.file.size / (1024 * 1024)).toFixed(2)} MB
+                          {item.status === 'pending' && ' • Waiting'}
+                          {item.status === 'importing' && ' • Importing...'}
+                          {item.status === 'completed' && ` • ${item.result || 'Done'}`}
+                          {item.status === 'failed' && ` • ${item.error || 'Failed'}`}
+                        </p>
+                        {item.status === 'importing' && item.progress && (
+                          <div className="mt-2 space-y-1">
+                            <div className="flex justify-between text-xs text-muted-foreground">
+                              <span>{item.progress.processedRows.toLocaleString()} / {item.progress.totalRows.toLocaleString()} rows</span>
+                              <span>{item.progress.progress}%</span>
+                            </div>
+                            <Progress value={item.progress.progress} className="h-1.5" />
+                          </div>
+                        )}
+                      </div>
+                      {item.status === 'pending' && !isProcessingQueue && (
+                        <button
+                          onClick={() => removeFromQueue(index)}
+                          className="text-gray-400 hover:text-red-500 shrink-0"
+                          data-testid={`button-remove-queue-${index}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={processQueue}
+                  disabled={isProcessingQueue || queuePendingCount === 0}
+                  data-testid="button-start-queue"
+                >
+                  {isProcessingQueue ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing Queue...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="mr-2 h-4 w-4" />
+                      Import All ({queuePendingCount} file{queuePendingCount !== 1 ? 's' : ''})
+                    </>
+                  )}
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
               <Users className="h-5 w-5" />
               Import Contacts
             </CardTitle>
