@@ -599,17 +599,36 @@ export async function registerRoutes(
         };
       });
       
-      // Filter to only priority/critical tasks, then sort by attention score
-      const criticalTasks = scoredTasks.filter(t => isPriorityTask(t.action));
-      criticalTasks.sort((a, b) => b.attentionScore - a.attentionScore);
+      // First try to fill top 5 with highest priority tasks (priorities 1-4)
+      const topPriorityTasks = scoredTasks.filter(t => {
+        const p = getTaskPriority(t.action);
+        return p >= 1 && p <= 4;
+      });
+      topPriorityTasks.sort((a, b) => b.attentionScore - a.attentionScore);
       
       const seenBarcodes = new Set<string>();
       const topSkus = [];
-      for (const task of criticalTasks) {
+      for (const task of topPriorityTasks) {
         if (!seenBarcodes.has(task.barcode)) {
           seenBarcodes.add(task.barcode);
           topSkus.push(task);
           if (topSkus.length >= 5) break;
+        }
+      }
+      
+      // If fewer than 5, fill remaining slots with No Sales 30d tasks
+      if (topSkus.length < 5) {
+        const noSales30Tasks = scoredTasks.filter(t => {
+          const action = (t.action || '').toLowerCase();
+          return action.includes('check count: no sales in 30');
+        });
+        noSales30Tasks.sort((a, b) => b.attentionScore - a.attentionScore);
+        for (const task of noSales30Tasks) {
+          if (!seenBarcodes.has(task.barcode)) {
+            seenBarcodes.add(task.barcode);
+            topSkus.push(task);
+            if (topSkus.length >= 5) break;
+          }
         }
       }
       
