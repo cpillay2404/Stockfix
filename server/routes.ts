@@ -2122,7 +2122,10 @@ export async function registerRoutes(
           return res.json({ leaderboard: [], teamStats: {}, totalReps: 0, weekEndingDate: null });
         }
         
-        const repStatsRaw = await storage.getLeaderboardAggregated(latestWeek);
+        const [repStatsRaw, streaks] = await Promise.all([
+          storage.getLeaderboardAggregated(latestWeek),
+          storage.getRepStreaks(),
+        ]);
         
         let filteredStats = repStatsRaw;
         if (manager) {
@@ -2145,7 +2148,7 @@ export async function registerRoutes(
             priorityOpenTasks: rep.priorityTotalTasks - rep.priorityCompletedTasks,
             priorityCompletionRate,
             badge: calculateBadge(priorityCompletionRate),
-            streak: 0,
+            streak: streaks[rep.repName] || 0,
             storesMastered: rep.storesMastered,
             rank: 0,
             rankChange: 'same' as const,
@@ -2194,7 +2197,10 @@ export async function registerRoutes(
         if (!latestWeek) {
           return res.json({ found: false, repName, weekEndingDate: null });
         }
-        const repStatsRaw = await storage.getLeaderboardAggregated(latestWeek);
+        const [repStatsRaw, streaksData] = await Promise.all([
+          storage.getLeaderboardAggregated(latestWeek),
+          storage.getRepStreaks(),
+        ]);
         allStats = repStatsRaw.map(rep => {
           const completionRate = rep.totalTasks > 0 ? Math.round((rep.completedTasks / rep.totalTasks) * 100) : 0;
           const priorityCompletionRate = rep.priorityTotalTasks > 0 ? Math.round((rep.priorityCompletedTasks / rep.priorityTotalTasks) * 100) : 0;
@@ -2203,7 +2209,7 @@ export async function registerRoutes(
             totalTasks: rep.totalTasks, completedTasks: rep.completedTasks, openTasks: rep.totalTasks - rep.completedTasks,
             completionRate, priorityTotalTasks: rep.priorityTotalTasks, priorityCompletedTasks: rep.priorityCompletedTasks,
             priorityOpenTasks: rep.priorityTotalTasks - rep.priorityCompletedTasks, priorityCompletionRate,
-            badge: calculateBadge(priorityCompletionRate), streak: 0, storesMastered: rep.storesMastered,
+            badge: calculateBadge(priorityCompletionRate), streak: streaksData[rep.repName] || 0, storesMastered: rep.storesMastered,
             rank: 0, rankChange: 'same' as const, isTopPerformer: false,
           };
         }).sort((a, b) => b.priorityCompletionRate - a.priorityCompletionRate);
@@ -2261,9 +2267,10 @@ export async function registerRoutes(
       
       console.log(`[Admin Leaderboard] period=${period}, latestWeek=${latestWeek}, clientFilter=${clientFilter}`);
       
-      const [repStatsRaw, clientStatsRaw] = await Promise.all([
+      const [repStatsRaw, clientStatsRaw, adminStreaks] = await Promise.all([
         storage.getLeaderboardAggregated(latestWeek, clientFilter || undefined),
         storage.getClientStatsAggregated(latestWeek),
+        storage.getRepStreaks(),
       ]);
       
       console.log(`[Admin Leaderboard] Got ${repStatsRaw.length} rep stats via SQL aggregation`);
@@ -2288,7 +2295,7 @@ export async function registerRoutes(
           priorityOpenTasks: rep.priorityTotalTasks - rep.priorityCompletedTasks,
           priorityCompletionRate,
           badge,
-          streak: 0,
+          streak: adminStreaks[rep.repName] || 0,
           storesMastered: rep.storesMastered,
           rank: 0,
           rankChange: 'same' as const,
