@@ -180,6 +180,7 @@ export default function ManagerProgress() {
   const [, setLocation] = useLocation();
   const [selectedRegion, setSelectedRegion] = useState('');
   const [selectedClient, setSelectedClient] = useState('');
+  const [selectedStore, setSelectedStore] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
 
@@ -207,13 +208,24 @@ export default function ManagerProgress() {
     },
   });
 
+  const { data: storesList } = useQuery({
+    queryKey: ["stores-for-manager", selectedManager],
+    queryFn: async () => {
+      const res = await fetch(`/api/stores-for-manager?manager=${encodeURIComponent(selectedManager)}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!selectedManager,
+  });
+
   const { data, isLoading } = useQuery({
-    queryKey: ["manager-progress", selectedManager, selectedRegion, selectedClient],
+    queryKey: ["manager-progress", selectedManager, selectedRegion, selectedClient, selectedStore],
     queryFn: async () => {
       const queryParams = new URLSearchParams();
       if (selectedManager) queryParams.set('manager', selectedManager);
       if (selectedRegion) queryParams.set('region', selectedRegion);
       if (selectedClient) queryParams.set('client', selectedClient);
+      if (selectedStore) queryParams.set('store', selectedStore);
       const res = await fetch(`/api/task-progress/manager?${queryParams.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch manager progress");
       return res.json();
@@ -399,38 +411,69 @@ export default function ManagerProgress() {
           </div>
         )}
 
-        {/* Client Filter */}
+        {/* Filters */}
         <div style={{
           backgroundColor: '#FFFFFF',
           borderRadius: '8px',
           padding: '12px',
           marginBottom: '12px',
+          display: 'flex',
+          gap: '8px',
         }}>
-          <label style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '6px', display: 'block' }}>
-            Filter by Client
-          </label>
-          <select
-            data-testid="select-client-filter"
-            value={selectedClient}
-            onChange={(e) => setSelectedClient(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px 12px',
-              borderRadius: '8px',
-              border: '1px solid #D1D5DB',
-              fontSize: '14px',
-              color: '#003B71',
-              backgroundColor: '#F9FAFB',
-              fontWeight: 500,
-              cursor: 'pointer',
-              appearance: 'auto' as any,
-            }}
-          >
-            <option value="">All Clients</option>
-            {(clientsList || []).map((c: string) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '6px', display: 'block' }}>
+              Client
+            </label>
+            <select
+              data-testid="select-client-filter"
+              value={selectedClient}
+              onChange={(e) => setSelectedClient(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid #D1D5DB',
+                fontSize: '14px',
+                color: '#003B71',
+                backgroundColor: '#F9FAFB',
+                fontWeight: 500,
+                cursor: 'pointer',
+                appearance: 'auto' as any,
+              }}
+            >
+              <option value="">All Clients</option>
+              {(clientsList || []).map((c: string) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ flex: 1 }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '6px', display: 'block' }}>
+              Store
+            </label>
+            <select
+              data-testid="select-store-filter"
+              value={selectedStore}
+              onChange={(e) => setSelectedStore(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                border: '1px solid #D1D5DB',
+                fontSize: '14px',
+                color: '#003B71',
+                backgroundColor: '#F9FAFB',
+                fontWeight: 500,
+                cursor: 'pointer',
+                appearance: 'auto' as any,
+              }}
+            >
+              <option value="">All Stores</option>
+              {(storesList || []).map((s: string) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         {/* Team Task Status - moved below achievements */}

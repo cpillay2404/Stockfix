@@ -2108,6 +2108,35 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/stores-for-manager", async (req, res) => {
+    try {
+      const manager = req.query.manager as string | undefined;
+      if (!manager) {
+        return res.json([]);
+      }
+      const cacheKey = `stores_for_manager_${manager}`;
+      const cached = dashboardStatsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+        return res.json(cached.data);
+      }
+      const latestWeek = await storage.getLatestWeekEndingDate();
+      const teamTasks = await storage.getTasksFiltered({
+        weekEndingDate: latestWeek || undefined,
+        lineManager: manager,
+      });
+      const storeSet = new Set<string>();
+      teamTasks.forEach(t => {
+        if (t.storeName) storeSet.add(t.storeName);
+      });
+      const stores = Array.from(storeSet).sort();
+      dashboardStatsCache.set(cacheKey, { data: stores, timestamp: Date.now(), key: cacheKey });
+      res.json(stores);
+    } catch (error) {
+      console.error("Error fetching stores for manager:", error);
+      res.status(500).json({ error: "Failed to fetch stores" });
+    }
+  });
+
   // GET Gamification Leaderboard (this week only) - with caching
   app.get("/api/gamification/leaderboard", async (req, res) => {
     try {
@@ -2429,12 +2458,13 @@ export async function registerRoutes(
     try {
       const region = req.query.region as string | undefined;
       const client = req.query.client as string | undefined;
+      const store = req.query.store as string | undefined;
       const manager = req.query.manager as string | undefined;
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
 
       // Check cache first (only if no date filters)
-      const cacheKey = `manager_progress_${manager || 'all'}_${region || 'all'}_${client || 'all'}`;
+      const cacheKey = `manager_progress_${manager || 'all'}_${region || 'all'}_${client || 'all'}_${store || 'all'}`;
       if (!dateFrom && !dateTo) {
         const cached = dashboardStatsCache.get(cacheKey);
         if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
@@ -2451,6 +2481,7 @@ export async function registerRoutes(
         lineManager: manager,
         region,
         client,
+        store,
       });
 
       const openTasks = teamTasks.filter(t => t.actionStatus !== 'Completed');
