@@ -217,10 +217,13 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
 // Priority action types - these are the most important tasks reps should focus on
 // Lower number = higher priority (appears first)
 const PRIORITY_ACTIONS = [
-  { pattern: 'urgent: place order', priority: 1 },
-  { pattern: 'fix counts: negative', priority: 2 },
-  { pattern: 'negative soh', priority: 2 },
-  { pattern: 'check count: no sales', priority: 3 },
+  { pattern: 'fix counts: negative', priority: 1 },
+  { pattern: 'negative soh', priority: 1 },
+  { pattern: 'check count: no sales in 60', priority: 2 },
+  { pattern: 'check count: no sales in 15', priority: 3 },
+  { pattern: 'check count: no sales in 30', priority: 4 },
+  { pattern: 'check count: no sales', priority: 5 },
+  { pattern: 'urgent: place order', priority: 6 },
 ];
 
 // Returns priority level (1=highest, 999=lowest/normal)
@@ -518,12 +521,15 @@ export async function registerRoutes(
         
         // Base score from action priority
         let baseScore = 10; // Default for Optimal
-        if (actionText.includes('Fix Counts: Negative SOH')) baseScore = 100;
-        else if (actionText.includes('Urgent: DC OOS')) baseScore = 90;
-        else if (actionText.includes('Urgent: Place Order')) baseScore = 85;
-        else if (actionText.includes('OOS – Stock on Order') || actionText.includes('OOS - Stock on Order')) baseScore = 80;
+        if (actionText.includes('Fix Counts: Negative SOH') || actionText.includes('Negative SOH')) baseScore = 100;
+        else if (actionText.includes('Check Count: No Sales in 60')) baseScore = 95;
+        else if (actionText.includes('Check Count: No Sales in 15')) baseScore = 92;
+        else if (actionText.includes('Check Count: No Sales in 30')) baseScore = 90;
+        else if (actionText.includes('Check Count: No Sales')) baseScore = 88;
+        else if (actionText.includes('Urgent: DC OOS')) baseScore = 85;
+        else if (actionText.includes('Urgent: Place Order')) baseScore = 80;
+        else if (actionText.includes('OOS – Stock on Order') || actionText.includes('OOS - Stock on Order')) baseScore = 75;
         else if (actionText.includes('Review: Risk of OOS')) baseScore = 70;
-        else if (actionText.includes('Check Count: No Sales')) baseScore = 50;
         else if (actionText.includes('Monitor: Possible Overstock')) baseScore = 40;
         
         // Sales score
