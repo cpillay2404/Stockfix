@@ -2445,6 +2445,9 @@ export async function registerRoutes(
         totalTasks: c.totalTasks,
         completedTasks: c.completedTasks,
         completionRate: c.totalTasks > 0 ? Math.round((c.completedTasks / c.totalTasks) * 100) : 0,
+        criticalTotal: c.criticalTotal,
+        criticalCompleted: c.criticalCompleted,
+        criticalRate: c.criticalTotal > 0 ? Math.round((c.criticalCompleted / c.criticalTotal) * 100) : 0,
       })).sort((a, b) => b.completionRate - a.completionRate);
       
       const totalTasks = repLeaderboard.reduce((sum, r) => sum + r.totalTasks, 0);

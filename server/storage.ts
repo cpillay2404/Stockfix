@@ -72,6 +72,8 @@ export interface IStorage {
     client: string;
     totalTasks: number;
     completedTasks: number;
+    criticalTotal: number;
+    criticalCompleted: number;
   }[]>;
   getRepStreaks(): Promise<Record<string, number>>;
   getCriticalTaskBreakdown(weekEndingDate: string, client?: string): Promise<{
@@ -415,12 +417,24 @@ export class DatabaseStorage implements IStorage {
     client: string;
     totalTasks: number;
     completedTasks: number;
+    criticalTotal: number;
+    criticalCompleted: number;
   }[]> {
+    const criticalCondition = `(
+      LOWER(action) LIKE '%urgent: place order%' 
+      OR LOWER(action) LIKE '%fix counts: negative%' 
+      OR LOWER(action) LIKE '%negative soh%' 
+      OR LOWER(action) LIKE '%check count: no sales in 60%' 
+      OR LOWER(action) LIKE '%check count: no sales in 15%' 
+      OR LOWER(action) LIKE '%check count: no sales in 30%'
+    )`;
     const result = await db
       .select({
         client: tasks.client,
         totalTasks: count(),
         completedTasks: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
+        criticalTotal: sql<number>`SUM(CASE WHEN ${sql.raw(criticalCondition)} THEN 1 ELSE 0 END)`,
+        criticalCompleted: sql<number>`SUM(CASE WHEN ${sql.raw(criticalCondition)} AND ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
       })
       .from(tasks)
       .where(eq(tasks.weekEndingDate, weekEndingDate))
@@ -430,6 +444,8 @@ export class DatabaseStorage implements IStorage {
       client: r.client || 'Unknown',
       totalTasks: Number(r.totalTasks) || 0,
       completedTasks: Number(r.completedTasks) || 0,
+      criticalTotal: Number(r.criticalTotal) || 0,
+      criticalCompleted: Number(r.criticalCompleted) || 0,
     }));
   }
 

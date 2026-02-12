@@ -32,6 +32,9 @@ interface ClientStats {
   totalTasks: number;
   completedTasks: number;
   completionRate: number;
+  criticalTotal: number;
+  criticalCompleted: number;
+  criticalRate: number;
 }
 
 interface CriticalBreakdown {
@@ -438,18 +441,32 @@ export default function AdminLeaderboard() {
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '4px', color: '#F36C21', flexShrink: 0 }}>
               <Briefcase size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Client Capture %</span>
             </div>
+            <div style={{ display: 'flex', gap: '12px', fontSize: '8px', color: '#9ca3af', marginBottom: '6px', paddingLeft: '2px' }}>
+              <span>ALL = Overall</span>
+              <span style={{ color: '#DC2626' }}>CRIT = Critical</span>
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1, minHeight: 0 }}>
               {topClients.slice(0, 6).map((c) => (
-                <div key={c.client} style={{ display: 'flex', alignItems: 'center', padding: '2px 0', borderBottom: '1px solid #f3f4f6', gap: '6px' }}>
+                <div key={c.client} style={{ display: 'flex', alignItems: 'center', padding: '3px 0', borderBottom: '1px solid #f3f4f6', gap: '6px' }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: '10px', fontWeight: 600, color: '#003B71', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.client}</div>
-                    <div style={{ fontSize: '8px', color: '#9ca3af' }}>{c.completedTasks}/{c.totalTasks}</div>
+                    <div style={{ display: 'flex', gap: '8px', fontSize: '8px' }}>
+                      <span style={{ color: '#9ca3af' }}>ALL: {c.completedTasks}/{c.totalTasks}</span>
+                      <span style={{ color: '#DC2626' }}>CRIT: {c.criticalCompleted}/{c.criticalTotal}</span>
+                    </div>
                   </div>
-                  <SmallCircle value={c.completionRate} color={c.completionRate >= 80 ? '#16a34a' : c.completionRate >= 50 ? '#F36C21' : '#ef4444'} />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                    <SmallCircle value={c.completionRate} color={c.completionRate >= 80 ? '#16a34a' : c.completionRate >= 50 ? '#F36C21' : '#ef4444'} />
+                    <div style={{ fontSize: '7px', color: '#9ca3af' }}>ALL</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px' }}>
+                    <SmallCircle value={c.criticalRate} color={c.criticalRate >= 80 ? '#16a34a' : c.criticalRate >= 50 ? '#F36C21' : '#ef4444'} />
+                    <div style={{ fontSize: '7px', color: '#DC2626' }}>CRIT</div>
+                  </div>
                 </div>
               ))}
             </div>
