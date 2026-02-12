@@ -34,6 +34,12 @@ interface ClientStats {
   completionRate: number;
 }
 
+interface CriticalBreakdown {
+  action: string;
+  total: number;
+  completed: number;
+}
+
 interface AdminLeaderboardData {
   weekEndingDate: string | null;
   overall: {
@@ -51,6 +57,7 @@ interface AdminLeaderboardData {
   managerLeaderboard: ManagerStats[];
   repLeaderboard: RepStats[];
   clientLeaderboard: ClientStats[];
+  criticalBreakdown: CriticalBreakdown[];
 }
 
 function CircularProgress({ value, size = 60, strokeWidth = 5, color = "#F36C21" }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
@@ -214,7 +221,7 @@ export default function AdminLeaderboard() {
     );
   }
 
-  const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard, clientLeaderboard } = data;
+  const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard, clientLeaderboard, criticalBreakdown } = data;
   const topRegions = regionLeaderboard.slice(0, 8);
   const topManagers = managerLeaderboard.slice(0, 8);
   const topReps = repLeaderboard.slice(0, 8);
@@ -386,16 +393,47 @@ export default function AdminLeaderboard() {
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 200px) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0, overflow: 'hidden' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#DC2626', flexShrink: 0 }}>
               <ClipboardList size={14} />
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Stats</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Critical Tasks</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-              <StatCard icon={<Users size={16} />} value={overall.totalReps} label="Reps" />
-              <StatCard icon={<Users size={16} />} value={overall.totalManagers} label="Managers" />
-              <StatCard icon={<MapPin size={16} />} value={overall.totalRegions} label="Regions" />
-              <StatCard icon={<ClipboardList size={16} />} value={overall.totalTasks} label="Tasks" />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', overflow: 'auto', flex: 1, minHeight: 0 }}>
+              {(criticalBreakdown || []).map((item) => {
+                const shortLabel = item.action
+                  .replace('Check Count: ', '')
+                  .replace('Fix Counts: ', '')
+                  .replace('Urgent: Place Order - DC has stock', 'Place Order');
+                const rate = item.total > 0 ? Math.round((item.completed / item.total) * 100) : 0;
+                return (
+                  <div key={item.action} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '3px 0', borderBottom: '1px solid #f3f4f6' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '10px', fontWeight: 600, color: '#003B71', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shortLabel}</div>
+                    </div>
+                    <div style={{ fontSize: '10px', color: '#6b7280', whiteSpace: 'nowrap', fontFamily: 'monospace' }}>{item.completed}/{item.total}</div>
+                    <div style={{ 
+                      fontSize: '10px', fontWeight: 700, fontFamily: 'monospace',
+                      color: rate >= 80 ? '#16a34a' : rate >= 50 ? '#F36C21' : '#ef4444',
+                      minWidth: '32px', textAlign: 'right',
+                    }}>{rate}%</div>
+                  </div>
+                );
+              })}
+              {(!criticalBreakdown || criticalBreakdown.length === 0) && (
+                <div style={{ fontSize: '11px', color: '#9ca3af', textAlign: 'center', padding: '8px 0' }}>No critical tasks</div>
+              )}
+              <div style={{ borderTop: '2px solid #003B71', marginTop: '4px', paddingTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ flex: 1, fontSize: '10px', fontWeight: 700, color: '#003B71' }}>TOTAL</div>
+                <div style={{ fontSize: '10px', color: '#003B71', fontWeight: 700, fontFamily: 'monospace' }}>
+                  {(criticalBreakdown || []).reduce((s, i) => s + i.completed, 0)}/{(criticalBreakdown || []).reduce((s, i) => s + i.total, 0)}
+                </div>
+                <div style={{ 
+                  fontSize: '10px', fontWeight: 700, fontFamily: 'monospace', minWidth: '32px', textAlign: 'right',
+                  color: '#003B71',
+                }}>
+                  {(() => { const t = (criticalBreakdown || []).reduce((s, i) => s + i.total, 0); const c = (criticalBreakdown || []).reduce((s, i) => s + i.completed, 0); return t > 0 ? Math.round((c / t) * 100) : 0; })()}%
+                </div>
+              </div>
             </div>
           </div>
 

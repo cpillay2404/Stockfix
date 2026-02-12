@@ -2452,6 +2452,9 @@ export async function registerRoutes(
       const priorityTotal = repLeaderboard.reduce((sum, r) => sum + r.priorityTotalTasks, 0);
       const priorityCompleted = repLeaderboard.reduce((sum, r) => sum + r.priorityCompletedTasks, 0);
       
+      // Critical task breakdown by action type
+      const criticalBreakdownResult = await storage.getCriticalTaskBreakdown(latestWeek, clientFilter || undefined);
+      
       res.json({
         weekEndingDate: latestWeek,
         period,
@@ -2470,6 +2473,7 @@ export async function registerRoutes(
         managerLeaderboard,
         repLeaderboard,
         clientLeaderboard,
+        criticalBreakdown: criticalBreakdownResult,
       });
     } catch (error) {
       console.error("Error fetching admin leaderboard:", error);
