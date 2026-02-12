@@ -2445,18 +2445,12 @@ export async function registerRoutes(
         totalTasks: c.totalTasks,
         completedTasks: c.completedTasks,
         completionRate: c.totalTasks > 0 ? Math.round((c.completedTasks / c.totalTasks) * 100) : 0,
-        criticalTotal: c.criticalTotal,
-        criticalCompleted: c.criticalCompleted,
-        criticalRate: c.criticalTotal > 0 ? Math.round((c.criticalCompleted / c.criticalTotal) * 100) : 0,
       })).sort((a, b) => b.completionRate - a.completionRate);
       
       const totalTasks = repLeaderboard.reduce((sum, r) => sum + r.totalTasks, 0);
       const totalCompleted = repLeaderboard.reduce((sum, r) => sum + r.completedTasks, 0);
       const priorityTotal = repLeaderboard.reduce((sum, r) => sum + r.priorityTotalTasks, 0);
       const priorityCompleted = repLeaderboard.reduce((sum, r) => sum + r.priorityCompletedTasks, 0);
-      
-      // Critical task breakdown by action type
-      const criticalBreakdownResult = await storage.getCriticalTaskBreakdown(latestWeek, clientFilter || undefined);
       
       res.json({
         weekEndingDate: latestWeek,
@@ -2476,7 +2470,6 @@ export async function registerRoutes(
         managerLeaderboard,
         repLeaderboard,
         clientLeaderboard,
-        criticalBreakdown: criticalBreakdownResult,
       });
     } catch (error) {
       console.error("Error fetching admin leaderboard:", error);
