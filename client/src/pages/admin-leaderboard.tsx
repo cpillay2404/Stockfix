@@ -437,9 +437,9 @@ export default function AdminLeaderboard() {
                   'Review: Risk of OOS': 'OOS Risk',
                   'Urgent: Place Order - DC has stock': 'Place Order',
                   'Urgent: DC OOS': 'DC OOS',
-                  'Check Count: No Sales in 30 Days': 'NS 30d',
-                  'Check Count: No Sales in 15 Days': 'NS 15d',
-                  'Check Count: No Sales in 60 Days': 'NS 60d',
+                  'Check Count: No Sales in 30 Days': 'No Sales 30d',
+                  'Check Count: No Sales in 15 Days': 'No Sales 15d',
+                  'Check Count: No Sales in 60 Days': 'No Sales 60d',
                   'Fix Counts: Negative SOH': 'Neg SOH',
                   'Monitor: Possible Overstock': 'Overstock',
                 };
