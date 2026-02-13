@@ -432,12 +432,26 @@ export default function AdminLeaderboard() {
               const actions = (actionBreakdown || []).slice(0, 6);
               const maxTotal = Math.max(...actions.map(a => a.totalTasks), 1);
               const barColors = ['#003B71', '#F36C21', '#16a34a', '#8B5CF6', '#EC4899', '#0EA5E9'];
+              const shorten = (s: string) => {
+                const map: Record<string, string> = {
+                  'Review: Risk of OOS': 'Risk of OOS',
+                  'Urgent: Place Order - DC has stock': 'Place Order',
+                  'Check Count: No Sales in 30 Days': 'No Sales 30d',
+                  'Check Count: No Sales in 15 Days': 'No Sales 15d',
+                  'Check Count: No Sales in 60 Days': 'No Sales 60d',
+                  'Fix Counts: Negative SOH': 'Neg. SOH',
+                  'Monitor: Possible Overstock': 'Overstock',
+                  'OOS – Stock on Order': 'OOS on Order',
+                  'OOS \u2013 Stock on Order': 'OOS on Order',
+                };
+                return map[s] || s.replace(/^(Check Count|Fix Counts|Urgent|Review|Monitor):\s*/i, '');
+              };
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
                   {actions.map((a, i) => {
                     const completedPct = (a.completedTasks / maxTotal) * 100;
                     const totalPct = (a.totalTasks / maxTotal) * 100;
-                    const label = a.action.replace('Check Count: ', '').replace('Fix Counts: ', '').replace('Urgent: ', '');
+                    const label = shorten(a.action);
                     return (
                       <div key={a.action} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
