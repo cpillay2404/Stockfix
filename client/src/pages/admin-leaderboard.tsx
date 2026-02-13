@@ -34,6 +34,12 @@ interface ClientStats {
   completionRate: number;
 }
 
+interface ActionBreakdown {
+  action: string;
+  totalTasks: number;
+  completedTasks: number;
+}
+
 interface AdminLeaderboardData {
   weekEndingDate: string | null;
   overall: {
@@ -51,6 +57,7 @@ interface AdminLeaderboardData {
   managerLeaderboard: ManagerStats[];
   repLeaderboard: RepStats[];
   clientLeaderboard: ClientStats[];
+  actionBreakdown: ActionBreakdown[];
 }
 
 function CircularProgress({ value, size = 60, strokeWidth = 5, color = "#F36C21" }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
@@ -214,7 +221,7 @@ export default function AdminLeaderboard() {
     );
   }
 
-  const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard, clientLeaderboard } = data;
+  const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard, clientLeaderboard, actionBreakdown } = data;
   const topRegions = regionLeaderboard.slice(0, 8);
   const topManagers = managerLeaderboard.slice(0, 8);
   const topReps = repLeaderboard.slice(0, 8);
@@ -397,7 +404,7 @@ export default function AdminLeaderboard() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0, overflow: 'hidden' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
               <Briefcase size={14} />
@@ -414,6 +421,39 @@ export default function AdminLeaderboard() {
                 </div>
               ))}
             </div>
+          </div>
+
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
+              <ClipboardList size={14} />
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Completed by Action Type</span>
+            </div>
+            {(() => {
+              const actions = (actionBreakdown || []).slice(0, 6);
+              const maxTotal = Math.max(...actions.map(a => a.totalTasks), 1);
+              const barColors = ['#003B71', '#F36C21', '#16a34a', '#8B5CF6', '#EC4899', '#0EA5E9'];
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
+                  {actions.map((a, i) => {
+                    const completedPct = (a.completedTasks / maxTotal) * 100;
+                    const totalPct = (a.totalTasks / maxTotal) * 100;
+                    const label = a.action.replace('Check Count: ', '').replace('Fix Counts: ', '').replace('Urgent: ', '');
+                    return (
+                      <div key={a.action} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '9px', fontWeight: 600, color: '#003B71', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{label}</span>
+                          <span style={{ fontSize: '8px', color: '#6b7280', fontFamily: 'monospace', flexShrink: 0 }}>{a.completedTasks}/{a.totalTasks}</span>
+                        </div>
+                        <div style={{ position: 'relative', height: '10px', backgroundColor: '#e5e7eb', borderRadius: '5px', overflow: 'hidden' }}>
+                          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${totalPct}%`, backgroundColor: `${barColors[i % barColors.length]}30`, borderRadius: '5px' }} />
+                          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${completedPct}%`, backgroundColor: barColors[i % barColors.length], borderRadius: '5px' }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>

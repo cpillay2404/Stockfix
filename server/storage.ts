@@ -74,6 +74,11 @@ export interface IStorage {
     completedTasks: number;
   }[]>;
   getRepStreaks(): Promise<Record<string, number>>;
+  getActionTypeBreakdown(weekEndingDate: string, clientFilter?: string): Promise<{
+    action: string;
+    totalTasks: number;
+    completedTasks: number;
+  }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -465,6 +470,35 @@ export class DatabaseStorage implements IStorage {
       streaks[repName] = streak;
     }
     return streaks;
+  }
+
+  async getActionTypeBreakdown(weekEndingDate: string, clientFilter?: string): Promise<{
+    action: string;
+    totalTasks: number;
+    completedTasks: number;
+  }[]> {
+    const conditions = [eq(tasks.weekEndingDate, weekEndingDate)];
+    if (clientFilter) {
+      conditions.push(eq(tasks.client, clientFilter));
+    }
+    const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
+    
+    const result = await db
+      .select({
+        action: tasks.action,
+        totalTasks: count(),
+        completedTasks: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
+      })
+      .from(tasks)
+      .where(whereClause)
+      .groupBy(tasks.action)
+      .orderBy(desc(count()));
+    
+    return result.map(r => ({
+      action: r.action || 'Unknown',
+      totalTasks: Number(r.totalTasks),
+      completedTasks: Number(r.completedTasks),
+    }));
   }
 
   async getTasksFiltered(filters: {

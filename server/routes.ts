@@ -2359,10 +2359,11 @@ export async function registerRoutes(
       
       console.log(`[Admin Leaderboard] period=${period}, latestWeek=${latestWeek}, clientFilter=${clientFilter}`);
       
-      const [repStatsRaw, clientStatsRawAll, adminStreaks] = await Promise.all([
+      const [repStatsRaw, clientStatsRawAll, adminStreaks, actionBreakdownRaw] = await Promise.all([
         storage.getLeaderboardAggregated(latestWeek, clientFilter || undefined),
         storage.getClientStatsAggregated(latestWeek),
         storage.getRepStreaks(),
+        storage.getActionTypeBreakdown(latestWeek, clientFilter || undefined),
       ]);
       
       const clientStatsRaw = clientFilter 
@@ -2470,6 +2471,7 @@ export async function registerRoutes(
         managerLeaderboard,
         repLeaderboard,
         clientLeaderboard,
+        actionBreakdown: actionBreakdownRaw,
       });
     } catch (error) {
       console.error("Error fetching admin leaderboard:", error);
