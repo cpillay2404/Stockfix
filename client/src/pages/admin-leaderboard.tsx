@@ -432,18 +432,19 @@ export default function AdminLeaderboard() {
             {(() => {
               const clients = (actionByClient || []);
               const shorten = (s: string) => {
+                const normalized = s.replace(/\u00e2\u20ac\u201c/g, '\u2013').replace(/â€"/g, '\u2013');
                 const map: Record<string, string> = {
                   'Review: Risk of OOS': 'OOS Risk',
                   'Urgent: Place Order - DC has stock': 'Place Order',
+                  'Urgent: DC OOS': 'DC OOS',
                   'Check Count: No Sales in 30 Days': 'NS 30d',
                   'Check Count: No Sales in 15 Days': 'NS 15d',
                   'Check Count: No Sales in 60 Days': 'NS 60d',
                   'Fix Counts: Negative SOH': 'Neg SOH',
                   'Monitor: Possible Overstock': 'Overstock',
-                  'OOS – Stock on Order': 'OOS Order',
-                  'OOS \u2013 Stock on Order': 'OOS Order',
                 };
-                return map[s] || s.replace(/^(Check Count|Fix Counts|Urgent|Review|Monitor):\s*/i, '').substring(0, 12);
+                if (normalized.includes('Stock on Order')) return 'OOS on Order';
+                return map[normalized] || map[s] || s.replace(/^(Check Count|Fix Counts|Urgent|Review|Monitor):\s*/i, '').substring(0, 12);
               };
               const segColors = ['#ef4444', '#F36C21', '#f59e0b', '#8B5CF6', '#0EA5E9', '#16a34a', '#ec4899', '#6b7280'];
               const allActionLabels = new Set<string>();
@@ -453,6 +454,14 @@ export default function AdminLeaderboard() {
 
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'auto', flex: 1, minHeight: 0 }}>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', paddingBottom: '4px', borderBottom: '1px solid #f3f4f6' }}>
+                    {Array.from(labelColorMap.entries()).map(([label, color]) => (
+                      <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color }} />
+                        <span style={{ fontSize: '8px', color: '#6b7280' }}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
                   {clients.map((c) => {
                     const totalCompleted = c.actions.reduce((s, a) => s + a.completedTasks, 0);
                     const totalAll = c.actions.reduce((s, a) => s + a.totalTasks, 0);
@@ -489,14 +498,6 @@ export default function AdminLeaderboard() {
                       </div>
                     );
                   })}
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px', borderTop: '1px solid #f3f4f6', paddingTop: '4px' }}>
-                    {Array.from(labelColorMap.entries()).map(([label, color]) => (
-                      <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color }} />
-                        <span style={{ fontSize: '8px', color: '#6b7280' }}>{label}</span>
-                      </div>
-                    ))}
-                  </div>
                 </div>
               );
             })()}
