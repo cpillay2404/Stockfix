@@ -427,7 +427,7 @@ export default function AdminLeaderboard() {
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', color: '#F36C21', flexShrink: 0 }}>
               <ClipboardList size={14} />
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Action Mix by Client</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Completed by Action Type</span>
             </div>
             {(() => {
               const clients = (actionByClient || []);
@@ -454,21 +454,33 @@ export default function AdminLeaderboard() {
               return (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'auto', flex: 1, minHeight: 0 }}>
                   {clients.map((c) => {
+                    const totalCompleted = c.actions.reduce((s, a) => s + a.completedTasks, 0);
                     const totalAll = c.actions.reduce((s, a) => s + a.totalTasks, 0);
+                    if (totalCompleted === 0) {
+                      return (
+                        <div key={c.client}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: 700, color: '#003B71' }}>{c.client}</span>
+                            <span style={{ fontSize: '8px', color: '#9ca3af', fontFamily: 'monospace' }}>0/{totalAll} done</span>
+                          </div>
+                          <div style={{ height: '14px', borderRadius: '4px', backgroundColor: '#e5e7eb', width: '100%' }} />
+                        </div>
+                      );
+                    }
                     return (
                       <div key={c.client}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                           <span style={{ fontSize: '10px', fontWeight: 700, color: '#003B71' }}>{c.client}</span>
-                          <span style={{ fontSize: '8px', color: '#6b7280', fontFamily: 'monospace' }}>{totalAll} tasks</span>
+                          <span style={{ fontSize: '8px', color: '#6b7280', fontFamily: 'monospace' }}>{totalCompleted}/{totalAll} done</span>
                         </div>
                         <div style={{ display: 'flex', height: '14px', borderRadius: '4px', overflow: 'hidden', width: '100%' }}>
-                          {c.actions.map((a) => {
-                            const pct = totalAll > 0 ? (a.totalTasks / totalAll) * 100 : 0;
+                          {c.actions.filter(a => a.completedTasks > 0).map((a) => {
+                            const pct = (a.completedTasks / totalCompleted) * 100;
                             if (pct < 1) return null;
                             const label = shorten(a.action);
                             const color = labelColorMap.get(label) || '#6b7280';
                             return (
-                              <div key={a.action} title={`${a.action}: ${a.completedTasks}/${a.totalTasks}`} style={{ width: `${pct}%`, backgroundColor: color, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: pct > 8 ? '20px' : '0' }}>
+                              <div key={a.action} title={`${a.action}: ${a.completedTasks} completed of ${a.totalTasks}`} style={{ width: `${pct}%`, backgroundColor: color, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: pct > 8 ? '20px' : '0' }}>
                                 {pct > 12 && <span style={{ fontSize: '7px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden' }}>{label}</span>}
                               </div>
                             );
