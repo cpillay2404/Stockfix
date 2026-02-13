@@ -425,9 +425,9 @@ export default function AdminLeaderboard() {
           </div>
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', color: '#F36C21', flexShrink: 0 }}>
               <ClipboardList size={14} />
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Action Breakdown by Client</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Action Mix by Client</span>
             </div>
             {(() => {
               const clients = (actionByClient || []);
@@ -445,37 +445,31 @@ export default function AdminLeaderboard() {
                 };
                 return map[s] || s.replace(/^(Check Count|Fix Counts|Urgent|Review|Monitor):\s*/i, '').substring(0, 12);
               };
-              const actionColors: Record<string, string> = {
-                'OOS Risk': '#ef4444',
-                'Place Order': '#F36C21',
-                'NS 30d': '#8B5CF6',
-                'NS 15d': '#6366f1',
-                'NS 60d': '#7c3aed',
-                'Neg SOH': '#dc2626',
-                'Overstock': '#0EA5E9',
-                'OOS Order': '#f59e0b',
-              };
-              const getColor = (label: string) => actionColors[label] || '#6b7280';
+              const segColors = ['#ef4444', '#F36C21', '#f59e0b', '#8B5CF6', '#0EA5E9', '#16a34a', '#ec4899', '#6b7280'];
+              const allActionLabels = new Set<string>();
+              clients.forEach(c => c.actions.forEach(a => allActionLabels.add(shorten(a.action))));
+              const labelColorMap = new Map<string, string>();
+              Array.from(allActionLabels).forEach((label, i) => labelColorMap.set(label, segColors[i % segColors.length]));
+
               return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'auto', flex: 1, minHeight: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'auto', flex: 1, minHeight: 0 }}>
                   {clients.map((c) => {
                     const totalAll = c.actions.reduce((s, a) => s + a.totalTasks, 0);
-                    const completedAll = c.actions.reduce((s, a) => s + a.completedTasks, 0);
-                    const topActions = c.actions.slice(0, 4);
                     return (
-                      <div key={c.client} style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '4px' }}>
+                      <div key={c.client}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
                           <span style={{ fontSize: '10px', fontWeight: 700, color: '#003B71' }}>{c.client}</span>
-                          <span style={{ fontSize: '8px', color: '#6b7280', fontFamily: 'monospace' }}>{completedAll}/{totalAll}</span>
+                          <span style={{ fontSize: '8px', color: '#6b7280', fontFamily: 'monospace' }}>{totalAll} tasks</span>
                         </div>
-                        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-                          {topActions.map((a) => {
+                        <div style={{ display: 'flex', height: '14px', borderRadius: '4px', overflow: 'hidden', width: '100%' }}>
+                          {c.actions.map((a) => {
+                            const pct = totalAll > 0 ? (a.totalTasks / totalAll) * 100 : 0;
+                            if (pct < 1) return null;
                             const label = shorten(a.action);
-                            const color = getColor(label);
+                            const color = labelColorMap.get(label) || '#6b7280';
                             return (
-                              <div key={a.action} style={{ display: 'flex', alignItems: 'center', gap: '2px', backgroundColor: `${color}15`, borderRadius: '4px', padding: '1px 4px', border: `1px solid ${color}30` }}>
-                                <span style={{ fontSize: '8px', fontWeight: 600, color }}>{label}</span>
-                                <span style={{ fontSize: '7px', color: '#6b7280', fontFamily: 'monospace' }}>{a.completedTasks}/{a.totalTasks}</span>
+                              <div key={a.action} title={`${a.action}: ${a.completedTasks}/${a.totalTasks}`} style={{ width: `${pct}%`, backgroundColor: color, display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: pct > 8 ? '20px' : '0' }}>
+                                {pct > 12 && <span style={{ fontSize: '7px', fontWeight: 600, color: 'white', whiteSpace: 'nowrap', overflow: 'hidden' }}>{label}</span>}
                               </div>
                             );
                           })}
@@ -483,6 +477,14 @@ export default function AdminLeaderboard() {
                       </div>
                     );
                   })}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '4px', borderTop: '1px solid #f3f4f6', paddingTop: '4px' }}>
+                    {Array.from(labelColorMap.entries()).map(([label, color]) => (
+                      <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <div style={{ width: 8, height: 8, borderRadius: 2, backgroundColor: color }} />
+                        <span style={{ fontSize: '8px', color: '#6b7280' }}>{label}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               );
             })()}
