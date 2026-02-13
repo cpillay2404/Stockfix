@@ -58,6 +58,7 @@ interface AdminLeaderboardData {
   repLeaderboard: RepStats[];
   clientLeaderboard: ClientStats[];
   actionBreakdown: ActionBreakdown[];
+  actionByClient: { client: string; actions: { action: string; totalTasks: number; completedTasks: number }[] }[];
 }
 
 function CircularProgress({ value, size = 60, strokeWidth = 5, color = "#F36C21" }: { value: number; size?: number; strokeWidth?: number; color?: string }) {
@@ -221,7 +222,7 @@ export default function AdminLeaderboard() {
     );
   }
 
-  const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard, clientLeaderboard, actionBreakdown } = data;
+  const { overall, regionLeaderboard, managerLeaderboard, repLeaderboard, clientLeaderboard, actionBreakdown, actionByClient } = data;
   const topRegions = regionLeaderboard.slice(0, 8);
   const topManagers = managerLeaderboard.slice(0, 8);
   const topReps = repLeaderboard.slice(0, 8);
@@ -426,41 +427,58 @@ export default function AdminLeaderboard() {
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
               <ClipboardList size={14} />
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Completed by Action Type</span>
+              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Action Breakdown by Client</span>
             </div>
             {(() => {
-              const actions = (actionBreakdown || []).slice(0, 6);
-              const maxTotal = Math.max(...actions.map(a => a.totalTasks), 1);
-              const barColors = ['#003B71', '#F36C21', '#16a34a', '#8B5CF6', '#EC4899', '#0EA5E9'];
+              const clients = (actionByClient || []);
               const shorten = (s: string) => {
                 const map: Record<string, string> = {
-                  'Review: Risk of OOS': 'Risk of OOS',
+                  'Review: Risk of OOS': 'OOS Risk',
                   'Urgent: Place Order - DC has stock': 'Place Order',
-                  'Check Count: No Sales in 30 Days': 'No Sales 30d',
-                  'Check Count: No Sales in 15 Days': 'No Sales 15d',
-                  'Check Count: No Sales in 60 Days': 'No Sales 60d',
-                  'Fix Counts: Negative SOH': 'Neg. SOH',
+                  'Check Count: No Sales in 30 Days': 'NS 30d',
+                  'Check Count: No Sales in 15 Days': 'NS 15d',
+                  'Check Count: No Sales in 60 Days': 'NS 60d',
+                  'Fix Counts: Negative SOH': 'Neg SOH',
                   'Monitor: Possible Overstock': 'Overstock',
-                  'OOS – Stock on Order': 'OOS on Order',
-                  'OOS \u2013 Stock on Order': 'OOS on Order',
+                  'OOS – Stock on Order': 'OOS Order',
+                  'OOS \u2013 Stock on Order': 'OOS Order',
                 };
-                return map[s] || s.replace(/^(Check Count|Fix Counts|Urgent|Review|Monitor):\s*/i, '');
+                return map[s] || s.replace(/^(Check Count|Fix Counts|Urgent|Review|Monitor):\s*/i, '').substring(0, 12);
               };
+              const actionColors: Record<string, string> = {
+                'OOS Risk': '#ef4444',
+                'Place Order': '#F36C21',
+                'NS 30d': '#8B5CF6',
+                'NS 15d': '#6366f1',
+                'NS 60d': '#7c3aed',
+                'Neg SOH': '#dc2626',
+                'Overstock': '#0EA5E9',
+                'OOS Order': '#f59e0b',
+              };
+              const getColor = (label: string) => actionColors[label] || '#6b7280';
               return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
-                  {actions.map((a, i) => {
-                    const completedPct = (a.completedTasks / maxTotal) * 100;
-                    const totalPct = (a.totalTasks / maxTotal) * 100;
-                    const label = shorten(a.action);
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'auto', flex: 1, minHeight: 0 }}>
+                  {clients.map((c) => {
+                    const totalAll = c.actions.reduce((s, a) => s + a.totalTasks, 0);
+                    const completedAll = c.actions.reduce((s, a) => s + a.completedTasks, 0);
+                    const topActions = c.actions.slice(0, 4);
                     return (
-                      <div key={a.action} style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                          <span style={{ fontSize: '9px', fontWeight: 600, color: '#003B71', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '70%' }}>{label}</span>
-                          <span style={{ fontSize: '8px', color: '#6b7280', fontFamily: 'monospace', flexShrink: 0 }}>{a.completedTasks}/{a.totalTasks}</span>
+                      <div key={c.client} style={{ borderBottom: '1px solid #f3f4f6', paddingBottom: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2px' }}>
+                          <span style={{ fontSize: '10px', fontWeight: 700, color: '#003B71' }}>{c.client}</span>
+                          <span style={{ fontSize: '8px', color: '#6b7280', fontFamily: 'monospace' }}>{completedAll}/{totalAll}</span>
                         </div>
-                        <div style={{ position: 'relative', height: '10px', backgroundColor: '#e5e7eb', borderRadius: '5px', overflow: 'hidden' }}>
-                          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${totalPct}%`, backgroundColor: `${barColors[i % barColors.length]}30`, borderRadius: '5px' }} />
-                          <div style={{ position: 'absolute', left: 0, top: 0, height: '100%', width: `${completedPct}%`, backgroundColor: barColors[i % barColors.length], borderRadius: '5px' }} />
+                        <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+                          {topActions.map((a) => {
+                            const label = shorten(a.action);
+                            const color = getColor(label);
+                            return (
+                              <div key={a.action} style={{ display: 'flex', alignItems: 'center', gap: '2px', backgroundColor: `${color}15`, borderRadius: '4px', padding: '1px 4px', border: `1px solid ${color}30` }}>
+                                <span style={{ fontSize: '8px', fontWeight: 600, color }}>{label}</span>
+                                <span style={{ fontSize: '7px', color: '#6b7280', fontFamily: 'monospace' }}>{a.completedTasks}/{a.totalTasks}</span>
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     );

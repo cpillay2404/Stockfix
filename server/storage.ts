@@ -79,6 +79,10 @@ export interface IStorage {
     totalTasks: number;
     completedTasks: number;
   }[]>;
+  getActionBreakdownByClient(weekEndingDate: string): Promise<{
+    client: string;
+    actions: { action: string; totalTasks: number; completedTasks: number }[];
+  }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -499,6 +503,35 @@ export class DatabaseStorage implements IStorage {
       totalTasks: Number(r.totalTasks),
       completedTasks: Number(r.completedTasks),
     }));
+  }
+
+  async getActionBreakdownByClient(weekEndingDate: string): Promise<{
+    client: string;
+    actions: { action: string; totalTasks: number; completedTasks: number }[];
+  }[]> {
+    const result = await db
+      .select({
+        client: tasks.client,
+        action: tasks.action,
+        totalTasks: count(),
+        completedTasks: sql<number>`SUM(CASE WHEN ${tasks.actionStatus} = 'Completed' THEN 1 ELSE 0 END)`,
+      })
+      .from(tasks)
+      .where(eq(tasks.weekEndingDate, weekEndingDate))
+      .groupBy(tasks.client, tasks.action)
+      .orderBy(tasks.client, desc(count()));
+
+    const clientMap = new Map<string, { action: string; totalTasks: number; completedTasks: number }[]>();
+    for (const r of result) {
+      const client = r.client || 'Unknown';
+      if (!clientMap.has(client)) clientMap.set(client, []);
+      clientMap.get(client)!.push({
+        action: r.action || 'Unknown',
+        totalTasks: Number(r.totalTasks),
+        completedTasks: Number(r.completedTasks),
+      });
+    }
+    return Array.from(clientMap.entries()).map(([client, actions]) => ({ client, actions }));
   }
 
   async getTasksFiltered(filters: {
