@@ -453,7 +453,7 @@ export default function AdminLeaderboard() {
               Array.from(allActionLabels).forEach((label, i) => labelColorMap.set(label, segColors[i % segColors.length]));
 
               return (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', overflow: 'auto', flex: 1, minHeight: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', overflow: 'hidden', flex: 1, minHeight: 0 }}>
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', paddingBottom: '4px', borderBottom: '1px solid #f3f4f6' }}>
                     {Array.from(labelColorMap.entries()).map(([label, color]) => (
                       <div key={label} style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
@@ -466,11 +466,9 @@ export default function AdminLeaderboard() {
                     const totalCompleted = c.actions.reduce((s, a) => s + a.completedTasks, 0);
                     const totalAll = c.actions.reduce((s, a) => s + a.totalTasks, 0);
                     return (
-                      <div key={c.client}>
-                        <div style={{ display: 'flex', alignItems: 'center', marginBottom: '2px' }}>
-                          <span style={{ fontSize: '10px', fontWeight: 700, color: '#003B71' }}>{c.client}</span>
-                        </div>
-                        <div style={{ position: 'relative', height: '16px', borderRadius: '4px', overflow: 'hidden', width: '100%', backgroundColor: '#e5e7eb' }}>
+                      <div key={c.client} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ fontSize: '9px', fontWeight: 700, color: '#003B71', minWidth: '80px', flexShrink: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.client}</span>
+                        <div style={{ position: 'relative', height: '14px', borderRadius: '3px', overflow: 'hidden', flex: 1, backgroundColor: '#e5e7eb' }}>
                           {totalCompleted > 0 && c.actions.filter(a => a.completedTasks > 0).map((a) => {
                             const pct = (a.completedTasks / totalAll) * 100;
                             if (pct < 0.5) return null;
@@ -481,7 +479,7 @@ export default function AdminLeaderboard() {
                             );
                           })}
                           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <span style={{ fontSize: '9px', fontWeight: 700, color: totalCompleted > 0 ? 'white' : '#6b7280', fontFamily: 'monospace', textShadow: totalCompleted > 0 ? '0 0 3px rgba(0,0,0,0.5)' : 'none' }}>{totalCompleted}/{totalAll}</span>
+                            <span style={{ fontSize: '8px', fontWeight: 700, color: totalCompleted > 0 ? 'white' : '#6b7280', fontFamily: 'monospace', textShadow: totalCompleted > 0 ? '0 0 3px rgba(0,0,0,0.5)' : 'none' }}>{totalCompleted}/{totalAll}</span>
                           </div>
                         </div>
                       </div>
