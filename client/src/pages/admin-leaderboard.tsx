@@ -328,23 +328,35 @@ export default function AdminLeaderboard() {
 
       <div style={{ flex: 1, padding: '12px', display: 'grid', gridTemplateRows: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px', overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 200px) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0, overflow: 'hidden' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '16px', display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '12px', color: '#F36C21' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', overflow: 'hidden' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
               <Trophy size={14} />
               <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Performance</span>
             </div>
-            <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '8px' }}>
               <div style={{ textAlign: 'center' }}>
-                <CircularProgress value={overall.priorityRate} size={70} />
-                <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>PRIORITY</div>
+                <CircularProgress value={overall.priorityRate} size={55} strokeWidth={4} />
+                <div style={{ fontSize: '9px', color: '#6b7280', marginTop: '2px' }}>PRIORITY</div>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <CircularProgress value={overall.completionRate} size={70} color="#16a34a" />
-                <div style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>OVERALL</div>
+                <CircularProgress value={overall.completionRate} size={55} strokeWidth={4} color="#16a34a" />
+                <div style={{ fontSize: '9px', color: '#6b7280', marginTop: '2px' }}>OVERALL</div>
               </div>
             </div>
-            <div style={{ fontSize: '12px', color: '#003B71', fontWeight: 600 }}>
+            <div style={{ fontSize: '11px', color: '#003B71', fontWeight: 600, marginBottom: '10px' }}>
               {overall.priorityCompleted}/{overall.priorityTotal} priority tasks
+            </div>
+            <div style={{ width: '100%', borderTop: '1px solid #e5e7eb', paddingTop: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '6px', color: '#F36C21' }}>
+                <ClipboardList size={12} />
+                <span style={{ fontSize: '10px', fontWeight: 600, textTransform: 'uppercase' }}>Stats</span>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+                <StatCard icon={<Users size={14} />} value={overall.totalReps} label="Reps" />
+                <StatCard icon={<Users size={14} />} value={overall.totalManagers} label="Managers" />
+                <StatCard icon={<MapPin size={14} />} value={overall.totalRegions} label="Regions" />
+                <StatCard icon={<ClipboardList size={14} />} value={overall.totalTasks} label="Tasks" />
+              </div>
             </div>
           </div>
 
@@ -385,20 +397,7 @@ export default function AdminLeaderboard() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 200px) minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0, overflow: 'hidden' }}>
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21' }}>
-              <ClipboardList size={14} />
-              <span style={{ fontSize: '11px', fontWeight: 600, textTransform: 'uppercase' }}>Stats</span>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
-              <StatCard icon={<Users size={16} />} value={overall.totalReps} label="Reps" />
-              <StatCard icon={<Users size={16} />} value={overall.totalManagers} label="Managers" />
-              <StatCard icon={<MapPin size={16} />} value={overall.totalRegions} label="Regions" />
-              <StatCard icon={<ClipboardList size={16} />} value={overall.totalTasks} label="Tasks" />
-            </div>
-          </div>
-
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(200px, 1fr) minmax(200px, 1fr) minmax(200px, 1fr)', gap: '12px', minHeight: 0, overflow: 'hidden' }}>
           <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '12px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginBottom: '8px', color: '#F36C21', flexShrink: 0 }}>
               <Briefcase size={14} />
