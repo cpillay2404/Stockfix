@@ -199,6 +199,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'P&G': ['lukhna.k@pg.com', 'otto.jm@pg.com'],
       'PMI': ['aviwe.sondlo@pmi.com', 'charl.grove@pmi.com'],
       'AGROSERVE': ['bradley.chenchiah@agroserve.co.za', 'kirsten.cocks@agroserve.co.za'],
+      'RACEFOODS': ['chelsea@certosports.co.za', 'gary@certosports.co.za'],
     };
     
     // Add client-specific CC if applicable
