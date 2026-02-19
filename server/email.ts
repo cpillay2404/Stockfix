@@ -196,7 +196,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'ANCHOR': ['gswart@meridiangroup.co.za', 'ftmodeya@lallemand.com', 'ncoetzee@anchor.co.za'],
       'DURACELL': ['gswart@meridiangroup.co.za', 'craig.t@duracell.com'],
       'SOUTHERN OIL': ['gswart@meridiangroup.co.za', 'jeandre@soill.co.za'],
-      'P&G': ['lukhna.k@pg.com'],
+      'P&G': ['lukhna.k@pg.com', 'otto.jm@pg.com'],
       'PMI': ['aviwe.sondlo@pmi.com', 'charl.grove@pmi.com'],
     };
     
