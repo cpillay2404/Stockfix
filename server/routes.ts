@@ -1566,8 +1566,10 @@ export async function registerRoutes(
       
       console.log('[Task Update] isTaskCompletion:', isTaskCompletion, 'validated:', JSON.stringify(validated));
       
-      if (isTaskCompletion && updated) {
-        console.log('[Task Update] Triggering email notification...');
+      const isCriticalSku = isPriorityTask(updated?.action);
+      
+      if (isTaskCompletion && updated && isCriticalSku) {
+        console.log('[Task Update] Triggering email notification for critical SKU (action:', updated.action, ')...');
         // Build base URL from request
         const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
         const host = req.headers['x-forwarded-host'] || req.headers.host || '';
