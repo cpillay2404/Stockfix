@@ -10,6 +10,7 @@ import path from "path";
 import fs from "fs";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendTaskCompletedEmail } from "./email";
+import QRCode from "qrcode";
 import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
@@ -408,6 +409,31 @@ export async function registerRoutes(
     next();
   });
   
+  // QR code endpoint - generates a QR code image for the production app URL
+  app.get('/api/qrcode', async (req, res) => {
+    try {
+      const url = (req.query.url as string) || 'https://stockfix.replit.app';
+      const size = parseInt(req.query.size as string) || 400;
+      
+      res.setHeader('Content-Type', 'image/png');
+      res.setHeader('Content-Disposition', 'inline; filename="stockfix-qr.png"');
+      
+      const qrBuffer = await QRCode.toBuffer(url, {
+        width: size,
+        margin: 2,
+        color: {
+          dark: '#003B71',
+          light: '#FFFFFF'
+        }
+      });
+      
+      res.send(qrBuffer);
+    } catch (error) {
+      console.error('QR code generation error:', error);
+      res.status(500).json({ error: 'Failed to generate QR code' });
+    }
+  });
+
   // Register object storage routes for persistent file uploads
   registerObjectStorageRoutes(app);
   
