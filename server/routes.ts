@@ -10,7 +10,6 @@ import path from "path";
 import fs from "fs";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { sendTaskCompletedEmail } from "./email";
-import QRCode from "qrcode";
 import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
 import { sql, eq, and } from "drizzle-orm";
@@ -409,53 +408,12 @@ export async function registerRoutes(
     next();
   });
   
-  app.get('/api/qrcode', async (_req, res) => {
-    try {
-      const svgString = await QRCode.toString('https://stockfix.replit.app', {
-        type: 'svg',
-        margin: 2,
-        color: {
-          dark: '#003B71',
-          light: '#FFFFFF'
-        }
-      });
-      
-      res.setHeader('Content-Type', 'image/svg+xml');
-      res.setHeader('Cache-Control', 'public, max-age=86400');
-      res.send(svgString);
-    } catch (error: any) {
-      console.error('QR code generation error:', error);
-      res.status(500).send(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="50"><text x="10" y="30" fill="red">QR Error: ${error.message}</text></svg>`);
-    }
-  });
-  
-  app.get('/api/qrcode-page', async (_req, res) => {
-    try {
-      const dataUrl = await QRCode.toDataURL('https://stockfix.replit.app', {
-        width: 400,
-        margin: 2,
-        color: { dark: '#003B71', light: '#FFFFFF' }
-      });
-      
-      res.setHeader('Content-Type', 'text/html');
-      res.send(`<!DOCTYPE html>
-<html><head><title>StockFix QR Code</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>body{display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5;font-family:Arial,sans-serif}
-.c{text-align:center;background:white;padding:40px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
-img{width:300px;height:300px}
-h2{color:#003B71;margin-bottom:8px}
-p{color:#666;font-size:14px}</style></head>
-<body><div class="c">
-<h2>StockFix</h2>
-<p>Scan to open the app</p>
-<img src="${dataUrl}" alt="QR Code"/>
-<p style="margin-top:16px;color:#999;font-size:12px">stockfix.replit.app</p>
-</div></body></html>`);
-    } catch (error) {
-      console.error('QR page error:', error);
-      res.status(500).send('Failed to generate QR code page');
-    }
+  const STOCKFIX_QR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 33" shape-rendering="crispEdges"><path fill="#FFFFFF" d="M0 0h33v33H0z"/><path stroke="#003B71" d="M2 2.5h7m2 0h1m1 0h1m2 0h1m4 0h1m2 0h7M2 3.5h1m5 0h1m1 0h1m3 0h2m3 0h4m1 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m4 0h2m2 0h1m2 0h1m1 0h1m1 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m3 0h1m1 0h2m2 0h1m5 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m1 0h1m1 0h4m2 0h4m2 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m2 0h1m4 0h3m1 0h2m2 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 9.5h2m3 0h1m1 0h1m1 0h2M2 10.5h1m1 0h1m1 0h1m1 0h1m5 0h1m3 0h2m1 0h2m3 0h1m2 0h1M3 11.5h5m4 0h2m1 0h1m1 0h3m2 0h3m2 0h1m2 0h1M2 12.5h1m2 0h1m2 0h1m5 0h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3M2 13.5h4m5 0h1m3 0h2m1 0h4m2 0h2m3 0h1M4 14.5h1m1 0h3m2 0h2m3 0h2m1 0h1m3 0h2m2 0h1m1 0h2M2 15.5h2m3 0h1m5 0h1m2 0h2m1 0h2m1 0h3m2 0h1m2 0h1M8 16.5h1m2 0h1m1 0h1m1 0h1m4 0h1m2 0h3m1 0h1m1 0h2M2 17.5h2m1 0h1m3 0h1m4 0h1m2 0h1m1 0h1m1 0h4m1 0h2m1 0h1M3 18.5h1m1 0h1m1 0h2m4 0h2m3 0h2m2 0h3m2 0h1m1 0h2M3 19.5h1m3 0h1m1 0h1m5 0h1m1 0h4m1 0h3m2 0h2m1 0h1M2 20.5h1m2 0h1m1 0h3m2 0h1m1 0h1m1 0h3m1 0h1m1 0h1m3 0h1m2 0h2M3 21.5h1m2 0h2m2 0h1m2 0h1m1 0h2m1 0h2m7 0h1m1 0h1M2 22.5h1m1 0h7m1 0h1m1 0h1m1 0h2m2 0h1m1 0h5M10 23.5h2m4 0h2m4 0h1m3 0h1m1 0h3M2 24.5h7m3 0h1m2 0h1m3 0h1m1 0h2m1 0h1m1 0h2m1 0h2M2 25.5h1m5 0h1m3 0h2m3 0h1m4 0h1m3 0h2m2 0h1M2 26.5h1m1 0h3m1 0h1m1 0h3m1 0h1m3 0h1m3 0h5M2 27.5h1m1 0h3m1 0h1m2 0h1m2 0h2m1 0h3m1 0h2m3 0h1m1 0h1M2 28.5h1m1 0h3m1 0h1m1 0h1m3 0h1m1 0h3m1 0h2m1 0h1m1 0h3m2 0h1M2 29.5h1m5 0h1m2 0h1m3 0h1m2 0h7m1 0h1m2 0h1M2 30.5h7m1 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m1 0h2m1 0h2"/></svg>`;
+
+  app.get('/api/qrcode', (_req, res) => {
+    res.setHeader('Content-Type', 'image/svg+xml');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    res.send(STOCKFIX_QR_SVG);
   });
 
   // Register object storage routes for persistent file uploads
