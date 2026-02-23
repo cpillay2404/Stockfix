@@ -47,6 +47,9 @@ export function log(message: string, source = "express") {
 }
 
 app.use((req, res, next) => {
+  if (req.path.includes('qr')) {
+    console.log(`[QR-DEBUG] Request received: ${req.method} ${req.url} path=${req.path}`);
+  }
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
