@@ -22,6 +22,7 @@ import RepProgress from "@/pages/rep-progress";
 import ManagerProgress from "@/pages/manager-progress";
 import SelectManager from "@/pages/select-manager";
 import AdminLeaderboard from "@/pages/admin-leaderboard";
+import QRPage from "@/pages/qr";
 
 function Router() {
   return (
@@ -41,6 +42,7 @@ function Router() {
       <Route path="/rep-progress">{() => <ClientGuard><RepProgress /></ClientGuard>}</Route>
       <Route path="/manager-progress">{() => <ClientGuard><ManagerProgress /></ClientGuard>}</Route>
       <Route path="/admin/leaderboard">{() => <ClientGuard><AdminLeaderboard /></ClientGuard>}</Route>
+      <Route path="/qr" component={QRPage} />
       <Route component={NotFound} />
     </Switch>
   );
