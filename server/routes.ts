@@ -409,17 +409,12 @@ export async function registerRoutes(
     next();
   });
   
-  // QR code endpoint - generates a QR code image for the production app URL
   app.get('/api/qrcode', async (req, res) => {
     try {
       const url = (req.query.url as string) || 'https://stockfix.replit.app';
-      const size = parseInt(req.query.size as string) || 400;
       
-      res.setHeader('Content-Type', 'image/png');
-      res.setHeader('Content-Disposition', 'inline; filename="stockfix-qr.png"');
-      
-      const qrBuffer = await QRCode.toBuffer(url, {
-        width: size,
+      const svgString = await QRCode.toString(url, {
+        type: 'svg',
         margin: 2,
         color: {
           dark: '#003B71',
@@ -427,7 +422,9 @@ export async function registerRoutes(
         }
       });
       
-      res.send(qrBuffer);
+      res.setHeader('Content-Type', 'image/svg+xml');
+      res.setHeader('Content-Disposition', 'inline; filename="stockfix-qr.svg"');
+      res.send(svgString);
     } catch (error) {
       console.error('QR code generation error:', error);
       res.status(500).json({ error: 'Failed to generate QR code' });
