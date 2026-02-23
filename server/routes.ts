@@ -409,11 +409,9 @@ export async function registerRoutes(
     next();
   });
   
-  app.get('/api/qrcode', async (req, res) => {
+  app.get('/api/qrcode', async (_req, res) => {
     try {
-      const url = (req.query.url as string) || 'https://stockfix.replit.app';
-      
-      const svgString = await QRCode.toString(url, {
+      const svgString = await QRCode.toString('https://stockfix.replit.app', {
         type: 'svg',
         margin: 2,
         color: {
@@ -423,11 +421,40 @@ export async function registerRoutes(
       });
       
       res.setHeader('Content-Type', 'image/svg+xml');
-      res.setHeader('Content-Disposition', 'inline; filename="stockfix-qr.svg"');
+      res.setHeader('Cache-Control', 'public, max-age=86400');
       res.send(svgString);
-    } catch (error) {
+    } catch (error: any) {
       console.error('QR code generation error:', error);
-      res.status(500).json({ error: 'Failed to generate QR code' });
+      res.status(500).send(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="50"><text x="10" y="30" fill="red">QR Error: ${error.message}</text></svg>`);
+    }
+  });
+  
+  app.get('/api/qrcode-page', async (_req, res) => {
+    try {
+      const dataUrl = await QRCode.toDataURL('https://stockfix.replit.app', {
+        width: 400,
+        margin: 2,
+        color: { dark: '#003B71', light: '#FFFFFF' }
+      });
+      
+      res.setHeader('Content-Type', 'text/html');
+      res.send(`<!DOCTYPE html>
+<html><head><title>StockFix QR Code</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{display:flex;justify-content:center;align-items:center;min-height:100vh;margin:0;background:#f5f5f5;font-family:Arial,sans-serif}
+.c{text-align:center;background:white;padding:40px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.1)}
+img{width:300px;height:300px}
+h2{color:#003B71;margin-bottom:8px}
+p{color:#666;font-size:14px}</style></head>
+<body><div class="c">
+<h2>StockFix</h2>
+<p>Scan to open the app</p>
+<img src="${dataUrl}" alt="QR Code"/>
+<p style="margin-top:16px;color:#999;font-size:12px">stockfix.replit.app</p>
+</div></body></html>`);
+    } catch (error) {
+      console.error('QR page error:', error);
+      res.status(500).send('Failed to generate QR code page');
     }
   });
 
