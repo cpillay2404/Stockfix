@@ -28,6 +28,8 @@ const REASON_CODES = [
   "Stock received and on shelf",
   "Store closed / promo / revamp",
   "System or data error",
+  "Discontinued",
+  "Not Ranged and/or Listed",
   "Other"
 ];
 
