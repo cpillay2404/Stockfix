@@ -2959,5 +2959,46 @@ export async function registerRoutes(
     }
   });
 
+  app.get("/api/admin/dynamic-brands-regions", async (req, res) => {
+    try {
+      const result = await db.select({
+        region: tasks.region,
+        count: sql<number>`count(*)::int`
+      })
+      .from(tasks)
+      .where(eq(tasks.client, 'DYNAMIC BRANDS'))
+      .groupBy(tasks.region);
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ error: error.message });
+    }
+  });
+
+  app.post("/api/admin/delete-dynamic-brands-non-wc", async (req, res) => {
+    try {
+      const countBefore = await db.select({ count: sql<number>`count(*)::int` })
+        .from(tasks)
+        .where(and(
+          eq(tasks.client, 'DYNAMIC BRANDS'),
+          sql`${tasks.region} != 'WESTERN CAPE'`
+        ));
+
+      const deleted = await db.delete(tasks)
+        .where(and(
+          eq(tasks.client, 'DYNAMIC BRANDS'),
+          sql`${tasks.region} != 'WESTERN CAPE'`
+        ));
+
+      clearAllCaches();
+      res.json({
+        success: true,
+        message: `Deleted ${countBefore[0]?.count || 0} Dynamic Brands tasks where region is not Western Cape`
+      });
+    } catch (error: any) {
+      console.error("Error deleting Dynamic Brands non-WC tasks:", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
