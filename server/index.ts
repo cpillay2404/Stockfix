@@ -4,6 +4,9 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
 import { startWeeklyEmailScheduler } from "./scheduled-emails";
+import { db } from "./db";
+import { tasks } from "@shared/schema";
+import { sql, eq, and } from "drizzle-orm";
 
 const app = express();
 
@@ -107,9 +110,31 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
       reusePort: true,
     },
-    () => {
+    async () => {
       log(`serving on port ${port}`);
       startWeeklyEmailScheduler();
+
+      try {
+        const countResult = await db.select({ count: sql<number>`count(*)::int` })
+          .from(tasks)
+          .where(and(
+            eq(tasks.client, 'DYNAMIC BRANDS'),
+            sql`${tasks.region} != 'WESTERN CAPE'`
+          ));
+        const toDelete = countResult[0]?.count || 0;
+        if (toDelete > 0) {
+          await db.delete(tasks)
+            .where(and(
+              eq(tasks.client, 'DYNAMIC BRANDS'),
+              sql`${tasks.region} != 'WESTERN CAPE'`
+            ));
+          log(`CLEANUP: Deleted ${toDelete} Dynamic Brands tasks where region is not Western Cape`);
+        } else {
+          log(`CLEANUP: No Dynamic Brands non-Western Cape tasks to delete`);
+        }
+      } catch (err: any) {
+        console.error("CLEANUP ERROR:", err.message);
+      }
     },
   );
 })();
