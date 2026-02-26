@@ -2974,7 +2974,7 @@ export async function registerRoutes(
     }
   });
 
-  app.post("/api/admin/delete-dynamic-brands-non-wc", async (req, res) => {
+  app.get("/api/admin/delete-dynamic-brands-non-wc", async (req, res) => {
     try {
       const countBefore = await db.select({ count: sql<number>`count(*)::int` })
         .from(tasks)
