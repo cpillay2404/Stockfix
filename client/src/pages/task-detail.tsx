@@ -1008,7 +1008,7 @@ export default function TaskDetail() {
 
       {showVarianceToast && (
         <div style={{
-          position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
+          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
           zIndex: 200, width: 'calc(100% - 32px)', maxWidth: '360px',
           backgroundColor: '#1F2937', borderRadius: '12px', padding: '14px 16px',
           boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
