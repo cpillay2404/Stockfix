@@ -1,0 +1,140 @@
+ASK FEEDBACK SCREEN – tighten inputs (dropdowns) without backend changes
+IMPORTANT: backend column names/keys must remain identical.
+D1) Reason Code dropdown – tighten list + add “On shelf but slow moving”
+
+Update the Reason Code dropdown UI options to the following (save to the same existing backend field/key as before):
+
+Awaiting delivery (order placed / not received)
+
+No stock available (DC / supplier)
+
+Store out of stock (not ordered / missed order)
+
+Stock in backroom (not on shelf)
+
+Shelf space constraint / planogram issue
+
+Slow-moving / excess stock
+
+On shelf but slow moving (add this option)
+
+Damaged / expired / returns
+
+Not ranged / discontinued
+
+Store operational issue (closed / access / revamp)
+
+System / data issue (incorrect master data / mapping)
+
+Promo / display not set up
+
+Other
+
+Do NOT change how the value is saved — same backend field/key.
+
+D2) Action Taken – convert from free text to dropdown + optional notes (still writes to same backend field)
+
+Replace the free-text required field currently labelled “Action Taken / Comment” with:
+
+(1) Required dropdown labelled: Action Taken
+
+Options (Meridian generic):
+
+Order placed
+
+Escalated to supervisor / manager
+
+Logged query with DC / supplier
+
+Stock moved from backroom to shelf
+
+Shelf space / planogram discussed with store
+
+System stock corrected / discrepancy logged
+
+Promo / display action completed
+
+Follow-up required (awaiting delivery / revisit)
+
+Unable to action (store closed / access issue)
+
+No action required
+
+Other
+
+(2) Optional text field below labelled:
+
+Additional notes (optional)
+
+CRITICAL DATA RULE (no schema change)
+
+Do NOT create a new backend column.
+
+Save into the existing backend field/key that previously stored “Action Taken / Comment” by concatenating:
+
+If notes are blank → save just dropdown value
+
+If notes exist → save: "<dropdown selection> - <notes>"
+
+Validation:
+
+Action Taken dropdown is required before submit.
+
+D3) Feedback field – keep backend key, change UI label and purpose only
+
+Because Feedback is used in reporting, keep saving to the same backend feedback key/field.
+Do NOT rename the backend.
+
+UI changes only:
+
+Change label text from “Feedback” to:
+“Store Insight (optional)”
+
+Add helper text below:
+“Add store-specific context only (e.g., manager feedback, space constraints, delivery notes). Avoid repeating Reason Code/Action.”
+
+Keep it optional (do not force it).
+
+(Optional UI-only) Add a character limit 250–300 and show remaining characters. Do not change backend.
+
+D4) Keep charts (do not collapse/remove)
+
+Do NOT remove or collapse any charts on the Task Feedback screen.
+
+Keep them visible as currently designed.
+
+D5) Sticky submit (UI only)
+
+Make the Submit Action button sticky at the bottom of the Task Feedback screen so it is always visible.
+
+Do not change submit logic or payload.
+
+E) OUTPUT REQUIREMENTS FROM AI
+
+Provide minimal code diffs.
+
+List the files changed.
+
+Confirm explicitly: “No DB schema changes, no payload key changes.”
+
+FINAL ACCEPTANCE TESTS (AI must verify)
+
+No database schema/columns changed.
+
+No payload keys changed.
+
+Overview: no Feedback card; no bottom View Tasks CTA; Critical + Total Tasks only.
+
+Tasks opens list as normal.
+
+Critical SKUs → Open Task opens capture form for that SKU; submit returns to Critical SKUs.
+
+Reason Code dropdown updated and includes “On shelf but slow moving.”
+
+Action Taken is dropdown + optional notes, but still writes into the SAME backend Action field.
+
+Store Insight label updated but still writes to SAME backend feedback field.
+
+Charts remain visible.
+
+Submit button is sticky.

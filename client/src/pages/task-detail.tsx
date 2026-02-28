@@ -17,19 +17,32 @@ import BottomNav from "@/components/BottomNav";
 import { useAccess } from "@/context/AccessContext";
 
 const REASON_CODES = [
-  "Awaiting delivery / stock not received",
+  "Awaiting delivery (order placed / not received)",
+  "No stock available (DC / supplier)",
+  "Store out of stock (not ordered / missed order)",
+  "Stock in backroom (not on shelf)",
+  "Shelf space constraint / planogram issue",
+  "Slow-moving / excess stock",
+  "On shelf but slow moving",
+  "Damaged / expired / returns",
+  "Not ranged / discontinued",
+  "Store operational issue (closed / access / revamp)",
+  "System / data issue (incorrect master data / mapping)",
+  "Promo / display not set up",
+  "Other"
+];
+
+const ACTION_TAKEN_OPTIONS = [
   "Order placed",
-  "Damaged or expired",
-  "Count corrected – system = physical count",
-  "Manual correction done",
-  "No shelf space",
-  "Slow-moving stock",
-  "Stock in backroom",
-  "Stock received and on shelf",
-  "Store closed / promo / revamp",
-  "System or data error",
-  "Discontinued",
-  "Not Ranged and/or Listed",
+  "Escalated to supervisor / manager",
+  "Logged query with DC / supplier",
+  "Stock moved from backroom to shelf",
+  "Shelf space / planogram discussed with store",
+  "System stock corrected / discrepancy logged",
+  "Promo / display action completed",
+  "Follow-up required (awaiting delivery / revisit)",
+  "Unable to action (store closed / access issue)",
+  "No action required",
   "Other"
 ];
 
@@ -145,7 +158,8 @@ export default function TaskDetail() {
   const [physicalCount, setPhysicalCount] = useState<string>("");
   const [systemAdjusted, setSystemAdjusted] = useState<boolean | null>(null);
   const [reasonCode, setReasonCode] = useState("");
-  const [actionTakenComment, setActionTakenComment] = useState("");
+  const [actionTakenDropdown, setActionTakenDropdown] = useState("");
+  const [actionTakenNotes, setActionTakenNotes] = useState("");
   const [feedback, setFeedback] = useState("");
   const [image1, setImage1] = useState<string | null>(null);
   const [image2, setImage2] = useState<string | null>(null);
@@ -242,7 +256,16 @@ export default function TaskDetail() {
       setPhysicalCount(task.physicalCount || "");
       setSystemAdjusted(task.systemAdjusted === "Yes" ? true : task.systemAdjusted === "No" ? false : null);
       setReasonCode(task.reasonCode || "");
-      setActionTakenComment(task.actionTakenComment || "");
+      const savedAction = task.actionTakenComment || "";
+      const matchedOption = ACTION_TAKEN_OPTIONS.find(opt => savedAction.startsWith(opt));
+      if (matchedOption) {
+        setActionTakenDropdown(matchedOption);
+        const rest = savedAction.slice(matchedOption.length).replace(/^\s*-\s*/, '');
+        setActionTakenNotes(rest);
+      } else {
+        setActionTakenDropdown(savedAction);
+        setActionTakenNotes("");
+      }
       setFeedback(task.feedback || "");
       setImage1(task.image1 || null);
       setImage2(task.image2 || null);
@@ -357,23 +380,15 @@ export default function TaskDetail() {
       return;
     }
 
-    if (!actionTakenComment.trim()) {
+    if (!actionTakenDropdown) {
       toast({
         title: "Action Taken Required",
-        description: "Please enter the action taken or comment.",
+        description: "Please select an action taken.",
         variant: "destructive"
       });
       return;
     }
 
-    if (!feedback.trim()) {
-      toast({
-        title: "Feedback Required",
-        description: "Please enter feedback.",
-        variant: "destructive"
-      });
-      return;
-    }
 
     if (!image1 && !image2 && !image3 && !image4) {
       toast({
@@ -390,7 +405,7 @@ export default function TaskDetail() {
       variance: variance !== null ? variance.toString() : null,
       systemAdjusted: systemAdjusted ? "Yes" : "No",
       reasonCode: reasonCode || null,
-      actionTakenComment: actionTakenComment || null,
+      actionTakenComment: actionTakenDropdown ? (actionTakenNotes.trim() ? `${actionTakenDropdown} - ${actionTakenNotes.trim()}` : actionTakenDropdown) : null,
       feedback: feedback || null,
       image1: image1 || null,
       image2: image2 || null,
@@ -847,36 +862,67 @@ export default function TaskDetail() {
             </Select>
           </div>
 
-          {/* Action Taken / Comment */}
+          {/* Action Taken */}
           <div style={{ marginBottom: '14px' }}>
-            <Label htmlFor="actionTakenComment" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
-              Action Taken / Comment <span style={{ color: '#DC2626' }}>*</span>
+            <Label htmlFor="actionTaken" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
+              Action Taken <span style={{ color: '#DC2626' }}>*</span>
+            </Label>
+            <Select 
+              value={actionTakenDropdown} 
+              onValueChange={setActionTakenDropdown}
+              disabled={isCompleted}
+            >
+              <SelectTrigger data-testid="select-action-taken" style={{ fontSize: '14px', height: '40px', backgroundColor: '#F9FAFB' }}>
+                <SelectValue placeholder="Select action taken..." />
+              </SelectTrigger>
+              <SelectContent>
+                {ACTION_TAKEN_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option}>{option}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Additional Notes */}
+          <div style={{ marginBottom: '14px' }}>
+            <Label htmlFor="actionNotes" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
+              Additional notes <span style={{ fontWeight: 400, color: '#6B7280' }}>(optional)</span>
             </Label>
             <Textarea 
-              id="actionTakenComment"
-              placeholder="Enter action taken or comments..."
-              value={actionTakenComment}
-              onChange={(e) => setActionTakenComment(e.target.value)}
+              id="actionNotes"
+              placeholder="Add any additional details..."
+              value={actionTakenNotes}
+              onChange={(e) => setActionTakenNotes(e.target.value)}
               disabled={isCompleted}
-              data-testid="textarea-action-comment"
-              style={{ minHeight: '70px', fontSize: '14px', backgroundColor: '#F9FAFB' }}
+              data-testid="textarea-action-notes"
+              style={{ minHeight: '50px', fontSize: '14px', backgroundColor: '#F9FAFB' }}
             />
           </div>
 
-          {/* Feedback */}
+          {/* Store Insight */}
           <div style={{ marginBottom: '14px' }}>
             <Label htmlFor="feedback" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
-              Feedback <span style={{ color: '#DC2626' }}>*</span>
+              Store Insight <span style={{ fontWeight: 400, color: '#6B7280' }}>(optional)</span>
             </Label>
             <Textarea 
               id="feedback"
-              placeholder="Enter feedback..."
+              placeholder="Add store-specific context..."
               value={feedback}
-              onChange={(e) => setFeedback(e.target.value)}
+              onChange={(e) => {
+                if (e.target.value.length <= 300) setFeedback(e.target.value);
+              }}
               disabled={isCompleted}
               data-testid="textarea-feedback"
-              style={{ minHeight: '70px', fontSize: '14px', backgroundColor: '#F9FAFB' }}
+              style={{ minHeight: '60px', fontSize: '14px', backgroundColor: '#F9FAFB' }}
             />
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+              <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                Add store-specific context only (e.g., manager feedback, space constraints, delivery notes). Avoid repeating Reason Code/Action.
+              </span>
+              <span style={{ fontSize: '11px', color: feedback.length > 280 ? '#DC2626' : '#9CA3AF', whiteSpace: 'nowrap', marginLeft: '8px' }}>
+                {feedback.length}/300
+              </span>
+            </div>
           </div>
 
           {/* Photo Section */}
