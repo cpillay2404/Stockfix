@@ -543,40 +543,6 @@ export default function StoreOverview() {
           </div>
         </div>
 
-        {/* KPI Tiles - Inside Blue Header */}
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <Tile 
-            label="Total SKUs" 
-            value={tiles.totalSKUs} 
-            testId="tile-total-skus" 
-            accentColor="rgba(255,255,255,0.4)"
-            valueColor="#FFFFFF"
-          />
-          <Tile 
-            label="Action Req" 
-            value={tiles.actionRequired} 
-            testId="tile-action-required" 
-            accentColor="#F36C21"
-            valueColor="#F36C21"
-            onClick={() => handleTileClick('action')}
-          />
-          <Tile 
-            label="Under/OOS" 
-            value={tiles.understockOOS} 
-            testId="tile-understock-oos" 
-            accentColor="#FBBF24"
-            valueColor="#FBBF24"
-            onClick={() => handleTileClick('understock')}
-          />
-          <Tile 
-            label="Overstock" 
-            value={tiles.overstock} 
-            testId="tile-overstock" 
-            accentColor="#60A5FA"
-            valueColor="#60A5FA"
-            onClick={() => handleTileClick('overstock')}
-          />
-        </div>
       </div>
 
       {/* Visit Actions Strip */}
