@@ -492,7 +492,8 @@ export default function ManagerProgress() {
                 <PieChart>
                   <Pie
                     data={[
-                      { name: 'Open', value: data?.kpis?.totalOpen || 0, fill: '#F36C21' },
+                      { name: 'Priority Open', value: data?.kpis?.priorityOpenCount || 0, fill: '#DC2626' },
+                      { name: 'Non-Priority Open', value: (data?.kpis?.totalOpen || 0) - (data?.kpis?.priorityOpenCount || 0), fill: '#F36C21' },
                       { name: 'Completed', value: data?.kpis?.totalCompleted || 0, fill: '#10B981' },
                     ]}
                     cx="50%"
@@ -502,6 +503,7 @@ export default function ManagerProgress() {
                     paddingAngle={2}
                     dataKey="value"
                   >
+                    <Cell fill="#DC2626" />
                     <Cell fill="#F36C21" />
                     <Cell fill="#10B981" />
                   </Pie>
@@ -509,17 +511,24 @@ export default function ManagerProgress() {
               </ResponsiveContainer>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                <div style={{ width: '12px', height: '12px', backgroundColor: '#DC2626', borderRadius: '2px' }} />
+                <span style={{ fontSize: '13px', color: '#374151' }}>Priority Open</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#DC2626', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                  {data?.kpis?.priorityOpenCount?.toLocaleString() || 0}
+                </span>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <div style={{ width: '12px', height: '12px', backgroundColor: '#F36C21', borderRadius: '2px' }} />
-                <span style={{ fontSize: '14px', color: '#374151' }}>Open</span>
-                <span style={{ fontSize: '18px', fontWeight: 700, color: '#F36C21', marginLeft: 'auto', fontFamily: 'monospace' }}>
-                  {data?.kpis?.totalOpen?.toLocaleString() || 0}
+                <span style={{ fontSize: '13px', color: '#374151' }}>Non-Priority Open</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#F36C21', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                  {((data?.kpis?.totalOpen || 0) - (data?.kpis?.priorityOpenCount || 0)).toLocaleString()}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '2px' }} />
-                <span style={{ fontSize: '14px', color: '#374151' }}>Completed</span>
-                <span style={{ fontSize: '18px', fontWeight: 700, color: '#10B981', marginLeft: 'auto', fontFamily: 'monospace' }}>
+                <span style={{ fontSize: '13px', color: '#374151' }}>Completed</span>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#10B981', marginLeft: 'auto', fontFamily: 'monospace' }}>
                   {data?.kpis?.totalCompleted?.toLocaleString() || 0}
                 </span>
               </div>
