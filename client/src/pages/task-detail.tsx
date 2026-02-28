@@ -159,7 +159,6 @@ export default function TaskDetail() {
   const [systemAdjusted, setSystemAdjusted] = useState<boolean | null>(null);
   const [reasonCode, setReasonCode] = useState("");
   const [actionTakenDropdown, setActionTakenDropdown] = useState("");
-  const [actionTakenNotes, setActionTakenNotes] = useState("");
   const [showVarianceModal, setShowVarianceModal] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [image1, setImage1] = useState<string | null>(null);
@@ -257,16 +256,7 @@ export default function TaskDetail() {
       setPhysicalCount(task.physicalCount || "");
       setSystemAdjusted(task.systemAdjusted === "Yes" ? true : task.systemAdjusted === "No" ? false : null);
       setReasonCode(task.reasonCode || "");
-      const savedAction = task.actionTakenComment || "";
-      const matchedOption = ACTION_TAKEN_OPTIONS.find(opt => savedAction.startsWith(opt));
-      if (matchedOption) {
-        setActionTakenDropdown(matchedOption);
-        const rest = savedAction.slice(matchedOption.length).replace(/^\s*-\s*/, '');
-        setActionTakenNotes(rest);
-      } else {
-        setActionTakenDropdown(savedAction);
-        setActionTakenNotes("");
-      }
+      setActionTakenDropdown(task.actionTakenComment || "");
       setFeedback(task.feedback || "");
       setImage1(task.image1 || null);
       setImage2(task.image2 || null);
@@ -360,7 +350,7 @@ export default function TaskDetail() {
       variance: variance !== null ? variance.toString() : null,
       systemAdjusted: systemAdjusted ? "Yes" : "No",
       reasonCode: reasonCode || null,
-      actionTakenComment: actionTakenDropdown ? (actionTakenNotes.trim() ? `${actionTakenDropdown} - ${actionTakenNotes.trim()}` : actionTakenDropdown) : null,
+      actionTakenComment: actionTakenDropdown || null,
       feedback: feedback || null,
       image1: image1 || null,
       image2: image2 || null,
@@ -902,22 +892,6 @@ export default function TaskDetail() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* Additional Notes */}
-          <div style={{ marginBottom: '14px' }}>
-            <Label htmlFor="actionNotes" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
-              Additional notes <span style={{ fontWeight: 400, color: '#6B7280' }}>(optional)</span>
-            </Label>
-            <Textarea 
-              id="actionNotes"
-              placeholder="Add any additional details..."
-              value={actionTakenNotes}
-              onChange={(e) => setActionTakenNotes(e.target.value)}
-              disabled={isCompleted}
-              data-testid="textarea-action-notes"
-              style={{ minHeight: '50px', fontSize: '14px', backgroundColor: '#F9FAFB' }}
-            />
           </div>
 
           {/* Store Insight */}
