@@ -160,6 +160,8 @@ export default function TaskDetail() {
   const [reasonCode, setReasonCode] = useState("");
   const [actionTakenDropdown, setActionTakenDropdown] = useState("");
   const [showVarianceModal, setShowVarianceModal] = useState(false);
+  const [showVarianceToast, setShowVarianceToast] = useState(false);
+  const [varianceToastData, setVarianceToastData] = useState({ systemSOH: '', physical: '', variance: '' });
   const [feedback, setFeedback] = useState("");
   const [image1, setImage1] = useState<string | null>(null);
   const [image2, setImage2] = useState<string | null>(null);
@@ -822,6 +824,19 @@ export default function TaskDetail() {
                 const newVariance = val ? (parseFloat(val) || 0) - storeSohNum : null;
                 if (newVariance === 0) setSystemAdjusted(false);
               }}
+              onBlur={() => {
+                if (!physicalCount) return;
+                const v = (parseFloat(physicalCount) || 0) - storeSohNum;
+                if (v !== 0) {
+                  setVarianceToastData({
+                    systemSOH: String(storeSohNum),
+                    physical: physicalCount,
+                    variance: (v > 0 ? '+' : '') + v
+                  });
+                  setShowVarianceToast(true);
+                  setTimeout(() => setShowVarianceToast(false), 3500);
+                }
+              }}
               disabled={isCompleted}
               data-testid="input-physical-count"
               style={{ fontSize: '14px', height: '40px', backgroundColor: '#F9FAFB' }}
@@ -990,6 +1005,26 @@ export default function TaskDetail() {
           </div>
         )}
       </div>
+
+      {showVarianceToast && (
+        <div style={{
+          position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)',
+          zIndex: 200, width: 'calc(100% - 32px)', maxWidth: '360px',
+          backgroundColor: '#1F2937', borderRadius: '12px', padding: '14px 16px',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
+          animation: 'fadeIn 0.2s ease-out'
+        }}>
+          <div style={{ fontSize: '13px', fontWeight: 700, color: '#FBBF24', marginBottom: '6px' }}>
+            Stock Variance Detected
+          </div>
+          <div style={{ fontSize: '12px', color: '#E5E7EB', lineHeight: '1.5' }}>
+            System SOH: {varianceToastData.systemSOH} | Physical: {varianceToastData.physical} | Variance: {varianceToastData.variance}
+          </div>
+          <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', lineHeight: '1.4' }}>
+            Please ensure the discrepancy is addressed to avoid stock/replenishment issues.
+          </div>
+        </div>
+      )}
 
       {showVarianceModal && (
         <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
