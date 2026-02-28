@@ -389,7 +389,7 @@ export default function StoreOverview() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '140px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#F3F4F6', paddingBottom: '70px' }}>
       {/* Header Section - Blue */}
       <div style={{ backgroundColor: '#003B71', padding: '16px' }}>
         {/* Navigation Row */}
@@ -632,38 +632,6 @@ export default function StoreOverview() {
         <ChartCard title="Store SOH" data={charts.storeSoh} testId="chart-store-soh" />
         <ChartCard title="Sell Out" data={charts.sellOutP4} testId="chart-sell-out" />
         <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" isWFC={true} />
-      </div>
-
-      {/* Sticky Footer - Buttons above bottom nav */}
-      <div style={{
-        position: 'fixed',
-        bottom: '56px',
-        left: 0,
-        right: 0,
-        padding: '12px 16px',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0 -2px 10px rgba(0,0,0,0.1)',
-        zIndex: 50,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px',
-      }}>
-        <Button
-          onClick={handleViewTasks}
-          data-testid="button-view-tasks"
-          style={{
-            width: '100%',
-            height: '48px',
-            backgroundColor: '#F36C21',
-            color: '#FFFFFF',
-            fontSize: '16px',
-            fontWeight: 600,
-            borderRadius: '10px',
-          }}
-          className="hover:bg-[#E05A10]"
-        >
-          VIEW TASKS ({actionCount})
-        </Button>
       </div>
 
       {/* Top Attention SKUs Modal */}
