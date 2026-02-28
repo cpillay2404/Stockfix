@@ -606,7 +606,7 @@ export default function StoreOverview() {
             }}
           >
             <span style={{ fontSize: '10px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-              Tasks
+              Total Tasks
             </span>
             <span style={{ fontSize: '22px', fontWeight: 800, color: '#F36C21', fontFamily: 'monospace', lineHeight: 1 }}>
               {taskSummary?.pendingCount || 0}
