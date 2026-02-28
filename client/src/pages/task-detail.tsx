@@ -389,15 +389,6 @@ export default function TaskDetail() {
       return;
     }
 
-    if (systemAdjusted === null) {
-      toast({
-        title: "Selection Required",
-        description: "Please select Yes or No for system adjustment.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     if (!reasonCode) {
       toast({
         title: "Reason Code Required",
@@ -835,34 +826,41 @@ export default function TaskDetail() {
               type="number"
               placeholder="Enter count..."
               value={physicalCount}
-              onChange={(e) => setPhysicalCount(e.target.value)}
+              onChange={(e) => {
+                const val = e.target.value;
+                setPhysicalCount(val);
+                const newVariance = val ? (parseFloat(val) || 0) - storeSohNum : null;
+                if (newVariance === 0) setSystemAdjusted(false);
+              }}
               disabled={isCompleted}
               data-testid="input-physical-count"
               style={{ fontSize: '14px', height: '40px', backgroundColor: '#F9FAFB' }}
             />
           </div>
 
-          {/* System Adjusted Question */}
-          <div style={{ marginBottom: '14px' }}>
-            <Label style={{ fontSize: '13px', color: '#1F2937', display: 'block', marginBottom: '8px' }}>
-              System stock adjusted? <span style={{ color: '#DC2626' }}>*</span>
-            </Label>
-            <RadioGroup
-              value={systemAdjusted === true ? "yes" : systemAdjusted === false ? "no" : ""}
-              onValueChange={(value) => setSystemAdjusted(value === "yes")}
-              disabled={isCompleted}
-              style={{ display: 'flex', gap: '24px' }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <RadioGroupItem value="yes" id="system-yes" data-testid="radio-system-yes" />
-                <Label htmlFor="system-yes" style={{ fontWeight: 400, cursor: 'pointer', fontSize: '14px' }}>Yes</Label>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <RadioGroupItem value="no" id="system-no" data-testid="radio-system-no" />
-                <Label htmlFor="system-no" style={{ fontWeight: 400, cursor: 'pointer', fontSize: '14px' }}>No</Label>
-              </div>
-            </RadioGroup>
-          </div>
+          {/* System Adjusted Question - only show when variance ≠ 0 */}
+          {variance !== null && variance !== 0 && (
+            <div style={{ marginBottom: '14px' }}>
+              <Label style={{ fontSize: '13px', color: '#1F2937', display: 'block', marginBottom: '8px' }}>
+                System stock adjusted? <span style={{ color: '#DC2626' }}>*</span>
+              </Label>
+              <RadioGroup
+                value={systemAdjusted === true ? "yes" : systemAdjusted === false ? "no" : ""}
+                onValueChange={(value) => setSystemAdjusted(value === "yes")}
+                disabled={isCompleted}
+                style={{ display: 'flex', gap: '24px' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <RadioGroupItem value="yes" id="system-yes" data-testid="radio-system-yes" />
+                  <Label htmlFor="system-yes" style={{ fontWeight: 400, cursor: 'pointer', fontSize: '14px' }}>Yes</Label>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <RadioGroupItem value="no" id="system-no" data-testid="radio-system-no" />
+                  <Label htmlFor="system-no" style={{ fontWeight: 400, cursor: 'pointer', fontSize: '14px' }}>No</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          )}
 
           {/* Reason Code */}
           <div style={{ marginBottom: '14px' }}>
