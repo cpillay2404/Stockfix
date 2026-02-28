@@ -399,6 +399,15 @@ export default function TaskDetail() {
       return;
     }
 
+    if (!feedback.trim()) {
+      toast({
+        title: "Feedback Required",
+        description: "Feedback is required.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!image1 && !image2 && !image3 && !image4) {
       toast({
         title: "Photo Required",
@@ -909,30 +918,20 @@ export default function TaskDetail() {
             </Select>
           </div>
 
-          {/* Store Insight */}
+          {/* Feedback */}
           <div style={{ marginBottom: '14px' }}>
             <Label htmlFor="feedback" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
-              Store Insight <span style={{ fontWeight: 400, color: '#6B7280' }}>(optional)</span>
+              Feedback <span style={{ color: '#DC2626' }}>*</span>
             </Label>
             <Textarea 
               id="feedback"
-              placeholder="Add store-specific context..."
+              placeholder="Enter feedback..."
               value={feedback}
-              onChange={(e) => {
-                if (e.target.value.length <= 300) setFeedback(e.target.value);
-              }}
+              onChange={(e) => setFeedback(e.target.value)}
               disabled={isCompleted}
               data-testid="textarea-feedback"
               style={{ minHeight: '60px', fontSize: '14px', backgroundColor: '#F9FAFB' }}
             />
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-              <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
-                Add store-specific context only (e.g., manager feedback, space constraints, delivery notes). Avoid repeating Reason Code/Action.
-              </span>
-              <span style={{ fontSize: '11px', color: feedback.length > 280 ? '#DC2626' : '#9CA3AF', whiteSpace: 'nowrap', marginLeft: '8px' }}>
-                {feedback.length}/300
-              </span>
-            </div>
           </div>
 
           {/* Photo Section */}
