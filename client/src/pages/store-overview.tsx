@@ -549,7 +549,7 @@ export default function StoreOverview() {
       <div style={{ padding: '10px 16px 0' }}>
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1fr 1fr 1fr',
+          gridTemplateColumns: '1fr 1fr',
           gap: '8px',
         }}>
           {/* Critical SKUs Tile */}
@@ -624,50 +624,6 @@ export default function StoreOverview() {
             </span>
           </div>
 
-          {/* Feedback Tile */}
-          <div
-            data-testid="visit-tile-feedback"
-            onClick={handleViewTasks}
-            style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '10px',
-              padding: '10px 8px',
-              borderTop: `3px solid ${(taskSummary?.completedCount || 0) > 0 ? '#10B981' : '#9CA3AF'}`,
-              cursor: 'pointer',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '4px',
-            }}
-          >
-            <span style={{ fontSize: '10px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.3px' }}>
-              Feedback
-            </span>
-            <span style={{
-              fontSize: '11px',
-              fontWeight: 700,
-              color: (taskSummary?.completedCount || 0) > 0 ? '#10B981' : '#9CA3AF',
-              lineHeight: 1.2,
-              textAlign: 'center',
-              minHeight: '26px',
-              display: 'flex',
-              alignItems: 'center',
-            }}>
-              {(taskSummary?.completedCount || 0) > 0 ? `${taskSummary.completedCount} Submitted` : 'Not submitted'}
-            </span>
-            <span style={{
-              fontSize: '10px',
-              fontWeight: 600,
-              color: '#FFFFFF',
-              backgroundColor: (taskSummary?.completedCount || 0) > 0 ? '#10B981' : '#003B71',
-              borderRadius: '10px',
-              padding: '2px 10px',
-              marginTop: '2px',
-            }}>
-              {(taskSummary?.completedCount || 0) > 0 ? 'Review' : 'Capture'}
-            </span>
-          </div>
         </div>
       </div>
 
