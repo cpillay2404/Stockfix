@@ -160,6 +160,7 @@ export default function TaskDetail() {
   const [reasonCode, setReasonCode] = useState("");
   const [actionTakenDropdown, setActionTakenDropdown] = useState("");
   const [actionTakenNotes, setActionTakenNotes] = useState("");
+  const [showVarianceModal, setShowVarianceModal] = useState(false);
   const [feedback, setFeedback] = useState("");
   const [image1, setImage1] = useState<string | null>(null);
   const [image2, setImage2] = useState<string | null>(null);
@@ -352,11 +353,37 @@ export default function TaskDetail() {
 
   const requiresPhysicalCount = requiresPhysicalCountForAction(task.action || '');
 
+  const doSubmit = () => {
+    updateMutation.mutate({
+      actionStatus: 'Completed',
+      physicalCount: physicalCount || null,
+      variance: variance !== null ? variance.toString() : null,
+      systemAdjusted: systemAdjusted ? "Yes" : "No",
+      reasonCode: reasonCode || null,
+      actionTakenComment: actionTakenDropdown ? (actionTakenNotes.trim() ? `${actionTakenDropdown} - ${actionTakenNotes.trim()}` : actionTakenDropdown) : null,
+      feedback: feedback || null,
+      image1: image1 || null,
+      image2: image2 || null,
+      image3: image3 || null,
+      image4: image4 || null,
+      captureDate: new Date().toISOString(),
+    });
+  };
+
   const handleSubmit = () => {
     if (!physicalCount) {
       toast({
         title: "Physical Count Required",
         description: "Please enter the physical count.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (variance !== null && variance !== 0 && systemAdjusted === null) {
+      toast({
+        title: "Selection Required",
+        description: "Variance detected — please confirm if system stock was adjusted.",
         variant: "destructive"
       });
       return;
@@ -389,7 +416,6 @@ export default function TaskDetail() {
       return;
     }
 
-
     if (!image1 && !image2 && !image3 && !image4) {
       toast({
         title: "Photo Required",
@@ -399,20 +425,12 @@ export default function TaskDetail() {
       return;
     }
 
-    updateMutation.mutate({
-      actionStatus: 'Completed',
-      physicalCount: physicalCount || null,
-      variance: variance !== null ? variance.toString() : null,
-      systemAdjusted: systemAdjusted ? "Yes" : "No",
-      reasonCode: reasonCode || null,
-      actionTakenComment: actionTakenDropdown ? (actionTakenNotes.trim() ? `${actionTakenDropdown} - ${actionTakenNotes.trim()}` : actionTakenDropdown) : null,
-      feedback: feedback || null,
-      image1: image1 || null,
-      image2: image2 || null,
-      image3: image3 || null,
-      image4: image4 || null,
-      captureDate: new Date().toISOString(),
-    });
+    if (variance !== null && variance !== 0 && systemAdjusted === false) {
+      setShowVarianceModal(true);
+      return;
+    }
+
+    doSubmit();
   };
 
   const handleImageClick = (slot: 1 | 2 | 3 | 4) => {
@@ -801,9 +819,14 @@ export default function TaskDetail() {
               <Label htmlFor="physicalCount" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937' }}>
                 Physical Count <span style={{ color: '#DC2626' }}>*</span>
               </Label>
-              {variance !== null && (
-                <span style={{ fontSize: '12px', fontWeight: 500, color: variance < 0 ? '#DC2626' : variance > 0 ? '#16A34A' : '#6B7280' }}>
-                  Variance: {variance > 0 ? '+' : ''}{variance}
+              {variance !== null && variance !== 0 && (
+                <span style={{ fontSize: '12px', fontWeight: 600, color: '#DC2626' }}>
+                  ⚠ Variance detected: {variance > 0 ? '+' : ''}{variance}
+                </span>
+              )}
+              {variance !== null && variance === 0 && (
+                <span style={{ fontSize: '12px', fontWeight: 500, color: '#16A34A' }}>
+                  ✓ Counts match
                 </span>
               )}
             </div>
@@ -995,6 +1018,37 @@ export default function TaskDetail() {
           </div>
         )}
       </div>
+
+      {showVarianceModal && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '16px', padding: '24px', maxWidth: '340px', width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+              <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#FEF2F2', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', flexShrink: 0 }}>⚠</div>
+              <h3 style={{ fontSize: '17px', fontWeight: 700, color: '#1F2937', margin: 0 }}>Stock variance detected</h3>
+            </div>
+            <p style={{ fontSize: '14px', color: '#4B5563', lineHeight: '1.5', marginBottom: '24px' }}>
+              Physical count differs from system stock by <strong style={{ color: '#DC2626' }}>{variance !== null ? (variance > 0 ? '+' : '') + variance : ''}</strong>. Please confirm handling.
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <Button
+                onClick={() => setShowVarianceModal(false)}
+                data-testid="button-go-back-review"
+                style={{ width: '100%', height: '44px', backgroundColor: '#003B71', color: '#FFFFFF', fontSize: '14px', fontWeight: 600, borderRadius: '10px' }}
+              >
+                Go Back & Review
+              </Button>
+              <Button
+                onClick={() => { setShowVarianceModal(false); doSubmit(); }}
+                data-testid="button-submit-anyway"
+                variant="outline"
+                style={{ width: '100%', height: '44px', fontSize: '14px', fontWeight: 600, borderRadius: '10px', borderColor: '#D1D5DB', color: '#6B7280' }}
+              >
+                Submit Anyway
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Submit Button - Sticky Footer above bottom nav */}
       {!isCompleted && (
