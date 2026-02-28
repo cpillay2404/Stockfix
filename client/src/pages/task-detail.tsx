@@ -837,7 +837,6 @@ export default function TaskDetail() {
                     variance: (v > 0 ? '+' : '') + v
                   });
                   setShowVarianceToast(true);
-                  setTimeout(() => setShowVarianceToast(false), 3500);
                 }
               }}
               disabled={isCompleted}
@@ -1000,21 +999,26 @@ export default function TaskDetail() {
       </div>
 
       {showVarianceToast && (
-        <div style={{
-          position: 'fixed', top: '50%', left: '50%', transform: 'translate(-50%, -50%)',
-          zIndex: 200, width: 'calc(100% - 32px)', maxWidth: '360px',
-          backgroundColor: '#1F2937', borderRadius: '12px', padding: '14px 16px',
-          boxShadow: '0 8px 30px rgba(0,0,0,0.3)',
-          animation: 'fadeIn 0.2s ease-out'
-        }}>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#FBBF24', marginBottom: '6px' }}>
-            Stock Variance Detected
-          </div>
-          <div style={{ fontSize: '12px', color: '#E5E7EB', lineHeight: '1.5' }}>
-            System SOH: {varianceToastData.systemSOH} | Physical: {varianceToastData.physical} | Variance: {varianceToastData.variance}
-          </div>
-          <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', lineHeight: '1.4' }}>
-            Please ensure the discrepancy is addressed to avoid stock/replenishment issues.
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
+          <div style={{
+            width: 'calc(100% - 32px)', maxWidth: '360px',
+            backgroundColor: '#1F2937', borderRadius: '12px', padding: '16px',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.3)', position: 'relative'
+          }}>
+            <button
+              onClick={() => setShowVarianceToast(false)}
+              data-testid="button-close-variance-toast"
+              style={{ position: 'absolute', top: '10px', right: '10px', background: 'none', border: 'none', color: '#9CA3AF', fontSize: '20px', cursor: 'pointer', lineHeight: 1, padding: '4px' }}
+            >✕</button>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#FBBF24', marginBottom: '6px' }}>
+              Stock Variance Detected
+            </div>
+            <div style={{ fontSize: '12px', color: '#E5E7EB', lineHeight: '1.5' }}>
+              System SOH: {varianceToastData.systemSOH} | Physical: {varianceToastData.physical} | Variance: {varianceToastData.variance}
+            </div>
+            <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '4px', lineHeight: '1.4' }}>
+              Please ensure the discrepancy is addressed to avoid stock/replenishment issues.
+            </div>
           </div>
         </div>
       )}
