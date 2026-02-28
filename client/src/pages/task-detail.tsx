@@ -703,7 +703,7 @@ export default function TaskDetail() {
       )}
 
       {/* Header */}
-      <div style={{ backgroundColor: '#003B71', padding: '16px', paddingBottom: '12px' }}>
+      <div style={{ backgroundColor: '#003B71', padding: '12px 16px 10px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', marginBottom: '12px' }}>
           {isClientMode ? (
             <button 
@@ -734,13 +734,13 @@ export default function TaskDetail() {
         </div>
 
         {/* Action Banner */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '8px' }}>
           <div style={{ 
             backgroundColor: actionBgColor, 
             color: '#FFFFFF', 
-            padding: '8px 16px', 
+            padding: '5px 14px', 
             borderRadius: '20px', 
-            fontSize: '13px', 
+            fontSize: '12px', 
             fontWeight: 600,
             textAlign: 'center',
           }}>
@@ -749,7 +749,7 @@ export default function TaskDetail() {
         </div>
 
         {/* SKU Identity Block */}
-        <div style={{ textAlign: 'center', marginBottom: '12px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '8px' }}>
           <h2 style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF', marginBottom: '4px', lineHeight: 1.3 }}>
             {task.articleDescription}
           </h2>
@@ -758,56 +758,50 @@ export default function TaskDetail() {
           </div>
         </div>
 
-        {/* KPI Row - 4 White Cards - Still in Blue Header */}
-        <div style={{ display: 'flex', gap: '6px' }}>
-          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>SOH</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.storeSoh || '0'}</div>
+        {/* KPI Grid - 2x2 Compact */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px' }}>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '6px', padding: '5px 4px', textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase' }}>SOH</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.storeSoh || '0'}</div>
           </div>
-          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>DC SOH</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.dcSoh || '0'}</div>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '6px', padding: '5px 4px', textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase' }}>DC SOH</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.dcSoh || '0'}</div>
           </div>
-          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>Sell Out</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.p4WeekSales || '0'}</div>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '6px', padding: '5px 4px', textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase' }}>Sell Out</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{task.p4WeekSales || '0'}</div>
           </div>
-          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px 4px', textAlign: 'center' }}>
-            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase', marginBottom: '2px' }}>WFC</div>
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{safeParseFloat(task.storeWfc || '0').toFixed(1)}</div>
+          <div style={{ backgroundColor: '#FFFFFF', borderRadius: '6px', padding: '5px 4px', textAlign: 'center' }}>
+            <div style={{ fontSize: '9px', color: '#6B7280', textTransform: 'uppercase' }}>WFC</div>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#003B71', fontFamily: 'monospace' }}>{safeParseFloat(task.storeWfc || '0').toFixed(1)}</div>
           </div>
         </div>
       </div>
 
-      {/* Content - White/Grey Background */}
-      <div style={{ padding: '16px' }}>
+      {/* Content */}
+      <div style={{ padding: '10px 12px' }}>
         {/* Charts Section - 3 Separate Cards */}
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '10px', padding: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '10px' }}>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <MiniChart title="Store SOH" data={trendData?.storeSoh || []} />
           </div>
-          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '10px', padding: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <MiniChart title="Sell Out" data={trendData?.sellOut || []} />
           </div>
-          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '10px', padding: '10px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+          <div style={{ flex: 1, backgroundColor: '#FFFFFF', borderRadius: '8px', padding: '8px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
             <MiniChart title="WFC" data={trendData?.wfc || []} />
           </div>
         </div>
 
-        {/* Divider */}
-        <div style={{ height: '1px', backgroundColor: '#D1D5DB', marginBottom: '16px' }} />
-
-        {/* Capture Store Feedback Header */}
-        <div style={{ marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <ClipboardEdit style={{ width: '20px', height: '20px', color: '#003B71' }} />
-          <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1F2937', margin: 0 }}>Capture Store Feedback</h3>
-        </div>
+        {/* Action Capture Label */}
+        <div style={{ fontSize: '13px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px' }}>Action Capture</div>
 
         {/* Feedback Form Card */}
-        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '12px', padding: '14px' }}>
+        <div style={{ backgroundColor: '#FFFFFF', borderRadius: '10px', padding: '10px 12px' }}>
           {/* Physical Count with Variance */}
-          <div style={{ marginBottom: '14px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <div style={{ marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
               <Label htmlFor="physicalCount" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937' }}>
                 Physical Count <span style={{ color: '#DC2626' }}>*</span>
               </Label>
@@ -854,7 +848,7 @@ export default function TaskDetail() {
 
           {/* System Adjusted Question - only show when variance ≠ 0 */}
           {variance !== null && variance !== 0 && (
-            <div style={{ marginBottom: '14px' }}>
+            <div style={{ marginBottom: '10px' }}>
               <Label style={{ fontSize: '13px', color: '#1F2937', display: 'block', marginBottom: '8px' }}>
                 System stock adjusted? <span style={{ color: '#DC2626' }}>*</span>
               </Label>
@@ -877,8 +871,8 @@ export default function TaskDetail() {
           )}
 
           {/* Reason Code */}
-          <div style={{ marginBottom: '14px' }}>
-            <Label htmlFor="reasonCode" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
+          <div style={{ marginBottom: '10px' }}>
+            <Label htmlFor="reasonCode" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '4px' }}>
               Reason Code <span style={{ color: '#DC2626' }}>*</span>
             </Label>
             <Select 
@@ -898,8 +892,8 @@ export default function TaskDetail() {
           </div>
 
           {/* Action Taken */}
-          <div style={{ marginBottom: '14px' }}>
-            <Label htmlFor="actionTaken" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
+          <div style={{ marginBottom: '10px' }}>
+            <Label htmlFor="actionTaken" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '4px' }}>
               Action Taken <span style={{ color: '#DC2626' }}>*</span>
             </Label>
             <Select 
@@ -919,8 +913,8 @@ export default function TaskDetail() {
           </div>
 
           {/* Feedback */}
-          <div style={{ marginBottom: '14px' }}>
-            <Label htmlFor="feedback" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '6px' }}>
+          <div style={{ marginBottom: '10px' }}>
+            <Label htmlFor="feedback" style={{ fontSize: '13px', fontWeight: 600, color: '#1F2937', display: 'block', marginBottom: '4px' }}>
               Feedback <span style={{ color: '#DC2626' }}>*</span>
             </Label>
             <Textarea 
@@ -1063,7 +1057,7 @@ export default function TaskDetail() {
             onClick={handleSubmit}
             disabled={updateMutation.isPending}
             data-testid="button-submit-action"
-            style={{ width: '100%', height: '48px', backgroundColor: '#F36C21', color: '#FFFFFF', fontSize: '16px', fontWeight: 600, borderRadius: '10px' }}
+            style={{ width: '100%', height: '44px', backgroundColor: '#F36C21', color: '#FFFFFF', fontSize: '15px', fontWeight: 600, borderRadius: '10px' }}
             className="hover:bg-[#E05A10]"
           >
             {updateMutation.isPending ? (
