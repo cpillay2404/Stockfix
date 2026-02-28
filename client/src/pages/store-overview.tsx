@@ -495,32 +495,6 @@ export default function StoreOverview() {
           </div>
         </div>
 
-        {/* Critical SKUs Button - Compact pill style */}
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
-          <button
-            onClick={() => setShowAttentionModal(true)}
-            data-testid="button-critical-skus"
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '6px',
-              padding: '6px 14px',
-              backgroundColor: '#DC2626',
-              borderRadius: '20px',
-              border: '2px solid #FFFFFF',
-              cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-            }}
-          >
-            <AlertTriangle style={{ width: '14px', height: '14px', color: '#FFFFFF' }} />
-            <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>
-              View Critical SKUs
-            </span>
-            <ChevronRight style={{ width: '14px', height: '14px', color: '#FFFFFF' }} />
-          </button>
-        </div>
-
         {/* Filters Row */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '12px' }}>
           <div>
