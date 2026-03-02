@@ -133,7 +133,18 @@ const parseToISODateHelper = (dateVal: any): string => {
         return resultDate.toISOString().split('T')[0];
       }
     }
-    const parsed = new Date(String(dateVal));
+    const strVal = String(dateVal).trim();
+    const slashMatch = strVal.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+    if (slashMatch) {
+      const [, y, m, d] = slashMatch;
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+    const ddmmMatch = strVal.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+    if (ddmmMatch) {
+      const [, d, m, y] = ddmmMatch;
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+    const parsed = new Date(strVal);
     if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000 && parsed.getFullYear() < 2100) {
       return parsed.toISOString().split('T')[0];
     }
@@ -1781,29 +1792,7 @@ export async function registerRoutes(
         return cleaned;
       };
 
-      // Helper to parse date string to ISO format (YYYY-MM-DD)
-      const parseToISODate = (dateVal: any): string => {
-        if (!dateVal) return new Date().toISOString().split('T')[0];
-        try {
-          // Handle Excel serial numbers (numbers like 46057)
-          if (typeof dateVal === 'number' || !isNaN(Number(dateVal))) {
-            const num = Number(dateVal);
-            // Excel serial numbers are typically between 1 and 100000
-            if (num > 1 && num < 100000) {
-              // Excel date: days since Dec 30, 1899
-              const excelEpoch = new Date(1899, 11, 30);
-              const resultDate = new Date(excelEpoch.getTime() + num * 24 * 60 * 60 * 1000);
-              return resultDate.toISOString().split('T')[0];
-            }
-          }
-          // Try parsing as date string
-          const parsed = new Date(String(dateVal));
-          if (!isNaN(parsed.getTime()) && parsed.getFullYear() > 2000 && parsed.getFullYear() < 2100) {
-            return parsed.toISOString().split('T')[0];
-          }
-        } catch (e) {}
-        return new Date().toISOString().split('T')[0];
-      };
+      const parseToISODate = parseToISODateHelper;
 
       // Map CSV/Excel columns to our schema with flexible matching
       const mappedTasks = data.map((row: any, index: number) => {

@@ -107,9 +107,27 @@ app.use((req, res, next) => {
       host: "0.0.0.0",
       reusePort: true,
     },
-    () => {
+    async () => {
       log(`serving on port ${port}`);
       startWeeklyEmailScheduler();
+
+      // ONE-TIME STARTUP SCRIPT: Fix Butterfly week ending dates (2026-03-02 → 2026-02-25)
+      // The date 2026/02/25 in the Excel was mis-parsed to today's date on import
+      // Remove this block after one successful production deploy
+      try {
+        const { db } = await import("./db");
+        const { tasks } = await import("@shared/schema");
+        const { eq, and, sql } = await import("drizzle-orm");
+        const result = await db.update(tasks)
+          .set({ weekEndingDate: '2026-02-25' })
+          .where(and(
+            eq(tasks.client, 'BUTTERFLY'),
+            eq(tasks.weekEndingDate, '2026-03-02')
+          ));
+        console.log('[STARTUP SCRIPT] Fixed Butterfly weekEndingDate: 2026-03-02 → 2026-02-25');
+      } catch (err) {
+        console.error('[STARTUP SCRIPT] Butterfly date fix error:', err);
+      }
     },
   );
 })();
