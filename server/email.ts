@@ -169,8 +169,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     // Always-notify recipients - these always get the email
     const alwaysNotify = [
       'jjooste@meridiangroup.co.za',
-      'cpillay@meridiangroup.co.za',
-      'ndunn@meridiangroup.co.za'
+      'cpillay@meridiangroup.co.za'
     ];
     
     // If no contact found for rep, send to always-notify list as primary recipients
