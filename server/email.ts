@@ -198,7 +198,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'P&G': ['lukhna.k@pg.com'],
       'PMI': ['aviwe.sondlo@pmi.com', 'charl.grove@pmi.com'],
       'AGROSERVE': ['bradley.chenchiah@agroserve.co.za', 'kirsten.cocks@agroserve.co.za'],
-      'RACEFOODS': ['chelsea@certosports.co.za', 'gary@certosports.co.za'],
+      'RACEFOODS': ['chelsea@certosports.co.za'],
       'DYNAMIC BRANDS': ['illona@dynamicbrands.co.za', 'vbotha@meridiangroup.co.za'],
       'BUTTERFLY': ['snaidoo@meridiangroup.co.za', 'msithole@meridiangroup.co.za', 'karin@butterflysa.co.za'],
     };
