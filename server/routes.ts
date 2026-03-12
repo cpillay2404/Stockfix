@@ -453,8 +453,8 @@ export async function registerRoutes(
         return res.json(cached.data);
       }
       
-      // Get latest week for filtering - only show current week's data
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      // Get latest week for filtering - use most populated week to avoid partial import issues
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       
       // Use optimized SQL-based method instead of loading all tasks
       const result = await storage.getDashboardStatsOptimized({
@@ -886,7 +886,7 @@ export async function registerRoutes(
       const includeAll = req.query.includeAll === 'true';
       
       // Use SQL-level filtering for performance
-      const latestWeek = includeAll ? undefined : await storage.getLatestWeekEndingDate();
+      const latestWeek = includeAll ? undefined : await storage.getLatestWeekEndingDateForStore(storeName);
       
       const storeTasks = await storage.getTasksFiltered({
         weekEndingDate: latestWeek || undefined,
@@ -1002,7 +1002,7 @@ export async function registerRoutes(
   // GET latest week ending date
   app.get("/api/tasks/latest-week", async (req, res) => {
     try {
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       res.json({ latestWeekEndingDate: latestWeek });
     } catch (error) {
       console.error("Error fetching latest week:", error);
@@ -1028,7 +1028,7 @@ export async function registerRoutes(
       // Use store-specific latest week to avoid week mismatch issues
       const latestWeekEnding = store 
         ? await storage.getLatestWeekEndingDateForStore(store, rep)
-        : await storage.getLatestWeekEndingDate();
+        : await storage.getMostPopulatedWeekEndingDate();
       
       let scopedTasks = await storage.getTasksFiltered({
         weekEndingDate: latestWeekEnding || undefined,
@@ -1103,7 +1103,7 @@ export async function registerRoutes(
       if (!includeAll) {
         const latestWeek = storeVal
           ? await storage.getLatestWeekEndingDateForStore(storeVal, repVal || undefined)
-          : await storage.getLatestWeekEndingDate();
+          : await storage.getMostPopulatedWeekEndingDate();
         weekEndingDate = latestWeek || '';
       }
       
@@ -1147,7 +1147,7 @@ export async function registerRoutes(
   // GET export task count - check before export (lightweight SQL count, this week only)
   app.get("/api/tasks/export/count", async (req, res) => {
     try {
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       if (!latestWeek) {
         return res.json({ count: 0, weekEndingDate: null });
       }
@@ -1162,7 +1162,7 @@ export async function registerRoutes(
   app.get("/api/tasks/export/csv", async (req, res) => {
     try {
       console.log("Starting CSV export (this week only, streaming from DB)...");
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       if (!latestWeek) {
         return res.status(404).json({ error: "No tasks found" });
       }
@@ -1287,7 +1287,7 @@ export async function registerRoutes(
       console.log("Starting Excel export (this week only)...");
       
       // Get latest week
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       if (!latestWeek) {
         return res.status(404).json({ error: "No tasks found" });
       }
@@ -1389,8 +1389,7 @@ export async function registerRoutes(
   // GET export Rep Leaderboard as Excel
   app.get("/api/export/rep-leaderboard", async (req, res) => {
     try {
-      // Use SQL-level filtering for current week only
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       const allTasks = await storage.getTasksFiltered({
         weekEndingDate: latestWeek || undefined,
       });
@@ -1465,8 +1464,7 @@ export async function registerRoutes(
   // GET export Manager Leaderboard as Excel
   app.get("/api/export/manager-leaderboard", async (req, res) => {
     try {
-      // Use SQL-level filtering for current week only
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       const allTasks = await storage.getTasksFiltered({
         weekEndingDate: latestWeek || undefined,
       });
@@ -1990,8 +1988,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "repName is required" });
       }
 
-      // Get latest week and use SQL-level filtering (MUCH faster than getAllTasks)
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      // Get latest week - use most populated to avoid partial import issues
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       
       // Get tasks filtered at SQL level
       const repTasks = await storage.getTasksFiltered({
@@ -2146,8 +2144,7 @@ export async function registerRoutes(
   // GET list of managers (line managers)
   app.get("/api/managers", async (req, res) => {
     try {
-      // Use SQL-level filtering for current week only
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       const allTasks = await storage.getTasksFiltered({
         weekEndingDate: latestWeek || undefined,
       });
@@ -2181,7 +2178,7 @@ export async function registerRoutes(
       if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
         return res.json(cached.data);
       }
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       const teamTasks = await storage.getTasksFiltered({
         weekEndingDate: latestWeek || undefined,
         lineManager: manager,
@@ -2214,7 +2211,7 @@ export async function registerRoutes(
         allStats = cachedData.stats;
         latestWeek = cachedData.weekEndingDate;
       } else {
-        latestWeek = await storage.getLatestWeekEndingDate();
+        latestWeek = await storage.getMostPopulatedWeekEndingDate();
         if (!latestWeek) {
           return res.json({ leaderboard: [], teamStats: {}, totalReps: 0, weekEndingDate: null });
         }
@@ -2290,7 +2287,7 @@ export async function registerRoutes(
         allStats = cachedData.stats;
         latestWeek = cachedData.weekEndingDate;
       } else {
-        latestWeek = await storage.getLatestWeekEndingDate();
+        latestWeek = await storage.getMostPopulatedWeekEndingDate();
         if (!latestWeek) {
           return res.json({ found: false, repName, weekEndingDate: null });
         }
@@ -2357,7 +2354,7 @@ export async function registerRoutes(
       const period = req.query.period as string || 'week';
       const clientFilter = req.query.client as string || '';
       
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       if (!latestWeek) {
         return res.json({ weekEndingDate: null, period, overall: {}, regionLeaderboard: [], managerLeaderboard: [], repLeaderboard: [], clientLeaderboard: [] });
       }
@@ -2542,10 +2539,8 @@ export async function registerRoutes(
         }
       }
 
-      // Use SQL-level filtering instead of loading all 30k+ tasks
-      const latestWeek = await storage.getLatestWeekEndingDate();
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
       
-      // Get tasks filtered at SQL level (MUCH faster)
       const teamTasks = await storage.getTasksFiltered({
         weekEndingDate: latestWeek || undefined,
         lineManager: manager,
