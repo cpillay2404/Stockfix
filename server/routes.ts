@@ -128,9 +128,11 @@ const parseToISODateHelper = (dateVal: any): string => {
     if (typeof dateVal === 'number' || !isNaN(Number(dateVal))) {
       const num = Number(dateVal);
       if (num > 1 && num < 100000) {
-        const excelEpoch = new Date(1899, 11, 30);
-        const resultDate = new Date(excelEpoch.getTime() + num * 24 * 60 * 60 * 1000);
-        return resultDate.toISOString().split('T')[0];
+        const utcMs = Date.UTC(1899, 11, 30) + num * 86400000;
+        const y = new Date(utcMs).getUTCFullYear();
+        const m = String(new Date(utcMs).getUTCMonth() + 1).padStart(2, '0');
+        const d = String(new Date(utcMs).getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${d}`;
       }
     }
     const strVal = String(dateVal).trim();

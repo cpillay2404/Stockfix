@@ -111,22 +111,29 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       startWeeklyEmailScheduler();
 
-      // ONE-TIME STARTUP SCRIPT: Fix Butterfly week ending dates (2026-03-02 → 2026-02-25)
-      // The date 2026/02/25 in the Excel was mis-parsed to today's date on import
+      // ONE-TIME STARTUP SCRIPT: Fix mis-parsed week ending dates (2026-03-12 → 2026-03-11)
+      // Excel serial numbers were off by one day during import
       // Remove this block after one successful production deploy
       try {
         const { db } = await import("./db");
         const { tasks } = await import("@shared/schema");
-        const { eq, and, sql } = await import("drizzle-orm");
-        const result = await db.update(tasks)
-          .set({ weekEndingDate: '2026-02-25' })
-          .where(and(
-            eq(tasks.client, 'BUTTERFLY'),
-            eq(tasks.weekEndingDate, '2026-03-02')
-          ));
-        console.log('[STARTUP SCRIPT] Fixed Butterfly weekEndingDate: 2026-03-02 → 2026-02-25');
+        const { eq, sql } = await import("drizzle-orm");
+        
+        // Fix weekEndingDate
+        const dateResult = await db.update(tasks)
+          .set({ weekEndingDate: '2026-03-11' })
+          .where(eq(tasks.weekEndingDate, '2026-03-12'));
+        console.log('[STARTUP SCRIPT] Fixed weekEndingDate: 2026-03-12 → 2026-03-11');
+        
+        // Fix uniqueIds that contain the wrong date
+        await db.execute(sql`
+          UPDATE tasks 
+          SET unique_id = REPLACE(unique_id, '2026-03-12', '2026-03-11')
+          WHERE unique_id LIKE '%2026-03-12%'
+        `);
+        console.log('[STARTUP SCRIPT] Fixed uniqueIds: 2026-03-12 → 2026-03-11');
       } catch (err) {
-        console.error('[STARTUP SCRIPT] Butterfly date fix error:', err);
+        console.error('[STARTUP SCRIPT] Date fix error:', err);
       }
     },
   );
