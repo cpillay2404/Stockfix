@@ -1094,10 +1094,16 @@ export async function registerRoutes(
       const status = (req.query.status as string) || '';
       const includeAll = req.query.includeAll === 'true';
       
+      const storeVal = (req.query.store as string) || '';
+      const repVal = (req.query.rep as string) || '';
+      
       // Get latest week ending date unless includeAll is true
+      // Use store-specific latest week when store/rep filters are set to avoid week mismatch
       let weekEndingDate = '';
       if (!includeAll) {
-        const latestWeek = await storage.getLatestWeekEndingDate();
+        const latestWeek = storeVal
+          ? await storage.getLatestWeekEndingDateForStore(storeVal, repVal || undefined)
+          : await storage.getLatestWeekEndingDate();
         weekEndingDate = latestWeek || '';
       }
       
@@ -1106,8 +1112,8 @@ export async function registerRoutes(
       
       const filters = {
         region: (req.query.region as string) || '',
-        rep: (req.query.rep as string) || '',
-        store: (req.query.store as string) || '',
+        rep: repVal,
+        store: storeVal,
         client: clientVal === 'All Clients' ? '' : clientVal,
         issue: (req.query.issue as string) || '',
         category: (req.query.category as string) || '',
