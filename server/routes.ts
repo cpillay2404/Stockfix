@@ -1582,12 +1582,14 @@ export async function registerRoutes(
       // Invalidate gamification cache when tasks are updated
       invalidateGamificationCache();
       
-      // Send email notification if this is a task completion submission
-      // (actionStatus changed to something other than Pending, or feedback/reasonCode provided)
-      const isTaskCompletion = 
+      // Send email notification only when task transitions from Pending to completed for the first time.
+      // Check previous status to avoid duplicate emails on subsequent edits (e.g. adding photos/comments).
+      const wasAlreadyActioned = task.actionStatus && task.actionStatus !== 'Pending';
+      const isTaskCompletion = !wasAlreadyActioned && (
         (validated.actionStatus && validated.actionStatus !== 'Pending') ||
         validated.feedback ||
-        validated.reasonCode;
+        validated.reasonCode
+      );
       
       console.log('[Task Update] isTaskCompletion:', isTaskCompletion, 'validated:', JSON.stringify(validated));
       
