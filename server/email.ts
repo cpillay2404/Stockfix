@@ -201,6 +201,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'RACEFOODS': ['chelsea@certosports.co.za'],
       'DYNAMIC BRANDS': ['illona@dynamicbrands.co.za', 'vbotha@meridiangroup.co.za'],
       'BUTTERFLY': ['snaidoo@meridiangroup.co.za', 'msithole@meridiangroup.co.za', 'karin@butterflysa.co.za', 'stockfix@butterflysa.co.za'],
+      'SCJ': ['SMakenna@scj.com', 'CTlouba@scj.com', 'rsithagu@scj.com'],
     };
     
     // Add client-specific CC if applicable
