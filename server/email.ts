@@ -189,7 +189,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'AQUELLE': ['cperumal@meridiangroup.co.za', 'SuzelleS@aquelle.co.za', 'EstelleP@aquelle.co.za'],
       'ASPEN': ['snaidoo@meridiangroup.co.za', 'kpillay5@aspenpharma.com', 'gpilcher@aspenpharma.com', 'mhadebe2@aspenpharma.com'],
       'LINDT': ['snaidoo@meridiangroup.co.za', 'mhoosen@lindt.com'],
-      'WILMAR': ['ldiale@meridiangroup.co.za', 'nivesh.hariram@za.wilmar-intl.com', 'muhammad.kajee@za.wilmar-intl.com'],
+      'WILMAR': ['ldiale@meridiangroup.co.za', 'muhammad.kajee@za.wilmar-intl.com'],
       'SODASTREAM': ['gswart@meridiangroup.co.za', 'nikhil.bassdev@pepsico.com', 'craig.naude@pepsico.com', 'christopher.makgatho@pepsico.com'],
       'ALPEN': ['gswart@meridiangroup.co.za'],
       'ANCHOR': ['gswart@meridiangroup.co.za', 'ftmodeya@lallemand.com', 'ncoetzee@anchor.co.za'],
