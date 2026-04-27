@@ -4,8 +4,20 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
 import { startWeeklyEmailScheduler } from "./scheduled-emails";
+import cors from "cors";
 
 const app = express();
+
+// Allow PerfectStorePro and StockFix itself to call this API
+app.use(cors({
+  origin: [
+    'https://perfectstorepro.replit.app',
+    'https://stockfixapp.online',
+  ],
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+}));
 
 // Serve uploaded images from public/images
 app.use('/images', express.static(path.join(process.cwd(), 'public/images')));
