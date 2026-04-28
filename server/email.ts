@@ -70,7 +70,7 @@ export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void>
   console.log('[Email] API key found, length:', apiKey.length, 'starts with:', apiKey.substring(0, 5));
 
   const mailerSend = new MailerSend({ apiKey });
-  const fromEmail = (process.env.FROM_EMAIL || 'stockfix@meridiangroup.co.za').trim();
+  const fromEmail = 'stockfix@meridiangroup.co.za';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
   const sentFrom = new Sender(fromEmail, 'StockFix Notifications');
 
