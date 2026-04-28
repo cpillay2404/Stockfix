@@ -1,4 +1,5 @@
-// MailerSend integration for email notifications
+// SMTP/Nodemailer integration for email notifications
+import nodemailer from 'nodemailer';
 import { storage } from './storage';
 
 interface TaskEmailData {
@@ -38,16 +39,12 @@ function formatImageUrl(imagePath: string | null | undefined, baseUrl: string | 
 }
 
 function safeString(value: any): string {
-  if (value === null || value === undefined || value === '') {
-    return 'N/A';
-  }
+  if (value === null || value === undefined || value === '') return 'N/A';
   return String(value);
 }
 
 function formatWfc(value: any): string {
-  if (value === null || value === undefined || value === '') {
-    return 'N/A';
-  }
+  if (value === null || value === undefined || value === '') return 'N/A';
   const cleaned = String(value).replace(',', '.');
   const num = parseFloat(cleaned);
   if (isNaN(num)) return String(value);
@@ -55,28 +52,39 @@ function formatWfc(value: any): string {
 }
 
 function formatSystemAdjusted(value: any): string {
-  if (value === null || value === undefined || value === '') {
-    return 'N/A';
-  }
+  if (value === null || value === undefined || value === '') return 'N/A';
   const strVal = String(value).toLowerCase();
-  if (strVal === 'true' || strVal === 'yes' || strVal === '1') {
-    return 'Yes';
-  }
-  if (strVal === 'false' || strVal === 'no' || strVal === '0') {
-    return 'No';
-  }
+  if (strVal === 'true' || strVal === 'yes' || strVal === '1') return 'Yes';
+  if (strVal === 'false' || strVal === 'no' || strVal === '0') return 'No';
   return String(value);
+}
+
+function createTransporter() {
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+
+  if (!host || !user || !pass) {
+    console.error('[Email] Missing SMTP credentials - SMTP_HOST, SMTP_USER or SMTP_PASS not set');
+    return null;
+  }
+
+  console.log('[Email] Creating SMTP transporter - host:', host, 'port:', port, 'user:', user);
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+  });
 }
 
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const apiKey = process.env.MAILERSEND_API_KEY?.trim();
-  if (!apiKey) {
-    console.error('[Email] MAILERSEND_API_KEY not found in environment');
-    return;
-  }
-  console.log('[Email] MAILERSEND_API_KEY length:', apiKey.length);
+  const transporter = createTransporter();
+  if (!transporter) return;
 
   const fromEmail = process.env.FROM_EMAIL?.trim() || 'notifications@stockfixapp.online';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
@@ -144,7 +152,6 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     }
   }
 
-  // Always-notify recipients
   const alwaysNotify = [
     'jjooste@meridiangroup.co.za',
     'cpillay@meridiangroup.co.za',
@@ -157,7 +164,6 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
 
   recipients = [...new Set(recipients)];
 
-  // CC recipients
   const ccRecipients = alwaysNotify.filter(email => !recipients.includes(email));
 
   // Client-specific CC
@@ -218,33 +224,16 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
   console.log('[Email] Subject:', subject);
 
   try {
-    const payload = {
-      from: { email: fromEmail, name: 'StockFix Notifications' },
-      to: recipients.map(e => ({ email: e })),
-      cc: ccRecipients.length > 0 ? ccRecipients.map(e => ({ email: e })) : undefined,
+    const info = await transporter.sendMail({
+      from: `"StockFix Notifications" <${fromEmail}>`,
+      to: recipients.join(', '),
+      cc: ccRecipients.length > 0 ? ccRecipients.join(', ') : undefined,
       subject,
       text: body,
-    };
-
-    const response = await fetch('https://api.mailersend.com/v1/email', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-      body: JSON.stringify(payload),
     });
-
-    const responseText = await response.text();
-
-    if (response.ok || response.status === 202) {
-      console.log('[Email] Successfully sent via MailerSend, status:', response.status);
-    } else {
-      console.error('[Email] MailerSend failed - status:', response.status, 'body:', responseText);
-    }
+    console.log('[Email] Successfully sent via SMTP, messageId:', info.messageId);
   } catch (err: any) {
-    console.error('[Email] Exception sending via MailerSend:', err.message || err);
+    console.error('[Email] SMTP send failed:', err.message || err);
   }
 
   console.log('[Email] Completed sending to all recipients');
