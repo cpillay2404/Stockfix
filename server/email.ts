@@ -56,12 +56,23 @@ function formatImageUrl(imagePath: string, baseUrl?: string): string {
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const apiKey = (process.env.MAILERSEND_API_KEY || process.env.MAILERSEND_API_KEY_V2 || '').trim();
-  if (!apiKey) {
+  const rawKey = (process.env.MAILERSEND_API_KEY || process.env.MAILERSEND_API_KEY_V2 || '').trim();
+  if (!rawKey) {
     console.error('[Email] No MailerSend API key found');
     return;
   }
-  console.log('[Email] API key found, length:', apiKey.length, 'prefix:', apiKey.substring(0, 10), 'suffix:', apiKey.substring(apiKey.length - 4));
+
+  // Strip all non-printable and non-ASCII characters
+  let apiKey = rawKey.replace(/[^\x20-\x7E]/g, '');
+  // If longer than 69 chars, extract mlsn. + first 64 hex chars after it
+  if (apiKey.length > 69) {
+    const match = apiKey.match(/mlsn\.([a-f0-9]{64})/i);
+    if (match) {
+      apiKey = 'mlsn.' + match[1];
+    }
+  }
+
+  console.log('[Email] Raw key length:', rawKey.length, '| Sanitized length:', apiKey.length, '| prefix:', apiKey.substring(0, 10), '| suffix:', apiKey.substring(apiKey.length - 4));
 
   const fromEmail = 'stockfix@meridiangroup.co.za';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
