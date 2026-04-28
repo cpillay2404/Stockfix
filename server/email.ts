@@ -242,20 +242,38 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     
     console.log('[Email] Sending to recipients:', recipients, 'CC:', ccRecipients);
     
+    const apiKey = process.env.MAILERSEND_API_KEY;
+    console.log('[Email] API key length:', apiKey?.length ?? 0);
+
     for (const recipientEmail of recipients) {
       try {
-        const emailParams = new EmailParams()
-          .setFrom(sentFrom)
-          .setTo([new Recipient(recipientEmail)])
-          .setCc(ccRecipients.map(email => new Recipient(email)))
-          .setSubject(subject)
-          .setText(body);
-        
         console.log('[Email] Sending email to:', recipientEmail, 'with CC');
-        const result = await mailerSend.email.send(emailParams);
-        console.log('[Email] Successfully sent to', recipientEmail);
+        const payload = {
+          from: { email: fromEmail, name: 'StockFix Notifications' },
+          to: [{ email: recipientEmail }],
+          cc: ccRecipients.map(e => ({ email: e })),
+          subject,
+          text: body,
+        };
+
+        const response = await fetch('https://api.mailersend.com/v1/email', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+          },
+          body: JSON.stringify(payload),
+        });
+
+        if (response.ok || response.status === 202) {
+          console.log('[Email] Successfully sent to', recipientEmail, 'status:', response.status);
+        } else {
+          const errorBody = await response.text();
+          console.error('[Email] Failed to send to', recipientEmail, '- status:', response.status, 'body:', errorBody);
+        }
       } catch (err: any) {
-        console.error('[Email] Failed to send to', recipientEmail, ':', err.body || err.message || err);
+        console.error('[Email] Failed to send to', recipientEmail, ':', err.message || err);
       }
     }
     
