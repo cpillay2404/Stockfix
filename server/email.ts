@@ -1,4 +1,4 @@
-import { Resend } from 'resend';
+import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
 import { storage } from './storage';
 
 interface TaskEmailData {
@@ -57,16 +57,17 @@ function formatImageUrl(imagePath: string, baseUrl?: string): string {
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = (process.env.MAILERSEND_API_KEY_V2 || process.env.MAILERSEND_API_KEY || '').trim();
   if (!apiKey) {
-    console.error('[Email] Missing RESEND_API_KEY');
+    console.error('[Email] No MailerSend API key found');
     return;
   }
-  console.log('[Email] Resend API key found, length:', apiKey.length);
+  console.log('[Email] API key found, length:', apiKey.length, 'starts with:', apiKey.substring(0, 5));
 
-  const resend = new Resend(apiKey);
+  const mailerSend = new MailerSend({ apiKey });
   const fromEmail = 'stockfix@meridiangroup.co.za';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
+  const sentFrom = new Sender(fromEmail, 'StockFix Notifications');
 
   const subject = `StockFix | ${safeString(task.client)} | ${safeString(task.storeName)} | ${safeString(task.actionColumn)}`;
 
@@ -203,26 +204,26 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
 
     for (const recipientEmail of recipients) {
       try {
+        const emailParams = new EmailParams()
+          .setFrom(sentFrom)
+          .setTo([new Recipient(recipientEmail)])
+          .setCc(ccRecipients.map(email => new Recipient(email)))
+          .setSubject(subject)
+          .setText(body);
+
         console.log('[Email] Sending to:', recipientEmail);
-        const result = await resend.emails.send({
-          from: `StockFix Notifications <${fromEmail}>`,
-          to: [recipientEmail],
-          cc: ccRecipients,
-          subject,
-          text: body,
-        });
-        if (result.error) {
-          console.error('[Email] Failed to send to', recipientEmail, ':', JSON.stringify(result.error));
-        } else {
-          console.log('[Email] Successfully sent to', recipientEmail, '- id:', result.data?.id);
-        }
+        await mailerSend.email.send(emailParams);
+        console.log('[Email] Successfully sent to', recipientEmail);
       } catch (err: any) {
-        console.error('[Email] Failed to send to', recipientEmail, ':', err.message || err);
+        console.error('[Email] Failed to send to', recipientEmail, ':', err.body ? JSON.stringify(err.body) : (err.message || err));
       }
     }
 
     console.log('[Email] Completed sending to all recipients');
   } catch (error: any) {
     console.error('[Email] Failed to send email:', error.message || error);
+    if (error.body) {
+      console.error('[Email] Error body:', JSON.stringify(error.body, null, 2));
+    }
   }
 }
