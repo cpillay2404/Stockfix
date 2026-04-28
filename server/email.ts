@@ -226,10 +226,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
         console.log('[Email] >>> Send response for', recipientEmail, ':', JSON.stringify(response));
         console.log('[Email] Successfully sent to', recipientEmail);
       } catch (err: any) {
-        console.error('[Email] >>> CATCH for', recipientEmail);
-        console.error('[Email] Status code:', err.statusCode || err.status || 'unknown');
-        console.error('[Email] Error body:', err.body ? JSON.stringify(err.body) : 'none');
-        console.error('[Email] Error message:', err.message || 'none');
+        console.error('[Email] >>> CATCH for', recipientEmail, '|', err.statusCode || err.status || 'no-status', '|', err.message || 'no-message', '|', err.body ? JSON.stringify(err.body) : 'no-body');
       }
     }
 
