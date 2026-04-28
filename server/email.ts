@@ -62,7 +62,7 @@ export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void>
     console.error('[Email] No MailerSend API key found');
     return;
   }
-  console.log('[Email] API key found, length:', apiKey.length, 'starts with:', apiKey.substring(0, 5));
+  console.log('[Email] API key found, length:', apiKey.length, 'prefix:', apiKey.substring(0, 10), 'suffix:', apiKey.substring(apiKey.length - 4));
 
   const mailerSend = new MailerSend({ apiKey });
   const fromEmail = 'stockfix@meridiangroup.co.za';
@@ -215,7 +215,10 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
         await mailerSend.email.send(emailParams);
         console.log('[Email] Successfully sent to', recipientEmail);
       } catch (err: any) {
-        console.error('[Email] Failed to send to', recipientEmail, ':', err.body ? JSON.stringify(err.body) : (err.message || err));
+        console.error('[Email] Failed to send to', recipientEmail);
+        console.error('[Email] Status code:', err.statusCode || err.status || 'unknown');
+        console.error('[Email] Error body:', err.body ? JSON.stringify(err.body) : 'none');
+        console.error('[Email] Error message:', err.message || 'none');
       }
     }
 
