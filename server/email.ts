@@ -1,13 +1,5 @@
-// MailerSend integration for email notifications
-import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+// Resend integration for email notifications
 import { storage } from './storage';
-
-// Fallback recipients when no contact is found for a rep
-const FALLBACK_RECIPIENTS = [
-  'jjooste@meridiangroup.co.za',
-  'cpillay@meridiangroup.co.za',
-  'carin.pillay@gmail.com'
-];
 
 interface TaskEmailData {
   repName?: string | null;
@@ -41,7 +33,7 @@ interface TaskEmailData {
 function formatImageUrl(imagePath: string | null | undefined, baseUrl: string | undefined): string {
   if (!imagePath) return 'N/A';
   if (imagePath.startsWith('http')) return imagePath;
-  const base = baseUrl || 'https://stockfix.replit.app';
+  const base = baseUrl || 'https://stockfixapp.online';
   return `${base}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
 }
 
@@ -76,22 +68,17 @@ function formatSystemAdjusted(value: any): string {
   return String(value);
 }
 
-function getMailerSendClient() {
-  const apiKey = process.env.MAILERSEND_API_KEY;
-  
-  if (!apiKey) {
-    console.error('[Email] MAILERSEND_API_KEY not found in environment');
-    throw new Error('MAILERSEND_API_KEY not configured');
-  }
-  
-  console.log('[Email] Using MAILERSEND_API_KEY from environment');
-  return new MailerSend({ apiKey });
-}
-
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const fromEmail = process.env.FROM_EMAIL || 'notifications@stockfixapp.online';
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  if (!apiKey) {
+    console.error('[Email] RESEND_API_KEY not found in environment');
+    return;
+  }
+  console.log('[Email] RESEND_API_KEY length:', apiKey.length);
+
+  const fromEmail = process.env.FROM_EMAIL?.trim() || 'notifications@stockfixapp.online';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
 
   const subject = `StockFix | ${safeString(task.client)} | ${safeString(task.storeName)} | ${safeString(task.actionColumn)}`;
@@ -142,147 +129,123 @@ Image 1: ${task.image1 ? formatImageUrl(task.image1, task.baseUrl) : 'N/A'}
 Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
 `.trim();
 
-  try {
-    console.log('[Email] Getting MailerSend client...');
-    const mailerSend = getMailerSendClient();
-    
-    const sentFrom = new Sender(fromEmail, 'StockFix');
-    
-    // Build recipient list: get rep and manager emails from contacts
-    let recipients: string[] = [];
-    
-    if (task.repName) {
-      console.log('[Email] Looking up contact for rep:', task.repName);
-      const contact = await storage.getContactByRepName(task.repName);
-      
-      if (contact) {
-        console.log('[Email] Found contact:', contact.repEmail, contact.managerEmail);
-        if (contact.repEmail) recipients.push(contact.repEmail);
-        if (contact.managerEmail) recipients.push(contact.managerEmail);
-      } else {
-        console.log('[Email] No contact found for rep:', task.repName, '- no email will be sent');
-      }
+  // Build recipient list from contact lookup
+  let recipients: string[] = [];
+
+  if (task.repName) {
+    console.log('[Email] Looking up contact for rep:', task.repName);
+    const contact = await storage.getContactByRepName(task.repName);
+    if (contact) {
+      console.log('[Email] Found contact:', contact.repEmail, contact.managerEmail);
+      if (contact.repEmail) recipients.push(contact.repEmail);
+      if (contact.managerEmail) recipients.push(contact.managerEmail);
     } else {
-      console.log('[Email] No rep name provided - no email will be sent');
-    }
-    
-    // Always-notify recipients - these always get the email
-    const alwaysNotify = [
-      'jjooste@meridiangroup.co.za',
-      'cpillay@meridiangroup.co.za'
-    ];
-    
-    // If no contact found for rep, send to always-notify list as primary recipients
-    if (recipients.length === 0) {
-      console.log('[Email] No contact found for rep - sending to always-notify list only');
-      recipients = [...alwaysNotify];
-    }
-    
-    // Remove duplicates
-    recipients = [...new Set(recipients)];
-    
-    // CC recipients - always included (but exclude any that are already primary recipients)
-    const ccRecipients = alwaysNotify.filter(email => !recipients.includes(email));
-    
-    // Client-specific CC recipients (supports multiple emails per client)
-    const clientCcMap: Record<string, string[]> = {
-      'AQUELLE': ['cperumal@meridiangroup.co.za', 'SuzelleS@aquelle.co.za', 'EstelleP@aquelle.co.za'],
-      'ASPEN': ['snaidoo@meridiangroup.co.za', 'msithole@meridiangroup.co.za', 'lrensburg@meridiangroup.co.za', 'kpillay5@aspenpharma.com', 'gpilcher@aspenpharma.com', 'mhadebe2@aspenpharma.com'],
-      'LINDT': ['snaidoo@meridiangroup.co.za', 'mhoosen@lindt.com'],
-      'WILMAR': ['ldiale@meridiangroup.co.za', 'muhammad.kajee@za.wilmar-intl.com'],
-      'SODASTREAM': ['gswart@meridiangroup.co.za', 'nikhil.bassdev@pepsico.com', 'craig.naude@pepsico.com', 'christopher.makgatho@pepsico.com'],
-      'ALPEN': ['gswart@meridiangroup.co.za'],
-      'ANCHOR': ['gswart@meridiangroup.co.za', 'lrensburg@meridiangroup.co.za', 'ftmodeya@lallemand.com', 'ncoetzee@anchor.co.za'],
-      'DURACELL': ['gswart@meridiangroup.co.za', 'lrensburg@meridiangroup.co.za', 'craig.t@duracell.com'],
-      'SOUTHERN OIL': ['gswart@meridiangroup.co.za', 'jeandre@soill.co.za'],
-      'P&G': ['lukhna.k@pg.com'],
-      'PMI': ['aviwe.sondlo@pmi.com', 'charl.grove@pmi.com'],
-      'AGROSERVE': ['lrensburg@meridiangroup.co.za', 'bradley.chenchiah@agroserve.co.za', 'kirsten.cocks@agroserve.co.za'],
-      'RACEFOODS': ['chelsea@certosports.co.za'],
-      'DYNAMIC BRANDS': ['illona@dynamicbrands.co.za', 'vbotha@meridiangroup.co.za'],
-      'BUTTERFLY': ['snaidoo@meridiangroup.co.za', 'msithole@meridiangroup.co.za', 'karin@butterflysa.co.za', 'stockfix@butterflysa.co.za'],
-    };
-    
-    // Add client-specific CC if applicable
-    if (task.client) {
-      const clientUpper = task.client.toUpperCase();
-      for (const [clientName, emails] of Object.entries(clientCcMap)) {
-        if (clientUpper.includes(clientName)) {
-          for (const email of emails) {
-            if (!ccRecipients.includes(email)) {
-              ccRecipients.push(email);
-              console.log('[Email] Adding client-specific CC for', clientName, ':', email);
-            }
-          }
-          break;
-        }
-      }
-    }
-    
-    // Region-specific CC recipients
-    const regionCcMap: Record<string, string[]> = {
-      'WESTERN CAPE': ['glwigington@meridiangroup.co.za'],
-    };
-    
-    // Add region-specific CC if applicable
-    if (task.region) {
-      const regionUpper = task.region.toUpperCase();
-      for (const [regionName, emails] of Object.entries(regionCcMap)) {
-        if (regionUpper.includes(regionName)) {
-          for (const email of emails) {
-            if (!ccRecipients.includes(email)) {
-              ccRecipients.push(email);
-              console.log('[Email] Adding region-specific CC for', regionName, ':', email);
-            }
-          }
-          break;
-        }
-      }
-    }
-    
-    console.log('[Email] Sending to recipients:', recipients, 'CC:', ccRecipients);
-    
-    const apiKey = process.env.MAILERSEND_API_KEY?.trim();
-    console.log('[Email] API key length after trim:', apiKey?.length ?? 0);
-
-    for (const recipientEmail of recipients) {
-      try {
-        console.log('[Email] Sending email to:', recipientEmail, 'with CC');
-        const payload = {
-          from: { email: fromEmail, name: 'StockFix Notifications' },
-          to: [{ email: recipientEmail }],
-          cc: ccRecipients.map(e => ({ email: e })),
-          subject,
-          text: body,
-        };
-
-        const response = await fetch('https://api.mailersend.com/v1/email', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-          },
-          body: JSON.stringify(payload),
-        });
-
-        if (response.ok || response.status === 202) {
-          console.log('[Email] Successfully sent to', recipientEmail, 'status:', response.status);
-        } else {
-          const errorBody = await response.text();
-          console.error('[Email] Failed to send to', recipientEmail, '- status:', response.status, 'body:', errorBody);
-        }
-      } catch (err: any) {
-        console.error('[Email] Failed to send to', recipientEmail, ':', err.message || err);
-      }
-    }
-    
-    console.log('[Email] Completed sending to all recipients');
-    console.log('[Email] Subject:', subject);
-  } catch (error: any) {
-    console.error('[Email] Failed to send email:', error.message || error);
-    if (error.body) {
-      console.error('[Email] Error body:', JSON.stringify(error.body, null, 2));
+      console.log('[Email] No contact found for rep:', task.repName);
     }
   }
+
+  // Always-notify recipients
+  const alwaysNotify = [
+    'jjooste@meridiangroup.co.za',
+    'cpillay@meridiangroup.co.za',
+  ];
+
+  if (recipients.length === 0) {
+    console.log('[Email] No contact found - sending to always-notify list only');
+    recipients = [...alwaysNotify];
+  }
+
+  recipients = [...new Set(recipients)];
+
+  // CC recipients
+  const ccRecipients = alwaysNotify.filter(email => !recipients.includes(email));
+
+  // Client-specific CC
+  const clientCcMap: Record<string, string[]> = {
+    'AQUELLE': ['cperumal@meridiangroup.co.za', 'SuzelleS@aquelle.co.za', 'EstelleP@aquelle.co.za'],
+    'ASPEN': ['snaidoo@meridiangroup.co.za', 'msithole@meridiangroup.co.za', 'lrensburg@meridiangroup.co.za', 'kpillay5@aspenpharma.com', 'gpilcher@aspenpharma.com', 'mhadebe2@aspenpharma.com'],
+    'LINDT': ['snaidoo@meridiangroup.co.za', 'mhoosen@lindt.com'],
+    'WILMAR': ['ldiale@meridiangroup.co.za', 'muhammad.kajee@za.wilmar-intl.com'],
+    'SODASTREAM': ['gswart@meridiangroup.co.za', 'nikhil.bassdev@pepsico.com', 'craig.naude@pepsico.com', 'christopher.makgatho@pepsico.com'],
+    'ALPEN': ['gswart@meridiangroup.co.za'],
+    'ANCHOR': ['gswart@meridiangroup.co.za', 'lrensburg@meridiangroup.co.za', 'ftmodeya@lallemand.com', 'ncoetzee@anchor.co.za'],
+    'DURACELL': ['gswart@meridiangroup.co.za', 'lrensburg@meridiangroup.co.za', 'craig.t@duracell.com'],
+    'SOUTHERN OIL': ['gswart@meridiangroup.co.za', 'jeandre@soill.co.za'],
+    'P&G': ['lukhna.k@pg.com'],
+    'PMI': ['aviwe.sondlo@pmi.com', 'charl.grove@pmi.com'],
+    'AGROSERVE': ['lrensburg@meridiangroup.co.za', 'bradley.chenchiah@agroserve.co.za', 'kirsten.cocks@agroserve.co.za'],
+    'RACEFOODS': ['chelsea@certosports.co.za'],
+    'DYNAMIC BRANDS': ['illona@dynamicbrands.co.za', 'vbotha@meridiangroup.co.za'],
+    'BUTTERFLY': ['snaidoo@meridiangroup.co.za', 'msithole@meridiangroup.co.za', 'karin@butterflysa.co.za', 'stockfix@butterflysa.co.za'],
+  };
+
+  if (task.client) {
+    const clientUpper = task.client.toUpperCase();
+    for (const [clientName, emails] of Object.entries(clientCcMap)) {
+      if (clientUpper.includes(clientName)) {
+        for (const email of emails) {
+          if (!ccRecipients.includes(email)) {
+            ccRecipients.push(email);
+            console.log('[Email] Adding client-specific CC for', clientName, ':', email);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  // Region-specific CC
+  const regionCcMap: Record<string, string[]> = {
+    'WESTERN CAPE': ['glwigington@meridiangroup.co.za'],
+  };
+
+  if (task.region) {
+    const regionUpper = task.region.toUpperCase();
+    for (const [regionName, emails] of Object.entries(regionCcMap)) {
+      if (regionUpper.includes(regionName)) {
+        for (const email of emails) {
+          if (!ccRecipients.includes(email)) {
+            ccRecipients.push(email);
+            console.log('[Email] Adding region-specific CC for', regionName, ':', email);
+          }
+        }
+        break;
+      }
+    }
+  }
+
+  console.log('[Email] Sending to recipients:', recipients, 'CC:', ccRecipients);
+  console.log('[Email] Subject:', subject);
+
+  // Resend sends one email with all recipients in to/cc
+  try {
+    const payload = {
+      from: `StockFix Notifications <${fromEmail}>`,
+      to: recipients,
+      cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+      subject,
+      text: body,
+    };
+
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const responseText = await response.text();
+
+    if (response.ok || response.status === 200 || response.status === 201) {
+      console.log('[Email] Successfully sent via Resend, status:', response.status);
+    } else {
+      console.error('[Email] Resend failed - status:', response.status, 'body:', responseText);
+    }
+  } catch (err: any) {
+    console.error('[Email] Exception sending via Resend:', err.message || err);
+  }
+
+  console.log('[Email] Completed sending to all recipients');
 }
