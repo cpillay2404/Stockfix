@@ -1,5 +1,4 @@
-// MailerSend integration for email notifications
-import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+import nodemailer from 'nodemailer';
 import { storage } from './storage';
 
 interface TaskEmailData {
@@ -31,72 +30,87 @@ interface TaskEmailData {
   baseUrl?: string;
 }
 
-function formatImageUrl(imagePath: string | null | undefined, baseUrl: string | undefined): string {
+function safeString(val: any): string {
+  if (val === null || val === undefined) return 'N/A';
+  return String(val);
+}
+
+function formatWfc(val: any): string {
+  if (val === null || val === undefined) return 'N/A';
+  const num = parseFloat(String(val));
+  if (isNaN(num)) return String(val);
+  return num.toFixed(1) + ' weeks';
+}
+
+function formatSystemAdjusted(val: any): string {
+  if (val === null || val === undefined) return 'N/A';
+  return String(val);
+}
+
+function formatImageUrl(imagePath: string, baseUrl?: string): string {
   if (!imagePath) return 'N/A';
   if (imagePath.startsWith('http')) return imagePath;
   const base = baseUrl || 'https://stockfixapp.online';
-  return `${base}${imagePath.startsWith('/') ? '' : '/'}${imagePath}`;
+  return `${base}${imagePath}`;
 }
 
-function safeString(value: any): string {
-  if (value === null || value === undefined || value === '') return 'N/A';
-  return String(value);
-}
+function createTransporter() {
+  const host = process.env.SMTP_HOST;
+  const port = parseInt(process.env.SMTP_PORT || '587', 10);
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
 
-function formatWfc(value: any): string {
-  if (value === null || value === undefined || value === '') return 'N/A';
-  const cleaned = String(value).replace(',', '.');
-  const num = parseFloat(cleaned);
-  if (isNaN(num)) return String(value);
-  return num.toFixed(1);
-}
+  if (!host || !user || !pass) {
+    console.error('[Email] Missing SMTP credentials - SMTP_HOST, SMTP_USER, SMTP_PASS are required');
+    return null;
+  }
 
-function formatSystemAdjusted(value: any): string {
-  if (value === null || value === undefined || value === '') return 'N/A';
-  const strVal = String(value).toLowerCase();
-  if (strVal === 'true' || strVal === 'yes' || strVal === '1') return 'Yes';
-  if (strVal === 'false' || strVal === 'no' || strVal === '0') return 'No';
-  return String(value);
+  console.log('[Email] SMTP config - host:', host, 'port:', port, 'user:', user);
+
+  return nodemailer.createTransport({
+    host,
+    port,
+    secure: port === 465,
+    auth: { user, pass },
+    tls: { rejectUnauthorized: false },
+  });
 }
 
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const apiKey = (process.env.MAILERSEND_API_KEY_V2 || process.env.MAILERSEND_API_KEY || '').trim();
-  if (!apiKey) {
-    console.error('[Email] No MailerSend API key found in environment');
-    return;
-  }
-  console.log('[Email] API key found, length:', apiKey.length, 'starts with:', apiKey.substring(0, 5));
+  const transporter = createTransporter();
+  if (!transporter) return;
 
-  const mailerSend = new MailerSend({ apiKey });
   const fromEmail = 'stockfix@meridiangroup.co.za';
+  const fromName = 'StockFix Notifications';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
-  const sentFrom = new Sender(fromEmail, 'StockFix Notifications');
 
   const subject = `StockFix | ${safeString(task.client)} | ${safeString(task.storeName)} | ${safeString(task.actionColumn)}`;
 
   const body = `
-Task Completion Notification
-============================
+StockFix Task Completion Notification
+======================================
 
-Rep Name: ${safeString(task.repName)}
-Client: ${safeString(task.client)}
+Store Details
+-------------
 Store: ${safeString(task.storeName)}
 Banner: ${safeString(task.banner)}
 Region: ${safeString(task.region)}
 Week Ending: ${safeString(task.weekEndingDate)}
-Category: ${safeString(task.category)}
+Client: ${safeString(task.client)}
+
+Rep & Manager
+-------------
+Rep: ${safeString(task.repName)}
 
 Product Details
 ---------------
 Barcode: ${safeString(task.barcode)}
-Article Description: ${safeString(task.articleDescription)}
-Stock Classification (This Week): ${safeString(task.stockClassificationThisWeek)}
-
-Action Details
---------------
-Action Column: ${safeString(task.actionColumn)}
+Article: ${safeString(task.articleDescription)}
+Category: ${safeString(task.category)}
+Stock Classification: ${safeString(task.stockClassificationThisWeek)}
+Action Required: ${safeString(task.actionColumn)}
 Action Status: ${safeString(task.actionStatus)}
 
 Inventory Data
@@ -207,26 +221,22 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
 
     for (const recipientEmail of recipients) {
       try {
-        const emailParams = new EmailParams()
-          .setFrom(sentFrom)
-          .setTo([new Recipient(recipientEmail)])
-          .setCc(ccRecipients.map(email => new Recipient(email)))
-          .setSubject(subject)
-          .setText(body);
-
         console.log('[Email] Sending to:', recipientEmail);
-        await mailerSend.email.send(emailParams);
+        await transporter.sendMail({
+          from: `"${fromName}" <${fromEmail}>`,
+          to: recipientEmail,
+          cc: ccRecipients.join(','),
+          subject,
+          text: body,
+        });
         console.log('[Email] Successfully sent to', recipientEmail);
       } catch (err: any) {
-        console.error('[Email] Failed to send to', recipientEmail, ':', err.body ? JSON.stringify(err.body) : (err.message || err));
+        console.error('[Email] Failed to send to', recipientEmail, ':', err.message || err);
       }
     }
 
     console.log('[Email] Completed sending to all recipients');
   } catch (error: any) {
     console.error('[Email] Failed to send email:', error.message || error);
-    if (error.body) {
-      console.error('[Email] Error body:', JSON.stringify(error.body, null, 2));
-    }
   }
 }
