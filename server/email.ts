@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import { storage } from './storage';
 
 interface TaskEmailData {
@@ -54,36 +54,18 @@ function formatImageUrl(imagePath: string, baseUrl?: string): string {
   return `${base}${imagePath}`;
 }
 
-function createTransporter() {
-  const host = process.env.SMTP_HOST;
-  const port = parseInt(process.env.SMTP_PORT || '587', 10);
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!host || !user || !pass) {
-    console.error('[Email] Missing SMTP credentials - SMTP_HOST, SMTP_USER, SMTP_PASS are required');
-    return null;
-  }
-
-  console.log('[Email] SMTP config - host:', host, 'port:', port, 'user:', user);
-
-  return nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: { user, pass },
-    tls: { rejectUnauthorized: false },
-  });
-}
-
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const transporter = createTransporter();
-  if (!transporter) return;
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) {
+    console.error('[Email] Missing RESEND_API_KEY');
+    return;
+  }
+  console.log('[Email] Resend API key found, length:', apiKey.length);
 
+  const resend = new Resend(apiKey);
   const fromEmail = 'stockfix@meridiangroup.co.za';
-  const fromName = 'StockFix Notifications';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
 
   const subject = `StockFix | ${safeString(task.client)} | ${safeString(task.storeName)} | ${safeString(task.actionColumn)}`;
@@ -222,14 +204,18 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     for (const recipientEmail of recipients) {
       try {
         console.log('[Email] Sending to:', recipientEmail);
-        await transporter.sendMail({
-          from: `"${fromName}" <${fromEmail}>`,
-          to: recipientEmail,
-          cc: ccRecipients.join(','),
+        const result = await resend.emails.send({
+          from: `StockFix Notifications <${fromEmail}>`,
+          to: [recipientEmail],
+          cc: ccRecipients,
           subject,
           text: body,
         });
-        console.log('[Email] Successfully sent to', recipientEmail);
+        if (result.error) {
+          console.error('[Email] Failed to send to', recipientEmail, ':', JSON.stringify(result.error));
+        } else {
+          console.log('[Email] Successfully sent to', recipientEmail, '- id:', result.data?.id);
+        }
       } catch (err: any) {
         console.error('[Email] Failed to send to', recipientEmail, ':', err.message || err);
       }
