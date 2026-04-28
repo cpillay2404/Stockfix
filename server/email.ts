@@ -242,8 +242,8 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     
     console.log('[Email] Sending to recipients:', recipients, 'CC:', ccRecipients);
     
-    const apiKey = process.env.MAILERSEND_API_KEY;
-    console.log('[Email] API key length:', apiKey?.length ?? 0);
+    const apiKey = process.env.MAILERSEND_API_KEY?.trim();
+    console.log('[Email] API key length after trim:', apiKey?.length ?? 0);
 
     for (const recipientEmail of recipients) {
       try {
