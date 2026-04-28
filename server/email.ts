@@ -57,7 +57,7 @@ function formatImageUrl(imagePath: string, baseUrl?: string): string {
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const apiKey = (process.env.MAILERSEND_API_KEY_V2 || process.env.MAILERSEND_API_KEY || '').trim();
+  const apiKey = (process.env.MAILERSEND_API_KEY || process.env.MAILERSEND_API_KEY_V2 || '').trim();
   if (!apiKey) {
     console.error('[Email] No MailerSend API key found');
     return;
