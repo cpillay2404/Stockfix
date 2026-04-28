@@ -1,4 +1,3 @@
-import { Resend } from 'resend';
 import { storage } from './storage';
 
 interface TaskEmailData {
@@ -57,15 +56,14 @@ function formatImageUrl(imagePath: string, baseUrl?: string): string {
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const apiKey = (process.env.RESEND_API_KEY || '').trim();
+  const apiKey = (process.env.MAILERSEND_API_KEY || process.env.MAILERSEND_API_KEY_V2 || '').trim();
   if (!apiKey) {
-    console.error('[Email] No Resend API key found');
+    console.error('[Email] No MailerSend API key found');
     return;
   }
-  console.log('[Email] Resend API key found, length:', apiKey.length);
+  console.log('[Email] API key found, length:', apiKey.length, 'prefix:', apiKey.substring(0, 10), 'suffix:', apiKey.substring(apiKey.length - 4));
 
-  const resend = new Resend(apiKey);
-  const fromEmail = process.env.FROM_EMAIL?.trim() || 'stockfix@meridiangroup.co.za';
+  const fromEmail = 'stockfix@meridiangroup.co.za';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
 
   const subject = `StockFix | ${safeString(task.client)} | ${safeString(task.storeName)} | ${safeString(task.actionColumn)}`;
@@ -208,21 +206,35 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     console.log('[Email] Sending to recipients:', recipients, 'CC:', ccRecipients);
     console.log('[Email] Subject:', subject);
 
-    const { data, error } = await resend.emails.send({
-      from: `StockFix Notifications <${fromEmail}>`,
-      to: recipients,
-      cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+    const payload = {
+      from: { email: fromEmail, name: 'StockFix Notifications' },
+      to: recipients.map(email => ({ email })),
+      cc: ccRecipients.length > 0 ? ccRecipients.map(email => ({ email })) : undefined,
       subject,
       text: body,
+    };
+
+    console.log('[Email] >>> Calling MailerSend API via fetch');
+    const response = await fetch('https://api.mailersend.com/v1/email', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+      body: JSON.stringify(payload),
     });
 
-    if (error) {
-      console.error('[Email] Resend error:', JSON.stringify(error));
+    const responseText = await response.text();
+    console.log('[Email] MailerSend response status:', response.status);
+    console.log('[Email] MailerSend response body:', responseText);
+
+    if (response.ok) {
+      console.log('[Email] Successfully sent to all recipients');
     } else {
-      console.log('[Email] Successfully sent. Resend ID:', data?.id);
+      console.error('[Email] MailerSend API error:', response.status, responseText);
     }
 
-    console.log('[Email] Completed sending to all recipients');
   } catch (error: any) {
     console.error('[Email] Failed to send email:', error.message || error);
   }
