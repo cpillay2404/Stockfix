@@ -211,11 +211,12 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
           .setSubject(subject)
           .setText(body);
 
-        console.log('[Email] Sending to:', recipientEmail);
-        await mailerSend.email.send(emailParams);
+        console.log('[Email] >>> About to call mailerSend.email.send to:', recipientEmail);
+        const response = await mailerSend.email.send(emailParams);
+        console.log('[Email] >>> Send response for', recipientEmail, ':', JSON.stringify(response));
         console.log('[Email] Successfully sent to', recipientEmail);
       } catch (err: any) {
-        console.error('[Email] Failed to send to', recipientEmail);
+        console.error('[Email] >>> CATCH for', recipientEmail);
         console.error('[Email] Status code:', err.statusCode || err.status || 'unknown');
         console.error('[Email] Error body:', err.body ? JSON.stringify(err.body) : 'none');
         console.error('[Email] Error message:', err.message || 'none');
