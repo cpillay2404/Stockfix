@@ -212,7 +212,10 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
           .setText(body);
 
         console.log('[Email] >>> About to call mailerSend.email.send to:', recipientEmail);
-        const response = await mailerSend.email.send(emailParams);
+        const timeout = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('MailerSend API timeout after 15s')), 15000)
+        );
+        const response = await Promise.race([mailerSend.email.send(emailParams), timeout]);
         console.log('[Email] >>> Send response for', recipientEmail, ':', JSON.stringify(response));
         console.log('[Email] Successfully sent to', recipientEmail);
       } catch (err: any) {
