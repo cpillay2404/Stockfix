@@ -74,7 +74,7 @@ export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void>
 
   console.log('[Email] Raw key length:', rawKey.length, '| Sanitized length:', apiKey.length, '| prefix:', apiKey.substring(0, 10), '| suffix:', apiKey.substring(apiKey.length - 4));
 
-  const fromEmail = 'stockfix@meridiangroup.co.za';
+  const fromEmail = 'noreply@stockfixapp.online';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
 
   const subject = `StockFix | ${safeString(task.client)} | ${safeString(task.storeName)} | ${safeString(task.actionColumn)}`;
