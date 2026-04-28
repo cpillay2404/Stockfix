@@ -124,13 +124,20 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
 
     if (task.repName) {
       console.log('[Email] Looking up contact for rep:', task.repName);
-      const contact = await storage.getContactByRepName(task.repName);
-      if (contact) {
-        console.log('[Email] Found contact:', contact.repEmail, contact.managerEmail);
-        if (contact.repEmail) recipients.push(contact.repEmail);
-        if (contact.managerEmail) recipients.push(contact.managerEmail);
-      } else {
-        console.log('[Email] No contact found for rep:', task.repName);
+      try {
+        const contactTimeout = new Promise<undefined>((_, reject) =>
+          setTimeout(() => reject(new Error('DB contact lookup timeout after 5s')), 5000)
+        );
+        const contact = await Promise.race([storage.getContactByRepName(task.repName), contactTimeout]);
+        if (contact) {
+          console.log('[Email] Found contact:', contact.repEmail, contact.managerEmail);
+          if (contact.repEmail) recipients.push(contact.repEmail);
+          if (contact.managerEmail) recipients.push(contact.managerEmail);
+        } else {
+          console.log('[Email] No contact found for rep:', task.repName);
+        }
+      } catch (dbErr: any) {
+        console.error('[Email] Contact lookup failed:', dbErr.message);
       }
     }
 
