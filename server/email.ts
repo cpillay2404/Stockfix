@@ -1,4 +1,4 @@
-// Resend integration for email notifications
+// MailerSend integration for email notifications
 import { storage } from './storage';
 
 interface TaskEmailData {
@@ -71,12 +71,12 @@ function formatSystemAdjusted(value: any): string {
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const apiKey = process.env.MAILERSEND_API_KEY?.trim();
   if (!apiKey) {
-    console.error('[Email] RESEND_API_KEY not found in environment');
+    console.error('[Email] MAILERSEND_API_KEY not found in environment');
     return;
   }
-  console.log('[Email] RESEND_API_KEY length:', apiKey.length);
+  console.log('[Email] MAILERSEND_API_KEY length:', apiKey.length);
 
   const fromEmail = process.env.FROM_EMAIL?.trim() || 'notifications@stockfixapp.online';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
@@ -217,34 +217,34 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
   console.log('[Email] Sending to recipients:', recipients, 'CC:', ccRecipients);
   console.log('[Email] Subject:', subject);
 
-  // Resend sends one email with all recipients in to/cc
   try {
     const payload = {
-      from: `StockFix Notifications <${fromEmail}>`,
-      to: recipients,
-      cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+      from: { email: fromEmail, name: 'StockFix Notifications' },
+      to: recipients.map(e => ({ email: e })),
+      cc: ccRecipients.length > 0 ? ccRecipients.map(e => ({ email: e })) : undefined,
       subject,
       text: body,
     };
 
-    const response = await fetch('https://api.resend.com/emails', {
+    const response = await fetch('https://api.mailersend.com/v1/email', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
       },
       body: JSON.stringify(payload),
     });
 
     const responseText = await response.text();
 
-    if (response.ok || response.status === 200 || response.status === 201) {
-      console.log('[Email] Successfully sent via Resend, status:', response.status);
+    if (response.ok || response.status === 202) {
+      console.log('[Email] Successfully sent via MailerSend, status:', response.status);
     } else {
-      console.error('[Email] Resend failed - status:', response.status, 'body:', responseText);
+      console.error('[Email] MailerSend failed - status:', response.status, 'body:', responseText);
     }
   } catch (err: any) {
-    console.error('[Email] Exception sending via Resend:', err.message || err);
+    console.error('[Email] Exception sending via MailerSend:', err.message || err);
   }
 
   console.log('[Email] Completed sending to all recipients');
