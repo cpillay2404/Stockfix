@@ -1,4 +1,4 @@
-import { MailerSend, EmailParams, Sender, Recipient } from 'mailersend';
+import { Resend } from 'resend';
 import { storage } from './storage';
 
 interface TaskEmailData {
@@ -57,17 +57,16 @@ function formatImageUrl(imagePath: string, baseUrl?: string): string {
 export async function sendTaskCompletedEmail(task: TaskEmailData): Promise<void> {
   console.log('[Email] sendTaskCompletedEmail called');
 
-  const apiKey = (process.env.MAILERSEND_API_KEY || process.env.MAILERSEND_API_KEY_V2 || '').trim();
+  const apiKey = (process.env.RESEND_API_KEY || '').trim();
   if (!apiKey) {
-    console.error('[Email] No MailerSend API key found');
+    console.error('[Email] No Resend API key found');
     return;
   }
-  console.log('[Email] API key found, length:', apiKey.length, 'prefix:', apiKey.substring(0, 10), 'suffix:', apiKey.substring(apiKey.length - 4));
+  console.log('[Email] Resend API key found, length:', apiKey.length);
 
-  const mailerSend = new MailerSend({ apiKey });
-  const fromEmail = 'stockfix@meridiangroup.co.za';
+  const resend = new Resend(apiKey);
+  const fromEmail = process.env.FROM_EMAIL?.trim() || 'stockfix@meridiangroup.co.za';
   console.log('[Email] Using FROM_EMAIL:', fromEmail);
-  const sentFrom = new Sender(fromEmail, 'StockFix Notifications');
 
   const subject = `StockFix | ${safeString(task.client)} | ${safeString(task.storeName)} | ${safeString(task.actionColumn)}`;
 
@@ -209,32 +208,22 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
     console.log('[Email] Sending to recipients:', recipients, 'CC:', ccRecipients);
     console.log('[Email] Subject:', subject);
 
-    for (const recipientEmail of recipients) {
-      try {
-        const emailParams = new EmailParams()
-          .setFrom(sentFrom)
-          .setTo([new Recipient(recipientEmail)])
-          .setCc(ccRecipients.map(email => new Recipient(email)))
-          .setSubject(subject)
-          .setText(body);
+    const { data, error } = await resend.emails.send({
+      from: `StockFix Notifications <${fromEmail}>`,
+      to: recipients,
+      cc: ccRecipients.length > 0 ? ccRecipients : undefined,
+      subject,
+      text: body,
+    });
 
-        console.log('[Email] >>> About to call mailerSend.email.send to:', recipientEmail);
-        const timeout = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('MailerSend API timeout after 15s')), 15000)
-        );
-        const response = await Promise.race([mailerSend.email.send(emailParams), timeout]);
-        console.log('[Email] >>> Send response for', recipientEmail, ':', JSON.stringify(response));
-        console.log('[Email] Successfully sent to', recipientEmail);
-      } catch (err: any) {
-        console.error('[Email] >>> CATCH for', recipientEmail, '|', err.statusCode || err.status || 'no-status', '|', err.message || 'no-message', '|', err.body ? JSON.stringify(err.body) : 'no-body');
-      }
+    if (error) {
+      console.error('[Email] Resend error:', JSON.stringify(error));
+    } else {
+      console.log('[Email] Successfully sent. Resend ID:', data?.id);
     }
 
     console.log('[Email] Completed sending to all recipients');
   } catch (error: any) {
     console.error('[Email] Failed to send email:', error.message || error);
-    if (error.body) {
-      console.error('[Email] Error body:', JSON.stringify(error.body, null, 2));
-    }
   }
 }
