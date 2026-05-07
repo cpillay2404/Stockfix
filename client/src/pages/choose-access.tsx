@@ -149,7 +149,7 @@ export default function ChooseAccess() {
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#003B71'}
             >
               <User style={{ width: '22px', height: '22px' }} />
-              I'm a Rep
+              I'm a Rep / Merchandiser
             </button>
 
             <button
