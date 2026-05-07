@@ -210,7 +210,7 @@ export default function Landing() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           <div>
             <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '6px', display: 'block', fontWeight: 500 }}>
-              Select Rep <span style={{ color: '#F36C21' }}>*</span>
+              I'm a Rep/Merchandiser <span style={{ color: '#F36C21' }}>*</span>
             </label>
             <SearchableSelect
               value={selectedRep}
