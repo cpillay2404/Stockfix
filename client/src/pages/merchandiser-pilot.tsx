@@ -67,12 +67,7 @@ function FilterSection({ label, options, value, onChange }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
         <button
           onClick={() => onChange('')}
-          style={{
-            textAlign: 'left', padding: '7px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: value === '' ? 700 : 400,
-            backgroundColor: value === '' ? '#F36C21' : 'rgba(255,255,255,0.06)',
-            color: value === '' ? '#FFFFFF' : 'rgba(255,255,255,0.6)',
-            transition: 'all 0.15s',
-          }}
+          style={{ textAlign: 'left', padding: '7px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: value === '' ? 700 : 400, backgroundColor: value === '' ? '#F36C21' : 'rgba(255,255,255,0.06)', color: value === '' ? '#FFFFFF' : 'rgba(255,255,255,0.6)', transition: 'all 0.15s' }}
         >
           All {label}s
         </button>
@@ -80,12 +75,7 @@ function FilterSection({ label, options, value, onChange }: {
           <button
             key={opt}
             onClick={() => onChange(opt === value ? '' : opt)}
-            style={{
-              textAlign: 'left', padding: '7px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: opt === value ? 700 : 400,
-              backgroundColor: opt === value ? '#F36C21' : 'rgba(255,255,255,0.06)',
-              color: opt === value ? '#FFFFFF' : 'rgba(255,255,255,0.6)',
-              transition: 'all 0.15s',
-            }}
+            style={{ textAlign: 'left', padding: '7px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: opt === value ? 700 : 400, backgroundColor: opt === value ? '#F36C21' : 'rgba(255,255,255,0.06)', color: opt === value ? '#FFFFFF' : 'rgba(255,255,255,0.6)', transition: 'all 0.15s' }}
           >
             {toTitleCase(opt)}
           </button>
@@ -95,11 +85,112 @@ function FilterSection({ label, options, value, onChange }: {
   );
 }
 
+function SummaryTab({ data }: { data: PilotReport }) {
+  const { summary, reps } = data;
+  const totalPending = summary.totalTasks - summary.totalCompleted;
+  const top3 = reps.filter(r => r.totalTasks > 0).slice(0, 3);
+  const bottom3 = [...reps].filter(r => r.totalTasks > 0).sort((a, b) => a.captureRate - b.captureRate).slice(0, 3);
+  const noData = reps.filter(r => r.totalTasks === 0);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      {/* Big KPI row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '22px 16px', border: '2px solid rgba(243,108,33,0.5)', textAlign: 'center' }}>
+          <div style={{ fontSize: '44px', fontWeight: 700, color: '#F36C21', lineHeight: 1 }}>{summary.overallRate}%</div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Overall Capture Rate</div>
+        </div>
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '22px 16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
+          <div style={{ fontSize: '44px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>{summary.totalCompleted}</div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tasks Completed</div>
+        </div>
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '22px 16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
+          <div style={{ fontSize: '44px', fontWeight: 700, color: totalPending > 0 ? '#f59e0b' : '#FFFFFF', lineHeight: 1 }}>{totalPending}</div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tasks Pending</div>
+        </div>
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '22px 16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
+          <div style={{ fontSize: '44px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>
+            {summary.activeReps}<span style={{ fontSize: '20px', color: 'rgba(255,255,255,0.3)' }}>/{summary.totalPilotReps}</span>
+          </div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Active Merchandisers</div>
+        </div>
+      </div>
+
+      {/* Top / Bottom performers side by side */}
+      {(top3.length > 0 || bottom3.length > 0) && (
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          {/* Top performers */}
+          <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>🏆</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>Top Performers</span>
+            </div>
+            {top3.map((r, i) => (
+              <div key={r.repName} style={{ padding: '12px 16px', borderBottom: i < top3.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#F36C21', minWidth: '16px' }}>#{i + 1}</span>
+                  <div>
+                    <div style={{ fontSize: '13px', color: '#FFFFFF', fontWeight: 500 }}>{toTitleCase(r.repName)}</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{r.completed}/{r.totalTasks} tasks</div>
+                  </div>
+                </div>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: '#F36C21' }}>{r.captureRate}%</span>
+              </div>
+            ))}
+            {top3.length === 0 && <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>No data yet</div>}
+          </div>
+
+          {/* Needs attention */}
+          <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '16px' }}>⚠️</span>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>Needs Attention</span>
+            </div>
+            {bottom3.map((r, i) => (
+              <div key={r.repName} style={{ padding: '12px 16px', borderBottom: i < bottom3.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <div style={{ fontSize: '13px', color: '#FFFFFF', fontWeight: 500 }}>{toTitleCase(r.repName)}</div>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{r.completed}/{r.totalTasks} tasks</div>
+                </div>
+                <span style={{ fontSize: '16px', fontWeight: 700, color: r.captureRate < 50 ? '#ef4444' : '#f59e0b' }}>{r.captureRate}%</span>
+              </div>
+            ))}
+            {bottom3.length === 0 && <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>No data yet</div>}
+          </div>
+        </div>
+      )}
+
+      {/* Not yet active */}
+      {noData.length > 0 && (
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '14px 16px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '10px' }}>
+            Not Yet Active This Week ({noData.length})
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {noData.map(r => (
+              <span key={r.repName} style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
+                {toTitleCase(r.repName)}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {summary.totalTasks === 0 && (
+        <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>
+          Summary will populate once merchandiser task data is imported for the current week
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MerchandiserPilot() {
   const [manager, setManager] = useState('');
   const [region, setRegion] = useState('');
   const [store, setStore] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeTab, setActiveTab] = useState<'summary' | 'detail'>('summary');
 
   const params = new URLSearchParams();
   if (manager) params.set('manager', manager);
@@ -121,8 +212,19 @@ export default function MerchandiserPilot() {
   const lastRefreshed = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString('en-ZA') : null;
   const hasActiveFilter = !!(manager || region || store);
   const activeFilterCount = [manager, region, store].filter(Boolean).length;
-
   const clearAll = () => { setManager(''); setRegion(''); setStore(''); };
+
+  const tabStyle = (tab: 'summary' | 'detail') => ({
+    padding: '8px 20px',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 600,
+    backgroundColor: activeTab === tab ? '#F36C21' : 'rgba(255,255,255,0.07)',
+    color: activeTab === tab ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
+    transition: 'all 0.15s',
+  });
 
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#002855', fontFamily: 'system-ui, sans-serif' }}>
@@ -164,9 +266,7 @@ export default function MerchandiserPilot() {
                 <button onClick={clearAll} style={{ fontSize: '11px', color: '#F36C21', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Clear all</button>
               )}
             </div>
-
             {isLoading && <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>Loading...</div>}
-
             {data && (
               <>
                 {(data.filters?.managers ?? []).length > 0 && (
@@ -180,7 +280,7 @@ export default function MerchandiserPilot() {
                 )}
                 {(data.filters?.managers ?? []).length === 0 && (data.filters?.regions ?? []).length === 0 && (
                   <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '20px 0' }}>
-                    Filters will appear once rep task data is imported
+                    Filters will appear once merchandiser data is imported
                   </div>
                 )}
               </>
@@ -190,6 +290,35 @@ export default function MerchandiserPilot() {
 
         {/* Main content */}
         <div style={{ flex: 1, minWidth: 0 }}>
+
+          {/* Tab switcher */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button style={tabStyle('summary')} onClick={() => setActiveTab('summary')}>Summary</button>
+              <button style={tabStyle('detail')} onClick={() => setActiveTab('detail')}>Detail</button>
+            </div>
+            {/* Active filter chips */}
+            {hasActiveFilter && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                {manager && (
+                  <div style={{ backgroundColor: 'rgba(243,108,33,0.2)', border: '1px solid #F36C21', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', color: '#F36C21', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    Manager: {toTitleCase(manager)} <span onClick={() => setManager('')} style={{ cursor: 'pointer', opacity: 0.7 }}>×</span>
+                  </div>
+                )}
+                {region && (
+                  <div style={{ backgroundColor: 'rgba(243,108,33,0.2)', border: '1px solid #F36C21', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', color: '#F36C21', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    Region: {toTitleCase(region)} <span onClick={() => setRegion('')} style={{ cursor: 'pointer', opacity: 0.7 }}>×</span>
+                  </div>
+                )}
+                {store && (
+                  <div style={{ backgroundColor: 'rgba(243,108,33,0.2)', border: '1px solid #F36C21', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', color: '#F36C21', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    Store: {toTitleCase(store)} <span onClick={() => setStore('')} style={{ cursor: 'pointer', opacity: 0.7 }}>×</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {isLoading && (
             <div style={{ textAlign: 'center', padding: '80px', color: 'rgba(255,255,255,0.5)' }}>
               <div style={{ fontSize: '16px' }}>Loading pilot report...</div>
@@ -201,84 +330,55 @@ export default function MerchandiserPilot() {
             </div>
           )}
 
-          {data && (
-            <>
-              {/* Active filter chips */}
-              {hasActiveFilter && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-                  {manager && (
-                    <div style={{ backgroundColor: 'rgba(243,108,33,0.2)', border: '1px solid #F36C21', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: '#F36C21', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      Manager: {toTitleCase(manager)}
-                      <span onClick={() => setManager('')} style={{ cursor: 'pointer', opacity: 0.7 }}>×</span>
-                    </div>
-                  )}
-                  {region && (
-                    <div style={{ backgroundColor: 'rgba(243,108,33,0.2)', border: '1px solid #F36C21', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: '#F36C21', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      Region: {toTitleCase(region)}
-                      <span onClick={() => setRegion('')} style={{ cursor: 'pointer', opacity: 0.7 }}>×</span>
-                    </div>
-                  )}
-                  {store && (
-                    <div style={{ backgroundColor: 'rgba(243,108,33,0.2)', border: '1px solid #F36C21', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: '#F36C21', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      Store: {toTitleCase(store)}
-                      <span onClick={() => setStore('')} style={{ cursor: 'pointer', opacity: 0.7 }}>×</span>
-                    </div>
-                  )}
-                </div>
-              )}
+          {data && activeTab === 'summary' && <SummaryTab data={data} />}
 
-              {/* KPI Cards */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-                <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '1px solid rgba(243,108,33,0.35)', textAlign: 'center' }}>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#F36C21', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{data.summary.overallRate}%</div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Capture Rate</div>
+          {data && activeTab === 'detail' && (
+            <>
+              {/* KPI strip */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '16px' }}>
+                <div style={{ backgroundColor: '#003B71', borderRadius: '10px', padding: '14px', border: '1px solid rgba(243,108,33,0.35)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#F36C21', lineHeight: 1 }}>{data.summary.overallRate}%</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Capture Rate</div>
                 </div>
-                <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{data.summary.totalCompleted}</div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed</div>
+                <div style={{ backgroundColor: '#003B71', borderRadius: '10px', padding: '14px', border: '1px solid rgba(255,255,255,0.07)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>{data.summary.totalCompleted}</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed</div>
                 </div>
-                <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>{data.summary.totalTasks}</div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned</div>
+                <div style={{ backgroundColor: '#003B71', borderRadius: '10px', padding: '14px', border: '1px solid rgba(255,255,255,0.07)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>{data.summary.totalTasks}</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned</div>
                 </div>
-                <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
-                  <div style={{ fontSize: '36px', fontWeight: 700, color: '#FFFFFF', fontVariantNumeric: 'tabular-nums', lineHeight: 1 }}>
-                    {data.summary.activeReps}<span style={{ fontSize: '18px', color: 'rgba(255,255,255,0.3)' }}>/{data.summary.totalPilotReps}</span>
+                <div style={{ backgroundColor: '#003B71', borderRadius: '10px', padding: '14px', border: '1px solid rgba(255,255,255,0.07)', textAlign: 'center' }}>
+                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>
+                    {data.summary.activeReps}<span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.3)' }}>/{data.summary.totalPilotReps}</span>
                   </div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active Reps</div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active</div>
                 </div>
               </div>
 
-              {/* Rep Table */}
+              {/* Merchandiser Table */}
               <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
                 <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Rep Performance</span>
-                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{data.reps.length} reps · sorted by capture rate</span>
+                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Merchandiser Performance</span>
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{data.reps.length} merchandisers · sorted by capture rate</span>
                 </div>
 
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 70px 150px', padding: '9px 18px', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  {['Rep Name', 'Assigned', 'Done', 'Pending', 'Capture Rate'].map((h, i) => (
+                  {['Merchandiser Name', 'Assigned', 'Done', 'Pending', 'Capture Rate'].map((h, i) => (
                     <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i > 0 && i < 4 ? 'center' : 'left' }}>{h}</div>
                   ))}
                 </div>
 
                 {data.reps.length === 0 && (
                   <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>
-                    No reps match the selected filters
+                    No merchandisers match the selected filters
                   </div>
                 )}
 
                 {data.reps.map((rep, index) => (
                   <div
                     key={rep.repName}
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 70px 70px 70px 150px',
-                      padding: '13px 18px',
-                      borderBottom: index < data.reps.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none',
-                      backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.1)',
-                      alignItems: 'center',
-                    }}
+                    style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 70px 150px', padding: '13px 18px', borderBottom: index < data.reps.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.1)', alignItems: 'center' }}
                   >
                     <div>
                       <div style={{ fontSize: '13px', fontWeight: 500, color: '#FFFFFF' }}>{toTitleCase(rep.repName)}</div>
@@ -298,11 +398,13 @@ export default function MerchandiserPilot() {
                   </div>
                 ))}
               </div>
-
-              <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: 'rgba(255,255,255,0.2)' }}>
-                Powered by Meridian Nexus · StockFix Pilot Programme
-              </div>
             </>
+          )}
+
+          {data && (
+            <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: 'rgba(255,255,255,0.2)' }}>
+              Powered by Meridian Nexus · StockFix Pilot Programme
+            </div>
           )}
         </div>
       </div>
