@@ -3028,11 +3028,39 @@ export async function registerRoutes(
       `);
       const latestWeek = (latestWeekResult.rows[0] as any)?.latest_week || null;
 
+      // Get filter options from pilot rep tasks (all time)
+      const filterOptionsResult = await db.execute(sql`
+        SELECT
+          DISTINCT line_manager, region, store_name
+        FROM tasks
+        WHERE UPPER(rep_name) IN (${repListSql})
+          AND line_manager IS NOT NULL
+          AND region IS NOT NULL
+          AND store_name IS NOT NULL
+        ORDER BY line_manager, region, store_name
+      `);
+      const managers = [...new Set((filterOptionsResult.rows as any[]).map((r: any) => r.line_manager).filter(Boolean))].sort();
+      const regions = [...new Set((filterOptionsResult.rows as any[]).map((r: any) => r.region).filter(Boolean))].sort();
+      const stores = [...new Set((filterOptionsResult.rows as any[]).map((r: any) => r.store_name).filter(Boolean))].sort();
+
+      // Parse filter params
+      const filterManager = req.query.manager as string | undefined;
+      const filterRegion = req.query.region as string | undefined;
+      const filterStore = req.query.store as string | undefined;
+
       let repsData: any[] = [];
       if (latestWeek) {
+        const filterClauses = [];
+        if (filterManager) filterClauses.push(sql`AND UPPER(line_manager) = UPPER(${filterManager})`);
+        if (filterRegion) filterClauses.push(sql`AND UPPER(region) = UPPER(${filterRegion})`);
+        if (filterStore) filterClauses.push(sql`AND UPPER(store_name) = UPPER(${filterStore})`);
+
         const statsResult = await db.execute(sql`
           SELECT
             rep_name,
+            MAX(line_manager) as line_manager,
+            MAX(region) as region,
+            COUNT(DISTINCT store_name) as store_count,
             COUNT(*) as total_tasks,
             SUM(CASE WHEN action_status = 'Completed' THEN 1 ELSE 0 END) as completed,
             SUM(CASE WHEN action_status != 'Completed' THEN 1 ELSE 0 END) as pending,
@@ -3040,6 +3068,9 @@ export async function registerRoutes(
           FROM tasks
           WHERE week_ending_date = ${latestWeek}
             AND UPPER(rep_name) IN (${repListSql})
+            ${filterClauses.length ? sql`${filterClauses[0]}` : sql``}
+            ${filterClauses.length > 1 ? sql`${filterClauses[1]}` : sql``}
+            ${filterClauses.length > 2 ? sql`${filterClauses[2]}` : sql``}
           GROUP BY rep_name
           ORDER BY rep_name
         `);
@@ -3047,23 +3078,30 @@ export async function registerRoutes(
       }
 
       const foundNames = new Set(repsData.map((r: any) => (r.rep_name || '').toUpperCase()));
+      const hasFilter = !!(filterManager || filterRegion || filterStore);
       const reps = [
         ...repsData.map((row: any) => ({
           repName: row.rep_name,
+          lineManager: row.line_manager || null,
+          region: row.region || null,
+          storeCount: Number(row.store_count) || 0,
           totalTasks: Number(row.total_tasks) || 0,
           completed: Number(row.completed) || 0,
           pending: Number(row.pending) || 0,
           captureRate: Number(row.total_tasks) > 0 ? Math.round((Number(row.completed) / Number(row.total_tasks)) * 100) : 0,
           lastCapture: row.last_capture || null,
         })),
-        ...PILOT_REPS.filter(p => !foundNames.has(p)).map(name => ({
+        ...(!hasFilter ? PILOT_REPS.filter(p => !foundNames.has(p)).map(name => ({
           repName: name,
+          lineManager: null,
+          region: null,
+          storeCount: 0,
           totalTasks: 0,
           completed: 0,
           pending: 0,
           captureRate: 0,
           lastCapture: null,
-        })),
+        })) : []),
       ].sort((a, b) => b.captureRate - a.captureRate || a.repName.localeCompare(b.repName));
 
       const totalTasks = reps.reduce((sum, r) => sum + r.totalTasks, 0);
@@ -3073,7 +3111,8 @@ export async function registerRoutes(
 
       res.json({
         latestWeek,
-        summary: { totalTasks, totalCompleted, overallRate, activeReps, totalPilotReps: PILOT_REPS.length },
+        filters: { managers, regions, stores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } },
+        summary: { totalTasks, totalCompleted, overallRate, activeReps, totalPilotReps: hasFilter ? reps.length : PILOT_REPS.length },
         reps,
       });
     } catch (error: any) {
