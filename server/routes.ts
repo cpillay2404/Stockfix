@@ -3001,7 +3001,6 @@ export async function registerRoutes(
         'PORTIA RAMAHLEKA',
         'YVONNE TEBOGO MTSHANA',
         'HAPPY SANGO',
-        'MAGDELINE SIBONGILE VILAKAZI',
         'ITANI WISEMAN HLUNGWANE',
         'MAGDELINE VILAKAZI',
         'ANDILE RARA',
