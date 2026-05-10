@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route } from "wouter";
+import { Switch, Route, useLocation } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -23,6 +23,7 @@ import ManagerProgress from "@/pages/manager-progress";
 import SelectManager from "@/pages/select-manager";
 import AdminLeaderboard from "@/pages/admin-leaderboard";
 import QRPage from "@/pages/qr";
+import MerchandiserPilot from "@/pages/merchandiser-pilot";
 
 function Router() {
   return (
@@ -43,6 +44,7 @@ function Router() {
       <Route path="/manager-progress">{() => <ClientGuard><ManagerProgress /></ClientGuard>}</Route>
       <Route path="/admin/leaderboard">{() => <ClientGuard><AdminLeaderboard /></ClientGuard>}</Route>
       <Route path="/qr" component={QRPage} />
+      <Route path="/merchandiser-pilot" component={MerchandiserPilot} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -50,12 +52,14 @@ function Router() {
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
+  const [location] = useLocation();
+  const skipSplash = location === '/merchandiser-pilot';
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AccessProvider>
-          {showSplash && <SplashScreen onComplete={() => setShowSplash(false)} minDisplayTime={5000} />}
+          {showSplash && !skipSplash && <SplashScreen onComplete={() => setShowSplash(false)} minDisplayTime={5000} />}
           <Toaster />
           <Router />
         </AccessProvider>

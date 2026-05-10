@@ -2994,5 +2994,93 @@ export async function registerRoutes(
     }
   });
 
+  // Merchandiser Pilot Report
+  app.get('/api/pilot-report', async (req, res) => {
+    try {
+      const PILOT_REPS = [
+        'PORTIA RAMAHLEKA',
+        'YVONNE TEBOGO MTSHANA',
+        'HAPPY SANGO',
+        'MAGDELINE SIBONGILE VILAKAZI',
+        'ITANI WISEMAN HLUNGWANE',
+        'MAGDELINE VILAKAZI',
+        'ANDILE RARA',
+        'RITO SAMBO',
+        'THEODO THABANG CHIDI',
+        'PERTUNIA MATHAPELO MORUTLOA',
+        'LINDANI RONNIE MCHUNU',
+        'NKULULEKO PATRICK KHUMALO',
+        'NOMCEBO GUGULETHU KHUMALO',
+        'ZILUNGILE BULELWA TUKU',
+        'THOKOZANI NDLOVU',
+        'SLINDILE MNGADI',
+        'WISEMAN CELUXOLO MKHONZA',
+        'SIFISO MLUNGISI SIBIYA',
+        'NOMPUMELELO DLAMINI',
+      ];
+
+      const repListSql = sql.raw(PILOT_REPS.map(r => `'${r}'`).join(', '));
+
+      const latestWeekResult = await db.execute(sql`
+        SELECT MAX(week_ending_date) as latest_week
+        FROM tasks
+        WHERE UPPER(rep_name) IN (${repListSql})
+      `);
+      const latestWeek = (latestWeekResult.rows[0] as any)?.latest_week || null;
+
+      let repsData: any[] = [];
+      if (latestWeek) {
+        const statsResult = await db.execute(sql`
+          SELECT
+            rep_name,
+            COUNT(*) as total_tasks,
+            SUM(CASE WHEN action_status = 'Completed' THEN 1 ELSE 0 END) as completed,
+            SUM(CASE WHEN action_status != 'Completed' THEN 1 ELSE 0 END) as pending,
+            MAX(capture_date) as last_capture
+          FROM tasks
+          WHERE week_ending_date = ${latestWeek}
+            AND UPPER(rep_name) IN (${repListSql})
+          GROUP BY rep_name
+          ORDER BY rep_name
+        `);
+        repsData = statsResult.rows as any[];
+      }
+
+      const foundNames = new Set(repsData.map((r: any) => (r.rep_name || '').toUpperCase()));
+      const reps = [
+        ...repsData.map((row: any) => ({
+          repName: row.rep_name,
+          totalTasks: Number(row.total_tasks) || 0,
+          completed: Number(row.completed) || 0,
+          pending: Number(row.pending) || 0,
+          captureRate: Number(row.total_tasks) > 0 ? Math.round((Number(row.completed) / Number(row.total_tasks)) * 100) : 0,
+          lastCapture: row.last_capture || null,
+        })),
+        ...PILOT_REPS.filter(p => !foundNames.has(p)).map(name => ({
+          repName: name,
+          totalTasks: 0,
+          completed: 0,
+          pending: 0,
+          captureRate: 0,
+          lastCapture: null,
+        })),
+      ].sort((a, b) => b.captureRate - a.captureRate || a.repName.localeCompare(b.repName));
+
+      const totalTasks = reps.reduce((sum, r) => sum + r.totalTasks, 0);
+      const totalCompleted = reps.reduce((sum, r) => sum + r.completed, 0);
+      const overallRate = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
+      const activeReps = reps.filter(r => r.totalTasks > 0).length;
+
+      res.json({
+        latestWeek,
+        summary: { totalTasks, totalCompleted, overallRate, activeReps, totalPilotReps: PILOT_REPS.length },
+        reps,
+      });
+    } catch (error: any) {
+      console.error('Pilot report error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   return httpServer;
 }
