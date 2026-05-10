@@ -356,48 +356,114 @@ export default function MerchandiserPilot() {
                 </div>
               </div>
 
-              {/* Merchandiser Table */}
-              <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
-                <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Merchandiser Performance</span>
-                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{data.reps.length} merchandisers · sorted by capture rate</span>
-                </div>
+              {/* Merchandiser Table — grouped by Region → Manager */}
+              {(() => {
+                const COL = '1fr 70px 70px 70px 150px';
 
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 70px 150px', padding: '9px 18px', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                  {['Merchandiser Name', 'Assigned', 'Done', 'Pending', 'Capture Rate'].map((h, i) => (
-                    <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i > 0 && i < 4 ? 'center' : 'left' }}>{h}</div>
-                  ))}
-                </div>
+                // Build region → manager → reps hierarchy
+                const regionMap = new Map<string, Map<string, RepStat[]>>();
+                for (const rep of data.reps) {
+                  const r = rep.region ? toTitleCase(rep.region) : '— No Region';
+                  const m = rep.lineManager ? toTitleCase(rep.lineManager) : '— No Manager';
+                  if (!regionMap.has(r)) regionMap.set(r, new Map());
+                  const mgMap = regionMap.get(r)!;
+                  if (!mgMap.has(m)) mgMap.set(m, []);
+                  mgMap.get(m)!.push(rep);
+                }
+                const regions = [...regionMap.entries()].sort(([a], [b]) => a.localeCompare(b));
 
-                {data.reps.length === 0 && (
-                  <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>
-                    No merchandisers match the selected filters
-                  </div>
-                )}
+                return (
+                  <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
+                    {/* Table header */}
+                    <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Merchandiser Performance</span>
+                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{data.reps.length} merchandisers · grouped by region</span>
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: COL, padding: '9px 18px', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      {['Merchandiser Name', 'Assigned', 'Done', 'Pending', 'Capture Rate'].map((h, i) => (
+                        <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i > 0 && i < 4 ? 'center' : 'left' }}>{h}</div>
+                      ))}
+                    </div>
 
-                {data.reps.map((rep, index) => (
-                  <div
-                    key={rep.repName}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 70px 70px 70px 150px', padding: '13px 18px', borderBottom: index < data.reps.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.1)', alignItems: 'center' }}
-                  >
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: 500, color: '#FFFFFF' }}>{toTitleCase(rep.repName)}</div>
-                      <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)', marginTop: '2px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        {rep.region && <span>{toTitleCase(rep.region)}</span>}
-                        {rep.lineManager && <span style={{ color: 'rgba(255,255,255,0.2)' }}>· {toTitleCase(rep.lineManager)}</span>}
-                        {!rep.region && rep.totalTasks === 0 && <span>No tasks this week</span>}
-                        {rep.lastCapture && <span style={{ color: 'rgba(255,255,255,0.2)' }}>· Last: {formatDate(rep.lastCapture)}</span>}
+                    {data.reps.length === 0 && (
+                      <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>
+                        No merchandisers match the selected filters
                       </div>
-                    </div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.75)', textAlign: 'center' }}>{rep.totalTasks || '—'}</div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: rep.completed > 0 ? '#F36C21' : 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{rep.completed || '—'}</div>
-                    <div style={{ fontSize: '14px', fontWeight: 600, color: rep.pending > 0 ? '#f59e0b' : 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{rep.pending || '—'}</div>
-                    <div style={{ paddingRight: '6px' }}>
-                      {rep.totalTasks > 0 ? <CaptureBar rate={rep.captureRate} /> : <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.18)' }}>No data</span>}
-                    </div>
+                    )}
+
+                    {regions.map(([regionName, mgMap]) => {
+                      const managers = [...mgMap.entries()].sort(([a], [b]) => a.localeCompare(b));
+                      const regionTotal = managers.flatMap(([, reps]) => reps).reduce((s, r) => s + r.totalTasks, 0);
+                      const regionDone = managers.flatMap(([, reps]) => reps).reduce((s, r) => s + r.completed, 0);
+                      const regionRate = regionTotal > 0 ? Math.round((regionDone / regionTotal) * 100) : null;
+
+                      return (
+                        <div key={regionName}>
+                          {/* Region row */}
+                          <div style={{ display: 'grid', gridTemplateColumns: COL, padding: '10px 18px', backgroundColor: 'rgba(0,29,60,0.7)', borderTop: '1px solid rgba(243,108,33,0.25)', borderBottom: '1px solid rgba(255,255,255,0.05)', alignItems: 'center' }}>
+                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#F36C21', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+                              📍 {regionName}
+                            </div>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>{regionTotal || '—'}</div>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: regionDone > 0 ? '#F36C21' : 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{regionDone || '—'}</div>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{regionTotal - regionDone > 0 ? regionTotal - regionDone : '—'}</div>
+                            <div style={{ fontSize: '12px', fontWeight: 700, color: regionRate !== null ? (regionRate >= 80 ? '#F36C21' : regionRate >= 50 ? '#f59e0b' : '#ef4444') : 'rgba(255,255,255,0.2)' }}>
+                              {regionRate !== null ? `${regionRate}%` : 'No data'}
+                            </div>
+                          </div>
+
+                          {managers.map(([managerName, reps]) => {
+                            const mgTotal = reps.reduce((s, r) => s + r.totalTasks, 0);
+                            const mgDone = reps.reduce((s, r) => s + r.completed, 0);
+                            const mgRate = mgTotal > 0 ? Math.round((mgDone / mgTotal) * 100) : null;
+
+                            return (
+                              <div key={managerName}>
+                                {/* Manager row */}
+                                <div style={{ display: 'grid', gridTemplateColumns: COL, padding: '8px 18px 8px 28px', backgroundColor: 'rgba(0,0,0,0.25)', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span style={{ color: 'rgba(255,255,255,0.25)' }}>└</span> {managerName}
+                                  </div>
+                                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>{mgTotal || '—'}</div>
+                                  <div style={{ fontSize: '11px', color: mgDone > 0 ? 'rgba(243,108,33,0.7)' : 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{mgDone || '—'}</div>
+                                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{mgTotal - mgDone > 0 ? mgTotal - mgDone : '—'}</div>
+                                  <div style={{ fontSize: '11px', color: mgRate !== null ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)' }}>
+                                    {mgRate !== null ? `${mgRate}%` : '—'}
+                                  </div>
+                                </div>
+
+                                {/* Merchandiser rows */}
+                                {reps.map((rep, ri) => (
+                                  <div
+                                    key={rep.repName}
+                                    style={{ display: 'grid', gridTemplateColumns: COL, padding: '12px 18px 12px 40px', borderBottom: '1px solid rgba(255,255,255,0.03)', backgroundColor: ri % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.08)', alignItems: 'center' }}
+                                  >
+                                    <div>
+                                      <div style={{ fontSize: '13px', fontWeight: 500, color: '#FFFFFF' }}>{toTitleCase(rep.repName)}</div>
+                                      {rep.lastCapture && (
+                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginTop: '2px' }}>Last: {formatDate(rep.lastCapture)}</div>
+                                      )}
+                                      {rep.totalTasks === 0 && (
+                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '2px' }}>No tasks this week</div>
+                                      )}
+                                    </div>
+                                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{rep.totalTasks || '—'}</div>
+                                    <div style={{ fontSize: '14px', fontWeight: 600, color: rep.completed > 0 ? '#F36C21' : 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{rep.completed || '—'}</div>
+                                    <div style={{ fontSize: '14px', fontWeight: 600, color: rep.pending > 0 ? '#f59e0b' : 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{rep.pending || '—'}</div>
+                                    <div style={{ paddingRight: '6px' }}>
+                                      {rep.totalTasks > 0 ? <CaptureBar rate={rep.captureRate} /> : <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.15)' }}>No data</span>}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </>
           )}
 
