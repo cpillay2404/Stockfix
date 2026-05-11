@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useRef } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 
 interface RepStat {
@@ -239,6 +239,32 @@ export default function MerchandiserPilot() {
   const [store, setStore] = useState('');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeTab, setActiveTab] = useState<'summary' | 'detail'>('summary');
+  const [uploadPreview, setUploadPreview] = useState<any>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    setUploadPreview(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const res = await fetch('/api/pilot-excel-upload', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Upload failed');
+      setUploadPreview(data);
+    } catch (err: any) {
+      setUploadError(err.message);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const params = new URLSearchParams();
   if (manager) params.set('manager', manager);
@@ -286,13 +312,28 @@ export default function MerchandiserPilot() {
             <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>Task Execution Report</div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           {data?.latestWeek && (
             <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', textAlign: 'right' }}>
               Week ending: <strong style={{ color: '#F36C21' }}>{data.latestWeek}</strong>
               {lastRefreshed && <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>Refreshed: {lastRefreshed} · auto every 5 min</div>}
             </div>
           )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".xlsx,.xls"
+            style={{ display: 'none' }}
+            onChange={handleFileSelect}
+          />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '8px 14px', color: '#FFFFFF', cursor: uploading ? 'wait' : 'pointer', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', opacity: uploading ? 0.6 : 1 }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+            {uploading ? 'Reading...' : 'Import Excel'}
+          </button>
           <button
             onClick={() => setSidebarOpen(o => !o)}
             style={{ backgroundColor: sidebarOpen ? '#F36C21' : 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px 14px', color: '#FFFFFF', cursor: 'pointer', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
@@ -302,6 +343,63 @@ export default function MerchandiserPilot() {
           </button>
         </div>
       </div>
+
+      {/* Upload error */}
+      {uploadError && (
+        <div style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderBottom: '1px solid rgba(239,68,68,0.3)', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '13px', color: '#ef4444' }}>Upload error: {uploadError}</span>
+          <button onClick={() => setUploadError(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px' }}>×</button>
+        </div>
+      )}
+
+      {/* Upload preview panel */}
+      {uploadPreview && (
+        <div style={{ backgroundColor: '#001e40', borderBottom: '1px solid rgba(243,108,33,0.3)', padding: '16px 20px' }}>
+          <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+              <div>
+                <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>File Preview</span>
+                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginLeft: '10px' }}>{uploadPreview.sheetNames.length} tab{uploadPreview.sheetNames.length !== 1 ? 's' : ''} found: {uploadPreview.sheetNames.join(', ')}</span>
+              </div>
+              <button onClick={() => setUploadPreview(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
+            </div>
+            {uploadPreview.sheetNames.map((sheetName: string) => {
+              const sheet = uploadPreview.sheets[sheetName];
+              return (
+                <div key={sheetName} style={{ marginBottom: '12px' }}>
+                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F36C21', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tab: {sheetName}</div>
+                  <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
+                          {sheet.headers.map((h: string, i: number) => (
+                            <th key={i} style={{ padding: '6px 10px', color: 'rgba(255,255,255,0.5)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{h || `Col ${i+1}`}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sheet.rows.map((row: any[], ri: number) => (
+                          <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.15)' }}>
+                            {sheet.headers.map((_: string, ci: number) => (
+                              <td key={ci} style={{ padding: '5px 10px', color: 'rgba(255,255,255,0.7)', borderRight: '1px solid rgba(255,255,255,0.04)', whiteSpace: 'nowrap' }}>
+                                {row[ci] instanceof Date ? row[ci].toLocaleDateString('en-ZA') : String(row[ci] ?? '')}
+                              </td>
+                            ))}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginTop: '4px' }}>Showing first {sheet.rows.length} data rows · {sheet.headers.length} columns</div>
+                </div>
+              );
+            })}
+            <div style={{ marginTop: '8px', padding: '10px', backgroundColor: 'rgba(243,108,33,0.08)', borderRadius: '8px', border: '1px solid rgba(243,108,33,0.2)', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
+              Share the column names above so we can map them and complete the import.
+            </div>
+          </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', maxWidth: '1100px', margin: '0 auto', padding: '24px 16px', gap: '20px', alignItems: 'flex-start' }}>
 

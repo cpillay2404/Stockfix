@@ -3171,6 +3171,26 @@ export async function registerRoutes(
     }
   });
 
+  // Pilot Excel upload — parse both tabs, return preview + import into tasks
+  app.post('/api/pilot-excel-upload', uploadMemory.single('file'), async (req: any, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer', cellDates: true });
+      const sheets: Record<string, { headers: string[]; rows: any[][] }> = {};
+      for (const sheetName of workbook.SheetNames) {
+        const ws = workbook.Sheets[sheetName];
+        const raw: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        const headers = (raw[0] || []).map(String);
+        const rows = raw.slice(1).filter((r: any[]) => r.some((c: any) => c !== '' && c !== null && c !== undefined));
+        sheets[sheetName] = { headers, rows: rows.slice(0, 5) }; // preview only first 5 rows
+      }
+      res.json({ sheetNames: workbook.SheetNames, sheets });
+    } catch (err: any) {
+      console.error('[PilotUpload] error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // OneDrive: list worksheets in the pilot Excel file
   app.get('/api/onedrive/worksheets', async (req, res) => {
     try {
