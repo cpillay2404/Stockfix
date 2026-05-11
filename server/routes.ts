@@ -2995,6 +2995,40 @@ export async function registerRoutes(
   });
 
   // Merchandiser Pilot Report
+  // ── In-memory cache for SharePoint rows (TTL: 3 min) ─────────────────────
+  let _pilotCache: { allRows: any[][]; saRows: any[][]; fetchedAt: number } | null = null;
+  const PILOT_CACHE_TTL = 3 * 60 * 1000;
+  let _pilotFetching = false;
+
+  async function getPilotSheetRows(): Promise<{ allRows: any[][]; saRows: any[][] }> {
+    const now = Date.now();
+    if (_pilotCache && now - _pilotCache.fetchedAt < PILOT_CACHE_TTL) {
+      return { allRows: _pilotCache.allRows, saRows: _pilotCache.saRows };
+    }
+    if (_pilotFetching) {
+      // Another request is already fetching — wait briefly then return stale if available
+      await new Promise(r => setTimeout(r, 200));
+      if (_pilotCache) return { allRows: _pilotCache.allRows, saRows: _pilotCache.saRows };
+    }
+    _pilotFetching = true;
+    try {
+      const { findFileByName, readWorksheetRows } = await import('./onedrive.js');
+      const file = await findFileByName('Geo Rep -Merch Pilot');
+      if (!file) throw new Error('Pilot Excel file not found on OneDrive');
+      const [allRows, saRows] = await Promise.all([
+        readWorksheetRows(file.id, 'Customer Compliance'),
+        readWorksheetRows(file.id, 'Submission Answers'),
+      ]);
+      _pilotCache = { allRows, saRows, fetchedAt: Date.now() };
+      return { allRows, saRows };
+    } finally {
+      _pilotFetching = false;
+    }
+  }
+
+  // Warm the cache immediately at startup (fire-and-forget)
+  getPilotSheetRows().catch(() => {});
+
   app.get('/api/pilot-report', async (req, res) => {
     try {
       const PILOT_REPS = [
@@ -3011,14 +3045,9 @@ export async function registerRoutes(
       const filterStore   = (req.query.store   as string | undefined)?.toUpperCase();
       const hasFilter = !!(filterManager || filterRegion || filterStore);
 
-      // --- Fetch Geo Rep Excel + StockFix DB in parallel ---
-      const { findFileByName, readWorksheetRows } = await import('./onedrive.js');
-      const file = await findFileByName('Geo Rep -Merch Pilot');
-      if (!file) throw new Error('Pilot Excel file not found on OneDrive');
-
-      const [allRows, saRows, sfResult] = await Promise.all([
-        readWorksheetRows(file.id, 'Customer Compliance'),
-        readWorksheetRows(file.id, 'Submission Answers'),
+      // --- Fetch SharePoint rows (cached) + StockFix DB in parallel ---
+      const [{ allRows, saRows }, sfResult] = await Promise.all([
+        getPilotSheetRows(),
         db.execute(sql`
           SELECT rep_name, store_name, client,
             COUNT(*)::int AS tasks,
