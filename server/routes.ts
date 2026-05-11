@@ -3007,34 +3007,40 @@ export async function registerRoutes(
       ];
 
       const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
-      const filterRegion = (req.query.region as string | undefined)?.toUpperCase();
-      const filterStore = (req.query.store as string | undefined)?.toUpperCase();
+      const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
+      const filterStore   = (req.query.store   as string | undefined)?.toUpperCase();
       const hasFilter = !!(filterManager || filterRegion || filterStore);
 
-      // --- Read live data from OneDrive Customer Compliance tab ---
-      const { findFileByName, listWorksheets, readWorksheetRows } = await import('./onedrive.js');
+      // --- Fetch Geo Rep Excel + StockFix DB in parallel ---
+      const { findFileByName, readWorksheetRows } = await import('./onedrive.js');
       const file = await findFileByName('Geo Rep -Merch Pilot');
       if (!file) throw new Error('Pilot Excel file not found on OneDrive');
-      const [allRows, saRows] = await Promise.all([
+
+      const [allRows, saRows, sfResult] = await Promise.all([
         readWorksheetRows(file.id, 'Customer Compliance'),
         readWorksheetRows(file.id, 'Submission Answers'),
+        db.execute(sql`
+          SELECT rep_name, store_name, client,
+            COUNT(*)::int AS tasks,
+            SUM(CASE WHEN action_status='Completed' THEN 1 ELSE 0 END)::int AS completed
+          FROM tasks
+          GROUP BY rep_name, store_name, client
+          ORDER BY rep_name, store_name, client
+        `),
       ]);
 
-      // Header row: Report Date(0), Region(1), Customer Name(2), Merchandiser(3),
+      // --- Process Geo Rep (Customer Compliance) ---
+      // CC headers: Report Date(0), Region(1), Customer Name(2), Merchandiser(3),
       //             Manager(4), Form Name(5), Banner(6), Form Tag(7),
-      //             Start Date(8), End Date(9), Time Gone(10), Visited(11), Compliance %(12)
-      const dataRows = allRows.slice(1).filter(r => r[3]); // skip header, require Merchandiser
-
-      // Derive latestWeek from most recent Report Date in the data
+      //             Start Date(8), End Date(9), Time Gone(10), Visited(11), Compliance%(12)
+      const dataRows = allRows.slice(1).filter(r => r[3]);
       const dates = dataRows.map(r => String(r[0] || '')).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
       const latestWeek = dates[0] || null;
 
-      // Build filter options from raw data
       const allManagers = [...new Set(dataRows.map(r => String(r[4] || '').toUpperCase()).filter(Boolean))].sort();
       const allRegions  = [...new Set(dataRows.map(r => String(r[1] || '').toUpperCase()).filter(Boolean))].sort();
       const allStores   = [...new Set(dataRows.map(r => String(r[2] || '').toUpperCase()).filter(Boolean))].sort();
 
-      // Apply filters
       const filteredRows = dataRows.filter(r => {
         if (filterManager && String(r[4] || '').toUpperCase() !== filterManager) return false;
         if (filterRegion  && String(r[1] || '').toUpperCase() !== filterRegion)  return false;
@@ -3042,111 +3048,150 @@ export async function registerRoutes(
         return true;
       });
 
-      // Group by merchandiser
-      const repMap = new Map<string, { lineManager: string; region: string; stores: Set<string>; total: number; completed: number; lastDate: string }>();
+      // Build Geo Rep hierarchy: rep → store → form details
+      type GRFormDetail = { formName: string; visited: boolean; compliance: number | null; date: string; banner: string };
+      type GRStore = { forms: number; visited: number; complianceSum: number; complianceCount: number; formDetails: GRFormDetail[] };
+      type GRRep   = { lineManager: string; region: string; forms: number; visited: number; complianceSum: number; complianceCount: number; submissions: number; lastDate: string; storeMap: Map<string, GRStore> };
+      const grByRep = new Map<string, GRRep>();
 
       for (const row of filteredRows) {
-        const rawName = String(row[3] || '').trim().toUpperCase();
-        if (!rawName) continue;
+        const name  = String(row[3] || '').trim().toUpperCase();
+        if (!name) continue;
+        const store   = String(row[2] || '').trim().toUpperCase();
+        const form    = String(row[5] || '').trim().replace(/^Merchandiser:\s*/i, '');
         const visited = String(row[11] || '').toLowerCase() === 'yes';
-        const storeName = String(row[2] || '').trim().toUpperCase();
-        const dateStr = String(row[0] || '');
+        const compVal = parseFloat(String(row[12] || '').replace('%', '')) || 0;
+        const date    = String(row[0] || '');
 
-        if (!repMap.has(rawName)) {
-          repMap.set(rawName, {
-            lineManager: String(row[4] || '').trim(),
-            region: String(row[1] || '').trim(),
-            stores: new Set(),
-            total: 0,
-            completed: 0,
-            lastDate: dateStr,
-          });
-        }
-        const entry = repMap.get(rawName)!;
-        entry.total++;
-        if (visited) entry.completed++;
-        if (storeName) entry.stores.add(storeName);
-        if (dateStr > entry.lastDate) entry.lastDate = dateStr;
-        // Update manager/region in case they vary (take latest)
-        if (row[4]) entry.lineManager = String(row[4]).trim();
-        if (row[1]) entry.region = String(row[1]).trim();
+        if (!grByRep.has(name)) grByRep.set(name, {
+          lineManager: String(row[4] || '').trim(), region: String(row[1] || '').trim(),
+          forms: 0, visited: 0, complianceSum: 0, complianceCount: 0, submissions: 0, lastDate: date, storeMap: new Map(),
+        });
+        const grRep = grByRep.get(name)!;
+        grRep.forms++;
+        if (visited) { grRep.visited++; grRep.complianceSum += compVal; grRep.complianceCount++; }
+        if (date > grRep.lastDate) grRep.lastDate = date;
+        if (row[4]) grRep.lineManager = String(row[4]).trim();
+        if (row[1]) grRep.region = String(row[1]).trim();
+
+        if (!grRep.storeMap.has(store)) grRep.storeMap.set(store, { forms: 0, visited: 0, complianceSum: 0, complianceCount: 0, formDetails: [] });
+        const grStore = grRep.storeMap.get(store)!;
+        grStore.forms++;
+        if (visited) { grStore.visited++; grStore.complianceSum += compVal; grStore.complianceCount++; }
+        grStore.formDetails.push({ formName: form, visited, compliance: visited ? compVal : null, date, banner: String(row[6] || '') });
       }
 
-      const foundNames = new Set(repMap.keys());
-      const reps = [
-        ...[...repMap.entries()].map(([name, d]) => ({
-          repName: name,
-          lineManager: d.lineManager || null,
-          region: d.region || null,
-          storeCount: d.stores.size,
-          totalTasks: d.total,
-          completed: d.completed,
-          pending: d.total - d.completed,
-          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
-          lastCapture: d.lastDate || null,
-        })),
-        ...(!hasFilter ? PILOT_REPS.filter(p => !foundNames.has(p)).map(name => ({
-          repName: name, lineManager: null, region: null,
-          storeCount: 0, totalTasks: 0, completed: 0, pending: 0, captureRate: 0, lastCapture: null,
-        })) : []),
-      ].sort((a, b) => b.captureRate - a.captureRate || a.repName.localeCompare(b.repName));
-
-      const totalTasks    = reps.reduce((s, r) => s + r.totalTasks, 0);
-      const totalCompleted = reps.reduce((s, r) => s + r.completed, 0);
-      const overallRate   = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
-      const activeReps    = reps.filter(r => r.totalTasks > 0).length;
-
-      // --- Build client/form summary from Customer Compliance tab ---
-      const clientMap = new Map<string, { total: number; visited: number; complianceSum: number; complianceCount: number }>();
-      for (const row of dataRows) {
-        const rawForm = String(row[5] || '').trim();
-        if (!rawForm) continue;
-        const formKey = rawForm.replace(/^Merchandiser:\s*/i, '').trim();
-        const visited = String(row[11] || '').toLowerCase() === 'yes';
-        const compStr = String(row[12] || '').replace('%', '').trim();
-        const compVal = parseFloat(compStr);
-        if (!clientMap.has(formKey)) clientMap.set(formKey, { total: 0, visited: 0, complianceSum: 0, complianceCount: 0 });
-        const c = clientMap.get(formKey)!;
-        c.total++;
-        if (visited) { c.visited++; c.complianceSum += isNaN(compVal) ? 0 : compVal; c.complianceCount++; }
-      }
-      const clientSummary = [...clientMap.entries()]
-        .map(([formName, d]) => ({
-          formName,
-          total: d.total,
-          visited: d.visited,
-          visitRate: d.total > 0 ? Math.round((d.visited / d.total) * 100) : 0,
-          avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
-        }))
-        .sort((a, b) => b.visited - a.visited || a.formName.localeCompare(b.formName));
-
-      // --- Submission Answers: count unique submissions per rep ---
-      // SA headers: Date(0), Submission ID(1), Customer Name(2), Region(3), User(4) ...
+      // Submission Answers: unique submissions per rep
       const saData = saRows.slice(1).filter(r => r[4]);
       const submissionsByRep = new Map<string, Set<string>>();
       for (const row of saData) {
-        const repName = String(row[4] || '').trim().toUpperCase();
+        const name  = String(row[4] || '').trim().toUpperCase();
         const subId = String(row[1] || '').trim();
-        if (!repName || !subId) continue;
-        if (!submissionsByRep.has(repName)) submissionsByRep.set(repName, new Set());
-        submissionsByRep.get(repName)!.add(subId);
+        if (!name || !subId) continue;
+        if (!submissionsByRep.has(name)) submissionsByRep.set(name, new Set());
+        submissionsByRep.get(name)!.add(subId);
       }
-      // Add submissionCount to each rep
-      const repsWithSubs = reps.map(r => ({
-        ...r,
-        submissionCount: submissionsByRep.get(r.repName)?.size ?? 0,
-      }));
+      for (const [name, subs] of submissionsByRep) {
+        if (grByRep.has(name)) grByRep.get(name)!.submissions = subs.size;
+      }
 
-      // Auto-save snapshot (unfiltered, has data)
-      if (latestWeek && !hasFilter && repMap.size > 0) {
-        for (const [name, d] of repMap.entries()) {
-          const total = d.total;
-          const done  = d.completed;
-          const rate  = total > 0 ? Math.round((done / total) * 100) : 0;
+      // --- Process StockFix (DB) ---
+      type SFStore = { tasks: number; completed: number; clients: string[] };
+      type SFRep   = { tasks: number; completed: number; storeMap: Map<string, SFStore> };
+      const sfByRep = new Map<string, SFRep>();
+      for (const row of sfResult.rows as any[]) {
+        const name      = String(row.rep_name).trim().toUpperCase();
+        const store     = String(row.store_name).trim().toUpperCase();
+        const client    = String(row.client).trim();
+        const tasks     = Number(row.tasks);
+        const completed = Number(row.completed);
+        if (!sfByRep.has(name)) sfByRep.set(name, { tasks: 0, completed: 0, storeMap: new Map() });
+        const sfRep = sfByRep.get(name)!;
+        sfRep.tasks += tasks; sfRep.completed += completed;
+        if (!sfRep.storeMap.has(store)) sfRep.storeMap.set(store, { tasks: 0, completed: 0, clients: [] });
+        const sfStore = sfRep.storeMap.get(store)!;
+        sfStore.tasks += tasks; sfStore.completed += completed;
+        if (!sfStore.clients.includes(client)) sfStore.clients.push(client);
+      }
+
+      // --- Build merged merchandiser list ---
+      const allNames = new Set([...grByRep.keys(), ...sfByRep.keys(), ...(hasFilter ? [] : PILOT_REPS)]);
+      const merchandisers = [...allNames].map(name => {
+        const gr = grByRep.get(name) || null;
+        const sf = sfByRep.get(name) || null;
+
+        const geoRep = gr ? {
+          forms: gr.forms, visited: gr.visited,
+          visitRate: gr.forms > 0 ? Math.round((gr.visited / gr.forms) * 100) : 0,
+          avgCompliance: gr.complianceCount > 0 ? Math.round(gr.complianceSum / gr.complianceCount) : 0,
+          submissions: gr.submissions, lineManager: gr.lineManager, region: gr.region, lastDate: gr.lastDate,
+          stores: [...gr.storeMap.entries()].map(([sName, d]) => ({
+            name: sName, forms: d.forms, visited: d.visited,
+            visitRate: d.forms > 0 ? Math.round((d.visited / d.forms) * 100) : 0,
+            avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
+            formDetails: d.formDetails,
+          })).sort((a, b) => b.forms - a.forms),
+        } : null;
+
+        const stockFix = sf ? {
+          tasks: sf.tasks, completed: sf.completed,
+          captureRate: sf.tasks > 0 ? Math.round((sf.completed / sf.tasks) * 100) : 0,
+          stores: [...sf.storeMap.entries()].map(([sName, d]) => ({
+            name: sName, tasks: d.tasks, completed: d.completed,
+            captureRate: d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0,
+            clients: d.clients,
+          })).sort((a, b) => b.tasks - a.tasks),
+        } : null;
+
+        const totalAll = (sf?.tasks || 0) + (gr?.forms || 0);
+        const doneAll  = (sf?.completed || 0) + (gr?.visited || 0);
+        const overallRate = totalAll > 0 ? Math.round((doneAll / totalAll) * 100) : 0;
+        return { name, lineManager: gr?.lineManager || null, region: gr?.region || null, stockFix, geoRep, overallRate };
+      }).sort((a, b) => {
+        const aHas = !!(a.stockFix || a.geoRep), bHas = !!(b.stockFix || b.geoRep);
+        if (aHas && !bHas) return -1; if (!aHas && bHas) return 1;
+        return b.overallRate - a.overallRate || a.name.localeCompare(b.name);
+      });
+
+      // --- Summary KPIs ---
+      const sfTotal = [...sfByRep.values()].reduce((s, r) => s + r.tasks, 0);
+      const sfDone  = [...sfByRep.values()].reduce((s, r) => s + r.completed, 0);
+      const grTotal = [...grByRep.values()].reduce((s, r) => s + r.forms, 0);
+      const grDone  = [...grByRep.values()].reduce((s, r) => s + r.visited, 0);
+      const summary = {
+        stockFix: { total: sfTotal, completed: sfDone, captureRate: sfTotal > 0 ? Math.round((sfDone / sfTotal) * 100) : 0 },
+        geoRep:   { total: grTotal, visited: grDone,   visitRate:   grTotal > 0 ? Math.round((grDone / grTotal) * 100) : 0 },
+        combined: { total: sfTotal + grTotal, done: sfDone + grDone, rate: (sfTotal + grTotal) > 0 ? Math.round(((sfDone + grDone) / (sfTotal + grTotal)) * 100) : 0 },
+        activeReps: merchandisers.filter(m => m.stockFix || m.geoRep).length,
+      };
+
+      // --- Client/form summary (Geo Rep) ---
+      const clientMap = new Map<string, { total: number; visited: number; complianceSum: number; complianceCount: number }>();
+      for (const row of dataRows) {
+        const form = String(row[5] || '').trim().replace(/^Merchandiser:\s*/i, '');
+        if (!form) continue;
+        const visited = String(row[11] || '').toLowerCase() === 'yes';
+        const compVal = parseFloat(String(row[12] || '').replace('%', '')) || 0;
+        if (!clientMap.has(form)) clientMap.set(form, { total: 0, visited: 0, complianceSum: 0, complianceCount: 0 });
+        const c = clientMap.get(form)!;
+        c.total++;
+        if (visited) { c.visited++; c.complianceSum += compVal; c.complianceCount++; }
+      }
+      const clientSummary = [...clientMap.entries()]
+        .map(([formName, d]) => ({
+          formName, total: d.total, visited: d.visited,
+          visitRate: d.total > 0 ? Math.round((d.visited / d.total) * 100) : 0,
+          avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
+        })).sort((a, b) => b.visited - a.visited || a.formName.localeCompare(b.formName));
+
+      // --- Snapshot saving (Geo Rep data, unfiltered) ---
+      if (latestWeek && !hasFilter && grByRep.size > 0) {
+        for (const [name, d] of grByRep.entries()) {
+          const rate = d.forms > 0 ? Math.round((d.visited / d.forms) * 100) : 0;
           await db.execute(sql`
             INSERT INTO pilot_snapshots (week_ending_date, rep_name, line_manager, region, total_tasks, completed, pending, capture_rate, saved_at)
             VALUES (${latestWeek}, ${name}, ${d.lineManager || null}, ${d.region || null},
-                    ${String(total)}, ${String(done)}, ${String(total - done)}, ${String(rate)}, NOW())
+                    ${String(d.forms)}, ${String(d.visited)}, ${String(d.forms - d.visited)}, ${String(rate)}, NOW())
             ON CONFLICT (week_ending_date, rep_name)
             DO UPDATE SET line_manager=EXCLUDED.line_manager, region=EXCLUDED.region,
               total_tasks=EXCLUDED.total_tasks, completed=EXCLUDED.completed,
@@ -3155,38 +3200,45 @@ export async function registerRoutes(
         }
       }
 
-      // Load rolling history from snapshots table
+      // --- Rolling history ---
       const historyResult = await db.execute(sql`
         SELECT week_ending_date,
                COUNT(DISTINCT rep_name) as rep_count,
                SUM(total_tasks::int) as total_tasks,
                SUM(completed::int) as total_completed,
                CASE WHEN SUM(total_tasks::int) > 0 THEN ROUND(SUM(completed::int)*100.0/SUM(total_tasks::int)) ELSE 0 END as capture_rate
-        FROM pilot_snapshots
-        GROUP BY week_ending_date
-        ORDER BY week_ending_date DESC
-        LIMIT 12
+        FROM pilot_snapshots GROUP BY week_ending_date ORDER BY week_ending_date DESC LIMIT 12
       `);
       const history = (historyResult.rows as any[]).map(r => ({
-        weekEndingDate: r.week_ending_date,
-        repCount: Number(r.rep_count),
-        totalTasks: Number(r.total_tasks),
-        totalCompleted: Number(r.total_completed),
-        captureRate: Number(r.capture_rate),
+        weekEndingDate: r.week_ending_date, repCount: Number(r.rep_count),
+        totalTasks: Number(r.total_tasks), totalCompleted: Number(r.total_completed), captureRate: Number(r.capture_rate),
       }));
 
-      res.json({
-        latestWeek,
-        filters: { managers: allManagers, regions: allRegions, stores: allStores,
-                   active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } },
-        summary: { totalTasks, totalCompleted, overallRate, activeReps, totalPilotReps: hasFilter ? reps.length : PILOT_REPS.length },
-        reps: repsWithSubs,
-        clientSummary,
-        history,
-      });
+      res.json({ latestWeek, filters: { managers: allManagers, regions: allRegions, stores: allStores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } }, summary, merchandisers, clientSummary, history });
     } catch (error: any) {
       console.error('Pilot report error:', error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // Merchandiser Pilot — task detail for a specific rep + store (StockFix)
+  app.get('/api/pilot-tasks', async (req, res) => {
+    try {
+      const rep   = (req.query.rep   as string || '').toUpperCase();
+      const store = (req.query.store as string || '').toUpperCase();
+      if (!rep || !store) return res.status(400).json({ error: 'rep and store required' });
+      const result = await db.execute(sql`
+        SELECT unique_id, client, category, article_description, barcode,
+               action, action_status, action_date, feedback, reason_code,
+               dc_soh, store_soh, missed_sales, stock_classification, week_ending_date
+        FROM tasks
+        WHERE UPPER(rep_name) = ${rep} AND UPPER(store_name) = ${store}
+        ORDER BY client, article_description
+        LIMIT 500
+      `);
+      res.json({ tasks: result.rows });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
     }
   });
 

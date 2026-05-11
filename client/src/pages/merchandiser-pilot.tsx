@@ -1,667 +1,530 @@
-import { useState, useRef } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 
-interface RepStat {
-  repName: string;
+// ─── Types ────────────────────────────────────────────────
+interface SFStore { name: string; tasks: number; completed: number; captureRate: number; clients: string[] }
+interface GRFormDetail { formName: string; visited: boolean; compliance: number | null; date: string; banner: string }
+interface GRStore { name: string; forms: number; visited: number; visitRate: number; avgCompliance: number; formDetails: GRFormDetail[] }
+
+interface Merchandiser {
+  name: string;
   lineManager: string | null;
   region: string | null;
-  storeCount: number;
-  totalTasks: number;
-  completed: number;
-  pending: number;
-  captureRate: number;
-  lastCapture: string | null;
-  submissionCount: number;
+  overallRate: number;
+  stockFix: { tasks: number; completed: number; captureRate: number; stores: SFStore[] } | null;
+  geoRep: { forms: number; visited: number; visitRate: number; avgCompliance: number; submissions: number; lineManager: string; region: string; lastDate: string; stores: GRStore[] } | null;
 }
 
-interface ClientStat {
-  formName: string;
-  total: number;
-  visited: number;
-  visitRate: number;
-  avgCompliance: number;
-}
-
-interface WeekSnapshot {
-  weekEndingDate: string;
-  repCount: number;
-  totalTasks: number;
-  totalCompleted: number;
-  captureRate: number;
-}
+interface WeekSnapshot { weekEndingDate: string; repCount: number; totalTasks: number; totalCompleted: number; captureRate: number }
+interface ClientStat { formName: string; total: number; visited: number; visitRate: number; avgCompliance: number }
 
 interface PilotReport {
   latestWeek: string | null;
-  filters: {
-    managers: string[];
-    regions: string[];
-    stores: string[];
-    active: { manager: string | null; region: string | null; store: string | null };
-  };
+  filters: { managers: string[]; regions: string[]; stores: string[]; active: { manager: string | null; region: string | null; store: string | null } };
   summary: {
-    totalTasks: number;
-    totalCompleted: number;
-    overallRate: number;
+    stockFix: { total: number; completed: number; captureRate: number };
+    geoRep:   { total: number; visited: number; visitRate: number };
+    combined: { total: number; done: number; rate: number };
     activeReps: number;
-    totalPilotReps: number;
   };
-  reps: RepStat[];
+  merchandisers: Merchandiser[];
   clientSummary: ClientStat[];
   history: WeekSnapshot[];
 }
 
-function toTitleCase(str: string) {
-  return str.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
-}
+// ─── Helpers ──────────────────────────────────────────────
+function tc(s: string) { return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
+function rateColor(r: number) { return r >= 80 ? '#F36C21' : r >= 50 ? '#f59e0b' : r > 0 ? '#ef4444' : 'rgba(255,255,255,0.22)'; }
 
-function formatDate(dateStr: string | null) {
-  if (!dateStr) return '—';
-  const d = new Date(dateStr);
-  if (isNaN(d.getTime())) return dateStr;
-  return d.toLocaleDateString('en-ZA', { day: '2-digit', month: 'short', year: 'numeric' });
-}
-
-function CaptureBar({ rate }: { rate: number }) {
-  const color = rate >= 80 ? '#F36C21' : rate >= 50 ? '#f59e0b' : '#ef4444';
+function Badge({ label, color }: { label: string; color: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <div style={{ flex: 1, height: '8px', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: '4px', overflow: 'hidden' }}>
-        <div style={{ width: `${rate}%`, height: '100%', backgroundColor: color, borderRadius: '4px', transition: 'width 0.5s ease' }} />
+    <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px', backgroundColor: color + '22', color, letterSpacing: '0.06em', textTransform: 'uppercase' as const, border: `1px solid ${color}44` }}>
+      {label}
+    </span>
+  );
+}
+
+function MiniBar({ rate, color }: { rate: number; color: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+      <div style={{ width: '54px', height: '5px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden', flexShrink: 0 }}>
+        <div style={{ width: `${Math.min(rate, 100)}%`, height: '100%', backgroundColor: color, borderRadius: '3px' }} />
       </div>
-      <span style={{ fontSize: '13px', fontWeight: 700, color, minWidth: '36px', textAlign: 'right' }}>{rate}%</span>
+      <span style={{ fontSize: '12px', fontWeight: 700, color, minWidth: '32px' }}>{rate}%</span>
     </div>
   );
 }
 
-function FilterSection({ label, options, value, onChange }: {
-  label: string;
-  options: string[];
-  value: string;
-  onChange: (v: string) => void;
-}) {
+function Breadcrumb({ items, onBack }: { items: string[]; onBack: () => void }) {
   return (
-    <div style={{ marginBottom: '20px' }}>
-      <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '8px' }}>{label}</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-        <button
-          onClick={() => onChange('')}
-          style={{ textAlign: 'left', padding: '7px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: value === '' ? 700 : 400, backgroundColor: value === '' ? '#F36C21' : 'rgba(255,255,255,0.06)', color: value === '' ? '#FFFFFF' : 'rgba(255,255,255,0.6)', transition: 'all 0.15s' }}
-        >
-          All {label}s
-        </button>
-        {options.map(opt => (
-          <button
-            key={opt}
-            onClick={() => onChange(opt === value ? '' : opt)}
-            style={{ textAlign: 'left', padding: '7px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: opt === value ? 700 : 400, backgroundColor: opt === value ? '#F36C21' : 'rgba(255,255,255,0.06)', color: opt === value ? '#FFFFFF' : 'rgba(255,255,255,0.6)', transition: 'all 0.15s' }}
-          >
-            {toTitleCase(opt)}
-          </button>
-        ))}
-      </div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' as const }}>
+      <button onClick={onBack} style={{ background: 'rgba(255,255,255,0.09)', border: 'none', color: '#FFFFFF', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}>
+        ← Back
+      </button>
+      {items.map((item, i) => (
+        <span key={i} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {i > 0 && <span style={{ color: 'rgba(255,255,255,0.2)' }}>›</span>}
+          <span style={{ color: i === items.length - 1 ? '#F36C21' : 'rgba(255,255,255,0.5)' }}>{item}</span>
+        </span>
+      ))}
     </div>
   );
 }
 
-function SummaryTab({ data }: { data: PilotReport }) {
-  const { summary, reps, history = [], clientSummary = [] } = data;
-  const totalPending = summary.totalTasks - summary.totalCompleted;
-  const top3 = reps.filter(r => r.totalTasks > 0).slice(0, 3);
-  const bottom3 = [...reps].filter(r => r.totalTasks > 0).sort((a, b) => a.captureRate - b.captureRate).slice(0, 3);
-  const noData = reps.filter(r => r.totalTasks === 0);
+// ─── Merchandiser List View ────────────────────────────────
+function MerchandiserListView({ data, onSelect }: { data: PilotReport; onSelect: (m: Merchandiser) => void }) {
+  const { summary, merchandisers, history, clientSummary } = data;
+  const [showHistory, setShowHistory] = useState(false);
+  const [showClients, setShowClients] = useState(false);
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-      {/* Big KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '22px 16px', border: '2px solid rgba(243,108,33,0.5)', textAlign: 'center' }}>
-          <div style={{ fontSize: '44px', fontWeight: 700, color: '#F36C21', lineHeight: 1 }}>{summary.overallRate}%</div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Overall Capture Rate</div>
+
+      {/* KPI cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '2px solid rgba(243,108,33,0.5)', textAlign: 'center' }}>
+          <div style={{ fontSize: '42px', fontWeight: 700, color: '#F36C21', lineHeight: 1 }}>{summary.combined.rate}%</div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '6px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>Combined Rate</div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginTop: '3px' }}>{summary.combined.done} / {summary.combined.total} total</div>
         </div>
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '22px 16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
-          <div style={{ fontSize: '44px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>{summary.totalCompleted}</div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tasks Completed</div>
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '1px solid rgba(243,108,33,0.2)', textAlign: 'center' }}>
+          <div style={{ fontSize: '30px', fontWeight: 700, color: rateColor(summary.stockFix.captureRate), lineHeight: 1 }}>{summary.stockFix.captureRate}%</div>
+          <div style={{ marginTop: '6px' }}><Badge label="StockFix" color="#F36C21" /></div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginTop: '5px' }}>{summary.stockFix.completed}/{summary.stockFix.total} tasks</div>
         </div>
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '22px 16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
-          <div style={{ fontSize: '44px', fontWeight: 700, color: totalPending > 0 ? '#f59e0b' : '#FFFFFF', lineHeight: 1 }}>{totalPending}</div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Tasks Pending</div>
-        </div>
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '22px 16px', border: '1px solid rgba(255,255,255,0.08)', textAlign: 'center' }}>
-          <div style={{ fontSize: '44px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>
-            {summary.activeReps}<span style={{ fontSize: '20px', color: 'rgba(255,255,255,0.3)' }}>/{summary.totalPilotReps}</span>
-          </div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.55)', marginTop: '8px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Active Merchandisers</div>
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '1px solid rgba(96,165,250,0.2)', textAlign: 'center' }}>
+          <div style={{ fontSize: '30px', fontWeight: 700, color: rateColor(summary.geoRep.visitRate), lineHeight: 1 }}>{summary.geoRep.visitRate}%</div>
+          <div style={{ marginTop: '6px' }}><Badge label="Geo Rep" color="#60a5fa" /></div>
+          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginTop: '5px' }}>{summary.geoRep.visited}/{summary.geoRep.total} forms</div>
         </div>
       </div>
 
-      {/* Top / Bottom performers side by side */}
-      {(top3.length > 0 || bottom3.length > 0) && (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          {/* Top performers */}
-          <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>🏆</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>Top Performers</span>
+      {/* Merchandiser table */}
+      <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 140px 140px 80px 20px', padding: '10px 16px', backgroundColor: 'rgba(0,0,0,0.25)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          {['Merchandiser', 'Manager / Region', 'StockFix', 'Geo Rep', 'Overall', ''].map((h, i) => (
+            <div key={h + i} style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' as const, letterSpacing: '0.07em', textAlign: i >= 2 ? 'center' : 'left' as any }}>{h}</div>
+          ))}
+        </div>
+
+        {merchandisers.map((m, idx) => {
+          const hasData = !!(m.stockFix || m.geoRep);
+          const sfColor = rateColor(m.stockFix?.captureRate ?? 0);
+          const grColor = rateColor(m.geoRep?.visitRate ?? 0);
+          const ovColor = rateColor(m.overallRate);
+          return (
+            <div
+              key={m.name}
+              data-testid={`row-merch-${m.name}`}
+              onClick={() => hasData && onSelect(m)}
+              style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 140px 140px 80px 20px', padding: '11px 16px', borderBottom: idx < merchandisers.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', backgroundColor: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.07)', cursor: hasData ? 'pointer' : 'default', alignItems: 'center', transition: 'background-color 0.15s' }}
+              onMouseEnter={e => { if (hasData) (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(243,108,33,0.08)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.07)'; }}
+            >
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: hasData ? '#FFFFFF' : 'rgba(255,255,255,0.28)' }}>{tc(m.name)}</div>
+                <div style={{ display: 'flex', gap: '5px', marginTop: '4px', flexWrap: 'wrap' as const }}>
+                  {m.stockFix && <Badge label="StockFix" color="#F36C21" />}
+                  {m.geoRep   && <Badge label="Geo Rep"  color="#60a5fa" />}
+                  {!hasData   && <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.18)' }}>Not yet active</span>}
+                </div>
+              </div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{m.lineManager ? tc(m.lineManager) : '—'}</div>
+                <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.28)' }}>{m.region || ''}</div>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '2px' }}>
+                {m.stockFix
+                  ? <><MiniBar rate={m.stockFix.captureRate} color={sfColor} /><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.28)' }}>{m.stockFix.completed}/{m.stockFix.tasks} tasks</div></>
+                  : <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.14)' }}>—</span>}
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '2px' }}>
+                {m.geoRep
+                  ? <><MiniBar rate={m.geoRep.visitRate} color={grColor} /><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.28)' }}>{m.geoRep.visited}/{m.geoRep.forms} forms</div></>
+                  : <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.14)' }}>—</span>}
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                {hasData ? <span style={{ fontSize: '15px', fontWeight: 700, color: ovColor }}>{m.overallRate}%</span> : <span style={{ color: 'rgba(255,255,255,0.1)' }}>—</span>}
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.28)', fontSize: '16px', textAlign: 'right' }}>{hasData ? '›' : ''}</div>
             </div>
-            {top3.map((r, i) => (
-              <div key={r.repName} style={{ padding: '12px 16px', borderBottom: i < top3.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: '#F36C21', minWidth: '16px' }}>#{i + 1}</span>
-                  <div>
-                    <div style={{ fontSize: '13px', color: '#FFFFFF', fontWeight: 500 }}>{toTitleCase(r.repName)}</div>
-                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{r.completed}/{r.totalTasks} tasks</div>
-                  </div>
-                </div>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#F36C21' }}>{r.captureRate}%</span>
-              </div>
-            ))}
-            {top3.length === 0 && <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>No data yet</div>}
-          </div>
+          );
+        })}
+      </div>
 
-          {/* Needs attention */}
-          <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.08)', overflow: 'hidden' }}>
-            <div style={{ padding: '12px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '16px' }}>⚠️</span>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>Needs Attention</span>
-            </div>
-            {bottom3.map((r, i) => (
-              <div key={r.repName} style={{ padding: '12px 16px', borderBottom: i < bottom3.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div>
-                  <div style={{ fontSize: '13px', color: '#FFFFFF', fontWeight: 500 }}>{toTitleCase(r.repName)}</div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{r.completed}/{r.totalTasks} tasks</div>
-                </div>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: r.captureRate < 50 ? '#ef4444' : '#f59e0b' }}>{r.captureRate}%</span>
-              </div>
-            ))}
-            {bottom3.length === 0 && <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>No data yet</div>}
-          </div>
-        </div>
-      )}
-
-      {/* Not yet active */}
-      {noData.length > 0 && (
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', padding: '14px 16px' }}>
-          <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '10px' }}>
-            Not Yet Active This Week ({noData.length})
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-            {noData.map(r => (
-              <span key={r.repName} style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: '20px', padding: '4px 12px', fontSize: '12px', color: 'rgba(255,255,255,0.45)' }}>
-                {toTitleCase(r.repName)}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Client / Form Performance */}
-      {clientSummary.length > 0 && (
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Client Form Performance</span>
-            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{clientSummary.length} forms · from Customer Compliance</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px 90px 130px', padding: '8px 18px', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            {['Client / Form', 'Total', 'Done', 'Visit %', 'Avg Compliance'].map((h, i) => (
-              <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i > 0 ? 'center' : 'left' }}>{h}</div>
-            ))}
-          </div>
-          {clientSummary.map((c, index) => {
-            const visitColor = c.visitRate >= 80 ? '#F36C21' : c.visitRate >= 50 ? '#f59e0b' : '#ef4444';
-            const compColor  = c.avgCompliance >= 80 ? '#F36C21' : c.avgCompliance >= 50 ? '#f59e0b' : '#ef4444';
-            return (
-              <div key={c.formName} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px 90px 130px', padding: '10px 18px', borderBottom: index < clientSummary.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.08)', alignItems: 'center' }}>
-                <div style={{ fontSize: '12px', fontWeight: 500, color: '#FFFFFF', paddingRight: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.formName}</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>{c.total}</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: c.visited > 0 ? '#F36C21' : 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{c.visited}</div>
-                <div style={{ textAlign: 'center' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: visitColor }}>{c.visitRate}%</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '4px' }}>
-                  <div style={{ flex: 1, height: '5px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ width: `${c.avgCompliance}%`, height: '100%', backgroundColor: compColor, borderRadius: '3px' }} />
-                  </div>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: c.avgCompliance > 0 ? compColor : 'rgba(255,255,255,0.2)', minWidth: '32px', textAlign: 'right' }}>{c.avgCompliance > 0 ? `${c.avgCompliance}%` : '—'}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {summary.totalTasks === 0 && history.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>
-          Summary will populate once merchandiser task data is imported for the current week
-        </div>
-      )}
-
-      {/* Rolling weekly history */}
+      {/* Rolling History (collapsible) */}
       {history.length > 0 && (
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
-          <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
-            <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Weekly History</span>
-            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginLeft: '10px' }}>saved automatically · last {history.length} weeks</span>
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px 140px', padding: '8px 18px', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-            {['Week Ending', 'Assigned', 'Done', 'Active', 'Capture Rate'].map((h, i) => (
-              <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i > 0 && i < 4 ? 'center' : 'left' }}>{h}</div>
-            ))}
-          </div>
-          {history.map((week, index) => {
-            const isCurrentWeek = week.weekEndingDate === data.latestWeek;
-            const rateColor = week.captureRate >= 80 ? '#F36C21' : week.captureRate >= 50 ? '#f59e0b' : '#ef4444';
-            return (
-              <div
-                key={week.weekEndingDate}
-                style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px 140px', padding: '12px 18px', borderBottom: index < history.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', backgroundColor: isCurrentWeek ? 'rgba(243,108,33,0.07)' : index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.08)', alignItems: 'center' }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: isCurrentWeek ? 700 : 500, color: isCurrentWeek ? '#F36C21' : '#FFFFFF' }}>{week.weekEndingDate}</span>
-                  {isCurrentWeek && <span style={{ fontSize: '10px', backgroundColor: '#F36C21', color: '#FFFFFF', borderRadius: '10px', padding: '1px 7px', fontWeight: 700 }}>Current</span>}
-                </div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{week.totalTasks}</div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: '#F36C21', textAlign: 'center' }}>{week.totalCompleted}</div>
-                <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{week.repCount}</div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingRight: '6px' }}>
-                  <div style={{ flex: 1, height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-                    <div style={{ width: `${week.captureRate}%`, height: '100%', backgroundColor: rateColor, borderRadius: '3px' }} />
-                  </div>
-                  <span style={{ fontSize: '13px', fontWeight: 700, color: rateColor, minWidth: '36px', textAlign: 'right' }}>{week.captureRate}%</span>
-                </div>
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.06)', overflow: 'hidden' }}>
+          <button onClick={() => setShowHistory(!showHistory)} style={{ width: '100%', padding: '13px 18px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>Rolling Week History <span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>(Geo Rep · {history.length} weeks)</span></span>
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{showHistory ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+          {showHistory && history.map((h, i) => (
+            <div key={h.weekEndingDate} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 18px', borderTop: '1px solid rgba(255,255,255,0.04)', backgroundColor: i % 2 === 0 ? 'rgba(0,0,0,0.1)' : 'transparent' }}>
+              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.55)' }}>{h.weekEndingDate}</span>
+              <div style={{ display: 'flex', gap: '18px', alignItems: 'center' }}>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{h.repCount} reps</span>
+                <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.3)' }}>{h.totalCompleted}/{h.totalTasks}</span>
+                <span style={{ fontSize: '14px', fontWeight: 700, color: rateColor(h.captureRate) }}>{h.captureRate}%</span>
               </div>
-            );
-          })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Client Form Performance (collapsible) */}
+      {clientSummary.length > 0 && (
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(96,165,250,0.15)', overflow: 'hidden' }}>
+          <button onClick={() => setShowClients(!showClients)} style={{ width: '100%', padding: '13px 18px', background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>Client Form Performance <span style={{ color: 'rgba(255,255,255,0.3)', fontWeight: 400 }}>(Geo Rep · {clientSummary.length} forms)</span></span>
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{showClients ? '▲ Hide' : '▼ Show'}</span>
+          </button>
+          {showClients && (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px 80px 120px', padding: '8px 18px', borderTop: '1px solid rgba(255,255,255,0.06)', backgroundColor: 'rgba(0,0,0,0.18)' }}>
+                {['Form', 'Total', 'Done', 'Visit%', 'Compliance'].map((h, i) => (
+                  <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase' as const, textAlign: i > 0 ? 'center' : 'left' as any }}>{h}</div>
+                ))}
+              </div>
+              {clientSummary.map((c, i) => (
+                <div key={c.formName} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px 80px 120px', padding: '9px 18px', borderTop: '1px solid rgba(255,255,255,0.03)', backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.07)', alignItems: 'center' }}>
+                  <div style={{ fontSize: '12px', color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, paddingRight: '8px' }}>{c.formName}</div>
+                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.45)', textAlign: 'center' }}>{c.total}</div>
+                  <div style={{ fontSize: '12px', color: c.visited > 0 ? '#60a5fa' : 'rgba(255,255,255,0.18)', textAlign: 'center' }}>{c.visited}</div>
+                  <div style={{ textAlign: 'center' }}><span style={{ fontSize: '12px', fontWeight: 700, color: rateColor(c.visitRate) }}>{c.visitRate}%</span></div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <div style={{ flex: 1, height: '4px', backgroundColor: 'rgba(255,255,255,0.09)', borderRadius: '2px', overflow: 'hidden' }}>
+                      <div style={{ width: `${c.avgCompliance}%`, height: '100%', backgroundColor: rateColor(c.avgCompliance), borderRadius: '2px' }} />
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: c.avgCompliance > 0 ? rateColor(c.avgCompliance) : 'rgba(255,255,255,0.18)', minWidth: '28px', textAlign: 'right' }}>{c.avgCompliance > 0 ? `${c.avgCompliance}%` : '—'}</span>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
         </div>
       )}
     </div>
   );
 }
 
-export default function MerchandiserPilot() {
-  const [manager, setManager] = useState('');
-  const [region, setRegion] = useState('');
-  const [store, setStore] = useState('');
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activeTab, setActiveTab] = useState<'summary' | 'detail'>('summary');
-  const [uploadPreview, setUploadPreview] = useState<any>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const queryClient = useQueryClient();
+// ─── Store View ────────────────────────────────────────────
+function StoreView({ merch, onSelectStore, onBack }: { merch: Merchandiser; onSelectStore: (store: string) => void; onBack: () => void }) {
+  const sfMap = new Map((merch.stockFix?.stores || []).map(s => [s.name, s]));
+  const grMap = new Map((merch.geoRep?.stores || []).map(s => [s.name, s]));
+  const storeNames = [...new Set([...sfMap.keys(), ...grMap.keys()])].sort();
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setUploadError(null);
-    setUploadPreview(null);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch('/api/pilot-excel-upload', { method: 'POST', body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
-      setUploadPreview(data);
-    } catch (err: any) {
-      setUploadError(err.message);
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Breadcrumb items={[tc(merch.name)]} onBack={onBack} />
+
+      {/* Rep summary row */}
+      <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '16px 20px', border: '1px solid rgba(255,255,255,0.08)', display: 'flex', gap: '20px', flexWrap: 'wrap' as const, alignItems: 'center' }}>
+        <div style={{ flex: 1, minWidth: '160px' }}>
+          <div style={{ fontSize: '19px', fontWeight: 700, color: '#FFFFFF' }}>{tc(merch.name)}</div>
+          <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginTop: '3px' }}>
+            {merch.lineManager ? tc(merch.lineManager) : ''}
+            {merch.region ? ` · ${merch.region}` : ''}
+          </div>
+        </div>
+        {merch.stockFix && (
+          <div style={{ textAlign: 'center', padding: '10px 18px', backgroundColor: 'rgba(243,108,33,0.08)', borderRadius: '10px', border: '1px solid rgba(243,108,33,0.2)' }}>
+            <div style={{ fontSize: '26px', fontWeight: 700, color: rateColor(merch.stockFix.captureRate) }}>{merch.stockFix.captureRate}%</div>
+            <Badge label="StockFix" color="#F36C21" />
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.28)', marginTop: '4px' }}>{merch.stockFix.completed}/{merch.stockFix.tasks} tasks · {merch.stockFix.stores.length} stores</div>
+          </div>
+        )}
+        {merch.geoRep && (
+          <div style={{ textAlign: 'center', padding: '10px 18px', backgroundColor: 'rgba(96,165,250,0.07)', borderRadius: '10px', border: '1px solid rgba(96,165,250,0.2)' }}>
+            <div style={{ fontSize: '26px', fontWeight: 700, color: rateColor(merch.geoRep.visitRate) }}>{merch.geoRep.visitRate}%</div>
+            <Badge label="Geo Rep" color="#60a5fa" />
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.28)', marginTop: '4px' }}>{merch.geoRep.visited}/{merch.geoRep.forms} forms · {merch.geoRep.stores.length} stores</div>
+          </div>
+        )}
+        {merch.geoRep && merch.geoRep.avgCompliance > 0 && (
+          <div style={{ textAlign: 'center', padding: '10px 18px', backgroundColor: 'rgba(96,165,250,0.04)', borderRadius: '10px', border: '1px solid rgba(96,165,250,0.1)' }}>
+            <div style={{ fontSize: '26px', fontWeight: 700, color: rateColor(merch.geoRep.avgCompliance) }}>{merch.geoRep.avgCompliance}%</div>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '4px' }}>Avg Compliance</div>
+          </div>
+        )}
+      </div>
+
+      {/* Store list */}
+      <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 160px 160px 20px', padding: '10px 18px', backgroundColor: 'rgba(0,0,0,0.22)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          {['Store', 'StockFix', 'Geo Rep', ''].map((h, i) => (
+            <div key={h + i} style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' as const, letterSpacing: '0.07em', textAlign: i >= 1 ? 'center' : 'left' as any }}>{h}</div>
+          ))}
+        </div>
+
+        {storeNames.map((storeName, idx) => {
+          const sf = sfMap.get(storeName);
+          const gr = grMap.get(storeName);
+          return (
+            <div
+              key={storeName}
+              data-testid={`row-store-${storeName}`}
+              onClick={() => onSelectStore(storeName)}
+              style={{ display: 'grid', gridTemplateColumns: '2fr 160px 160px 20px', padding: '13px 18px', borderBottom: idx < storeNames.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', cursor: 'pointer', alignItems: 'center', transition: 'background-color 0.15s' }}
+              onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(243,108,33,0.07)'}
+              onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'}
+            >
+              <div style={{ fontSize: '13px', fontWeight: 500, color: '#FFFFFF' }}>{tc(storeName)}</div>
+              <div style={{ textAlign: 'center' }}>
+                {sf ? (
+                  <div>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: rateColor(sf.captureRate) }}>{sf.captureRate}%</span>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{sf.completed}/{sf.tasks} tasks</div>
+                  </div>
+                ) : <span style={{ color: 'rgba(255,255,255,0.14)' }}>—</span>}
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                {gr ? (
+                  <div>
+                    <span style={{ fontSize: '14px', fontWeight: 700, color: rateColor(gr.visitRate) }}>{gr.visitRate}%</span>
+                    <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>{gr.visited}/{gr.forms} forms</div>
+                  </div>
+                ) : <span style={{ color: 'rgba(255,255,255,0.14)' }}>—</span>}
+              </div>
+              <div style={{ color: 'rgba(255,255,255,0.3)', textAlign: 'right' }}>›</div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Task Detail View ──────────────────────────────────────
+function TaskDetailView({ merch, storeName, onBack }: { merch: Merchandiser; storeName: string; onBack: () => void }) {
+  const sfStore = merch.stockFix?.stores.find(s => s.name === storeName) || null;
+  const grStore = merch.geoRep?.stores.find(s => s.name === storeName) || null;
+
+  const { data: sfData, isLoading: sfLoading } = useQuery<{ tasks: any[] }>({
+    queryKey: ['pilot-tasks', merch.name, storeName],
+    queryFn: async () => {
+      const r = await fetch(`/api/pilot-tasks?rep=${encodeURIComponent(merch.name)}&store=${encodeURIComponent(storeName)}`);
+      return r.json();
+    },
+    enabled: !!sfStore,
+    staleTime: 300000,
+  });
+
+  const tasks = sfData?.tasks || [];
+  const completedTasks = tasks.filter((t: any) => t.action_status === 'Completed');
+  const pendingTasks   = tasks.filter((t: any) => t.action_status !== 'Completed');
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Breadcrumb items={[tc(merch.name), tc(storeName)]} onBack={onBack} />
+
+      {/* StockFix section */}
+      {sfStore && (
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.25)', overflow: 'hidden' }}>
+          <div style={{ padding: '13px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Badge label="StockFix" color="#F36C21" />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>{sfStore.tasks} tasks at {tc(storeName)}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', color: '#F36C21', fontWeight: 600 }}>{completedTasks.length} done</span>
+              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>{pendingTasks.length} pending</span>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: rateColor(sfStore.captureRate) }}>{sfStore.captureRate}%</span>
+            </div>
+          </div>
+          {sfLoading ? (
+            <div style={{ padding: '28px', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '13px' }}>Loading StockFix tasks…</div>
+          ) : tasks.length > 0 ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 2fr 1fr 1.2fr 100px', padding: '8px 18px', backgroundColor: 'rgba(0,0,0,0.18)' }}>
+                {['Client', 'Product', 'Category', 'Action', 'Status'].map(h => (
+                  <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase' as const }}>{h}</div>
+                ))}
+              </div>
+              {tasks.map((t: any, i: number) => {
+                const done = t.action_status === 'Completed';
+                return (
+                  <div key={t.unique_id || i} style={{ display: 'grid', gridTemplateColumns: '1.8fr 2fr 1fr 1.2fr 100px', padding: '10px 18px', borderTop: '1px solid rgba(255,255,255,0.03)', backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.06)', alignItems: 'center' }}>
+                    <div style={{ fontSize: '12px', fontWeight: 500, color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{t.client}</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, paddingRight: '8px' }}>{t.article_description}</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.38)' }}>{t.category}</div>
+                    <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.38)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{t.action}</div>
+                    <div>
+                      <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', backgroundColor: done ? 'rgba(243,108,33,0.15)' : 'rgba(239,68,68,0.13)', color: done ? '#F36C21' : '#f87171' }}>
+                        {t.action_status}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <div style={{ padding: '24px', textAlign: 'center', color: 'rgba(255,255,255,0.28)', fontSize: '13px' }}>No tasks found</div>
+          )}
+        </div>
+      )}
+
+      {/* Geo Rep section */}
+      {grStore && (
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(96,165,250,0.25)', overflow: 'hidden' }}>
+          <div style={{ padding: '13px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' as const, gap: '8px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Badge label="Geo Rep" color="#60a5fa" />
+              <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>{grStore.forms} forms at {tc(storeName)}</span>
+            </div>
+            <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+              <span style={{ fontSize: '12px', color: '#60a5fa', fontWeight: 600 }}>{grStore.visited} visited</span>
+              <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.35)' }}>{grStore.forms - grStore.visited} not visited</span>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: rateColor(grStore.visitRate) }}>{grStore.visitRate}%</span>
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 80px 110px', padding: '8px 18px', backgroundColor: 'rgba(0,0,0,0.18)' }}>
+            {['Form / Client', 'Date', 'Visited', 'Compliance'].map((h, i) => (
+              <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.28)', textTransform: 'uppercase' as const, textAlign: i >= 2 ? 'center' : 'left' as any }}>{h}</div>
+            ))}
+          </div>
+          {grStore.formDetails.map((f, i) => (
+            <div key={f.formName + i} style={{ display: 'grid', gridTemplateColumns: '2.5fr 1fr 80px 110px', padding: '10px 18px', borderTop: '1px solid rgba(255,255,255,0.03)', backgroundColor: i % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.06)', alignItems: 'center' }}>
+              <div style={{ fontSize: '12px', color: '#FFFFFF', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{f.formName}</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.38)' }}>{f.date}</div>
+              <div style={{ textAlign: 'center' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', backgroundColor: f.visited ? 'rgba(96,165,250,0.14)' : 'rgba(239,68,68,0.12)', color: f.visited ? '#60a5fa' : '#f87171' }}>
+                  {f.visited ? 'Yes' : 'No'}
+                </span>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                {f.compliance !== null
+                  ? <span style={{ fontSize: '12px', fontWeight: 700, color: rateColor(f.compliance) }}>{f.compliance}%</span>
+                  : <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.18)' }}>—</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Page ─────────────────────────────────────────────
+export default function MerchandiserPilotPage() {
+  const [filterManager, setFilterManager] = useState('');
+  const [filterRegion, setFilterRegion]   = useState('');
+  const [filterStore, setFilterStore]     = useState('');
+  const [showFilters, setShowFilters]     = useState(false);
+
+  const [view, setView]         = useState<'list' | 'store' | 'task'>('list');
+  const [selMerch, setSelMerch] = useState<Merchandiser | null>(null);
+  const [selStore, setSelStore] = useState<string>('');
 
   const params = new URLSearchParams();
-  if (manager) params.set('manager', manager);
-  if (region) params.set('region', region);
-  if (store) params.set('store', store);
-  const queryString = params.toString();
+  if (filterManager) params.set('manager', filterManager);
+  if (filterRegion)  params.set('region', filterRegion);
+  if (filterStore)   params.set('store', filterStore);
 
   const { data, isLoading, error, dataUpdatedAt } = useQuery<PilotReport>({
-    queryKey: ['pilot-report', manager, region, store],
+    queryKey: ['pilot-report', filterManager, filterRegion, filterStore],
     queryFn: async () => {
-      const res = await fetch(`/api/pilot-report${queryString ? `?${queryString}` : ''}`);
-      if (!res.ok) throw new Error('Failed to load pilot report');
-      return res.json();
+      const r = await fetch(`/api/pilot-report${params.toString() ? '?' + params.toString() : ''}`);
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
     },
     refetchInterval: 5 * 60 * 1000,
     staleTime: 60000,
   });
 
-  const lastRefreshed = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString('en-ZA') : null;
-  const hasActiveFilter = !!(manager || region || store);
-  const activeFilterCount = [manager, region, store].filter(Boolean).length;
-  const clearAll = () => { setManager(''); setRegion(''); setStore(''); };
+  const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : null;
 
-  const tabStyle = (tab: 'summary' | 'detail') => ({
-    padding: '8px 20px',
-    borderRadius: '8px',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: 600,
-    backgroundColor: activeTab === tab ? '#F36C21' : 'rgba(255,255,255,0.07)',
-    color: activeTab === tab ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
-    transition: 'all 0.15s',
-  });
+  function FilterChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
+    return (
+      <button onClick={onClick} style={{ textAlign: 'left', padding: '6px 10px', borderRadius: '6px', border: 'none', cursor: 'pointer', fontSize: '12px', fontWeight: active ? 700 : 400, backgroundColor: active ? '#F36C21' : 'rgba(255,255,255,0.06)', color: active ? '#FFFFFF' : 'rgba(255,255,255,0.5)', transition: 'all 0.15s', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, maxWidth: '100%' }}>
+        {label}
+      </button>
+    );
+  }
+
+  function FilterBlock({ title, options, value, onChange }: { title: string; options: string[]; value: string; onChange: (v: string) => void }) {
+    return (
+      <div style={{ marginBottom: '18px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.32)', textTransform: 'uppercase' as const, letterSpacing: '0.08em', marginBottom: '7px' }}>{title}</div>
+        <div style={{ display: 'flex', flexDirection: 'column' as const, gap: '4px' }}>
+          <FilterChip label={`All ${title}s`} active={value === ''} onClick={() => onChange('')} />
+          {options.map(o => <FilterChip key={o} label={o.length > 24 ? o.slice(0, 24) + '…' : o} active={o === value} onClick={() => onChange(o === value ? '' : o)} />)}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#002855', fontFamily: 'system-ui, sans-serif' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#001d3d', fontFamily: "'Inter', system-ui, sans-serif" }}>
       {/* Header */}
-      <div style={{ backgroundColor: '#001e40', borderBottom: '2px solid #F36C21', padding: '14px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-          <img src={meridianGroupLogo} alt="Meridian Group" style={{ height: '34px' }} />
-          <div style={{ width: '1px', height: '34px', backgroundColor: 'rgba(243,108,33,0.4)' }} />
-          <div>
-            <div style={{ fontSize: '17px', fontWeight: 700, color: '#FFFFFF' }}>Merchandiser Pilot</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>Task Execution Report</div>
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          {data?.latestWeek && (
-            <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.6)', textAlign: 'right' }}>
-              Week ending: <strong style={{ color: '#F36C21' }}>{data.latestWeek}</strong>
-              {lastRefreshed && <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>Refreshed: {lastRefreshed} · auto every 5 min</div>}
+      <div style={{ backgroundColor: '#003B71', borderBottom: '3px solid #F36C21', padding: '0 24px' }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '62px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <img src={meridianGroupLogo} alt="Meridian Group" style={{ height: '32px', objectFit: 'contain' }} />
+            <div>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#FFFFFF' }}>Merchandiser Pilot Report</div>
+              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>
+                StockFix + Geo Rep
+                {data?.latestWeek ? ` · Week of ${data.latestWeek}` : ''}
+                {lastUpdated && <span style={{ marginLeft: '8px', color: 'rgba(255,255,255,0.22)' }}>· Updated {lastUpdated}</span>}
+              </div>
             </div>
-          )}
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".xlsx,.xls"
-            style={{ display: 'none' }}
-            onChange={handleFileSelect}
-          />
+          </div>
           <button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploading}
-            style={{ backgroundColor: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '8px', padding: '8px 14px', color: '#FFFFFF', cursor: uploading ? 'wait' : 'pointer', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', opacity: uploading ? 0.6 : 1 }}
+            data-testid="button-filters"
+            onClick={() => setShowFilters(!showFilters)}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 14px', backgroundColor: showFilters ? '#F36C21' : 'rgba(255,255,255,0.09)', border: 'none', borderRadius: '8px', color: '#FFFFFF', cursor: 'pointer', fontSize: '13px', fontWeight: 600 }}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-            {uploading ? 'Reading...' : 'Import Excel'}
-          </button>
-          <button
-            onClick={() => setSidebarOpen(o => !o)}
-            style={{ backgroundColor: sidebarOpen ? '#F36C21' : 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '8px', padding: '8px 14px', color: '#FFFFFF', cursor: 'pointer', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-            Filters{activeFilterCount > 0 && <span style={{ backgroundColor: '#FFFFFF', color: '#F36C21', borderRadius: '10px', padding: '0 6px', fontSize: '11px' }}>{activeFilterCount}</span>}
+            ≡ Filters
           </button>
         </div>
       </div>
 
-      {/* Upload error */}
-      {uploadError && (
-        <div style={{ backgroundColor: 'rgba(239,68,68,0.15)', borderBottom: '1px solid rgba(239,68,68,0.3)', padding: '10px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '13px', color: '#ef4444' }}>Upload error: {uploadError}</span>
-          <button onClick={() => setUploadError(null)} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', fontSize: '16px' }}>×</button>
-        </div>
-      )}
-
-      {/* Upload preview panel */}
-      {uploadPreview && (
-        <div style={{ backgroundColor: '#001e40', borderBottom: '1px solid rgba(243,108,33,0.3)', padding: '16px 20px' }}>
-          <div style={{ maxWidth: '1100px', margin: '0 auto' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div>
-                <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>File Preview</span>
-                <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.4)', marginLeft: '10px' }}>{uploadPreview.sheetNames.length} tab{uploadPreview.sheetNames.length !== 1 ? 's' : ''} found: {uploadPreview.sheetNames.join(', ')}</span>
-              </div>
-              <button onClick={() => setUploadPreview(null)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.4)', cursor: 'pointer', fontSize: '18px', lineHeight: 1 }}>×</button>
-            </div>
-            {uploadPreview.sheetNames.map((sheetName: string) => {
-              const sheet = uploadPreview.sheets[sheetName];
-              return (
-                <div key={sheetName} style={{ marginBottom: '12px' }}>
-                  <div style={{ fontSize: '12px', fontWeight: 600, color: '#F36C21', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tab: {sheetName}</div>
-                  <div style={{ overflowX: 'auto', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: 'rgba(0,0,0,0.3)' }}>
-                          {sheet.headers.map((h: string, i: number) => (
-                            <th key={i} style={{ padding: '6px 10px', color: 'rgba(255,255,255,0.5)', fontWeight: 600, textAlign: 'left', whiteSpace: 'nowrap', borderRight: '1px solid rgba(255,255,255,0.05)' }}>{h || `Col ${i+1}`}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sheet.rows.map((row: any[], ri: number) => (
-                          <tr key={ri} style={{ backgroundColor: ri % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.15)' }}>
-                            {sheet.headers.map((_: string, ci: number) => (
-                              <td key={ci} style={{ padding: '5px 10px', color: 'rgba(255,255,255,0.7)', borderRight: '1px solid rgba(255,255,255,0.04)', whiteSpace: 'nowrap' }}>
-                                {row[ci] instanceof Date ? row[ci].toLocaleDateString('en-ZA') : String(row[ci] ?? '')}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.25)', marginTop: '4px' }}>Showing first {sheet.rows.length} data rows · {sheet.headers.length} columns</div>
-                </div>
-              );
-            })}
-            <div style={{ marginTop: '8px', padding: '10px', backgroundColor: 'rgba(243,108,33,0.08)', borderRadius: '8px', border: '1px solid rgba(243,108,33,0.2)', fontSize: '12px', color: 'rgba(255,255,255,0.6)' }}>
-              Share the column names above so we can map them and complete the import.
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div style={{ display: 'flex', maxWidth: '1100px', margin: '0 auto', padding: '24px 16px', gap: '20px', alignItems: 'flex-start' }}>
+      {/* Body */}
+      <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '20px 24px', display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
 
         {/* Sidebar */}
-        {sidebarOpen && (
-          <div style={{ width: '200px', flexShrink: 0, backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', padding: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>Filters</span>
-              {hasActiveFilter && (
-                <button onClick={clearAll} style={{ fontSize: '11px', color: '#F36C21', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>Clear all</button>
-              )}
-            </div>
-            {isLoading && <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)' }}>Loading...</div>}
-            {data && (
-              <>
-                {(data.filters?.managers ?? []).length > 0 && (
-                  <FilterSection label="Manager" options={data.filters.managers} value={manager} onChange={v => { setManager(v); setStore(''); }} />
-                )}
-                {(data.filters?.regions ?? []).length > 0 && (
-                  <FilterSection label="Region" options={data.filters.regions} value={region} onChange={v => { setRegion(v); setStore(''); }} />
-                )}
-                {(data.filters?.stores ?? []).length > 0 && (
-                  <FilterSection label="Store" options={data.filters.stores} value={store} onChange={setStore} />
-                )}
-                {(data.filters?.managers ?? []).length === 0 && (data.filters?.regions ?? []).length === 0 && (
-                  <div style={{ fontSize: '12px', color: 'rgba(255,255,255,0.3)', textAlign: 'center', padding: '20px 0' }}>
-                    Filters will appear once merchandiser data is imported
-                  </div>
-                )}
-              </>
-            )}
+        {showFilters && data && (
+          <div style={{ width: '210px', flexShrink: 0, backgroundColor: '#003B71', borderRadius: '12px', padding: '16px 13px', border: '1px solid rgba(255,255,255,0.07)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: '14px' }}>Filters · Geo Rep</div>
+            <FilterBlock title="Manager" options={data.filters.managers} value={filterManager} onChange={v => { setFilterManager(v); setView('list'); }} />
+            <FilterBlock title="Region"  options={data.filters.regions}  value={filterRegion}  onChange={v => { setFilterRegion(v);  setView('list'); }} />
+            <FilterBlock title="Store"   options={data.filters.stores}   value={filterStore}   onChange={v => { setFilterStore(v);   setView('list'); }} />
           </div>
         )}
 
         {/* Main content */}
         <div style={{ flex: 1, minWidth: 0 }}>
-
-          {/* Tab switcher */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button style={tabStyle('summary')} onClick={() => setActiveTab('summary')}>Summary</button>
-              <button style={tabStyle('detail')} onClick={() => setActiveTab('detail')}>Detail</button>
-            </div>
-            {/* Active filter chips */}
-            {hasActiveFilter && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                {manager && (
-                  <div style={{ backgroundColor: 'rgba(243,108,33,0.2)', border: '1px solid #F36C21', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', color: '#F36C21', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    Manager: {toTitleCase(manager)} <span onClick={() => setManager('')} style={{ cursor: 'pointer', opacity: 0.7 }}>×</span>
-                  </div>
-                )}
-                {region && (
-                  <div style={{ backgroundColor: 'rgba(243,108,33,0.2)', border: '1px solid #F36C21', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', color: '#F36C21', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    Region: {toTitleCase(region)} <span onClick={() => setRegion('')} style={{ cursor: 'pointer', opacity: 0.7 }}>×</span>
-                  </div>
-                )}
-                {store && (
-                  <div style={{ backgroundColor: 'rgba(243,108,33,0.2)', border: '1px solid #F36C21', borderRadius: '20px', padding: '3px 10px', fontSize: '12px', color: '#F36C21', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    Store: {toTitleCase(store)} <span onClick={() => setStore('')} style={{ cursor: 'pointer', opacity: 0.7 }}>×</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
           {isLoading && (
-            <div style={{ textAlign: 'center', padding: '80px', color: 'rgba(255,255,255,0.5)' }}>
-              <div style={{ fontSize: '16px' }}>Loading pilot report...</div>
+            <div style={{ textAlign: 'center', padding: '70px 0', color: 'rgba(255,255,255,0.35)', fontSize: '14px' }}>
+              Loading report — fetching SharePoint &amp; StockFix data…
             </div>
           )}
           {error && (
-            <div style={{ textAlign: 'center', padding: '80px', color: '#ef4444' }}>
-              <div style={{ fontSize: '16px' }}>Failed to load report. Please refresh.</div>
+            <div style={{ backgroundColor: 'rgba(239,68,68,0.09)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '10px', padding: '20px', color: '#fca5a5', fontSize: '13px' }}>
+              Error: {String(error)}
             </div>
           )}
-
-          {data && activeTab === 'summary' && <SummaryTab data={data} />}
-
-          {data && activeTab === 'detail' && (
-            <>
-              {/* KPI strip */}
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '16px' }}>
-                <div style={{ backgroundColor: '#003B71', borderRadius: '10px', padding: '14px', border: '1px solid rgba(243,108,33,0.35)', textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#F36C21', lineHeight: 1 }}>{data.summary.overallRate}%</div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Capture Rate</div>
-                </div>
-                <div style={{ backgroundColor: '#003B71', borderRadius: '10px', padding: '14px', border: '1px solid rgba(255,255,255,0.07)', textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>{data.summary.totalCompleted}</div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Completed</div>
-                </div>
-                <div style={{ backgroundColor: '#003B71', borderRadius: '10px', padding: '14px', border: '1px solid rgba(255,255,255,0.07)', textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>{data.summary.totalTasks}</div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Assigned</div>
-                </div>
-                <div style={{ backgroundColor: '#003B71', borderRadius: '10px', padding: '14px', border: '1px solid rgba(255,255,255,0.07)', textAlign: 'center' }}>
-                  <div style={{ fontSize: '28px', fontWeight: 700, color: '#FFFFFF', lineHeight: 1 }}>
-                    {data.summary.activeReps}<span style={{ fontSize: '16px', color: 'rgba(255,255,255,0.3)' }}>/{data.summary.totalPilotReps}</span>
-                  </div>
-                  <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)', marginTop: '5px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Active</div>
-                </div>
-              </div>
-
-              {/* Merchandiser Table — grouped by Region → Manager */}
-              {(() => {
-                const COL = '1fr 70px 70px 70px 150px';
-
-                // Build region → manager → reps hierarchy
-                const regionMap = new Map<string, Map<string, RepStat[]>>();
-                for (const rep of data.reps) {
-                  const r = rep.region ? toTitleCase(rep.region) : '— No Region';
-                  const m = rep.lineManager ? toTitleCase(rep.lineManager) : '— No Manager';
-                  if (!regionMap.has(r)) regionMap.set(r, new Map());
-                  const mgMap = regionMap.get(r)!;
-                  if (!mgMap.has(m)) mgMap.set(m, []);
-                  mgMap.get(m)!.push(rep);
-                }
-                const regions = [...regionMap.entries()].sort(([a], [b]) => a.localeCompare(b));
-
-                return (
-                  <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
-                    {/* Table header */}
-                    <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Merchandiser Performance</span>
-                      <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{data.reps.length} merchandisers · grouped by region</span>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: COL, padding: '9px 18px', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                      {['Merchandiser Name', 'Assigned', 'Done', 'Pending', 'Capture Rate'].map((h, i) => (
-                        <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i > 0 && i < 4 ? 'center' : 'left' }}>{h}</div>
-                      ))}
-                    </div>
-
-                    {data.reps.length === 0 && (
-                      <div style={{ padding: '40px', textAlign: 'center', color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>
-                        No merchandisers match the selected filters
-                      </div>
-                    )}
-
-                    {regions.map(([regionName, mgMap]) => {
-                      const managers = [...mgMap.entries()].sort(([a], [b]) => a.localeCompare(b));
-                      const regionTotal = managers.flatMap(([, reps]) => reps).reduce((s, r) => s + r.totalTasks, 0);
-                      const regionDone = managers.flatMap(([, reps]) => reps).reduce((s, r) => s + r.completed, 0);
-                      const regionRate = regionTotal > 0 ? Math.round((regionDone / regionTotal) * 100) : null;
-
-                      return (
-                        <div key={regionName}>
-                          {/* Region row */}
-                          <div style={{ display: 'grid', gridTemplateColumns: COL, padding: '10px 18px', backgroundColor: 'rgba(0,29,60,0.7)', borderTop: '1px solid rgba(243,108,33,0.25)', borderBottom: '1px solid rgba(255,255,255,0.05)', alignItems: 'center' }}>
-                            <div style={{ fontSize: '11px', fontWeight: 700, color: '#F36C21', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-                              📍 {regionName}
-                            </div>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.5)', textAlign: 'center' }}>{regionTotal || '—'}</div>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: regionDone > 0 ? '#F36C21' : 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{regionDone || '—'}</div>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: 'rgba(255,255,255,0.25)', textAlign: 'center' }}>{regionTotal - regionDone > 0 ? regionTotal - regionDone : '—'}</div>
-                            <div style={{ fontSize: '12px', fontWeight: 700, color: regionRate !== null ? (regionRate >= 80 ? '#F36C21' : regionRate >= 50 ? '#f59e0b' : '#ef4444') : 'rgba(255,255,255,0.2)' }}>
-                              {regionRate !== null ? `${regionRate}%` : 'No data'}
-                            </div>
-                          </div>
-
-                          {managers.map(([managerName, reps]) => {
-                            const mgTotal = reps.reduce((s, r) => s + r.totalTasks, 0);
-                            const mgDone = reps.reduce((s, r) => s + r.completed, 0);
-                            const mgRate = mgTotal > 0 ? Math.round((mgDone / mgTotal) * 100) : null;
-
-                            return (
-                              <div key={managerName}>
-                                {/* Manager row */}
-                                <div style={{ display: 'grid', gridTemplateColumns: COL, padding: '8px 18px 8px 28px', backgroundColor: 'rgba(0,0,0,0.25)', borderBottom: '1px solid rgba(255,255,255,0.04)', alignItems: 'center' }}>
-                                  <div style={{ fontSize: '11px', fontWeight: 600, color: 'rgba(255,255,255,0.55)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                    <span style={{ color: 'rgba(255,255,255,0.25)' }}>└</span> {managerName}
-                                  </div>
-                                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', textAlign: 'center' }}>{mgTotal || '—'}</div>
-                                  <div style={{ fontSize: '11px', color: mgDone > 0 ? 'rgba(243,108,33,0.7)' : 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{mgDone || '—'}</div>
-                                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{mgTotal - mgDone > 0 ? mgTotal - mgDone : '—'}</div>
-                                  <div style={{ fontSize: '11px', color: mgRate !== null ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)' }}>
-                                    {mgRate !== null ? `${mgRate}%` : '—'}
-                                  </div>
-                                </div>
-
-                                {/* Merchandiser rows */}
-                                {reps.map((rep, ri) => (
-                                  <div
-                                    key={rep.repName}
-                                    style={{ display: 'grid', gridTemplateColumns: COL, padding: '12px 18px 12px 40px', borderBottom: '1px solid rgba(255,255,255,0.03)', backgroundColor: ri % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.08)', alignItems: 'center' }}
-                                  >
-                                    <div>
-                                      <div style={{ fontSize: '13px', fontWeight: 500, color: '#FFFFFF' }}>{toTitleCase(rep.repName)}</div>
-                                      {rep.lastCapture && (
-                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginTop: '2px' }}>Last: {formatDate(rep.lastCapture)}</div>
-                                      )}
-                                      {rep.totalTasks === 0 && (
-                                        <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.2)', marginTop: '2px' }}>No tasks this week</div>
-                                      )}
-                                    </div>
-                                    <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{rep.totalTasks || '—'}</div>
-                                    <div style={{ fontSize: '14px', fontWeight: 600, color: rep.completed > 0 ? '#F36C21' : 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{rep.completed || '—'}</div>
-                                    <div style={{ fontSize: '14px', fontWeight: 600, color: rep.pending > 0 ? '#f59e0b' : 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{rep.pending || '—'}</div>
-                                    <div style={{ paddingRight: '6px' }}>
-                                      {rep.totalTasks > 0 ? <CaptureBar rate={rep.captureRate} /> : <span style={{ fontSize: '12px', color: 'rgba(255,255,255,0.15)' }}>No data</span>}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })()}
-            </>
+          {data && view === 'list' && (
+            <MerchandiserListView
+              data={data}
+              onSelect={m => { setSelMerch(m); setView('store'); }}
+            />
           )}
-
-          {data && (
-            <div style={{ textAlign: 'center', marginTop: '20px', fontSize: '11px', color: 'rgba(255,255,255,0.2)' }}>
-              Powered by Meridian Nexus · StockFix Pilot Programme
-            </div>
+          {data && view === 'store' && selMerch && (
+            <StoreView
+              merch={selMerch}
+              onSelectStore={store => { setSelStore(store); setView('task'); }}
+              onBack={() => setView('list')}
+            />
+          )}
+          {data && view === 'task' && selMerch && (
+            <TaskDetailView
+              merch={selMerch}
+              storeName={selStore}
+              onBack={() => setView('store')}
+            />
           )}
         </div>
       </div>
