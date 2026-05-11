@@ -19,18 +19,20 @@ interface Merchandiser {
 
 interface WeekSnapshot { weekEndingDate: string; repCount: number; totalTasks: number; totalCompleted: number; captureRate: number }
 interface ClientStat { formName: string; total: number; visited: number; visitRate: number; avgCompliance: number }
+interface BannerStat { banner: string; total: number; visited: number; visitRate: number; avgCompliance: number }
 
 interface PilotReport {
   latestWeek: string | null;
   filters: { managers: string[]; regions: string[]; stores: string[]; active: { manager: string | null; region: string | null; store: string | null } };
   summary: {
     stockFix: { total: number; completed: number; captureRate: number };
-    geoRep:   { total: number; visited: number; visitRate: number };
+    geoRep:   { total: number; visited: number; visitRate: number; avgCompliance: number; submissions: number };
     combined: { total: number; done: number; rate: number };
     activeReps: number;
   };
   merchandisers: Merchandiser[];
   clientSummary: ClientStat[];
+  bannerBreakdown: BannerStat[];
   history: WeekSnapshot[];
 }
 
@@ -281,7 +283,7 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
   recentActivity: any[];
   onSelectRep: (m: Merchandiser) => void;
 }) {
-  const { summary, merchandisers, history, clientSummary } = data;
+  const { summary, merchandisers, history, clientSummary, bannerBreakdown } = data;
   const TOTAL_PILOT = 26;
 
   // Manager stats
@@ -348,50 +350,59 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
     <div>
       {/* KPI Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', marginBottom: '20px' }}>
-        <KpiCard label="Active Reps"      value={summary.activeReps}           sub={`of ${TOTAL_PILOT} pilot reps`}  iconBg="#eff6ff" icon="👥" />
-        <KpiCard label="Geo Rep Visit Rate" value={`${summary.geoRep.visitRate}%`} sub={`${summary.geoRep.visited}/${summary.geoRep.total} forms`} iconBg="#dbeafe" icon="✅" />
-        <KpiCard label="Geo Rep Visits"   value={summary.geoRep.visited}       sub="forms visited"                   iconBg="#ede9fe" icon="📋" />
-        <KpiCard label="StockFix Tasks"   value={summary.stockFix.total.toLocaleString()} sub="total logged"         iconBg="#fff7ed" icon="🔧" />
-        <KpiCard label="StockFix Done"    value={summary.stockFix.completed}   sub={`${summary.stockFix.captureRate}% capture rate`} iconBg="#dcfce7" icon="✔️" />
-        <KpiCard label="Pilot Coverage"   value={`${pilotCoverage}%`}          sub={`${summary.activeReps} of ${TOTAL_PILOT} active`} iconBg="#fef9c3" icon="🎯" />
+        <KpiCard label="Active Reps"        value={summary.activeReps}                  sub={`of ${TOTAL_PILOT} pilot reps`}              iconBg="#eff6ff" icon="👥" />
+        <KpiCard label="GR Visit Rate"      value={`${summary.geoRep.visitRate}%`}      sub={`${summary.geoRep.visited} of ${summary.geoRep.total} forms`} iconBg="#dbeafe" icon="✅" />
+        <KpiCard label="GR Avg Compliance"  value={`${summary.geoRep.avgCompliance}%`}  sub={`when visited · ${summary.geoRep.submissions} submissions`}    iconBg="#ede9fe" icon="📊" />
+        <KpiCard label="StockFix Tasks"     value={summary.stockFix.total.toLocaleString()} sub="total logged"                            iconBg="#fff7ed" icon="🔧" />
+        <KpiCard label="StockFix Done"      value={summary.stockFix.completed}          sub={`${summary.stockFix.captureRate}% capture rate`}               iconBg="#dcfce7" icon="✔️" />
+        <KpiCard label="Pilot Coverage"     value={`${pilotCoverage}%`}                 sub={`${summary.activeReps} of ${TOTAL_PILOT} active`}              iconBg="#fef9c3" icon="🎯" />
       </div>
 
       {/* Middle row */}
       <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr 280px', gap: '16px', marginBottom: '16px' }}>
 
-        {/* Geo Rep vs StockFix donut comparison */}
+        {/* Geo Rep Performance — Visit Rate vs Compliance */}
         <div style={card}>
-          <div style={sectionTitle}>Geo Rep vs Stock Fix Performance</div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '8px' }}>
+          <div style={sectionTitle}>Geo Rep Performance</div>
+          {/* Two primary rings */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '4px' }}>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#2563eb', marginBottom: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Geo Rep</div>
-              <div style={{ position: 'relative', width: '110px', height: '110px', margin: '0 auto' }}>
+              <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto' }}>
                 <RingChart rate={summary.geoRep.visitRate} color="#2563eb" />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b' }}>{summary.geoRep.visitRate}%</span>
+                  <span style={{ fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>{summary.geoRep.visitRate}%</span>
                 </div>
               </div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>Visit Rate</div>
-              <div style={{ fontSize: '11px', color: '#2563eb', fontWeight: 600, marginTop: '3px' }}>{summary.geoRep.visited} captures</div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb', marginTop: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Visit Rate</div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>{summary.geoRep.visited}/{summary.geoRep.total} forms</div>
             </div>
-
-            <div style={{ fontSize: '18px', fontWeight: 700, color: '#cbd5e1' }}>VS</div>
-
+            <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '4px' }}>
+              <div style={{ fontSize: '16px', fontWeight: 700, color: '#e2e8f0' }}>VS</div>
+              {Math.abs(summary.geoRep.visitRate - summary.geoRep.avgCompliance) > 15 && (
+                <div style={{ fontSize: '9px', fontWeight: 700, color: '#f97316', textAlign: 'center', maxWidth: '36px', lineHeight: '1.3' }}>GAP</div>
+              )}
+            </div>
             <div style={{ textAlign: 'center' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#F36C21', marginBottom: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>Stock Fix</div>
-              <div style={{ position: 'relative', width: '110px', height: '110px', margin: '0 auto' }}>
-                <RingChart rate={summary.stockFix.captureRate} color="#F36C21" />
+              <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto' }}>
+                <RingChart rate={summary.geoRep.avgCompliance} color="#0891b2" />
                 <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b' }}>{summary.stockFix.captureRate}%</span>
+                  <span style={{ fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>{summary.geoRep.avgCompliance}%</span>
                 </div>
               </div>
-              <div style={{ fontSize: '12px', color: '#64748b', marginTop: '8px' }}>Capture Rate</div>
-              <div style={{ fontSize: '11px', color: '#F36C21', fontWeight: 600, marginTop: '3px' }}>{summary.stockFix.completed.toLocaleString()} resolved</div>
+              <div style={{ fontSize: '11px', fontWeight: 700, color: '#0891b2', marginTop: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Compliance</div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>avg when visited</div>
             </div>
           </div>
-          <div style={{ marginTop: '16px', padding: '10px 14px', backgroundColor: '#f8fafc', borderRadius: '8px', fontSize: '12px', color: '#475569', textAlign: 'center' }}>
-            Combined rate: <strong style={{ color: rateColor(summary.combined.rate) }}>{summary.combined.rate}%</strong>
-            &nbsp;·&nbsp; {summary.combined.done.toLocaleString()} of {summary.combined.total.toLocaleString()} total
+          {/* StockFix strip */}
+          <div style={{ marginTop: '14px', padding: '10px 14px', backgroundColor: '#fff7ed', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#F36C21', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: '2px' }}>StockFix</div>
+              <div style={{ fontSize: '11px', color: '#92400e' }}>{summary.stockFix.completed} done · {summary.stockFix.total.toLocaleString()} total</div>
+            </div>
+            <div style={{ textAlign: 'right' }}>
+              <span style={{ fontSize: '20px', fontWeight: 700, color: '#F36C21' }}>{summary.stockFix.captureRate}%</span>
+              <div style={{ fontSize: '10px', color: '#94a3b8' }}>capture rate</div>
+            </div>
           </div>
         </div>
 
@@ -422,22 +433,37 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
           </div>
         </div>
 
-        {/* Compliance by Manager */}
+        {/* Banner / Retailer Coverage */}
         <div style={card}>
-          <div style={sectionTitle}>Compliance by Manager</div>
-          {managerStats.length === 0 ? (
-            <div style={{ color: '#94a3b8', fontSize: '13px' }}>No manager data</div>
+          <div style={sectionTitle}>
+            Retailer Coverage
+            <span style={{ fontSize: '10px', fontWeight: 400, color: '#94a3b8', marginLeft: 'auto' }}>visit · comply</span>
+          </div>
+          {bannerBreakdown.length === 0 ? (
+            <div style={{ color: '#94a3b8', fontSize: '13px' }}>No banner data</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {managerStats.slice(0, 7).map(m => (
-                <div key={m.name} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <div style={{ flex: 1, fontSize: '12px', color: '#1e293b', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, minWidth: 0 }}>{m.name}</div>
-                  <div style={{ width: '80px', flexShrink: 0 }}>
-                    <div style={{ height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${m.overall}%`, height: '100%', backgroundColor: rateColor(m.overall), borderRadius: '3px' }} />
-                    </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
+              {bannerBreakdown.map(b => (
+                <div key={b.banner}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, flex: 1, minWidth: 0, marginRight: '6px' }}>{b.banner}</span>
+                    <span style={{ fontSize: '10px', color: '#94a3b8', flexShrink: 0 }}>{b.visited}/{b.total}</span>
                   </div>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: rateColor(m.overall), minWidth: '36px', textAlign: 'right' }}>{m.overall}%</span>
+                  {/* Dual bar: visit rate (blue) + compliance (teal) */}
+                  <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+                    <div style={{ flex: 1, height: '5px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${b.visitRate}%`, height: '100%', backgroundColor: '#2563eb', borderRadius: '3px' }} />
+                    </div>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: rateColor(b.visitRate), minWidth: '28px', textAlign: 'right' }}>{b.visitRate}%</span>
+                  </div>
+                  {b.visited > 0 && (
+                    <div style={{ display: 'flex', gap: '3px', alignItems: 'center', marginTop: '2px' }}>
+                      <div style={{ flex: 1, height: '4px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ width: `${b.avgCompliance}%`, height: '100%', backgroundColor: '#0891b2', borderRadius: '3px' }} />
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, color: '#0891b2', minWidth: '28px', textAlign: 'right' }}>{b.avgCompliance}%</span>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -594,7 +620,18 @@ function RepsView({ data, onSelect, sourceFilter }: { data: PilotReport; onSelec
                 {m.stockFix ? <><MiniBar rate={m.stockFix.captureRate} color={sfColor} /><div style={{ fontSize: '10px', color: '#94a3b8' }}>{m.stockFix.completed}/{m.stockFix.tasks}</div></> : <span style={{ color: '#cbd5e1', fontSize: '13px' }}>—</span>}
               </div>
               <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '2px', backgroundColor: 'rgba(37,99,235,0.04)', borderRadius: '6px', padding: '4px 6px' }}>
-                {m.geoRep ? <><MiniBar rate={m.geoRep.visitRate} color={grColor} /><div style={{ fontSize: '10px', color: '#94a3b8' }}>{m.geoRep.visited}/{m.geoRep.forms}</div></> : <span style={{ color: '#cbd5e1', fontSize: '13px' }}>—</span>}
+                {m.geoRep ? (
+                  <>
+                    <MiniBar rate={m.geoRep.visitRate} color={grColor} />
+                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>{m.geoRep.visited}/{m.geoRep.forms} · <span style={{ color: '#0891b2', fontWeight: 600 }}>{m.geoRep.avgCompliance}%</span></div>
+                    {m.geoRep.submissions > m.geoRep.visited && (
+                      <div title={`${m.geoRep.submissions} submissions but only ${m.geoRep.visited} visits recorded`}
+                        style={{ fontSize: '9px', fontWeight: 700, color: '#f97316', backgroundColor: '#fff7ed', borderRadius: '4px', padding: '1px 5px', marginTop: '1px' }}>
+                        ⚠ {m.geoRep.submissions} sub
+                      </div>
+                    )}
+                  </>
+                ) : <span style={{ color: '#cbd5e1', fontSize: '13px' }}>—</span>}
               </div>
               <div style={{ textAlign: 'center' }}>
                 {hasData ? <span style={{ fontSize: '15px', fontWeight: 700, color: ovColor }}>{m.overallRate}%</span> : <span style={{ color: '#e2e8f0' }}>—</span>}

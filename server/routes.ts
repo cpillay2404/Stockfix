@@ -3188,9 +3188,14 @@ export async function registerRoutes(
       const sfDone  = [...sfByRep.values()].reduce((s, r) => s + r.completed, 0);
       const grTotal = [...grByRep.values()].reduce((s, r) => s + r.forms, 0);
       const grDone  = [...grByRep.values()].reduce((s, r) => s + r.visited, 0);
+      const grSubmissions = [...submissionsByRep.values()].reduce((s, set) => s + set.size, 0);
+      // Avg compliance across all visited forms (unfiltered)
+      let grCompSum = 0, grCompCount = 0;
+      for (const rep of grByRep.values()) { grCompSum += rep.complianceSum; grCompCount += rep.complianceCount; }
+      const grAvgCompliance = grCompCount > 0 ? Math.round(grCompSum / grCompCount) : 0;
       const summary = {
         stockFix: { total: sfTotal, completed: sfDone, captureRate: sfTotal > 0 ? Math.round((sfDone / sfTotal) * 100) : 0 },
-        geoRep:   { total: grTotal, visited: grDone,   visitRate:   grTotal > 0 ? Math.round((grDone / grTotal) * 100) : 0 },
+        geoRep:   { total: grTotal, visited: grDone, visitRate: grTotal > 0 ? Math.round((grDone / grTotal) * 100) : 0, avgCompliance: grAvgCompliance, submissions: grSubmissions },
         combined: { total: sfTotal + grTotal, done: sfDone + grDone, rate: (sfTotal + grTotal) > 0 ? Math.round(((sfDone + grDone) / (sfTotal + grTotal)) * 100) : 0 },
         activeReps: merchandisers.filter(m => m.stockFix || m.geoRep).length,
       };
@@ -3213,6 +3218,25 @@ export async function registerRoutes(
           visitRate: d.total > 0 ? Math.round((d.visited / d.total) * 100) : 0,
           avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
         })).sort((a, b) => b.visited - a.visited || a.formName.localeCompare(b.formName));
+
+      // --- Banner / Retailer-chain breakdown (Geo Rep) ---
+      const bannerMap = new Map<string, { total: number; visited: number; complianceSum: number; complianceCount: number }>();
+      for (const row of filteredRows) {
+        const banner  = String(row[6] || '').trim();
+        if (!banner) continue;
+        const visited = String(row[11] || '').toLowerCase() === 'yes';
+        const compVal = parseFloat(String(row[12] || '').replace('%', '')) || 0;
+        if (!bannerMap.has(banner)) bannerMap.set(banner, { total: 0, visited: 0, complianceSum: 0, complianceCount: 0 });
+        const b = bannerMap.get(banner)!;
+        b.total++;
+        if (visited) { b.visited++; b.complianceSum += compVal; b.complianceCount++; }
+      }
+      const bannerBreakdown = [...bannerMap.entries()]
+        .map(([banner, d]) => ({
+          banner, total: d.total, visited: d.visited,
+          visitRate: d.total > 0 ? Math.round((d.visited / d.total) * 100) : 0,
+          avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
+        })).sort((a, b) => b.total - a.total);
 
       // --- Snapshot saving (Geo Rep data, unfiltered) ---
       if (latestWeek && !hasFilter && grByRep.size > 0) {
@@ -3244,7 +3268,7 @@ export async function registerRoutes(
         totalTasks: Number(r.total_tasks), totalCompleted: Number(r.total_completed), captureRate: Number(r.capture_rate),
       }));
 
-      res.json({ latestWeek, filters: { managers: allManagers, regions: allRegions, stores: allStores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } }, summary, merchandisers, clientSummary, history });
+      res.json({ latestWeek, filters: { managers: allManagers, regions: allRegions, stores: allStores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } }, summary, merchandisers, clientSummary, bannerBreakdown, history });
     } catch (error: any) {
       console.error('Pilot report error:', error);
       res.status(500).json({ error: error.message });
