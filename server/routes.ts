@@ -3221,6 +3221,20 @@ export async function registerRoutes(
           avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
         })).sort((a, b) => b.visited - a.visited || a.formName.localeCompare(b.formName));
 
+      // --- SF client summary (StockFix by brand/client) ---
+      const sfClientMapAgg = new Map<string, { tasks: number; completed: number }>();
+      for (const row of sfResult.rows as any[]) {
+        const client    = String(row.client).trim();
+        const tasks     = Number(row.tasks) || 0;
+        const completed = Number(row.completed) || 0;
+        if (!sfClientMapAgg.has(client)) sfClientMapAgg.set(client, { tasks: 0, completed: 0 });
+        const c = sfClientMapAgg.get(client)!;
+        c.tasks += tasks; c.completed += completed;
+      }
+      const sfClientSummary = [...sfClientMapAgg.entries()]
+        .map(([client, d]) => ({ client, tasks: d.tasks, completed: d.completed, captureRate: d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0 }))
+        .sort((a, b) => b.tasks - a.tasks);
+
       // --- Banner / Retailer-chain breakdown (Geo Rep) ---
       const bannerMap = new Map<string, { total: number; visited: number; complianceSum: number; complianceCount: number }>();
       for (const row of filteredRows) {
@@ -3270,7 +3284,7 @@ export async function registerRoutes(
         totalTasks: Number(r.total_tasks), totalCompleted: Number(r.total_completed), captureRate: Number(r.capture_rate),
       }));
 
-      res.json({ latestWeek, filters: { managers: allManagers, regions: allRegions, stores: allStores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } }, summary, merchandisers, clientSummary, bannerBreakdown, history });
+      res.json({ latestWeek, filters: { managers: allManagers, regions: allRegions, stores: allStores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } }, summary, merchandisers, clientSummary, sfClientSummary, bannerBreakdown, history });
     } catch (error: any) {
       console.error('Pilot report error:', error);
       res.status(500).json({ error: error.message });

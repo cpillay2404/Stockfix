@@ -1,0 +1,131 @@
+Please create a Store Detail Performance Dashboard page for the selected store.
+
+Purpose:
+This page must show all detailed performance for one selected store across both Geo Rep and Stock Fix. It should allow management to understand exactly what was captured, what was fixed, what is outstanding, and what actions are required.
+
+Important layout requirement:
+This page must fit on one screen without vertical scrolling.
+
+Sidebar:
+- Keep the fixed dark navy sidebar.
+- Highlight “Stores” as the active section.
+
+Header:
+- Breadcrumb: “Overview / Stores / [Store Name]”
+- Title: “Store Detail Performance Dashboard”
+- Subtitle: “Geo Rep & Stock Fix Store-Level Monitoring”
+- Show selected week/date range at top right.
+- Include refresh icon/button.
+
+Filters:
+Add compact filters:
+- Manager
+- Region
+- Store
+- Week / Date Range
+
+Store summary card:
+Show:
+- Store name
+- Store code
+- Store type
+- Address or area
+- Manager
+- Region
+- Last visit date
+- Last submission time
+- Overall store status
+- Pilot status
+
+KPI cards:
+Show:
+1. Total Visits
+2. Overall Compliance %
+3. Geo Rep Captures
+4. Stock Fix Issues Logged
+5. Issues Resolved
+6. Average Resolution Time or Outstanding Issues
+
+Main content:
+Create these sections:
+
+1. Geo Rep Detail
+- Compliance %
+- Standards captured
+- Completed vs applicable standards
+- Last capture date
+- Compliance by category:
+  - Availability
+  - Visibility
+  - Pricing
+  - Placement
+  - Promotion
+  - Planogram
+- Geo Rep compliance trend over time
+
+2. Stock Fix Detail
+- Issues logged
+- Open issues
+- Resolved issues
+- Average resolution time
+- Escalation rate
+- Issue type breakdown:
+  - Out of Stock
+  - Pricing Error
+  - Damaged Stock
+  - Planogram Issue
+  - Shelf Gap
+- Issues opened vs resolved trend
+
+3. Geo Rep vs Stock Fix Performance
+- Show a combined chart comparing Geo Rep compliance and Stock Fix resolution rate.
+- Include an insight callout explaining whether strong captures are helping issue resolution.
+
+4. Visit & Submission History
+Table columns:
+- Date
+- Merchandiser
+- System
+- Check-in Time
+- Check-out Time
+- Captures / Issues
+- Compliance %
+- Status
+
+5. Open Stock Fix Issues
+Table columns:
+- Issue ID
+- Issue Type
+- Severity
+- Logged By
+- Logged Date
+- Assigned To
+- SLA
+- Status
+
+6. Latest Captures & Evidence
+Show latest images or evidence placeholders.
+Include:
+- Merchandiser
+- System
+- Category / Issue
+- Timestamp
+- Store area / aisle if available
+
+7. Store Action Summary
+Show recommended actions:
+- Resolve overdue Stock Fix issues.
+- Improve categories below compliance target.
+- Focus on stores/aisles with repeated issues.
+- Maintain strong capture performance.
+- Escalate unresolved issues where SLA is breached.
+
+Visual requirements:
+- Blue for Geo Rep.
+- Orange for Stock Fix.
+- Green for good/resolved.
+- Amber for at risk.
+- Red for overdue/poor.
+- Professional icons only.
+- No emojis.
+- The page must be compact and fit in one viewport.

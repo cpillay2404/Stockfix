@@ -1,0 +1,92 @@
+Please create/improve the Stores tab for the Merchandiser Pilot Dashboard.
+
+Purpose:
+This page must provide store-level performance details across both Geo Rep and Stock Fix. It should allow the user to compare stores, identify poor performing stores, and drill into a selected store.
+
+Important layout requirement:
+The Stores page must fit on one screen without vertical scrolling. Use compact tables and summary cards.
+
+Sidebar:
+- Keep the fixed dark navy sidebar.
+- Highlight “Stores” as the active tab.
+
+Header:
+- Title: “Store Performance Dashboard”
+- Subtitle: “Store-Level Geo Rep & Stock Fix Performance”
+- Show selected week/date range at top right.
+- Include refresh icon/button.
+
+Filters:
+Add a compact filter row:
+- Manager
+- Region
+- Store
+- Store Status
+- Week / Date Range
+
+KPI cards:
+Create one compact KPI row:
+1. Total Pilot Stores
+2. Stores Visited
+3. Stores Not Visited
+4. Average Geo Rep Compliance %
+5. Stock Fix Issues Logged
+6. Stores At Risk
+
+Main content:
+Create a store ranking and comparison view.
+
+Top row:
+1. Store Performance Summary
+   - Bar chart showing top and bottom performing stores.
+   - Compare Geo Rep compliance and Stock Fix completion rate.
+2. Store Status Breakdown
+   - Donut chart or stacked bar showing:
+     - Excellent
+     - Good
+     - At Risk
+     - Poor
+3. Stores Requiring Attention
+   - List of stores with missed visits, low compliance, or overdue Stock Fix issues.
+
+Main table:
+Create a compact store-level table with columns:
+- Store
+- Manager
+- Region
+- Last Visit
+- Geo Rep Compliance %
+- Geo Rep Captures
+- Stock Fix Issues
+- Open Issues
+- Resolution Rate %
+- Status
+- Action
+
+Rules:
+- Show only 8 to 10 stores on the page.
+- Add pagination or “View all stores”.
+- No vertical scrolling on the overview.
+- Each store row should have a “View Detail” action button.
+- Status badges must use:
+  - Green: Excellent / Good
+  - Amber: At Risk
+  - Red: Poor / Missed
+
+Store detail drill-down:
+When clicking a store, it should open a Store Detail Performance Dashboard page showing:
+- Store information
+- Geo Rep detail
+- Stock Fix detail
+- Visit history
+- Open issues
+- Latest captures and evidence
+- Store action summary
+
+Visual requirements:
+- Corporate, clean, and premium.
+- Use blue for Geo Rep.
+- Use orange for Stock Fix.
+- Use professional icons only.
+- No emojis.
+- Compact design that fits in one viewport.

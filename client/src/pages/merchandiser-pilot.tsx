@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 
 // ─── Types ────────────────────────────────────────────────
@@ -21,6 +21,8 @@ interface WeekSnapshot { weekEndingDate: string; repCount: number; totalTasks: n
 interface ClientStat { formName: string; total: number; visited: number; visitRate: number; avgCompliance: number }
 interface BannerStat { banner: string; total: number; visited: number; visitRate: number; avgCompliance: number }
 
+interface SFClientStat { client: string; tasks: number; completed: number; captureRate: number }
+
 interface PilotReport {
   latestWeek: string | null;
   filters: { managers: string[]; regions: string[]; stores: string[]; active: { manager: string | null; region: string | null; store: string | null } };
@@ -32,6 +34,7 @@ interface PilotReport {
   };
   merchandisers: Merchandiser[];
   clientSummary: ClientStat[];
+  sfClientSummary: SFClientStat[];
   bannerBreakdown: BannerStat[];
   history: WeekSnapshot[];
 }
