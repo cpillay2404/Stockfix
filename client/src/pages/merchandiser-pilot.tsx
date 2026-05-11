@@ -78,14 +78,14 @@ function KpiCard({ label, value, sub, iconBg, iconColor, icon }: {
   iconBg: string; iconColor?: string; icon: React.ReactNode;
 }) {
   return (
-    <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '11px 13px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'flex-start', gap: '10px', height: '100%', boxSizing: 'border-box' as const }}>
-      <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: iconBg, color: iconColor || '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+    <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '13px 14px 12px', boxShadow: '0 2px 8px rgba(15,31,61,0.08)', border: '1px solid #e8edf4', borderTop: `3px solid ${iconColor || '#cbd5e1'}`, display: 'flex', alignItems: 'flex-start', gap: '11px', height: '100%', boxSizing: 'border-box' as const }}>
+      <div style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: iconBg, color: iconColor || '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
         {icon}
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: '2px', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
-        <div style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b', lineHeight: 1.1 }}>{value}</div>
-        {sub && <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{sub}</div>}
+        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' as const, letterSpacing: '0.07em', marginBottom: '4px', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+        <div style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', lineHeight: 1.1, letterSpacing: '-0.02em' }}>{value}</div>
+        {sub && <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{sub}</div>}
       </div>
     </div>
   );
@@ -366,13 +366,14 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
   const pilotCoverage = Math.round((summary.activeReps / TOTAL_PILOT) * 100);
 
   const card: React.CSSProperties = {
-    backgroundColor: '#fff', borderRadius: '10px',
-    padding: '12px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
-    overflow: 'hidden', boxSizing: 'border-box' as const,
+    backgroundColor: '#fff', borderRadius: '12px',
+    padding: '13px 16px', boxShadow: '0 2px 8px rgba(15,31,61,0.06)',
+    border: '1px solid #e8edf4', overflow: 'hidden', boxSizing: 'border-box' as const,
   };
   const hdr: React.CSSProperties = {
-    fontSize: '12px', fontWeight: 700, color: '#1e293b',
-    marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0,
+    fontSize: '11px', fontWeight: 700, color: '#374151',
+    textTransform: 'uppercase' as const, letterSpacing: '0.07em',
+    marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0,
   };
 
   return (
@@ -393,7 +394,7 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
 
         {/* Left: GR vs SF Performance rings */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-          <div style={hdr}>GR vs SF Performance</div>
+          <div style={hdr}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#003B71', flexShrink: 0 }} />GR vs SF Performance</div>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flex: 1 }}>
             <div style={{ textAlign: 'center' as const }}>
               <div style={{ position: 'relative', width: '76px', height: '76px', margin: '0 auto' }}>
@@ -428,6 +429,7 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
         {/* Centre: Chart */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
           <div style={hdr}>
+            <span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#003B71', flexShrink: 0 }} />
             Capture Over Time
             <span style={{ fontSize: '10px', fontWeight: 400, color: '#94a3b8' }}>({history.length} wk{history.length !== 1 ? 's' : ''})</span>
           </div>
@@ -455,7 +457,7 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
 
         {/* Right: Compliance by Manager */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-          <div style={hdr}>Compliance by Manager</div>
+          <div style={hdr}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#003B71', flexShrink: 0 }} />Compliance by Manager</div>
           {managerStats.length === 0 ? (
             <div style={{ color: '#94a3b8', fontSize: '12px' }}>No manager data</div>
           ) : (
@@ -482,8 +484,8 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
         {/* Store Performance */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
           <div style={{ ...hdr, justifyContent: 'space-between' }}>
-            Store Performance
-            <span style={{ fontSize: '10px', fontWeight: 400, color: '#2563eb', cursor: 'pointer' }}>Top 5 · View all →</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#475569', flexShrink: 0 }} />Store Performance</span>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: '#2563eb', cursor: 'pointer', letterSpacing: 0 }}>Top 5 · View all →</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 0.8fr 58px 58px 82px', borderBottom: '1px solid #f1f5f9', paddingBottom: '5px', marginBottom: '2px', flexShrink: 0 }}>
             {['Store', 'Manager', 'Region', 'GR', 'SF', 'Status'].map((h, i) => (
@@ -511,7 +513,7 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
 
         {/* Latest Submissions */}
         <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
-          <div style={hdr}>Latest Submissions</div>
+          <div style={hdr}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#F36C21', flexShrink: 0 }} />Latest Submissions</div>
           <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
             {recentActivity.length === 0 ? (
               <div style={{ color: '#94a3b8', fontSize: '12px' }}>No recent completed tasks</div>
@@ -519,7 +521,9 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
               <div>
                 {recentActivity.slice(0, 5).map((a: any, i: number) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: i < 4 ? '1px solid #f1f5f9' : 'none' }}>
-                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', flexShrink: 0 }}>🔧</div>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, color: '#F36C21' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                    </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{tc(a.rep_name)}</div>
                       <div style={{ fontSize: '10px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{a.store_name ? tc(a.store_name) : '—'}</div>
@@ -635,8 +639,9 @@ function RepsView({ data, onSelect, sourceFilter }: { data: PilotReport; onSelec
                     <div style={{ fontSize: '10px', color: '#94a3b8' }}>{m.geoRep.visited}/{m.geoRep.forms} · <span style={{ color: '#0891b2', fontWeight: 600 }}>{m.geoRep.avgCompliance}%</span></div>
                     {m.geoRep.submissions > m.geoRep.visited && (
                       <div title={`${m.geoRep.submissions} submissions but only ${m.geoRep.visited} visits recorded`}
-                        style={{ fontSize: '9px', fontWeight: 700, color: '#f97316', backgroundColor: '#fff7ed', borderRadius: '4px', padding: '1px 5px', marginTop: '1px' }}>
-                        ⚠ {m.geoRep.submissions} sub
+                        style={{ fontSize: '9px', fontWeight: 700, color: '#f97316', backgroundColor: '#fff7ed', borderRadius: '4px', padding: '1px 5px', marginTop: '1px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                        <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="10" x2="12" y2="14"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                        {m.geoRep.submissions} sub
                       </div>
                     )}
                   </>
@@ -686,8 +691,8 @@ function StockFixDashboard({ data, recentActivity }: { data: PilotReport; recent
   const overdue = Math.round(open * 0.32);
 
   const card = (extra?: React.CSSProperties): React.CSSProperties => ({
-    backgroundColor: '#fff', borderRadius: '10px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.07)', overflow: 'hidden',
+    backgroundColor: '#fff', borderRadius: '12px',
+    boxShadow: '0 2px 8px rgba(15,31,61,0.06)', border: '1px solid #e8edf4', overflow: 'hidden',
     boxSizing: 'border-box' as const, ...extra,
   });
 
@@ -738,7 +743,7 @@ function StockFixDashboard({ data, recentActivity }: { data: PilotReport; recent
 
         {/* Resolution Donut */}
         <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#f97316', flexShrink: 0 }}>Resolution Performance</div>
+          <div style={{ padding: '11px 16px', borderBottom: '1px solid #f0f4f8', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '7px' }}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#F36C21', flexShrink: 0 }} />Resolution Performance</div>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '8px 14px' }}>
             <div style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -769,7 +774,7 @@ function StockFixDashboard({ data, recentActivity }: { data: PilotReport; recent
 
         {/* Issues by Brand/Client */}
         <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#f97316', flexShrink: 0 }}>Issues by Brand / Client</div>
+          <div style={{ padding: '11px 16px', borderBottom: '1px solid #f0f4f8', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '7px' }}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#F36C21', flexShrink: 0 }} />Issues by Brand / Client</div>
           <div style={{ flex: 1, minHeight: 0, padding: '8px 14px 6px' }}>
             {sfClientSummary && sfClientSummary.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -788,7 +793,7 @@ function StockFixDashboard({ data, recentActivity }: { data: PilotReport; recent
 
         {/* SLA Status */}
         <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#f97316', flexShrink: 0 }}>SLA Performance</div>
+          <div style={{ padding: '11px 16px', borderBottom: '1px solid #f0f4f8', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '7px' }}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#F36C21', flexShrink: 0 }} />SLA Performance</div>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px', padding: '10px 14px' }}>
             {slaData.map(d => {
               const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
@@ -813,9 +818,9 @@ function StockFixDashboard({ data, recentActivity }: { data: PilotReport; recent
 
         {/* Open Issues by Store */}
         <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
-            <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>Open Issues by Store</span>
-            <span style={{ fontSize: '11px', color: '#94a3b8' }}>{openByStore.filter(s => s.open > 0).length} stores with open tasks</span>
+          <div style={{ padding: '11px 16px', borderBottom: '1px solid #f0f4f8', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', display: 'flex', alignItems: 'center', gap: '7px' }}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#F36C21', flexShrink: 0 }} />Open Issues by Store</span>
+            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 500 }}>{openByStore.filter(s => s.open > 0).length} stores with open tasks</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 70px 70px 65px 75px', padding: '7px 14px', backgroundColor: '#f8fafc', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
             {['Store','Manager','Tasks','Done','Open','Rate'].map(h => (
@@ -843,7 +848,7 @@ function StockFixDashboard({ data, recentActivity }: { data: PilotReport; recent
 
         {/* Latest SF Activity */}
         <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#f97316', flexShrink: 0 }}>Latest SF Activity</div>
+          <div style={{ padding: '11px 16px', borderBottom: '1px solid #f0f4f8', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '7px' }}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#F36C21', flexShrink: 0 }} />Latest SF Activity</div>
           <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
             {(recentActivity || []).length === 0
               ? <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>No recent activity.</div>
@@ -1182,8 +1187,8 @@ function StoresDashboard({ data }: { data: PilotReport }) {
   const needsAttention = [...storePerf].sort((a,b) => a.overallRate - b.overallRate).filter(s => s.overallRate < 70).slice(0, 4);
 
   const card = (extra?: React.CSSProperties): React.CSSProperties => ({
-    backgroundColor: '#fff', borderRadius: '10px',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.07)', overflow: 'hidden',
+    backgroundColor: '#fff', borderRadius: '12px',
+    boxShadow: '0 2px 8px rgba(15,31,61,0.06)', border: '1px solid #e8edf4', overflow: 'hidden',
     boxSizing: 'border-box' as const, ...extra,
   });
 
@@ -1208,7 +1213,7 @@ function StoresDashboard({ data }: { data: PilotReport }) {
 
         {/* Store Performance Bar */}
         <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#1e293b', flexShrink: 0 }}>Store Performance (Top Stores by Compliance)</div>
+          <div style={{ padding: '11px 16px', borderBottom: '1px solid #f0f4f8', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '7px' }}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#2563eb', flexShrink: 0 }} />Store Performance — Top by Compliance</div>
           <div style={{ flex: 1, minHeight: 0, padding: '6px 10px 6px 6px' }}>
             {topStoreChart.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -1227,7 +1232,7 @@ function StoresDashboard({ data }: { data: PilotReport }) {
 
         {/* Status Donut */}
         <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#1e293b', flexShrink: 0 }}>Status Breakdown</div>
+          <div style={{ padding: '11px 16px', borderBottom: '1px solid #f0f4f8', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '7px' }}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#475569', flexShrink: 0 }} />Status Breakdown</div>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px' }}>
             <div style={{ width: '96px', height: '96px', flexShrink: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
@@ -1252,7 +1257,7 @@ function StoresDashboard({ data }: { data: PilotReport }) {
 
         {/* Needs Attention */}
         <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
-          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#dc2626', flexShrink: 0 }}>Requiring Attention</div>
+          <div style={{ padding: '11px 16px', borderBottom: '1px solid #f0f4f8', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '7px' }}><span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#dc2626', flexShrink: 0 }} />Requiring Attention</div>
           <div style={{ flex: 1, overflowY: 'auto' }}>
             {needsAttention.length === 0
               ? <div style={{ padding: '16px', textAlign: 'center', fontSize: '12px', color: '#94a3b8' }}>All stores performing well</div>
@@ -1631,25 +1636,25 @@ export default function MerchandiserPilotPage() {
 
       <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
 
-        {/* ── Header (55px) ── */}
-        <div style={{ flexShrink: 0, height: '55px', backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* ── Header (60px) ── */}
+        <div style={{ flexShrink: 0, height: '60px', backgroundColor: '#fff', borderBottom: '2px solid #f0f4f8', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', boxShadow: '0 1px 4px rgba(15,31,61,0.04)' }}>
           <div>
-            <div style={{ fontSize: '17px', fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>{hdr.title}</div>
-            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+            <div style={{ fontSize: '16px', fontWeight: 700, color: '#0f172a', lineHeight: 1.2, letterSpacing: '-0.01em' }}>{hdr.title}</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '1px' }}>
               {hdr.sub}
-              {lastUpdated && <span style={{ marginLeft: '8px' }}>· Updated {lastUpdated}</span>}
+              {lastUpdated && <span style={{ marginLeft: '8px', color: '#b0bac8' }}>· Updated {lastUpdated}</span>}
             </div>
           </div>
           {data?.latestWeek && (
-            <span style={{ backgroundColor: '#f1f5f9', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', fontWeight: 500, color: '#64748b', flexShrink: 0 }}>
-              Week: {data.latestWeek}
+            <span style={{ backgroundColor: '#eff6ff', border: '1px solid #dbeafe', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, color: '#2563eb', flexShrink: 0, letterSpacing: '0.02em' }}>
+              Week {data.latestWeek}
             </span>
           )}
         </div>
 
         {/* ── Filter bar (44px, list views only) ── */}
         {view === 'list' && data && (
-          <div style={{ flexShrink: 0, height: '44px', backgroundColor: '#fff', borderBottom: '1px solid #f1f5f9', padding: '0 24px', display: 'flex', alignItems: 'center' }}>
+          <div style={{ flexShrink: 0, height: '44px', backgroundColor: '#fafbfc', borderBottom: '1px solid #edf0f5', padding: '0 24px', display: 'flex', alignItems: 'center' }}>
             <FilterBar
               filters={data.filters}
               filterManager={filterManager}
