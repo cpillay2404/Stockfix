@@ -284,7 +284,7 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
   onSelectRep: (m: Merchandiser) => void;
 }) {
   const { summary, merchandisers, history, clientSummary, bannerBreakdown } = data;
-  const TOTAL_PILOT = 26;
+  const TOTAL_PILOT = 18;
 
   // Manager stats
   const managerStats = useMemo(() => {

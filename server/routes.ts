@@ -3040,12 +3040,7 @@ export async function registerRoutes(
         'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
       ];
 
-      // StockFix-only pilot reps (not in the Geo Rep SharePoint file)
-      const STOCKFIX_PILOT_REPS = [
-        'ZEPHANIA ZULU', 'KENNETH NKHOMA', 'OBERT MAKAMO', 'ORELIA DLADLA',
-        'DAWID POTGIETER', 'AYANDA MBONANI', 'JOSEPH MOEMA', 'SUSAN LIVERSAGE',
-      ];
-      const ALL_PILOT_NAMES = [...PILOT_REPS, ...STOCKFIX_PILOT_REPS];
+      const ALL_PILOT_NAMES = PILOT_REPS;
 
       const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
       const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
@@ -3060,7 +3055,7 @@ export async function registerRoutes(
             COUNT(*)::int AS tasks,
             SUM(CASE WHEN action_status='Completed' THEN 1 ELSE 0 END)::int AS completed
           FROM tasks
-          WHERE UPPER(TRIM(rep_name)) = ANY(${ALL_PILOT_NAMES})
+          WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${ALL_PILOT_NAMES.map(n => `'${n}'`).join(',')}]`)}::text[])
           GROUP BY rep_name, store_name, client
           ORDER BY rep_name, store_name, client
         `),
