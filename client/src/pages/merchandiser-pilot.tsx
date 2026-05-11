@@ -34,7 +34,7 @@ interface PilotReport {
   history: WeekSnapshot[];
 }
 
-type NavSection = 'overview' | 'reps' | 'stores' | 'managers' | 'regions';
+type NavSection = 'overview' | 'georep' | 'stockfix' | 'stores' | 'managers' | 'regions' | 'reports' | 'alerts';
 
 // ─── Helpers ──────────────────────────────────────────────
 function tc(s: string) { return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
@@ -103,38 +103,147 @@ function MiniBar({ rate, color }: { rate: number; color: string }) {
   );
 }
 
-// ─── Sidebar ──────────────────────────────────────────────
-const NAV_ITEMS: { key: NavSection; label: string; icon: string }[] = [
-  { key: 'overview',  label: 'Overview',  icon: '▦' },
-  { key: 'reps',      label: 'Reps',      icon: '👤' },
-  { key: 'stores',    label: 'Stores',    icon: '🏪' },
-  { key: 'managers',  label: 'Managers',  icon: '👔' },
-  { key: 'regions',   label: 'Regions',   icon: '🗺' },
+// ─── SVG Icons ────────────────────────────────────────────
+const Icons: Record<string, JSX.Element> = {
+  overview: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+      <rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>
+    </svg>
+  ),
+  georep: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+    </svg>
+  ),
+  stockfix: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+    </svg>
+  ),
+  stores: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+      <polyline points="9 22 9 12 15 12 15 22"/>
+    </svg>
+  ),
+  managers: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+    </svg>
+  ),
+  regions: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="2" y1="12" x2="22" y2="12"/>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+  ),
+  reports: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+  ),
+  alerts: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+      <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+    </svg>
+  ),
+  settings: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  ),
+};
+
+type NavGroup = { items: { key: NavSection; label: string }[] };
+
+const NAV_GROUPS: NavGroup[] = [
+  { items: [
+    { key: 'overview',  label: 'Overview'  },
+    { key: 'georep',    label: 'Geo Rep'   },
+    { key: 'stockfix',  label: 'Stock Fix' },
+    { key: 'stores',    label: 'Stores'    },
+    { key: 'managers',  label: 'Managers'  },
+    { key: 'regions',   label: 'Regions'   },
+  ]},
+  { items: [
+    { key: 'reports',   label: 'Reports'   },
+    { key: 'alerts',    label: 'Alerts'    },
+  ]},
 ];
+
+function NavBtn({ item, active, onNav }: { item: { key: NavSection; label: string }; active: boolean; onNav: (s: NavSection) => void }) {
+  return (
+    <button
+      data-testid={`nav-${item.key}`}
+      onClick={() => onNav(item.key)}
+      style={{
+        width: '100%', display: 'flex', alignItems: 'center', gap: '10px',
+        padding: '9px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer',
+        marginBottom: '2px',
+        backgroundColor: active ? '#2563eb' : 'transparent',
+        color: active ? '#ffffff' : 'rgba(255,255,255,0.5)',
+        fontSize: '13px', fontWeight: active ? 600 : 400,
+        textAlign: 'left' as const, transition: 'all 0.15s',
+      }}
+      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(255,255,255,0.08)'; (e.currentTarget as HTMLElement).style.color = '#fff'; }}
+      onMouseLeave={e => { if (!active) { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.5)'; } }}
+    >
+      <span style={{ width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: active ? 1 : 0.7 }}>
+        {Icons[item.key]}
+      </span>
+      {item.label}
+    </button>
+  );
+}
 
 function Sidebar({ active, onNav, latestWeek }: { active: NavSection; onNav: (s: NavSection) => void; latestWeek: string | null }) {
   return (
-    <div style={{ width: '200px', flexShrink: 0, backgroundColor: '#003B71', minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
-      <div style={{ padding: '20px 16px 16px', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
-        <img src={meridianGroupLogo} alt="Meridian" style={{ height: '28px', objectFit: 'contain' }} />
-        <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)', marginTop: '8px', letterSpacing: '0.05em' }}>PILOT DASHBOARD</div>
+    <div style={{ width: '200px', flexShrink: 0, backgroundColor: '#0f1f3d', minHeight: '100vh', display: 'flex', flexDirection: 'column', position: 'sticky', top: 0 }}>
+      {/* Logo */}
+      <div style={{ padding: '20px 16px 18px' }}>
+        <img src={meridianGroupLogo} alt="Meridian" style={{ height: '26px', objectFit: 'contain' }} />
       </div>
-      <nav style={{ padding: '12px 8px', flex: 1 }}>
-        {NAV_ITEMS.map(item => (
-          <button key={item.key} onClick={() => onNav(item.key)}
-            data-testid={`nav-${item.key}`}
-            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '8px', border: 'none', cursor: 'pointer', marginBottom: '2px', backgroundColor: active === item.key ? 'rgba(255,255,255,0.15)' : 'transparent', color: active === item.key ? '#FFFFFF' : 'rgba(255,255,255,0.55)', fontSize: '13px', fontWeight: active === item.key ? 600 : 400, textAlign: 'left', transition: 'all 0.15s' }}>
-            <span style={{ fontSize: '14px', width: '20px', textAlign: 'center' }}>{item.icon}</span>
-            {item.label}
-          </button>
+
+      {/* Nav groups */}
+      <nav style={{ padding: '0 8px', flex: 1 }}>
+        {NAV_GROUPS.map((group, gi) => (
+          <div key={gi}>
+            {gi > 0 && <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.08)', margin: '10px 4px' }} />}
+            {group.items.map(item => (
+              <NavBtn key={item.key} item={item} active={active === item.key} onNav={onNav} />
+            ))}
+          </div>
         ))}
       </nav>
-      {latestWeek && (
-        <div style={{ padding: '14px 16px', borderTop: '1px solid rgba(255,255,255,0.08)', fontSize: '10px', color: 'rgba(255,255,255,0.3)', letterSpacing: '0.04em' }}>
-          Week ending<br />
-          <span style={{ color: 'rgba(255,255,255,0.55)', fontWeight: 600 }}>{latestWeek}</span>
+
+      {/* Settings */}
+      <div style={{ padding: '0 8px 0' }}>
+        <div style={{ height: '1px', backgroundColor: 'rgba(255,255,255,0.08)', margin: '0 4px 8px' }} />
+        <button style={{ width: '100%', display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '8px', border: 'none', cursor: 'default', backgroundColor: 'transparent', color: 'rgba(255,255,255,0.5)', fontSize: '13px', textAlign: 'left' as const }}>
+          <span style={{ width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: 0.7 }}>{Icons.settings}</span>
+          Settings
+        </button>
+      </div>
+      <div style={{ padding: '12px 14px 16px', borderTop: '1px solid rgba(255,255,255,0.08)', display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
+        <div style={{ width: '32px', height: '32px', borderRadius: '50%', backgroundColor: '#2563eb', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+          M
         </div>
-      )}
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: '12px', fontWeight: 600, color: '#fff', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>Meridian</div>
+          <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.4)' }}>Admin</div>
+        </div>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2" style={{ marginLeft: 'auto', flexShrink: 0 }}>
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </div>
     </div>
   );
 }
@@ -399,9 +508,10 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
 // ─── Reps Table View ──────────────────────────────────────
 type QuickFilter = 'all' | 'top' | 'action' | 'inactive' | 'stockfix' | 'georep';
 
-function RepsView({ data, onSelect }: { data: PilotReport; onSelect: (m: Merchandiser) => void }) {
-  const { summary, merchandisers, clientSummary } = data;
-  const [quickFilter, setQuickFilter] = useState<QuickFilter>('all');
+function RepsView({ data, onSelect, sourceFilter }: { data: PilotReport; onSelect: (m: Merchandiser) => void; sourceFilter?: string }) {
+  const { merchandisers, clientSummary } = data;
+  const defaultFilter: QuickFilter = (sourceFilter as QuickFilter) || 'all';
+  const [quickFilter, setQuickFilter] = useState<QuickFilter>(defaultFilter);
   const [showClients, setShowClients] = useState(false);
 
   const filtered = merchandisers.filter(m => {
@@ -809,11 +919,14 @@ export default function MerchandiserPilotPage() {
       return <TaskDetailView merch={selMerch} storeName={selStore} onBack={() => setView('store')} />;
     }
     if (!data) return null;
-    if (navSection === 'overview') return <OverviewDashboard data={data} recentActivity={recentData?.activity || []} onSelectRep={handleSelectRep} />;
-    if (navSection === 'reps')     return <RepsView data={data} onSelect={m => { handleSelectRep(m); }} />;
-    if (navSection === 'managers') return <ManagersView data={data} onSelectRep={handleSelectRep} />;
-    if (navSection === 'regions')  return <RegionsView data={data} />;
-    if (navSection === 'stores')   return <OverviewDashboard data={data} recentActivity={recentData?.activity || []} onSelectRep={handleSelectRep} />;
+    if (navSection === 'overview')  return <OverviewDashboard data={data} recentActivity={recentData?.activity || []} onSelectRep={handleSelectRep} />;
+    if (navSection === 'georep')    return <RepsView data={data} onSelect={handleSelectRep} sourceFilter="georep" />;
+    if (navSection === 'stockfix')  return <RepsView data={data} onSelect={handleSelectRep} sourceFilter="stockfix" />;
+    if (navSection === 'stores')    return <OverviewDashboard data={data} recentActivity={recentData?.activity || []} onSelectRep={handleSelectRep} />;
+    if (navSection === 'managers')  return <ManagersView data={data} onSelectRep={handleSelectRep} />;
+    if (navSection === 'regions')   return <RegionsView data={data} />;
+    if (navSection === 'reports')   return <RepsView data={data} onSelect={handleSelectRep} />;
+    if (navSection === 'alerts')    return <RepsView data={data} onSelect={handleSelectRep} sourceFilter="action" />;
     return null;
   }
 
