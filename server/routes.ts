@@ -3272,6 +3272,23 @@ export async function registerRoutes(
     }
   });
 
+  // Merchandiser Pilot — recent activity (last completed SF tasks)
+  app.get('/api/pilot-recent', async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT UPPER(rep_name) as rep_name, store_name, client, article_description,
+               action, action_status, action_date, week_ending_date
+        FROM tasks
+        WHERE action_status = 'Completed' AND action_date IS NOT NULL
+        ORDER BY action_date DESC, unique_id DESC
+        LIMIT 20
+      `);
+      res.json({ activity: result.rows });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Pilot Excel upload — parse both tabs, return preview + import into tasks
   app.post('/api/pilot-excel-upload', uploadMemory.single('file'), async (req: any, res) => {
     try {
