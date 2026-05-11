@@ -73,13 +73,13 @@ function RingChart({ rate, color, size = 110, strokeWidth = 11 }: { rate: number
 }
 
 // ─── KPI Card ─────────────────────────────────────────────
-function KpiCard({ label, value, sub, iconBg, icon }: {
+function KpiCard({ label, value, sub, iconBg, iconColor, icon }: {
   label: string; value: string | number; sub?: string;
-  iconBg: string; icon: React.ReactNode;
+  iconBg: string; iconColor?: string; icon: React.ReactNode;
 }) {
   return (
     <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '11px 13px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'flex-start', gap: '10px', height: '100%', boxSizing: 'border-box' as const }}>
-      <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
+      <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: iconBg, color: iconColor || '#64748b', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
         {icon}
       </div>
       <div style={{ minWidth: 0, flex: 1 }}>
@@ -103,7 +103,26 @@ function MiniBar({ rate, color }: { rate: number; color: string }) {
   );
 }
 
-// ─── SVG Icons ────────────────────────────────────────────
+// ─── KPI & Dashboard SVG Icons ────────────────────────────
+const Svg = {
+  tasks:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>,
+  check:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>,
+  open:     () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+  rate:     () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
+  clock:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  brand:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>,
+  store:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  alert:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  visit:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  bar:      () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+  users:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  target:   () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>,
+  wrench:   () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>,
+  clipboard: () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="13" y2="16"/></svg>,
+  trending: () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
+};
+
+// ─── Sidebar SVG Icons ────────────────────────────────────
 const Icons: Record<string, JSX.Element> = {
   overview: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -361,12 +380,12 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
 
       {/* ── Row 1: KPI Cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '10px', flexShrink: 0, height: '84px' }}>
-        <KpiCard label="Active Reps"      value={summary.activeReps}                    sub={`of ${TOTAL_PILOT} pilot reps`}           iconBg="#eff6ff" icon="👥" />
-        <KpiCard label="GR Visit Rate"    value={`${summary.geoRep.visitRate}%`}        sub={`${summary.geoRep.visited}/${summary.geoRep.total} forms`} iconBg="#dbeafe" icon="✅" />
-        <KpiCard label="GR Compliance"    value={`${summary.geoRep.avgCompliance}%`}    sub={`when visited · ${summary.geoRep.submissions} subs`} iconBg="#ede9fe" icon="📊" />
-        <KpiCard label="SF Tasks"         value={summary.stockFix.total.toLocaleString()} sub="total logged"                           iconBg="#fff7ed" icon="🔧" />
-        <KpiCard label="SF Done"          value={summary.stockFix.completed}            sub={`${summary.stockFix.captureRate}% capture`} iconBg="#dcfce7" icon="✔️" />
-        <KpiCard label="Pilot Coverage"   value={`${pilotCoverage}%`}                  sub={`${summary.activeReps} of ${TOTAL_PILOT} active`} iconBg="#fef9c3" icon="🎯" />
+        <KpiCard label="Active Reps"      value={summary.activeReps}                    sub={`of ${TOTAL_PILOT} pilot reps`}           iconBg="#eff6ff" iconColor="#2563eb" icon={<Svg.users />} />
+        <KpiCard label="GR Visit Rate"    value={`${summary.geoRep.visitRate}%`}        sub={`${summary.geoRep.visited}/${summary.geoRep.total} forms`} iconBg="#dbeafe" iconColor="#2563eb" icon={<Svg.visit />} />
+        <KpiCard label="GR Compliance"    value={`${summary.geoRep.avgCompliance}%`}    sub={`when visited · ${summary.geoRep.submissions} subs`} iconBg="#ede9fe" iconColor="#7c3aed" icon={<Svg.clipboard />} />
+        <KpiCard label="SF Tasks"         value={summary.stockFix.total.toLocaleString()} sub="total logged"                           iconBg="#fff7ed" iconColor="#f97316" icon={<Svg.wrench />} />
+        <KpiCard label="SF Done"          value={summary.stockFix.completed}            sub={`${summary.stockFix.captureRate}% capture`} iconBg="#dcfce7" iconColor="#16a34a" icon={<Svg.check />} />
+        <KpiCard label="Pilot Coverage"   value={`${pilotCoverage}%`}                  sub={`${summary.activeReps} of ${TOTAL_PILOT} active`} iconBg="#fef9c3" iconColor="#d97706" icon={<Svg.target />} />
       </div>
 
       {/* ── Row 2: Middle panels ── */}
@@ -541,11 +560,11 @@ function RepsView({ data, onSelect, sourceFilter }: { data: PilotReport; onSelec
 
   const chips: { key: QuickFilter; label: string; count: number }[] = [
     { key: 'all',      label: 'All',              count: merchandisers.length },
-    { key: 'top',      label: '🏆 Top Performers', count: merchandisers.filter(m => m.overallRate >= 80 && (m.stockFix || m.geoRep)).length },
-    { key: 'action',   label: '⚠️ Need Action',    count: merchandisers.filter(m => m.overallRate < 50 && (m.stockFix || m.geoRep)).length },
-    { key: 'stockfix', label: '🟠 StockFix',        count: merchandisers.filter(m => !!m.stockFix).length },
-    { key: 'georep',   label: '🔵 Geo Rep',         count: merchandisers.filter(m => !!m.geoRep).length },
-    { key: 'inactive', label: 'Not Active',         count: merchandisers.filter(m => !m.stockFix && !m.geoRep).length },
+    { key: 'top',      label: 'Top Performers', count: merchandisers.filter(m => m.overallRate >= 80 && (m.stockFix || m.geoRep)).length },
+    { key: 'action',   label: 'Need Action',    count: merchandisers.filter(m => m.overallRate < 50 && (m.stockFix || m.geoRep)).length },
+    { key: 'stockfix', label: 'Stock Fix',      count: merchandisers.filter(m => !!m.stockFix).length },
+    { key: 'georep',   label: 'Geo Rep',        count: merchandisers.filter(m => !!m.geoRep).length },
+    { key: 'inactive', label: 'Not Active',     count: merchandisers.filter(m => !m.stockFix && !m.geoRep).length },
   ];
 
   return (
@@ -657,20 +676,6 @@ function RepsView({ data, onSelect, sourceFilter }: { data: PilotReport; onSelec
   );
 }
 
-// ─── Inline SVG Icon Helpers (no emojis) ─────────────────
-const Svg = {
-  tasks:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>,
-  check:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>,
-  open:   () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
-  rate:   () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
-  clock:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
-  brand:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>,
-  store:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
-  alert:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-  visit:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
-  bar:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
-};
-
 // ─── Stock Fix Dashboard ───────────────────────────────────
 function StockFixDashboard({ data, recentActivity }: { data: PilotReport; recentActivity: any[] }) {
   const { summary, merchandisers, sfClientSummary } = data;
@@ -720,12 +725,12 @@ function StockFixDashboard({ data, recentActivity }: { data: PilotReport; recent
 
       {/* ── KPI Row ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', flexShrink: 0, height: '84px' }}>
-        <KpiCard label="Tasks Logged"    value={total.toLocaleString()}      sub="total SF tasks"         iconBg="#fff7ed" icon={<Svg.tasks />} />
-        <KpiCard label="Completed"       value={completed.toLocaleString()}   sub={`${sf.captureRate}% rate`} iconBg="#dcfce7" icon={<Svg.check />} />
-        <KpiCard label="Open Issues"     value={open.toLocaleString()}        sub="pending resolution"     iconBg="#fee2e2" icon={<Svg.open />} />
-        <KpiCard label="Resolution Rate" value={`${sf.captureRate}%`}        sub="completed / total"      iconBg="#fff7ed" icon={<Svg.rate />} />
-        <KpiCard label="Est. Overdue"    value={overdue.toLocaleString()}     sub="from open tasks"        iconBg="#fee2e2" icon={<Svg.alert />} />
-        <KpiCard label="Top Brand"       value={topClient.length > 10 ? topClient.slice(0,10)+'…' : topClient} sub={sfClientSummary?.[0] ? `${sfClientSummary[0].tasks} tasks` : '—'} iconBg="#ede9fe" icon={<Svg.brand />} />
+        <KpiCard label="Tasks Logged"    value={total.toLocaleString()}      sub="total SF tasks"         iconBg="#fff7ed" iconColor="#f97316" icon={<Svg.tasks />} />
+        <KpiCard label="Completed"       value={completed.toLocaleString()}   sub={`${sf.captureRate}% rate`} iconBg="#dcfce7" iconColor="#16a34a" icon={<Svg.check />} />
+        <KpiCard label="Open Issues"     value={open.toLocaleString()}        sub="pending resolution"     iconBg="#fee2e2" iconColor="#dc2626" icon={<Svg.open />} />
+        <KpiCard label="Resolution Rate" value={`${sf.captureRate}%`}        sub="completed / total"      iconBg="#fff7ed" iconColor="#f97316" icon={<Svg.rate />} />
+        <KpiCard label="Est. Overdue"    value={overdue.toLocaleString()}     sub="from open tasks"        iconBg="#fee2e2" iconColor="#dc2626" icon={<Svg.alert />} />
+        <KpiCard label="Top Brand"       value={topClient.length > 10 ? topClient.slice(0,10)+'…' : topClient} sub={sfClientSummary?.[0] ? `${sfClientSummary[0].tasks} tasks` : '—'} iconBg="#ede9fe" iconColor="#7c3aed" icon={<Svg.brand />} />
       </div>
 
       {/* ── Charts Row ── */}
@@ -959,11 +964,11 @@ function StoreDetailPanel({ storeName, storeData, data, onBack }: {
           <div style={{ fontSize: '10px', color: '#94a3b8' }}>{repsAtStore.length} rep{repsAtStore.length !== 1 ? 's' : ''} · Last visit: {lastDate ? fmtDate(lastDate) : 'N/A'}</div>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '10px' }}>
-          <KpiCard label="GR Forms"     value={`${grVisited}/${grTotal}`}              sub="visited/total"       iconBg="#dbeafe" icon={<Svg.visit />} />
-          <KpiCard label="GR Compliance" value={grComp > 0 ? `${grComp}%` : '—'}      sub="avg when visited"    iconBg="#ede9fe" icon={<Svg.rate />} />
-          <KpiCard label="SF Tasks"     value={sfTotal.toLocaleString()}               sub="total logged"        iconBg="#fff7ed" icon={<Svg.tasks />} />
-          <KpiCard label="SF Resolved"  value={sfDone.toLocaleString()}                sub={`${sfRate}% rate`}   iconBg="#dcfce7" icon={<Svg.check />} />
-          <KpiCard label="Open Issues"  value={sfOpen.toLocaleString()}                sub="pending"             iconBg="#fee2e2" icon={<Svg.open />} />
+          <KpiCard label="GR Forms"     value={`${grVisited}/${grTotal}`}              sub="visited/total"       iconBg="#dbeafe" iconColor="#2563eb" icon={<Svg.visit />} />
+          <KpiCard label="GR Compliance" value={grComp > 0 ? `${grComp}%` : '—'}      sub="avg when visited"    iconBg="#ede9fe" iconColor="#2563eb" icon={<Svg.rate />} />
+          <KpiCard label="SF Tasks"     value={sfTotal.toLocaleString()}               sub="total logged"        iconBg="#fff7ed" iconColor="#f97316" icon={<Svg.tasks />} />
+          <KpiCard label="SF Resolved"  value={sfDone.toLocaleString()}                sub={`${sfRate}% rate`}   iconBg="#dcfce7" iconColor="#16a34a" icon={<Svg.check />} />
+          <KpiCard label="Open Issues"  value={sfOpen.toLocaleString()}                sub="pending"             iconBg="#fee2e2" iconColor="#dc2626" icon={<Svg.open />} />
         </div>
       </div>
 
@@ -1190,12 +1195,12 @@ function StoresDashboard({ data }: { data: PilotReport }) {
 
       {/* KPI Row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', flexShrink: 0, height: '84px' }}>
-        <KpiCard label="Pilot Stores"      value={storePerf.length}           sub="total stores"        iconBg="#dbeafe" icon={<Svg.store />} />
-        <KpiCard label="Stores Visited"    value={visited}                    sub="with activity"       iconBg="#dcfce7" icon={<Svg.check />} />
-        <KpiCard label="Not Visited"       value={notVisited}                 sub="no activity logged"  iconBg="#fee2e2" icon={<Svg.open />} />
-        <KpiCard label="Avg GR Compliance" value={avgComp > 0 ? `${avgComp}%` : '—'} sub="when visited" iconBg="#ede9fe" icon={<Svg.rate />} />
-        <KpiCard label="SF Issues Logged"  value={sfIssues.toLocaleString()}  sub="total SF tasks"      iconBg="#fff7ed" icon={<Svg.tasks />} />
-        <KpiCard label="Stores At Risk"    value={atRisk}                     sub="below 70% rate"      iconBg="#fee2e2" icon={<Svg.alert />} />
+        <KpiCard label="Pilot Stores"      value={storePerf.length}           sub="total stores"        iconBg="#dbeafe" iconColor="#2563eb" icon={<Svg.store />} />
+        <KpiCard label="Stores Visited"    value={visited}                    sub="with activity"       iconBg="#dcfce7" iconColor="#16a34a" icon={<Svg.check />} />
+        <KpiCard label="Not Visited"       value={notVisited}                 sub="no activity logged"  iconBg="#fee2e2" iconColor="#dc2626" icon={<Svg.open />} />
+        <KpiCard label="Avg GR Compliance" value={avgComp > 0 ? `${avgComp}%` : '—'} sub="when visited" iconBg="#ede9fe" iconColor="#2563eb" icon={<Svg.rate />} />
+        <KpiCard label="SF Issues Logged"  value={sfIssues.toLocaleString()}  sub="total SF tasks"      iconBg="#fff7ed" iconColor="#f97316" icon={<Svg.tasks />} />
+        <KpiCard label="Stores At Risk"    value={atRisk}                     sub="below 70% rate"      iconBg="#fee2e2" iconColor="#dc2626" icon={<Svg.alert />} />
       </div>
 
       {/* Charts Row */}
