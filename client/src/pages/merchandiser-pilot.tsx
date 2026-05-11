@@ -1500,73 +1500,124 @@ function ManagersView({ data, onSelectRep }: { data: PilotReport; onSelectRep: (
       if (!map.has(key)) map.set(key, { name: key, reps: [], grForms: 0, grVisited: 0, sfTasks: 0, sfDone: 0 });
       const s = map.get(key)!;
       s.reps.push(m);
-      if (m.geoRep) { s.grForms += m.geoRep.forms; s.grVisited += m.geoRep.visited; }
-      if (m.stockFix) { s.sfTasks += m.stockFix.tasks; s.sfDone += m.stockFix.completed; }
+      if (m.geoRep)   { s.grForms += m.geoRep.forms;   s.grVisited += m.geoRep.visited; }
+      if (m.stockFix) { s.sfTasks += m.stockFix.tasks; s.sfDone    += m.stockFix.completed; }
     });
     return [...map.values()]
-      .map(s => ({ ...s, overall: (s.grForms + s.sfTasks) > 0 ? Math.round(((s.grVisited + s.sfDone) / (s.grForms + s.sfTasks)) * 100) : 0 }))
+      .map(s => ({
+        ...s,
+        grRate:  s.grForms > 0  ? Math.round((s.grVisited / s.grForms) * 100) : 0,
+        sfRate:  s.sfTasks > 0  ? Math.round((s.sfDone   / s.sfTasks) * 100) : 0,
+        overall: (s.grForms + s.sfTasks) > 0 ? Math.round(((s.grVisited + s.sfDone) / (s.grForms + s.sfTasks)) * 100) : 0,
+      }))
       .sort((a, b) => b.overall - a.overall);
   }, [data.merchandisers]);
 
-  const avgOverall = managerMap.length > 0 ? Math.round(managerMap.reduce((s, m) => s + m.overall, 0) / managerMap.length) : 0;
-  const best = managerMap[0];
-  const worst = managerMap[managerMap.length - 1];
+  const totalGrForms = managerMap.reduce((s, m) => s + m.grForms, 0);
+  const totalGrVisit = managerMap.reduce((s, m) => s + m.grVisited, 0);
+  const totalSfTasks = managerMap.reduce((s, m) => s + m.sfTasks, 0);
+  const totalSfDone  = managerMap.reduce((s, m) => s + m.sfDone, 0);
+  const avgOverall   = managerMap.length > 0 ? Math.round(managerMap.reduce((s, m) => s + m.overall, 0) / managerMap.length) : 0;
+  const worst        = managerMap[managerMap.length - 1];
+
+  const card: React.CSSProperties = { backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(15,31,61,0.06)', border: '1px solid #e8edf4', overflow: 'hidden', boxSizing: 'border-box' as const };
+  const panelHdr: React.CSSProperties = { padding: '11px 16px', borderBottom: '1px solid #f0f4f8', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '7px' };
+  const dot = (c: string) => <span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: c, flexShrink: 0 }} />;
+  const miniBar = (pct: number, color: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', justifyContent: 'center' }}>
+      <div style={{ width: '44px', height: '5px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', backgroundColor: color, borderRadius: '3px' }} />
+      </div>
+      <span style={{ fontSize: '11px', fontWeight: 700, color: rateColor(pct), minWidth: '28px' }}>{pct}%</span>
+    </div>
+  );
+  const COLS = '2fr 52px 96px 88px 96px 88px 96px 100px 22px';
 
   return (
-    <div>
-      {/* KPI summary row */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' as const }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '10px' }}>
+
+      {/* KPI Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '10px', flexShrink: 0, height: '84px' }}>
         {[
-          { label: 'Total Managers', value: managerMap.length, color: '#1e293b', bg: '#f8fafc', border: '#e8edf4' },
-          { label: 'Avg Compliance', value: `${avgOverall}%`, color: rateColor(avgOverall), bg: '#f8fafc', border: '#e8edf4' },
-          { label: 'Top Performer', value: best ? `${best.name} (${best.overall}%)` : '—', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-          { label: 'Needs Attention', value: worst && worst.overall < 60 ? `${worst.name} (${worst.overall}%)` : 'All on track', color: worst && worst.overall < 60 ? '#dc2626' : '#16a34a', bg: worst && worst.overall < 60 ? '#fee2e2' : '#f0fdf4', border: worst && worst.overall < 60 ? '#fca5a5' : '#bbf7d0' },
-        ].map(s => (
-          <div key={s.label} style={{ backgroundColor: s.bg, borderRadius: '10px', padding: '12px 18px', border: `1px solid ${s.border}`, flex: 1, minWidth: '140px' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: '4px' }}>{s.label}</div>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: s.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{s.value}</div>
+          { label: 'Managers',       value: String(managerMap.length),                sub: 'line managers',        iconBg: '#eff6ff', iconColor: '#2563eb',  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+          { label: 'Avg Compliance', value: `${avgOverall}%`,                          sub: 'across all managers',  iconBg: '#f8fafc', iconColor: rateColor(avgOverall), icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg> },
+          { label: 'GR Forms',       value: `${totalGrVisit}/${totalGrForms}`,          sub: `${totalGrForms > 0 ? Math.round(totalGrVisit/totalGrForms*100) : 0}% visit rate`, iconBg: '#dbeafe', iconColor: '#2563eb', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> },
+          { label: 'SF Tasks',       value: `${totalSfDone}/${totalSfTasks}`,           sub: `${totalSfTasks > 0 ? Math.round(totalSfDone/totalSfTasks*100) : 0}% completion`, iconBg: '#fff7ed', iconColor: '#f97316', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
+          { label: 'Attention',      value: worst && worst.overall < 60 ? worst.name.split(' ')[0] : 'All Good', sub: worst && worst.overall < 60 ? `${worst.overall}% overall` : 'no critical flags', iconBg: worst && worst.overall < 60 ? '#fee2e2' : '#f0fdf4', iconColor: worst && worst.overall < 60 ? '#dc2626' : '#16a34a', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg> },
+        ].map(k => (
+          <div key={k.label} style={{ ...card, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', overflow: 'visible' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '9px', backgroundColor: k.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: k.iconColor, flexShrink: 0 }}>{k.icon}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{k.label}</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{k.value}</div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{k.sub}</div>
+            </div>
           </div>
         ))}
       </div>
 
-    <div style={{ backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(15,31,61,0.06)', border: '1px solid #e8edf4', overflow: 'hidden' }}>
-      <div style={{ padding: '12px 18px', borderBottom: '1px solid #f0f4f8', display: 'flex', alignItems: 'center', gap: '7px', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>
-        <span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#003B71' }} />
-        Compliance by Manager
+      {/* Manager Table */}
+      <div style={{ flex: 1, minHeight: 0, ...card, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ ...panelHdr, justifyContent: 'space-between' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>{dot('#003B71')}Performance by Manager</span>
+          <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 400, letterSpacing: 0 }}>{managerMap.length} managers · click row to expand reps</span>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '7px 16px', backgroundColor: '#f8fafc', borderBottom: '1px solid #f0f4f8', flexShrink: 0 }}>
+          {[['Manager','left'],['Reps','center'],['GR Vis/Tot','center'],['GR Rate','center'],['SF Done/Tot','center'],['SF Rate','center'],['Overall','center'],['Status','center'],['','center']].map(([h, a]) => (
+            <div key={h} style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.05em', textAlign: a as any }}>{h}</div>
+          ))}
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          {managerMap.map(mgr => {
+            const st = rateStatus(mgr.overall);
+            const expanded = expandedMgr === mgr.name;
+            return (
+              <div key={mgr.name}>
+                <div onClick={() => setExpandedMgr(expanded ? null : mgr.name)}
+                  onMouseEnter={e => { if (!expanded) (e.currentTarget as HTMLElement).style.backgroundColor = '#f8fafc'; }}
+                  onMouseLeave={e => { if (!expanded) (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; }}
+                  style={{ display: 'grid', gridTemplateColumns: COLS, padding: '12px 16px', borderBottom: '1px solid #f8fafc', cursor: 'pointer', alignItems: 'center', backgroundColor: expanded ? '#f8fafc' : '#fff', transition: 'background-color 0.1s' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{mgr.name}</div>
+                  <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>{mgr.reps.length}</div>
+                  <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#2563eb' }}>{mgr.grVisited}/{mgr.grForms || 0}</div>
+                  <div>{mgr.grForms > 0 ? miniBar(mgr.grRate, '#2563eb') : <div style={{ textAlign: 'center', color: '#cbd5e1' }}>—</div>}</div>
+                  <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#f97316' }}>{mgr.sfDone}/{mgr.sfTasks || 0}</div>
+                  <div>{mgr.sfTasks > 0 ? miniBar(mgr.sfRate, '#f97316') : <div style={{ textAlign: 'center', color: '#cbd5e1' }}>—</div>}</div>
+                  <div style={{ textAlign: 'center' }}><span style={{ fontSize: '14px', fontWeight: 800, color: rateColor(mgr.overall) }}>{mgr.overall}%</span></div>
+                  <div style={{ textAlign: 'center' }}><span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px', backgroundColor: st.bg, color: st.color }}>{st.label}</span></div>
+                  <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>{expanded ? '▲' : '▼'}</div>
+                </div>
+                {expanded && mgr.reps.filter(r => r.stockFix || r.geoRep).map(rep => {
+                  const rGrRate = rep.geoRep?.visitRate ?? 0;
+                  const rSfRate = rep.stockFix?.captureRate ?? 0;
+                  return (
+                    <div key={rep.name} onClick={() => onSelectRep(rep)}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#f1f5f9'}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#fafafa'}
+                      style={{ display: 'grid', gridTemplateColumns: COLS, padding: '9px 16px 9px 30px', borderBottom: '1px solid #f8fafc', cursor: 'pointer', alignItems: 'center', backgroundColor: '#fafafa' }}>
+                      <div>
+                        <div style={{ fontSize: '12px', color: '#1e293b', fontWeight: 500 }}>{tc(rep.name)}</div>
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '2px' }}>
+                          {rep.geoRep   && <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '3px', backgroundColor: '#dbeafe', color: '#2563eb' }}>GR</span>}
+                          {rep.stockFix && <span style={{ fontSize: '9px', fontWeight: 700, padding: '1px 5px', borderRadius: '3px', backgroundColor: '#fff7ed', color: '#f97316' }}>SF</span>}
+                        </div>
+                      </div>
+                      <div />
+                      <div style={{ textAlign: 'center', fontSize: '11px', color: '#2563eb' }}>{rep.geoRep ? `${rep.geoRep.visited}/${rep.geoRep.forms}` : '—'}</div>
+                      <div style={{ textAlign: 'center' }}>{rep.geoRep ? <span style={{ fontSize: '11px', fontWeight: 700, color: rateColor(rGrRate) }}>{rGrRate}%</span> : <span style={{ color: '#cbd5e1' }}>—</span>}</div>
+                      <div style={{ textAlign: 'center', fontSize: '11px', color: '#f97316' }}>{rep.stockFix ? `${rep.stockFix.completed}/${rep.stockFix.tasks}` : '—'}</div>
+                      <div style={{ textAlign: 'center' }}>{rep.stockFix ? <span style={{ fontSize: '11px', fontWeight: 700, color: rateColor(rSfRate) }}>{rSfRate}%</span> : <span style={{ color: '#cbd5e1' }}>—</span>}</div>
+                      <div style={{ textAlign: 'center' }}><span style={{ fontSize: '12px', fontWeight: 700, color: rateColor(rep.overallRate) }}>{rep.overallRate}%</span></div>
+                      <div />
+                      <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>›</div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })}
+        </div>
       </div>
-      {managerMap.map((mgr, i) => {
-        const st = rateStatus(mgr.overall);
-        const expanded = expandedMgr === mgr.name;
-        return (
-          <div key={mgr.name}>
-            <div onClick={() => setExpandedMgr(expanded ? null : mgr.name)}
-              style={{ display: 'grid', gridTemplateColumns: '1.5fr 80px 80px 90px 100px 30px', padding: '13px 18px', borderBottom: '1px solid #f8fafc', cursor: 'pointer', alignItems: 'center', backgroundColor: expanded ? '#f8fafc' : '#fff', transition: 'background-color 0.12s' }}>
-              <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{mgr.name} <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 400 }}>({mgr.reps.length} reps)</span></div>
-              <div style={{ fontSize: '12px', color: '#2563eb', fontWeight: 600, textAlign: 'center' }}>{mgr.grVisited}/{mgr.grForms}</div>
-              <div style={{ fontSize: '12px', color: '#F36C21', fontWeight: 600, textAlign: 'center' }}>{mgr.sfDone}/{mgr.sfTasks}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <div style={{ flex: 1, height: '6px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}><div style={{ width: `${mgr.overall}%`, height: '100%', backgroundColor: rateColor(mgr.overall) }} /></div>
-              </div>
-              <div style={{ textAlign: 'center' }}><span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: st.bg, color: st.color }}>{mgr.overall}% · {st.label}</span></div>
-              <div style={{ textAlign: 'right', color: '#94a3b8' }}>{expanded ? '▲' : '▼'}</div>
-            </div>
-            {expanded && mgr.reps.filter(r => r.stockFix || r.geoRep).map(rep => (
-              <div key={rep.name} onClick={() => onSelectRep(rep)}
-                style={{ display: 'grid', gridTemplateColumns: '1.5fr 80px 80px 90px 100px 30px', padding: '10px 18px 10px 36px', borderBottom: '1px solid #f8fafc', cursor: 'pointer', alignItems: 'center', backgroundColor: '#fafafa' }}
-                onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#f1f5f9'}
-                onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#fafafa'}>
-                <div style={{ fontSize: '12px', color: '#475569' }}>{tc(rep.name)}</div>
-                <div style={{ fontSize: '12px', color: '#2563eb', textAlign: 'center' }}>{rep.geoRep ? `${rep.geoRep.visited}/${rep.geoRep.forms}` : '—'}</div>
-                <div style={{ fontSize: '12px', color: '#F36C21', textAlign: 'center' }}>{rep.stockFix ? `${rep.stockFix.completed}/${rep.stockFix.tasks}` : '—'}</div>
-                <div />
-                <div style={{ textAlign: 'center' }}><span style={{ fontSize: '12px', fontWeight: 700, color: rateColor(rep.overallRate) }}>{rep.overallRate}%</span></div>
-                <div style={{ textAlign: 'right', color: '#94a3b8', fontSize: '14px' }}>›</div>
-              </div>
-            ))}
-          </div>
-        );
-      })}
-    </div>
     </div>
   );
 }
@@ -1580,54 +1631,119 @@ function RegionsView({ data }: { data: PilotReport }) {
       if (!map.has(key)) map.set(key, { name: key, reps: 0, grForms: 0, grVisited: 0, sfTasks: 0, sfDone: 0 });
       const s = map.get(key)!;
       s.reps++;
-      if (m.geoRep) { s.grForms += m.geoRep.forms; s.grVisited += m.geoRep.visited; }
-      if (m.stockFix) { s.sfTasks += m.stockFix.tasks; s.sfDone += m.stockFix.completed; }
+      if (m.geoRep)   { s.grForms += m.geoRep.forms;   s.grVisited += m.geoRep.visited; }
+      if (m.stockFix) { s.sfTasks += m.stockFix.tasks; s.sfDone    += m.stockFix.completed; }
     });
     return [...map.values()]
-      .map(s => ({ ...s, overall: (s.grForms + s.sfTasks) > 0 ? Math.round(((s.grVisited + s.sfDone) / (s.grForms + s.sfTasks)) * 100) : 0 }))
+      .map(s => ({
+        ...s,
+        grRate:  s.grForms > 0  ? Math.round((s.grVisited / s.grForms) * 100) : 0,
+        sfRate:  s.sfTasks > 0  ? Math.round((s.sfDone   / s.sfTasks) * 100) : 0,
+        overall: (s.grForms + s.sfTasks) > 0 ? Math.round(((s.grVisited + s.sfDone) / (s.grForms + s.sfTasks)) * 100) : 0,
+      }))
       .sort((a, b) => b.overall - a.overall);
   }, [data.merchandisers]);
 
-  const avgOverall = regionMap.length > 0 ? Math.round(regionMap.reduce((s, r) => s + r.overall, 0) / regionMap.length) : 0;
+  const totalReps  = regionMap.reduce((s, r) => s + r.reps, 0);
+  const grRegions  = regionMap.filter(r => r.grForms > 0);
+  const sfRegions  = regionMap.filter(r => r.sfTasks > 0);
+  const avgGrRate  = grRegions.length > 0 ? Math.round(grRegions.reduce((s, r) => s + r.grRate, 0) / grRegions.length) : 0;
+  const avgSfRate  = sfRegions.length > 0 ? Math.round(sfRegions.reduce((s, r) => s + r.sfRate, 0) / sfRegions.length) : 0;
+
+  const card: React.CSSProperties = { backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(15,31,61,0.06)', border: '1px solid #e8edf4', overflow: 'hidden', boxSizing: 'border-box' as const };
+  const panelHdr: React.CSSProperties = { padding: '11px 16px', borderBottom: '1px solid #f0f4f8', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em', flexShrink: 0, display: 'flex', alignItems: 'center', gap: '7px' };
+  const dot = (c: string) => <span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: c, flexShrink: 0 }} />;
+  const miniBar = (pct: number, color: string) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', justifyContent: 'center' }}>
+      <div style={{ width: '44px', height: '5px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+        <div style={{ width: `${pct}%`, height: '100%', backgroundColor: color, borderRadius: '3px' }} />
+      </div>
+      <span style={{ fontSize: '11px', fontWeight: 700, color: rateColor(pct), minWidth: '28px' }}>{pct}%</span>
+    </div>
+  );
+  const COLS = '2fr 52px 90px 96px 90px 96px 96px 96px';
+  const barData = regionMap.map(r => ({ name: r.name.length > 12 ? r.name.slice(0, 11) + '…' : r.name, 'GR': r.grRate, 'SF': r.sfRate }));
 
   return (
-    <div>
-      {/* KPI summary row */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' as const }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '10px' }}>
+
+      {/* KPI Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '10px', flexShrink: 0, height: '84px' }}>
         {[
-          { label: 'Total Regions',  value: regionMap.length,    color: '#1e293b',            bg: '#f8fafc', border: '#e8edf4' },
-          { label: 'Avg Compliance', value: `${avgOverall}%`,    color: rateColor(avgOverall), bg: '#f8fafc', border: '#e8edf4' },
-          { label: 'Best Region',    value: regionMap[0] ? `${regionMap[0].name} (${regionMap[0].overall}%)` : '—', color: '#16a34a', bg: '#f0fdf4', border: '#bbf7d0' },
-          { label: 'Total Reps',     value: regionMap.reduce((s, r) => s + r.reps, 0), color: '#2563eb', bg: '#eff6ff', border: '#dbeafe' },
-        ].map(s => (
-          <div key={s.label} style={{ backgroundColor: s.bg, borderRadius: '10px', padding: '12px 18px', border: `1px solid ${s.border}`, flex: 1, minWidth: '140px' }}>
-            <div style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: '4px' }}>{s.label}</div>
-            <div style={{ fontSize: '15px', fontWeight: 700, color: s.color, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{s.value}</div>
+          { label: 'Regions',      value: String(regionMap.length), sub: 'active regions',          iconBg: '#eff6ff', iconColor: '#2563eb',  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg> },
+          { label: 'Total Reps',   value: String(totalReps),         sub: 'across all regions',     iconBg: '#f8fafc', iconColor: '#64748b',  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg> },
+          { label: 'Avg GR Rate',  value: `${avgGrRate}%`,           sub: 'visit rate avg',         iconBg: '#dbeafe', iconColor: '#2563eb',  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg> },
+          { label: 'Avg SF Rate',  value: `${avgSfRate}%`,           sub: 'task completion avg',    iconBg: '#fff7ed', iconColor: '#f97316',  icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg> },
+          { label: 'Best Region',  value: regionMap[0]?.name || '—', sub: regionMap[0] ? `${regionMap[0].overall}% overall` : 'no data', iconBg: '#f0fdf4', iconColor: '#16a34a', icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> },
+        ].map(k => (
+          <div key={k.label} style={{ ...card, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '12px', overflow: 'visible' }}>
+            <div style={{ width: 36, height: 36, borderRadius: '9px', backgroundColor: k.iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: k.iconColor, flexShrink: 0 }}>{k.icon}</div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{k.label}</div>
+              <div style={{ fontSize: '16px', fontWeight: 800, color: '#0f172a', lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{k.value}</div>
+              <div style={{ fontSize: '10px', color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{k.sub}</div>
+            </div>
           </div>
         ))}
       </div>
 
-    <div style={{ backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(15,31,61,0.06)', border: '1px solid #e8edf4', overflow: 'hidden' }}>
-      <div style={{ padding: '12px 18px', borderBottom: '1px solid #f0f4f8', display: 'flex', alignItems: 'center', gap: '7px', fontSize: '11px', fontWeight: 700, color: '#0f172a', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>
-        <span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: '#003B71' }} />
-        Compliance by Region
-      </div>
-      {regionMap.map((reg, i) => {
-        const st = rateStatus(reg.overall);
-        return (
-          <div key={reg.name} style={{ display: 'grid', gridTemplateColumns: '1.5fr 80px 80px 1fr 120px', padding: '14px 18px', borderBottom: i < regionMap.length - 1 ? '1px solid #f8fafc' : 'none', alignItems: 'center' }}>
-            <div style={{ fontSize: '13px', fontWeight: 600, color: '#1e293b' }}>{reg.name} <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: 400 }}>({reg.reps} reps)</span></div>
-            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '11px', color: '#94a3b8' }}>Geo Rep</div><div style={{ fontSize: '13px', fontWeight: 700, color: '#2563eb' }}>{reg.grVisited}/{reg.grForms}</div></div>
-            <div style={{ textAlign: 'center' }}><div style={{ fontSize: '11px', color: '#94a3b8' }}>StockFix</div><div style={{ fontSize: '13px', fontWeight: 700, color: '#F36C21' }}>{reg.sfDone}/{reg.sfTasks}</div></div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '0 12px' }}>
-              <div style={{ flex: 1, height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}><div style={{ width: `${reg.overall}%`, height: '100%', backgroundColor: rateColor(reg.overall) }} /></div>
-              <span style={{ fontSize: '14px', fontWeight: 700, color: rateColor(reg.overall), minWidth: '38px' }}>{reg.overall}%</span>
-            </div>
-            <div style={{ textAlign: 'right' }}><span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', backgroundColor: st.bg, color: st.color }}>{st.label}</span></div>
+      {/* Main panels */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: '10px', flex: 1, minHeight: 0 }}>
+
+        {/* Region Table */}
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ ...panelHdr, justifyContent: 'space-between' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>{dot('#003B71')}Performance by Region</span>
+            <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: 400, letterSpacing: 0 }}>{regionMap.length} regions</span>
           </div>
-        );
-      })}
-    </div>
+          <div style={{ display: 'grid', gridTemplateColumns: COLS, padding: '7px 16px', backgroundColor: '#f8fafc', borderBottom: '1px solid #f0f4f8', flexShrink: 0 }}>
+            {[['Region','left'],['Reps','center'],['GR Vis/Tot','center'],['GR Rate','center'],['SF Done/Tot','center'],['SF Rate','center'],['Overall','center'],['Status','center']].map(([h, a]) => (
+              <div key={h} style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.05em', textAlign: a as any }}>{h}</div>
+            ))}
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {regionMap.map((reg, i) => {
+              const st = rateStatus(reg.overall);
+              return (
+                <div key={reg.name} style={{ display: 'grid', gridTemplateColumns: COLS, padding: '13px 16px', borderBottom: i < regionMap.length - 1 ? '1px solid #f8fafc' : 'none', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>{reg.name}</div>
+                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>{reg.reps} reps</div>
+                  </div>
+                  <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 600, color: '#64748b' }}>{reg.reps}</div>
+                  <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#2563eb' }}>{reg.grVisited}/{reg.grForms}</div>
+                  <div>{reg.grForms > 0 ? miniBar(reg.grRate, '#2563eb') : <div style={{ textAlign: 'center', color: '#cbd5e1' }}>—</div>}</div>
+                  <div style={{ textAlign: 'center', fontSize: '12px', fontWeight: 700, color: '#f97316' }}>{reg.sfDone}/{reg.sfTasks}</div>
+                  <div>{reg.sfTasks > 0 ? miniBar(reg.sfRate, '#f97316') : <div style={{ textAlign: 'center', color: '#cbd5e1' }}>—</div>}</div>
+                  <div style={{ textAlign: 'center' }}><span style={{ fontSize: '14px', fontWeight: 800, color: rateColor(reg.overall) }}>{reg.overall}%</span></div>
+                  <div style={{ textAlign: 'center' }}><span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px', backgroundColor: st.bg, color: st.color }}>{st.label}</span></div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* GR vs SF Rate Chart */}
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={panelHdr}>{dot('#475569')}Rate Comparison</div>
+          <div style={{ flex: 1, minHeight: 0, padding: '8px 0 8px 0' }}>
+            {barData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={barData} layout="vertical" margin={{ top: 4, right: 48, bottom: 4, left: 4 }}>
+                  <XAxis type="number" domain={[0, 100]} hide />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#475569' }} width={80} />
+                  <Tooltip formatter={(v: any, name: string) => [`${v}%`, name === 'GR' ? 'Geo Rep' : 'Stock Fix']} contentStyle={{ fontSize: 11 }} />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: '10px', paddingTop: '4px' }} formatter={(v: string) => v === 'GR' ? 'Geo Rep' : 'Stock Fix'} />
+                  <Bar dataKey="GR" fill="#2563eb" radius={[0,3,3,0]} barSize={7} label={{ position: 'right', fontSize: 10, fill: '#94a3b8', formatter: (v: any) => v > 0 ? `${v}%` : '' }} />
+                  <Bar dataKey="SF" fill="#f97316" radius={[0,3,3,0]} barSize={7} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '12px' }}>No data</div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
@@ -1914,7 +2030,7 @@ function TaskDetailView({ merch, storeName, onBack }: { merch: Merchandiser; sto
   const tasks = sfData?.tasks || [];
   const done = tasks.filter((t: any) => t.action_status === 'Completed');
   const pending = tasks.filter((t: any) => t.action_status !== 'Completed');
-  const card: React.CSSProperties = { backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', overflow: 'hidden', marginBottom: '16px' };
+  const card: React.CSSProperties = { backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(15,31,61,0.06)', border: '1px solid #e8edf4', overflow: 'hidden', marginBottom: '16px' };
 
   return (
     <div>
@@ -2019,7 +2135,7 @@ export default function MerchandiserPilotPage() {
   });
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : null;
-  const isDashboardScreen = ['overview', 'georep', 'stockfix', 'stores'].includes(navSection) && view === 'list';
+  const isDashboardScreen = ['overview', 'georep', 'stockfix', 'stores', 'managers', 'regions', 'reports', 'alerts'].includes(navSection) && view === 'list';
 
   const headerMeta: Record<string, { title: string; sub: string }> = {
     overview:  { title: 'Merchandiser Pilot Dashboard',      sub: 'Geo Rep & Stock Fix Monitoring' },
