@@ -73,10 +73,31 @@ function Breadcrumb({ items, onBack }: { items: string[]; onBack: () => void }) 
 }
 
 // ─── Merchandiser List View ────────────────────────────────
+type QuickFilter = 'all' | 'top' | 'action' | 'inactive' | 'stockfix' | 'georep';
+
 function MerchandiserListView({ data, onSelect }: { data: PilotReport; onSelect: (m: Merchandiser) => void }) {
   const { summary, merchandisers, history, clientSummary } = data;
-  const [showHistory, setShowHistory] = useState(false);
-  const [showClients, setShowClients] = useState(false);
+  const [showHistory, setShowHistory]   = useState(false);
+  const [showClients, setShowClients]   = useState(false);
+  const [quickFilter, setQuickFilter]   = useState<QuickFilter>('all');
+
+  const filtered = merchandisers.filter(m => {
+    if (quickFilter === 'top')      return m.overallRate >= 80 && (m.stockFix || m.geoRep);
+    if (quickFilter === 'action')   return m.overallRate < 50  &&  (m.stockFix || m.geoRep);
+    if (quickFilter === 'inactive') return !m.stockFix && !m.geoRep;
+    if (quickFilter === 'stockfix') return !!m.stockFix;
+    if (quickFilter === 'georep')   return !!m.geoRep;
+    return true;
+  });
+
+  const chips: { key: QuickFilter; label: string; count: number; color: string }[] = [
+    { key: 'all',      label: 'All',           count: merchandisers.length,                                              color: '#F36C21' },
+    { key: 'top',      label: '🏆 Top Performers', count: merchandisers.filter(m => m.overallRate >= 80 && (m.stockFix || m.geoRep)).length, color: '#22c55e' },
+    { key: 'action',   label: '⚠️ Need Action',    count: merchandisers.filter(m => m.overallRate < 50 && (m.stockFix || m.geoRep)).length,  color: '#ef4444' },
+    { key: 'stockfix', label: '🟠 StockFix',    count: merchandisers.filter(m => !!m.stockFix).length,                  color: '#F36C21' },
+    { key: 'georep',   label: '🔵 Geo Rep',     count: merchandisers.filter(m => !!m.geoRep).length,                    color: '#60a5fa' },
+    { key: 'inactive', label: 'Not Active',     count: merchandisers.filter(m => !m.stockFix && !m.geoRep).length,      color: 'rgba(255,255,255,0.3)' },
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
@@ -112,6 +133,24 @@ function MerchandiserListView({ data, onSelect }: { data: PilotReport; onSelect:
         </div>
       </div>
 
+      {/* Quick-filter chips */}
+      <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '8px' }}>
+        {chips.map(c => {
+          const active = quickFilter === c.key;
+          return (
+            <button
+              key={c.key}
+              data-testid={`chip-${c.key}`}
+              onClick={() => setQuickFilter(c.key)}
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '7px 14px', borderRadius: '20px', border: active ? `2px solid ${c.color}` : '2px solid rgba(255,255,255,0.1)', cursor: 'pointer', fontSize: '12px', fontWeight: active ? 700 : 500, backgroundColor: active ? c.color : 'rgba(255,255,255,0.05)', color: active ? '#FFFFFF' : 'rgba(255,255,255,0.55)', transition: 'all 0.15s' }}
+            >
+              {c.label}
+              <span style={{ backgroundColor: active ? 'rgba(0,0,0,0.2)' : 'rgba(255,255,255,0.12)', borderRadius: '10px', padding: '1px 7px', fontSize: '11px', fontWeight: 700 }}>{c.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* Merchandiser table */}
       <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
         {/* Source-colour band above columns */}
@@ -130,7 +169,10 @@ function MerchandiserListView({ data, onSelect }: { data: PilotReport; onSelect:
           <div />
         </div>
 
-        {merchandisers.map((m, idx) => {
+        {filtered.length === 0 && (
+          <div style={{ padding: '30px', textAlign: 'center', fontSize: '13px', color: 'rgba(255,255,255,0.3)' }}>No merchandisers match this filter.</div>
+        )}
+        {filtered.map((m, idx) => {
           const hasData = !!(m.stockFix || m.geoRep);
           const sfColor = rateColor(m.stockFix?.captureRate ?? 0);
           const grColor = rateColor(m.geoRep?.visitRate ?? 0);
@@ -140,7 +182,7 @@ function MerchandiserListView({ data, onSelect }: { data: PilotReport; onSelect:
               key={m.name}
               data-testid={`row-merch-${m.name}`}
               onClick={() => hasData && onSelect(m)}
-              style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 140px 140px 80px 20px', padding: '11px 16px', borderBottom: idx < merchandisers.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', backgroundColor: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.07)', cursor: hasData ? 'pointer' : 'default', alignItems: 'center', transition: 'background-color 0.15s' }}
+              style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 140px 140px 80px 20px', padding: '11px 16px', borderBottom: idx < filtered.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', backgroundColor: idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.07)', cursor: hasData ? 'pointer' : 'default', alignItems: 'center', transition: 'background-color 0.15s' }}
               onMouseEnter={e => { if (hasData) (e.currentTarget as HTMLElement).style.backgroundColor = 'rgba(243,108,33,0.08)'; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = idx % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.07)'; }}
             >
