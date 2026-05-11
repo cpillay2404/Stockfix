@@ -246,26 +246,31 @@ function Sidebar({ active, onNav, latestWeek }: { active: NavSection; onNav: (s:
 }
 
 // ─── Top Filter Bar ───────────────────────────────────────
-function FilterBar({ filters, filterManager, filterRegion, setFilterManager, setFilterRegion }: {
+function FilterBar({ filters, filterManager, filterRegion, filterStore, setFilterManager, setFilterRegion, setFilterStore }: {
   filters: PilotReport['filters'];
-  filterManager: string; filterRegion: string;
-  setFilterManager: (v: string) => void; setFilterRegion: (v: string) => void;
+  filterManager: string; filterRegion: string; filterStore: string;
+  setFilterManager: (v: string) => void; setFilterRegion: (v: string) => void; setFilterStore: (v: string) => void;
 }) {
-  const sel: React.CSSProperties = { padding: '7px 32px 7px 10px', borderRadius: '8px', border: '1px solid #e2e8f0', fontSize: '13px', color: '#1e293b', backgroundColor: '#fff', cursor: 'pointer', appearance: 'none' as any, backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpath d=\'M1 1l5 5 5-5\' stroke=\'%2394a3b8\' stroke-width=\'1.5\' fill=\'none\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 10px center', minWidth: '150px' };
+  const sel: React.CSSProperties = { padding: '5px 26px 5px 8px', borderRadius: '6px', border: '1px solid #e2e8f0', fontSize: '12px', color: '#1e293b', backgroundColor: '#fff', cursor: 'pointer', appearance: 'none' as any, backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'10\' height=\'6\' viewBox=\'0 0 10 6\'%3E%3Cpath d=\'M1 1l4 4 4-4\' stroke=\'%2394a3b8\' stroke-width=\'1.5\' fill=\'none\'/%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', minWidth: '130px' };
+  const lbl: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#64748b', fontWeight: 500 };
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' as const }}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
-        Manager
-        <select value={filterManager} onChange={e => setFilterManager(e.target.value)} style={sel}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+      <label style={lbl}>Manager
+        <select value={filterManager} onChange={e => setFilterManager(e.target.value)} style={sel} data-testid="filter-manager">
           <option value="">All Managers</option>
           {filters.managers.map(m => <option key={m} value={m}>{tc(m)}</option>)}
         </select>
       </label>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#64748b', fontWeight: 500 }}>
-        Region
-        <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)} style={sel}>
+      <label style={lbl}>Region
+        <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)} style={sel} data-testid="filter-region">
           <option value="">All Regions</option>
           {filters.regions.map(r => <option key={r} value={r}>{tc(r)}</option>)}
+        </select>
+      </label>
+      <label style={lbl}>Store
+        <select value={filterStore} onChange={e => setFilterStore(e.target.value)} style={{ ...sel, minWidth: '160px' }} data-testid="filter-store">
+          <option value="">All Stores</option>
+          {filters.stores.map(s => <option key={s} value={s}>{tc(s)}</option>)}
         </select>
       </label>
     </div>
@@ -338,127 +343,110 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
 
   const pilotCoverage = Math.round((summary.activeReps / TOTAL_PILOT) * 100);
 
-  const card: React.CSSProperties = { backgroundColor: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)' };
-  const sectionTitle: React.CSSProperties = { fontSize: '14px', fontWeight: 700, color: '#1e293b', marginBottom: '14px', display: 'flex', alignItems: 'center', gap: '8px' };
+  const card: React.CSSProperties = {
+    backgroundColor: '#fff', borderRadius: '10px',
+    padding: '12px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)',
+    overflow: 'hidden', boxSizing: 'border-box' as const,
+  };
+  const hdr: React.CSSProperties = {
+    fontSize: '12px', fontWeight: 700, color: '#1e293b',
+    marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0,
+  };
 
   return (
-    <div>
-      {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '12px', marginBottom: '20px' }}>
-        <KpiCard label="Active Reps"        value={summary.activeReps}                  sub={`of ${TOTAL_PILOT} pilot reps`}              iconBg="#eff6ff" icon="👥" />
-        <KpiCard label="GR Visit Rate"      value={`${summary.geoRep.visitRate}%`}      sub={`${summary.geoRep.visited} of ${summary.geoRep.total} forms`} iconBg="#dbeafe" icon="✅" />
-        <KpiCard label="GR Avg Compliance"  value={`${summary.geoRep.avgCompliance}%`}  sub={`when visited · ${summary.geoRep.submissions} submissions`}    iconBg="#ede9fe" icon="📊" />
-        <KpiCard label="StockFix Tasks"     value={summary.stockFix.total.toLocaleString()} sub="total logged"                            iconBg="#fff7ed" icon="🔧" />
-        <KpiCard label="StockFix Done"      value={summary.stockFix.completed}          sub={`${summary.stockFix.captureRate}% capture rate`}               iconBg="#dcfce7" icon="✔️" />
-        <KpiCard label="Pilot Coverage"     value={`${pilotCoverage}%`}                 sub={`${summary.activeReps} of ${TOTAL_PILOT} active`}              iconBg="#fef9c3" icon="🎯" />
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '10px' }}>
+
+      {/* ── Row 1: KPI Cards ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '10px', flexShrink: 0, height: '84px' }}>
+        <KpiCard label="Active Reps"      value={summary.activeReps}                    sub={`of ${TOTAL_PILOT} pilot reps`}           iconBg="#eff6ff" icon="👥" />
+        <KpiCard label="GR Visit Rate"    value={`${summary.geoRep.visitRate}%`}        sub={`${summary.geoRep.visited}/${summary.geoRep.total} forms`} iconBg="#dbeafe" icon="✅" />
+        <KpiCard label="GR Compliance"    value={`${summary.geoRep.avgCompliance}%`}    sub={`when visited · ${summary.geoRep.submissions} subs`} iconBg="#ede9fe" icon="📊" />
+        <KpiCard label="SF Tasks"         value={summary.stockFix.total.toLocaleString()} sub="total logged"                           iconBg="#fff7ed" icon="🔧" />
+        <KpiCard label="SF Done"          value={summary.stockFix.completed}            sub={`${summary.stockFix.captureRate}% capture`} iconBg="#dcfce7" icon="✔️" />
+        <KpiCard label="Pilot Coverage"   value={`${pilotCoverage}%`}                  sub={`${summary.activeReps} of ${TOTAL_PILOT} active`} iconBg="#fef9c3" icon="🎯" />
       </div>
 
-      {/* Middle row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '300px 1fr 280px', gap: '16px', marginBottom: '16px' }}>
+      {/* ── Row 2: Middle panels ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '250px 1fr 230px', gap: '10px', flexShrink: 0, height: '218px' }}>
 
-        {/* Geo Rep Performance — Visit Rate vs Compliance */}
-        <div style={card}>
-          <div style={sectionTitle}>Geo Rep Performance</div>
-          {/* Two primary rings */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', gap: '4px' }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto' }}>
-                <RingChart rate={summary.geoRep.visitRate} color="#2563eb" />
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>{summary.geoRep.visitRate}%</span>
+        {/* Left: GR vs SF Performance rings */}
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={hdr}>GR vs SF Performance</div>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-around', flex: 1 }}>
+            <div style={{ textAlign: 'center' as const }}>
+              <div style={{ position: 'relative', width: '76px', height: '76px', margin: '0 auto' }}>
+                <RingChart rate={summary.geoRep.visitRate} color="#2563eb" size={76} strokeWidth={8} />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>{summary.geoRep.visitRate}%</span>
                 </div>
               </div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#2563eb', marginTop: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Visit Rate</div>
-              <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>{summary.geoRep.visited}/{summary.geoRep.total} forms</div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#2563eb', marginTop: '5px', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Visit Rate</div>
+              <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '1px' }}>{summary.geoRep.visited}/{summary.geoRep.total}</div>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '4px' }}>
-              <div style={{ fontSize: '16px', fontWeight: 700, color: '#e2e8f0' }}>VS</div>
-              {Math.abs(summary.geoRep.visitRate - summary.geoRep.avgCompliance) > 15 && (
-                <div style={{ fontSize: '9px', fontWeight: 700, color: '#f97316', textAlign: 'center', maxWidth: '36px', lineHeight: '1.3' }}>GAP</div>
-              )}
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ position: 'relative', width: '100px', height: '100px', margin: '0 auto' }}>
-                <RingChart rate={summary.geoRep.avgCompliance} color="#0891b2" />
-                <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                  <span style={{ fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>{summary.geoRep.avgCompliance}%</span>
+            <div style={{ textAlign: 'center' as const }}>
+              <div style={{ position: 'relative', width: '76px', height: '76px', margin: '0 auto' }}>
+                <RingChart rate={summary.geoRep.avgCompliance} color="#0891b2" size={76} strokeWidth={8} />
+                <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '16px', fontWeight: 700, color: '#1e293b' }}>{summary.geoRep.avgCompliance}%</span>
                 </div>
               </div>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#0891b2', marginTop: '8px', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Compliance</div>
-              <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px' }}>avg when visited</div>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#0891b2', marginTop: '5px', textTransform: 'uppercase' as const, letterSpacing: '0.04em' }}>Compliance</div>
+              <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '1px' }}>when visited</div>
             </div>
           </div>
-          {/* StockFix strip */}
-          <div style={{ marginTop: '14px', padding: '10px 14px', backgroundColor: '#fff7ed', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ padding: '7px 10px', backgroundColor: '#fff7ed', borderRadius: '7px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
             <div>
-              <div style={{ fontSize: '10px', fontWeight: 700, color: '#F36C21', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: '2px' }}>StockFix</div>
-              <div style={{ fontSize: '11px', color: '#92400e' }}>{summary.stockFix.completed} done · {summary.stockFix.total.toLocaleString()} total</div>
+              <div style={{ fontSize: '9px', fontWeight: 700, color: '#F36C21', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>StockFix</div>
+              <div style={{ fontSize: '10px', color: '#92400e', marginTop: '1px' }}>{summary.stockFix.completed} done · {summary.stockFix.total.toLocaleString()} total</div>
             </div>
-            <div style={{ textAlign: 'right' }}>
-              <span style={{ fontSize: '20px', fontWeight: 700, color: '#F36C21' }}>{summary.stockFix.captureRate}%</span>
-              <div style={{ fontSize: '10px', color: '#94a3b8' }}>capture rate</div>
-            </div>
+            <span style={{ fontSize: '18px', fontWeight: 700, color: '#F36C21' }}>{summary.stockFix.captureRate}%</span>
           </div>
         </div>
 
-        {/* Weekly chart */}
-        <div style={card}>
-          <div style={sectionTitle}>
-            Compliance Capture Over Time
-            <span style={{ fontSize: '11px', fontWeight: 400, color: '#94a3b8' }}>({history.length} week{history.length !== 1 ? 's' : ''})</span>
+        {/* Centre: Chart */}
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={hdr}>
+            Capture Over Time
+            <span style={{ fontSize: '10px', fontWeight: 400, color: '#94a3b8' }}>({history.length} wk{history.length !== 1 ? 's' : ''})</span>
           </div>
           {chartData.length === 0 ? (
-            <div style={{ height: '160px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '13px' }}>
-              No weekly history yet — will build over time
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: '12px', textAlign: 'center' as const }}>
+              Building history — new data point saved each week
             </div>
           ) : (
-            <ResponsiveContainer width="100%" height={160}>
-              <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                <XAxis dataKey="week" tick={{ fontSize: 10, fill: '#94a3b8' }} />
-                <YAxis domain={[0, 100]} tick={{ fontSize: 10, fill: '#94a3b8' }} unit="%" />
-                <Tooltip formatter={(v: any) => `${v}%`} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.fullDate || ''} />
-                <Legend wrapperStyle={{ fontSize: '11px' }} />
-                <Line type="monotone" dataKey="Geo Rep %" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: '#2563eb' }} />
-              </LineChart>
-            </ResponsiveContainer>
+            <div style={{ flex: 1, minHeight: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 4, right: 8, left: -24, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="week" tick={{ fontSize: 9, fill: '#94a3b8' }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 9, fill: '#94a3b8' }} unit="%" />
+                  <Tooltip formatter={(v: any) => `${v}%`} labelFormatter={(_: any, p: any) => p?.[0]?.payload?.fullDate || ''} contentStyle={{ fontSize: '11px', padding: '4px 8px' }} />
+                  <Line type="monotone" dataKey="Geo Rep %" stroke="#2563eb" strokeWidth={2} dot={{ r: 4, fill: '#2563eb' }} activeDot={{ r: 5 }} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
           )}
-          <div style={{ marginTop: '8px', fontSize: '10px', color: '#94a3b8', textAlign: 'center' }}>
-            Visit Rate % = (Forms visited ÷ Total forms) — Geo Rep data, saved weekly
+          <div style={{ fontSize: '9px', color: '#94a3b8', textAlign: 'center' as const, marginTop: '4px', flexShrink: 0 }}>
+            Visit Rate % = forms visited ÷ total · Geo Rep · saved weekly
           </div>
         </div>
 
-        {/* Banner / Retailer Coverage */}
-        <div style={card}>
-          <div style={sectionTitle}>
-            Retailer Coverage
-            <span style={{ fontSize: '10px', fontWeight: 400, color: '#94a3b8', marginLeft: 'auto' }}>visit · comply</span>
-          </div>
-          {bannerBreakdown.length === 0 ? (
-            <div style={{ color: '#94a3b8', fontSize: '13px' }}>No banner data</div>
+        {/* Right: Compliance by Manager */}
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={hdr}>Compliance by Manager</div>
+          {managerStats.length === 0 ? (
+            <div style={{ color: '#94a3b8', fontSize: '12px' }}>No manager data</div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '11px' }}>
-              {bannerBreakdown.map(b => (
-                <div key={b.banner}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: '4px' }}>
-                    <span style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, flex: 1, minWidth: 0, marginRight: '6px' }}>{b.banner}</span>
-                    <span style={{ fontSize: '10px', color: '#94a3b8', flexShrink: 0 }}>{b.visited}/{b.total}</span>
-                  </div>
-                  {/* Dual bar: visit rate (blue) + compliance (teal) */}
-                  <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
-                    <div style={{ flex: 1, height: '5px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                      <div style={{ width: `${b.visitRate}%`, height: '100%', backgroundColor: '#2563eb', borderRadius: '3px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '9px', flex: 1, overflow: 'hidden' }}>
+              {managerStats.slice(0, 6).map(m => (
+                <div key={m.name} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <div style={{ flex: 1, fontSize: '11px', color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, minWidth: 0 }}>{m.name}</div>
+                  <div style={{ width: '64px', flexShrink: 0 }}>
+                    <div style={{ height: '5px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ width: `${Math.min(m.overall, 100)}%`, height: '100%', backgroundColor: rateColor(m.overall), borderRadius: '3px' }} />
                     </div>
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: rateColor(b.visitRate), minWidth: '28px', textAlign: 'right' }}>{b.visitRate}%</span>
                   </div>
-                  {b.visited > 0 && (
-                    <div style={{ display: 'flex', gap: '3px', alignItems: 'center', marginTop: '2px' }}>
-                      <div style={{ flex: 1, height: '4px', backgroundColor: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
-                        <div style={{ width: `${b.avgCompliance}%`, height: '100%', backgroundColor: '#0891b2', borderRadius: '3px' }} />
-                      </div>
-                      <span style={{ fontSize: '10px', fontWeight: 700, color: '#0891b2', minWidth: '28px', textAlign: 'right' }}>{b.avgCompliance}%</span>
-                    </div>
-                  )}
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: rateColor(m.overall), minWidth: '30px', textAlign: 'right' as const }}>{m.overall}%</span>
                 </div>
               ))}
             </div>
@@ -466,60 +454,64 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
         </div>
       </div>
 
-      {/* Bottom row */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: '16px' }}>
+      {/* ── Row 3: Bottom panels (fills remaining height) ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 260px', gap: '10px', flex: 1, minHeight: 0 }}>
 
         {/* Store Performance */}
-        <div style={card}>
-          <div style={{ ...sectionTitle, justifyContent: 'space-between' }}>
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ ...hdr, justifyContent: 'space-between' }}>
             Store Performance
-            <span style={{ fontSize: '11px', fontWeight: 400, color: '#94a3b8' }}>Top {storePerf.length} stores</span>
+            <span style={{ fontSize: '10px', fontWeight: 400, color: '#2563eb', cursor: 'pointer' }}>Top 5 · View all →</span>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 1fr 70px 70px 90px', gap: '0', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px', marginBottom: '4px' }}>
-            {['Store', 'Manager', 'Region', 'Geo Rep', 'SF Tasks', 'Status'].map((h, i) => (
-              <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.06em', textAlign: i >= 3 ? 'center' : 'left' as any, padding: '0 4px' }}>{h}</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 0.8fr 58px 58px 82px', borderBottom: '1px solid #f1f5f9', paddingBottom: '5px', marginBottom: '2px', flexShrink: 0 }}>
+            {['Store', 'Manager', 'Region', 'GR', 'SF', 'Status'].map((h, i) => (
+              <div key={h} style={{ fontSize: '9px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.05em', textAlign: i >= 3 ? 'center' : 'left' as any, padding: '0 3px' }}>{h}</div>
             ))}
           </div>
-          {storePerf.map((s, i) => {
-            const st = rateStatus(s.overall);
-            return (
-              <div key={s.name} style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 1fr 70px 70px 90px', padding: '9px 0', borderBottom: i < storePerf.length - 1 ? '1px solid #f8fafc' : 'none', alignItems: 'center' }}>
-                <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, padding: '0 4px' }}>{tc(s.name)}</div>
-                <div style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, padding: '0 4px' }}>{s.manager || '—'}</div>
-                <div style={{ fontSize: '11px', color: '#64748b', padding: '0 4px' }}>{s.region || '—'}</div>
-                <div style={{ textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#2563eb' }}>{s.grVisited > 0 || s.grForms > 0 ? s.grVisited : '—'}</div>
-                <div style={{ textAlign: 'center', fontSize: '13px', fontWeight: 700, color: '#F36C21' }}>{s.sfTasks > 0 ? s.sfTasks : '—'}</div>
-                <div style={{ textAlign: 'center' }}>
-                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '20px', backgroundColor: st.bg, color: st.color }}>{st.label}</span>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            {storePerf.slice(0, 5).map((s, i) => {
+              const st = rateStatus(s.overall);
+              return (
+                <div key={s.name} style={{ display: 'grid', gridTemplateColumns: '1.8fr 1fr 0.8fr 58px 58px 82px', padding: '7px 0', borderBottom: i < 4 ? '1px solid #f8fafc' : 'none', alignItems: 'center' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, padding: '0 3px' }}>{tc(s.name)}</div>
+                  <div style={{ fontSize: '10px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, padding: '0 3px' }}>{s.manager || '—'}</div>
+                  <div style={{ fontSize: '10px', color: '#64748b', padding: '0 3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{s.region || '—'}</div>
+                  <div style={{ textAlign: 'center' as const, fontSize: '12px', fontWeight: 700, color: '#2563eb' }}>{s.grVisited > 0 || s.grForms > 0 ? s.grVisited : '—'}</div>
+                  <div style={{ textAlign: 'center' as const, fontSize: '12px', fontWeight: 700, color: '#F36C21' }}>{s.sfTasks > 0 ? s.sfTasks : '—'}</div>
+                  <div style={{ textAlign: 'center' as const }}>
+                    <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 6px', borderRadius: '20px', backgroundColor: st.bg, color: st.color }}>{st.label}</span>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
-        {/* Recent Activity */}
-        <div style={card}>
-          <div style={sectionTitle}>Latest Submissions</div>
-          {recentActivity.length === 0 ? (
-            <div style={{ color: '#94a3b8', fontSize: '13px' }}>No recent completed tasks</div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0' }}>
-              {recentActivity.slice(0, 8).map((a: any, i: number) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', padding: '10px 0', borderBottom: i < Math.min(recentActivity.length, 8) - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                  <div style={{ width: '34px', height: '34px', borderRadius: '8px', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', flexShrink: 0 }}>🔧</div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{tc(a.rep_name)}</div>
-                    <div style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{a.store_name ? tc(a.store_name) : ''}</div>
-                    <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>{a.client} · {a.article_description?.slice(0, 28)}</div>
+        {/* Latest Submissions */}
+        <div style={{ ...card, display: 'flex', flexDirection: 'column' }}>
+          <div style={hdr}>Latest Submissions</div>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            {recentActivity.length === 0 ? (
+              <div style={{ color: '#94a3b8', fontSize: '12px' }}>No recent completed tasks</div>
+            ) : (
+              <div>
+                {recentActivity.slice(0, 5).map((a: any, i: number) => (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '7px 0', borderBottom: i < 4 ? '1px solid #f1f5f9' : 'none' }}>
+                    <div style={{ width: '28px', height: '28px', borderRadius: '6px', backgroundColor: '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', flexShrink: 0 }}>🔧</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{tc(a.rep_name)}</div>
+                      <div style={{ fontSize: '10px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{a.store_name ? tc(a.store_name) : '—'}</div>
+                      <div style={{ fontSize: '9px', color: '#94a3b8' }}>{a.client?.slice(0, 22)}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' as const, flexShrink: 0 }}>
+                      <span style={{ fontSize: '9px', fontWeight: 700, padding: '2px 5px', borderRadius: '3px', backgroundColor: '#fff7ed', color: '#F36C21' }}>SF</span>
+                      <div style={{ fontSize: '9px', color: '#94a3b8', marginTop: '2px' }}>{a.action_date ? fmtDate(a.action_date) : ''}</div>
+                    </div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <span style={{ fontSize: '10px', fontWeight: 600, padding: '2px 7px', borderRadius: '4px', backgroundColor: '#fff7ed', color: '#F36C21' }}>SF</span>
-                    <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '3px' }}>{a.action_date ? fmtDate(a.action_date) : ''}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -908,6 +900,7 @@ export default function MerchandiserPilotPage() {
   const [navSection, setNavSection] = useState<NavSection>('overview');
   const [filterManager, setFilterManager] = useState('');
   const [filterRegion, setFilterRegion]   = useState('');
+  const [filterStore, setFilterStore]     = useState('');
   const [view, setView]         = useState<'list' | 'store' | 'task'>('list');
   const [selMerch, setSelMerch] = useState<Merchandiser | null>(null);
   const [selStore, setSelStore] = useState<string>('');
@@ -915,9 +908,10 @@ export default function MerchandiserPilotPage() {
   const params = new URLSearchParams();
   if (filterManager) params.set('manager', filterManager);
   if (filterRegion)  params.set('region', filterRegion);
+  if (filterStore)   params.set('store', filterStore);
 
   const { data, isLoading, error, dataUpdatedAt } = useQuery<PilotReport>({
-    queryKey: ['pilot-report', filterManager, filterRegion],
+    queryKey: ['pilot-report', filterManager, filterRegion, filterStore],
     queryFn: async () => {
       const r = await fetch(`/api/pilot-report${params.toString() ? '?' + params.toString() : ''}`);
       if (!r.ok) throw new Error(await r.text());
@@ -937,6 +931,7 @@ export default function MerchandiserPilotPage() {
   });
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : null;
+  const isOverviewScreen = navSection === 'overview' && view === 'list';
 
   function handleSelectRep(m: Merchandiser) {
     setSelMerch(m);
@@ -963,40 +958,56 @@ export default function MerchandiserPilotPage() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', backgroundColor: '#f0f4f8', fontFamily: "'Inter', system-ui, sans-serif" }}>
-      <Sidebar active={view !== 'list' ? navSection : navSection} onNav={s => { setNavSection(s); setView('list'); }} latestWeek={data?.latestWeek || null} />
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', backgroundColor: '#f0f4f8', fontFamily: "'Inter', system-ui, sans-serif" }}>
+      <Sidebar active={navSection} onNav={s => { setNavSection(s); setView('list'); }} latestWeek={data?.latestWeek || null} />
 
-      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
-        {/* Top header */}
-        <div style={{ backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 28px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: '62px' }}>
-            <div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#1e293b' }}>Merchandiser Pilot Dashboard</div>
-              <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-                Geo Rep &amp; Stock Fix Monitoring
-                {lastUpdated && <span style={{ marginLeft: '10px' }}>· Updated {lastUpdated}</span>}
-              </div>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#94a3b8' }}>
-              {data?.latestWeek && <span style={{ backgroundColor: '#f1f5f9', borderRadius: '6px', padding: '4px 10px', fontWeight: 500, color: '#64748b' }}>Week: {data.latestWeek}</span>}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden' }}>
+
+        {/* ── Header (55px) ── */}
+        <div style={{ flexShrink: 0, height: '55px', backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: '17px', fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>Merchandiser Pilot Dashboard</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+              Geo Rep &amp; Stock Fix Monitoring
+              {lastUpdated && <span style={{ marginLeft: '8px' }}>· Updated {lastUpdated}</span>}
             </div>
           </div>
+          {data?.latestWeek && (
+            <span style={{ backgroundColor: '#f1f5f9', borderRadius: '6px', padding: '4px 10px', fontSize: '12px', fontWeight: 500, color: '#64748b', flexShrink: 0 }}>
+              Week: {data.latestWeek}
+            </span>
+          )}
         </div>
 
-        {/* Main content */}
-        <div style={{ flex: 1, padding: '24px 28px', overflow: 'auto' }}>
-          {/* Filter bar (only on list views, not drill-down) */}
-          {view === 'list' && data && (
-            <FilterBar filters={data.filters} filterManager={filterManager} filterRegion={filterRegion} setFilterManager={v => { setFilterManager(v); setView('list'); }} setFilterRegion={v => { setFilterRegion(v); setView('list'); }} />
-          )}
+        {/* ── Filter bar (44px, list views only) ── */}
+        {view === 'list' && data && (
+          <div style={{ flexShrink: 0, height: '44px', backgroundColor: '#fff', borderBottom: '1px solid #f1f5f9', padding: '0 24px', display: 'flex', alignItems: 'center' }}>
+            <FilterBar
+              filters={data.filters}
+              filterManager={filterManager}
+              filterRegion={filterRegion}
+              filterStore={filterStore}
+              setFilterManager={v => { setFilterManager(v); setView('list'); }}
+              setFilterRegion={v => { setFilterRegion(v); setView('list'); }}
+              setFilterStore={v => { setFilterStore(v); setView('list'); }}
+            />
+          </div>
+        )}
 
+        {/* ── Content area ── */}
+        <div style={{
+          flex: 1, minHeight: 0,
+          padding: isOverviewScreen ? '10px 20px' : '20px 24px',
+          overflow: isOverviewScreen ? 'hidden' : 'auto',
+          display: 'flex', flexDirection: 'column',
+        }}>
           {isLoading && (
             <div style={{ textAlign: 'center', padding: '80px 0', color: '#94a3b8', fontSize: '14px' }}>
               Loading report — fetching SharePoint &amp; StockFix data…
             </div>
           )}
           {error && (
-            <div style={{ backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '10px', padding: '20px', color: '#dc2626', fontSize: '13px' }}>
+            <div style={{ backgroundColor: '#fee2e2', border: '1px solid #fca5a5', borderRadius: '10px', padding: '16px 20px', color: '#dc2626', fontSize: '13px' }}>
               Error: {String(error)}
             </div>
           )}

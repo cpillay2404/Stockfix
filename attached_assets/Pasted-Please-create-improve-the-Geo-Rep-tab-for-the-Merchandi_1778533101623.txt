@@ -1,0 +1,105 @@
+Please create/improve the Geo Rep tab for the Merchandiser Pilot Dashboard.
+
+Purpose:
+This page must focus only on Geo Rep capturing performance. It should show how well merchandisers are visiting stores, completing forms, capturing compliance standards, and meeting expected call cycle requirements.
+
+Important layout requirement:
+This Geo Rep page must fit on one screen without vertical scrolling. It must be compact, clean, and suitable for management review.
+
+Sidebar:
+- Keep the fixed dark navy sidebar.
+- Highlight “Geo Rep” as the active tab.
+
+Header:
+- Title: “Geo Rep Performance Dashboard”
+- Subtitle: “Store Visit, Capture Compliance & Call Cycle Monitoring”
+- Show selected week/date range at top right.
+- Include refresh icon/button.
+- Keep header compact.
+
+Filters:
+Add a compact filter row:
+- Manager
+- Region
+- Store
+- Merchandiser
+- Week / Date Range
+
+KPI cards:
+Create one compact KPI row with:
+1. Active Geo Rep Merchandisers
+2. Stores Assigned
+3. Stores Visited
+4. Visit Rate %
+5. Forms Completed
+6. Compliance Captured %
+
+KPI calculation guidance:
+- Visit Rate % = Stores Visited / Stores Assigned.
+- Compliance Captured % = Completed Standards / Applicable Standards.
+- Forms Completed must not be confused with store visits.
+- Use the correct denominator for each percentage.
+
+Main content:
+Create a 3-column row:
+1. Geo Rep Visit Performance
+   - Donut chart showing stores visited vs stores not visited.
+   - Show visit rate percentage.
+   - Show visited count and outstanding count.
+2. Compliance by Standard Category
+   - Horizontal bars for compliance categories.
+   - Suggested categories:
+     - Availability
+     - Visibility
+     - Pricing
+     - Placement
+     - Promotion
+     - Planogram
+   - Show percentage per category.
+3. Geo Rep Performance by Manager
+   - Top 6 managers.
+   - Horizontal bars.
+   - Green/amber/red based on visit rate or compliance.
+
+Second row:
+Create a compact table and activity panel:
+1. Store Visit Detail Table
+   Columns:
+   - Store
+   - Merchandiser
+   - Manager
+   - Region
+   - Last Visit Date
+   - Forms Completed
+   - Compliance %
+   - Status
+
+   Status examples:
+   - Completed
+   - Partial
+   - Missed
+   - At Risk
+
+2. Latest Geo Rep Captures
+   - Show latest 5 captures.
+   - Include merchandiser, store, standard/category captured, timestamp, and status.
+   - Include small thumbnail placeholder if image evidence exists.
+   - Use professional camera/checklist/location icons, not emojis.
+
+Additional Geo Rep insight card:
+Add a small “Action Required” or “Focus Areas” card:
+- Stores not visited this week.
+- Merchandisers below visit target.
+- Categories below compliance threshold.
+- Stores with no capture evidence.
+- Regions requiring follow-up.
+
+Visual requirements:
+- Use blue as the primary Geo Rep colour.
+- Use green for completed/good.
+- Use amber for partial/risk.
+- Use red for missed/poor.
+- Use professional icons only.
+- No emojis.
+- Compact cards and charts.
+- Must fit in one viewport without scrolling.

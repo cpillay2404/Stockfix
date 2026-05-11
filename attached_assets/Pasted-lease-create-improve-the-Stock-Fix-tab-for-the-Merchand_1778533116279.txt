@@ -1,0 +1,107 @@
+lease create/improve the Stock Fix tab for the Merchandiser Pilot Dashboard.
+
+Purpose:
+This page must focus only on Stock Fix task performance. It should show stock issues logged, completed, resolved, outstanding, overdue, and escalated. It should help the team monitor execution and issue closure.
+
+Important layout requirement:
+This Stock Fix page must fit on one screen without vertical scrolling on a standard laptop/desktop screen.
+
+Sidebar:
+- Keep the fixed dark navy sidebar.
+- Highlight “Stock Fix” as the active tab.
+
+Header:
+- Title: “Stock Fix Performance Dashboard”
+- Subtitle: “Task Logging, Resolution & Issue Closure Monitoring”
+- Show selected week/date range at top right.
+- Include refresh icon/button.
+- Keep header compact.
+
+Filters:
+Add a compact filter row:
+- Manager
+- Region
+- Store
+- Merchandiser
+- Issue Type
+- Week / Date Range
+
+KPI cards:
+Create one compact KPI row with:
+1. Stock Fix Tasks Logged
+2. Tasks Completed
+3. Open Issues
+4. Resolution Rate %
+5. Overdue Issues
+6. Average Resolution Time
+
+KPI calculation guidance:
+- Resolution Rate % = Resolved Issues / Total Issues Logged.
+- Open Issues = Logged Issues - Resolved Issues.
+- Average Resolution Time should be shown in hours or days.
+- Overdue Issues should be based on SLA status.
+
+Main content:
+Create a 3-column row:
+1. Stock Fix Resolution Performance
+   - Donut chart showing resolved vs open issues.
+   - Display resolution rate.
+   - Show resolved count and open count.
+2. Issues by Type
+   - Donut or horizontal bar chart.
+   - Categories:
+     - Out of Stock
+     - Pricing Error
+     - Damaged Stock
+     - Planogram Issue
+     - Shelf Gap
+     - Other
+3. SLA / Overdue Performance
+   - Show overdue, at risk, on track.
+   - Use red for overdue.
+   - Amber for at risk.
+   - Green for on track.
+
+Second row:
+Create two panels:
+1. Open Stock Fix Issues Table
+   Columns:
+   - Issue ID
+   - Store
+   - Issue Type
+   - Severity
+   - Logged By
+   - Logged Date
+   - Assigned To
+   - SLA Status
+   - Current Status
+
+   Status examples:
+   - Open
+   - In Progress
+   - Resolved
+   - Overdue
+   - Escalated
+
+2. Latest Stock Fix Activity
+   - Show latest 5 Stock Fix updates.
+   - Include merchandiser name, store, issue type, action taken, timestamp, and status.
+   - Include professional wrench/check-circle/alert icons.
+   - Do not use emojis.
+
+Additional insight card:
+Add a “Priority Actions” card:
+- Stores with highest open issues.
+- Most common issue type.
+- Overdue tasks requiring escalation.
+- Managers with low resolution rates.
+- Regions with increasing Stock Fix issues.
+
+Visual requirements:
+- Use orange as the primary Stock Fix colour.
+- Use green for resolved/on track.
+- Use amber for at risk.
+- Use red for overdue/escalated.
+- Use clean modern icons only.
+- No emojis.
+- Fit the full page into one viewport without scrolling.
