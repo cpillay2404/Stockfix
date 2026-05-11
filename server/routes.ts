@@ -3171,5 +3171,34 @@ export async function registerRoutes(
     }
   });
 
+  // OneDrive: list worksheets in the pilot Excel file
+  app.get('/api/onedrive/worksheets', async (req, res) => {
+    try {
+      const { findFileByName, listWorksheets } = await import('./onedrive.js');
+      const file = await findFileByName('Geo Rep -Merch Pilot');
+      if (!file) return res.status(404).json({ error: 'File not found on OneDrive' });
+      const sheets = await listWorksheets(file.id);
+      res.json({ fileId: file.id, fileName: file.name, sheets });
+    } catch (err: any) {
+      console.error('[OneDrive] worksheets error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // OneDrive: read a specific worksheet
+  app.get('/api/onedrive/read', async (req, res) => {
+    try {
+      const { findFileByName, readWorksheetRows } = await import('./onedrive.js');
+      const sheet = (req.query.sheet as string) || '';
+      const file = await findFileByName('Geo Rep -Merch Pilot');
+      if (!file) return res.status(404).json({ error: 'File not found on OneDrive' });
+      const rows = await readWorksheetRows(file.id, sheet);
+      res.json({ fileId: file.id, fileName: file.name, sheet, rows });
+    } catch (err: any) {
+      console.error('[OneDrive] read error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return httpServer;
 }
