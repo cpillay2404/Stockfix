@@ -3015,7 +3015,10 @@ export async function registerRoutes(
       const { findFileByName, listWorksheets, readWorksheetRows } = await import('./onedrive.js');
       const file = await findFileByName('Geo Rep -Merch Pilot');
       if (!file) throw new Error('Pilot Excel file not found on OneDrive');
-      const allRows = await readWorksheetRows(file.id, 'Customer Compliance');
+      const [allRows, saRows] = await Promise.all([
+        readWorksheetRows(file.id, 'Customer Compliance'),
+        readWorksheetRows(file.id, 'Submission Answers'),
+      ]);
 
       // Header row: Report Date(0), Region(1), Customer Name(2), Merchandiser(3),
       //             Manager(4), Form Name(5), Banner(6), Form Tag(7),
@@ -3093,6 +3096,47 @@ export async function registerRoutes(
       const overallRate   = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
       const activeReps    = reps.filter(r => r.totalTasks > 0).length;
 
+      // --- Build client/form summary from Customer Compliance tab ---
+      const clientMap = new Map<string, { total: number; visited: number; complianceSum: number; complianceCount: number }>();
+      for (const row of dataRows) {
+        const rawForm = String(row[5] || '').trim();
+        if (!rawForm) continue;
+        const formKey = rawForm.replace(/^Merchandiser:\s*/i, '').trim();
+        const visited = String(row[11] || '').toLowerCase() === 'yes';
+        const compStr = String(row[12] || '').replace('%', '').trim();
+        const compVal = parseFloat(compStr);
+        if (!clientMap.has(formKey)) clientMap.set(formKey, { total: 0, visited: 0, complianceSum: 0, complianceCount: 0 });
+        const c = clientMap.get(formKey)!;
+        c.total++;
+        if (visited) { c.visited++; c.complianceSum += isNaN(compVal) ? 0 : compVal; c.complianceCount++; }
+      }
+      const clientSummary = [...clientMap.entries()]
+        .map(([formName, d]) => ({
+          formName,
+          total: d.total,
+          visited: d.visited,
+          visitRate: d.total > 0 ? Math.round((d.visited / d.total) * 100) : 0,
+          avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
+        }))
+        .sort((a, b) => b.visited - a.visited || a.formName.localeCompare(b.formName));
+
+      // --- Submission Answers: count unique submissions per rep ---
+      // SA headers: Date(0), Submission ID(1), Customer Name(2), Region(3), User(4) ...
+      const saData = saRows.slice(1).filter(r => r[4]);
+      const submissionsByRep = new Map<string, Set<string>>();
+      for (const row of saData) {
+        const repName = String(row[4] || '').trim().toUpperCase();
+        const subId = String(row[1] || '').trim();
+        if (!repName || !subId) continue;
+        if (!submissionsByRep.has(repName)) submissionsByRep.set(repName, new Set());
+        submissionsByRep.get(repName)!.add(subId);
+      }
+      // Add submissionCount to each rep
+      const repsWithSubs = reps.map(r => ({
+        ...r,
+        submissionCount: submissionsByRep.get(r.repName)?.size ?? 0,
+      }));
+
       // Auto-save snapshot (unfiltered, has data)
       if (latestWeek && !hasFilter && repMap.size > 0) {
         for (const [name, d] of repMap.entries()) {
@@ -3136,7 +3180,8 @@ export async function registerRoutes(
         filters: { managers: allManagers, regions: allRegions, stores: allStores,
                    active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } },
         summary: { totalTasks, totalCompleted, overallRate, activeReps, totalPilotReps: hasFilter ? reps.length : PILOT_REPS.length },
-        reps,
+        reps: repsWithSubs,
+        clientSummary,
         history,
       });
     } catch (error: any) {

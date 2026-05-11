@@ -12,6 +12,15 @@ interface RepStat {
   pending: number;
   captureRate: number;
   lastCapture: string | null;
+  submissionCount: number;
+}
+
+interface ClientStat {
+  formName: string;
+  total: number;
+  visited: number;
+  visitRate: number;
+  avgCompliance: number;
 }
 
 interface WeekSnapshot {
@@ -38,6 +47,7 @@ interface PilotReport {
     totalPilotReps: number;
   };
   reps: RepStat[];
+  clientSummary: ClientStat[];
   history: WeekSnapshot[];
 }
 
@@ -95,7 +105,7 @@ function FilterSection({ label, options, value, onChange }: {
 }
 
 function SummaryTab({ data }: { data: PilotReport }) {
-  const { summary, reps, history = [] } = data;
+  const { summary, reps, history = [], clientSummary = [] } = data;
   const totalPending = summary.totalTasks - summary.totalCompleted;
   const top3 = reps.filter(r => r.totalTasks > 0).slice(0, 3);
   const bottom3 = [...reps].filter(r => r.totalTasks > 0).sort((a, b) => a.captureRate - b.captureRate).slice(0, 3);
@@ -182,6 +192,41 @@ function SummaryTab({ data }: { data: PilotReport }) {
               </span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Client / Form Performance */}
+      {clientSummary.length > 0 && (
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Client Form Performance</span>
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>{clientSummary.length} forms · from Customer Compliance</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px 90px 130px', padding: '8px 18px', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            {['Client / Form', 'Total', 'Done', 'Visit %', 'Avg Compliance'].map((h, i) => (
+              <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i > 0 ? 'center' : 'left' }}>{h}</div>
+            ))}
+          </div>
+          {clientSummary.map((c, index) => {
+            const visitColor = c.visitRate >= 80 ? '#F36C21' : c.visitRate >= 50 ? '#f59e0b' : '#ef4444';
+            const compColor  = c.avgCompliance >= 80 ? '#F36C21' : c.avgCompliance >= 50 ? '#f59e0b' : '#ef4444';
+            return (
+              <div key={c.formName} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px 90px 130px', padding: '10px 18px', borderBottom: index < clientSummary.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', backgroundColor: index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.08)', alignItems: 'center' }}>
+                <div style={{ fontSize: '12px', fontWeight: 500, color: '#FFFFFF', paddingRight: '8px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.formName}</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>{c.total}</div>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: c.visited > 0 ? '#F36C21' : 'rgba(255,255,255,0.2)', textAlign: 'center' }}>{c.visited}</div>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: visitColor }}>{c.visitRate}%</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', paddingRight: '4px' }}>
+                  <div style={{ flex: 1, height: '5px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: `${c.avgCompliance}%`, height: '100%', backgroundColor: compColor, borderRadius: '3px' }} />
+                  </div>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: c.avgCompliance > 0 ? compColor : 'rgba(255,255,255,0.2)', minWidth: '32px', textAlign: 'right' }}>{c.avgCompliance > 0 ? `${c.avgCompliance}%` : '—'}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
