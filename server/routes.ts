@@ -3143,8 +3143,9 @@ export async function registerRoutes(
         if (!sfStore.clients.includes(client)) sfStore.clients.push(client);
       }
 
-      // --- Build merged merchandiser list ---
-      const allNames = new Set([...grByRep.keys(), ...sfByRep.keys(), ...(hasFilter ? [] : PILOT_REPS)]);
+      // --- Build merged merchandiser list (restricted to original pilot reps only) ---
+      const STOCKFIX_PILOT_REPS = [...sfByRep.keys()]; // all 8 SF reps in DB are pilot reps
+      const allNames = new Set([...PILOT_REPS, ...STOCKFIX_PILOT_REPS]);
       const merchandisers = [...allNames].map(name => {
         const gr = grByRep.get(name) || null;
         const sf = sfByRep.get(name) || null;
