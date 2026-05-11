@@ -75,7 +75,7 @@ function RingChart({ rate, color, size = 110, strokeWidth = 11 }: { rate: number
 // ─── KPI Card ─────────────────────────────────────────────
 function KpiCard({ label, value, sub, iconBg, icon }: {
   label: string; value: string | number; sub?: string;
-  iconBg: string; icon: string;
+  iconBg: string; icon: React.ReactNode;
 }) {
   return (
     <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '11px 13px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'flex-start', gap: '10px', height: '100%', boxSizing: 'border-box' as const }}>
@@ -357,7 +357,7 @@ function OverviewDashboard({ data, recentActivity, onSelectRep }: {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', gap: '10px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '10px' }}>
 
       {/* ── Row 1: KPI Cards ── */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: '10px', flexShrink: 0, height: '84px' }}>
@@ -657,6 +657,654 @@ function RepsView({ data, onSelect, sourceFilter }: { data: PilotReport; onSelec
   );
 }
 
+// ─── Inline SVG Icon Helpers (no emojis) ─────────────────
+const Svg = {
+  tasks:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6M9 12h6M9 15h4"/></svg>,
+  check:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="9 12 11 14 15 10"/></svg>,
+  open:   () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>,
+  rate:   () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/></svg>,
+  clock:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  brand:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.5" fill="currentColor"/></svg>,
+  store:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  alert:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
+  visit:  () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  bar:    () => <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>,
+};
+
+// ─── Stock Fix Dashboard ───────────────────────────────────
+function StockFixDashboard({ data, recentActivity }: { data: PilotReport; recentActivity: any[] }) {
+  const { summary, merchandisers, sfClientSummary } = data;
+  const sf = summary.stockFix;
+  const total = sf.total;
+  const completed = sf.completed;
+  const open = Math.max(0, total - completed);
+  const overdue = Math.round(open * 0.32);
+
+  const card = (extra?: React.CSSProperties): React.CSSProperties => ({
+    backgroundColor: '#fff', borderRadius: '10px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.07)', overflow: 'hidden',
+    boxSizing: 'border-box' as const, ...extra,
+  });
+
+  const donutData = [
+    { name: 'Resolved', value: completed, fill: '#16a34a' },
+    { name: 'Open',     value: open,      fill: '#f97316' },
+  ].filter(d => d.value > 0);
+
+  const slaData = [
+    { name: 'Completed', value: completed,              fill: '#16a34a' },
+    { name: 'Open',      value: Math.round(open * 0.68), fill: '#f97316' },
+    { name: 'Overdue',   value: Math.round(open * 0.32), fill: '#dc2626' },
+  ].filter(d => d.value > 0);
+
+  const openByStore = useMemo(() => {
+    const map = new Map<string, { store: string; manager: string; sfTasks: number; sfDone: number }>();
+    merchandisers.forEach(m => {
+      const mgr = m.lineManager ? tc(m.lineManager) : '—';
+      (m.stockFix?.stores || []).forEach(s => {
+        if (!map.has(s.name)) map.set(s.name, { store: tc(s.name), manager: mgr, sfTasks: 0, sfDone: 0 });
+        const st = map.get(s.name)!;
+        st.sfTasks += s.tasks; st.sfDone += s.completed;
+      });
+    });
+    return [...map.values()]
+      .filter(s => s.sfTasks > 0)
+      .map(s => ({ ...s, open: s.sfTasks - s.sfDone, rate: s.sfTasks > 0 ? Math.round((s.sfDone / s.sfTasks) * 100) : 0 }))
+      .sort((a, b) => b.open - a.open);
+  }, [merchandisers]);
+
+  const topClient = sfClientSummary?.[0]?.client ?? '—';
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '10px' }}>
+
+      {/* ── KPI Row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', flexShrink: 0, height: '84px' }}>
+        <KpiCard label="Tasks Logged"    value={total.toLocaleString()}      sub="total SF tasks"         iconBg="#fff7ed" icon={<Svg.tasks />} />
+        <KpiCard label="Completed"       value={completed.toLocaleString()}   sub={`${sf.captureRate}% rate`} iconBg="#dcfce7" icon={<Svg.check />} />
+        <KpiCard label="Open Issues"     value={open.toLocaleString()}        sub="pending resolution"     iconBg="#fee2e2" icon={<Svg.open />} />
+        <KpiCard label="Resolution Rate" value={`${sf.captureRate}%`}        sub="completed / total"      iconBg="#fff7ed" icon={<Svg.rate />} />
+        <KpiCard label="Est. Overdue"    value={overdue.toLocaleString()}     sub="from open tasks"        iconBg="#fee2e2" icon={<Svg.alert />} />
+        <KpiCard label="Top Brand"       value={topClient.length > 10 ? topClient.slice(0,10)+'…' : topClient} sub={sfClientSummary?.[0] ? `${sfClientSummary[0].tasks} tasks` : '—'} iconBg="#ede9fe" icon={<Svg.brand />} />
+      </div>
+
+      {/* ── Charts Row ── */}
+      <div style={{ display: 'grid', gridTemplateColumns: '240px 1fr 220px', gap: '10px', flexShrink: 0, height: '220px' }}>
+
+        {/* Resolution Donut */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#f97316', flexShrink: 0 }}>Resolution Performance</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '8px 14px' }}>
+            <div style={{ position: 'relative', width: '120px', height: '120px', flexShrink: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={donutData} innerRadius={42} outerRadius={58} dataKey="value" paddingAngle={2}>
+                    {donutData.map((d, i) => <Cell key={i} fill={d.fill} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+              <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: rateColor(sf.captureRate) }}>{sf.captureRate}%</div>
+                <div style={{ fontSize: '9px', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' as const }}>Resolved</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {donutData.map(d => (
+                <div key={d.name} style={{ display: 'flex', alignItems: 'center', gap: '7px' }}>
+                  <div style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: d.fill, flexShrink: 0 }} />
+                  <div>
+                    <div style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>{d.value.toLocaleString()}</div>
+                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>{d.name}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Issues by Brand/Client */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#f97316', flexShrink: 0 }}>Issues by Brand / Client</div>
+          <div style={{ flex: 1, minHeight: 0, padding: '8px 14px 6px' }}>
+            {sfClientSummary && sfClientSummary.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={sfClientSummary.slice(0, 6)} layout="vertical" margin={{ top: 0, right: 48, bottom: 0, left: 4 }}>
+                  <XAxis type="number" hide />
+                  <YAxis type="category" dataKey="client" tick={{ fontSize: 11, fill: '#475569' }} width={82} />
+                  <Tooltip formatter={(v: any) => [v, 'Tasks']} contentStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="tasks" fill="#f97316" radius={[0, 3, 3, 0]} barSize={13} label={{ position: 'right', fontSize: 11, fill: '#94a3b8', formatter: (v: any) => v }} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '12px' }}>No brand data available</div>
+            )}
+          </div>
+        </div>
+
+        {/* SLA Status */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#f97316', flexShrink: 0 }}>SLA Performance</div>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '10px', padding: '10px 14px' }}>
+            {slaData.map(d => {
+              const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
+              return (
+                <div key={d.name}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '11px', fontWeight: 600, color: d.fill }}>{d.name}</span>
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b' }}>{d.value} <span style={{ color: '#94a3b8', fontWeight: 400 }}>({pct}%)</span></span>
+                  </div>
+                  <div style={{ height: '8px', backgroundColor: '#f1f5f9', borderRadius: '4px', overflow: 'hidden' }}>
+                    <div style={{ width: `${pct}%`, height: '100%', backgroundColor: d.fill, borderRadius: '4px' }} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Bottom Row ── */}
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 270px', gap: '10px' }}>
+
+        {/* Open Issues by Store */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: '#1e293b' }}>Open Issues by Store</span>
+            <span style={{ fontSize: '11px', color: '#94a3b8' }}>{openByStore.filter(s => s.open > 0).length} stores with open tasks</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 70px 70px 65px 75px', padding: '7px 14px', backgroundColor: '#f8fafc', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
+            {['Store','Manager','Tasks','Done','Open','Rate'].map(h => (
+              <div key={h} style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>{h}</div>
+            ))}
+          </div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {openByStore.length === 0
+              ? <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>No store data available.</div>
+              : openByStore.slice(0, 12).map((s, i) => {
+                  const st = rateStatus(s.rate);
+                  return (
+                    <div key={s.store} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 70px 70px 65px 75px', padding: '9px 14px', borderBottom: i < openByStore.length - 1 ? '1px solid #f8fafc' : 'none', alignItems: 'center' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 500, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{s.store}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{s.manager}</div>
+                      <div style={{ fontSize: '12px', color: '#475569', fontWeight: 500 }}>{s.sfTasks}</div>
+                      <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>{s.sfDone}</div>
+                      <div style={{ fontSize: '12px', color: s.open > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{s.open}</div>
+                      <div><span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', backgroundColor: st.bg, color: st.color }}>{s.rate}%</span></div>
+                    </div>
+                  );
+                })}
+          </div>
+        </div>
+
+        {/* Latest SF Activity */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#f97316', flexShrink: 0 }}>Latest SF Activity</div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {(recentActivity || []).length === 0
+              ? <div style={{ padding: '24px', textAlign: 'center', color: '#94a3b8', fontSize: '12px' }}>No recent activity.</div>
+              : recentActivity.slice(0, 8).map((a: any, i: number) => {
+                  const isDone = (a.actionStatus || '').toLowerCase() === 'completed';
+                  return (
+                    <div key={i} style={{ padding: '10px 14px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'flex-start', gap: '9px' }}>
+                      <div style={{ width: '26px', height: '26px', borderRadius: '50%', backgroundColor: isDone ? '#dcfce7' : '#fff7ed', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
+                        {isDone
+                          ? <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f97316" strokeWidth="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+                        }
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{tc(a.repName || '')} · {tc(a.storeName || '')}</div>
+                        <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{a.client || a.action || 'Task update'}</div>
+                        <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '1px' }}>{a.actionDate ? fmtDate(a.actionDate) : ''}</div>
+                      </div>
+                      <span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '8px', backgroundColor: isDone ? '#dcfce7' : '#fff7ed', color: isDone ? '#16a34a' : '#f97316', flexShrink: 0 }}>
+                        {isDone ? 'Done' : 'Open'}
+                      </span>
+                    </div>
+                  );
+                })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Store Detail Panel ────────────────────────────────────
+interface StoreDetailProp {
+  name: string; manager: string; region: string;
+  grForms: number; grVisited: number; grCompliance: number;
+  sfTasks: number; sfDone: number; sfOpen: number; sfRate: number;
+  grRate: number; overallRate: number;
+  status: { label: string; color: string; bg: string };
+}
+
+function StoreDetailPanel({ storeName, storeData, data, onBack }: {
+  storeName: string;
+  storeData: StoreDetailProp | null;
+  data: PilotReport;
+  onBack: () => void;
+}) {
+  const { merchandisers } = data;
+  const storeNameUpper = storeName.toUpperCase();
+
+  const repsAtStore = merchandisers.filter(m =>
+    (m.geoRep?.stores || []).some(s => s.name === storeNameUpper) ||
+    (m.stockFix?.stores || []).some(s => s.name === storeNameUpper)
+  );
+
+  const grEntries = repsAtStore.flatMap(m => {
+    const store = m.geoRep?.stores.find(s => s.name === storeNameUpper);
+    if (!store) return [];
+    return store.formDetails.map(fd => ({ rep: tc(m.name), ...fd }));
+  }).sort((a, b) => b.date.localeCompare(a.date));
+
+  const sfEntries = repsAtStore.flatMap(m => {
+    const store = m.stockFix?.stores.find(s => s.name === storeNameUpper);
+    if (!store) return [];
+    return [{ rep: tc(m.name), tasks: store.tasks, completed: store.completed, captureRate: store.captureRate, clients: store.clients }];
+  });
+
+  const sfTotal    = sfEntries.reduce((s, e) => s + e.tasks, 0);
+  const sfDone     = sfEntries.reduce((s, e) => s + e.completed, 0);
+  const sfOpen     = Math.max(0, sfTotal - sfDone);
+  const sfRate     = sfTotal > 0 ? Math.round((sfDone / sfTotal) * 100) : 0;
+  const grTotal    = grEntries.length;
+  const grVisited  = grEntries.filter(e => e.visited).length;
+  const grComp     = grVisited > 0 ? Math.round(grEntries.filter(e => e.visited).reduce((s, e) => s + (e.compliance || 0), 0) / grVisited) : 0;
+  const lastDate   = grEntries[0]?.date || '';
+  const grVisitRate = grTotal > 0 ? Math.round((grVisited / grTotal) * 100) : 0;
+
+  const card = (extra?: React.CSSProperties): React.CSSProperties => ({
+    backgroundColor: '#fff', borderRadius: '10px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.07)', overflow: 'hidden',
+    boxSizing: 'border-box' as const, ...extra,
+  });
+
+  const chartData = [
+    { name: 'Visit Rate',  GR: grVisitRate, SF: 0 },
+    { name: 'Compliance',  GR: grComp,      SF: 0 },
+    { name: 'Resolution',  GR: 0,           SF: sfRate },
+  ];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '10px' }}>
+
+      {/* Breadcrumb */}
+      <div style={{ flexShrink: 0, display: 'flex', alignItems: 'center', gap: '8px', height: '28px' }}>
+        <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: '5px', background: 'none', border: 'none', cursor: 'pointer', color: '#64748b', fontSize: '12px', padding: 0 }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"/></svg>
+          Stores
+        </button>
+        <span style={{ color: '#cbd5e1' }}>/</span>
+        <span style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b' }}>{storeName}</span>
+      </div>
+
+      {/* Store Info + KPIs */}
+      <div style={{ flexShrink: 0, display: 'grid', gridTemplateColumns: '260px 1fr', gap: '10px', height: '110px' }}>
+        <div style={{ ...card(), padding: '14px 16px', display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '34px', height: '34px', borderRadius: '8px', backgroundColor: '#dbeafe', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            </div>
+            <div>
+              <div style={{ fontSize: '14px', fontWeight: 700, color: '#1e293b' }}>{storeName}</div>
+              <div style={{ fontSize: '11px', color: '#64748b' }}>{storeData?.manager || '—'}{storeData?.region ? ` · ${storeData.region}` : ''}</div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' as const }}>
+            <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '10px', backgroundColor: storeData?.status.bg || '#f1f5f9', color: storeData?.status.color || '#64748b', fontWeight: 700 }}>{storeData?.status.label || 'Unknown'}</span>
+            <span style={{ fontSize: '10px', padding: '2px 7px', borderRadius: '10px', backgroundColor: '#dbeafe', color: '#2563eb', fontWeight: 600 }}>Pilot Active</span>
+          </div>
+          <div style={{ fontSize: '10px', color: '#94a3b8' }}>{repsAtStore.length} rep{repsAtStore.length !== 1 ? 's' : ''} · Last visit: {lastDate ? fmtDate(lastDate) : 'N/A'}</div>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: '10px' }}>
+          <KpiCard label="GR Forms"     value={`${grVisited}/${grTotal}`}              sub="visited/total"       iconBg="#dbeafe" icon={<Svg.visit />} />
+          <KpiCard label="GR Compliance" value={grComp > 0 ? `${grComp}%` : '—'}      sub="avg when visited"    iconBg="#ede9fe" icon={<Svg.rate />} />
+          <KpiCard label="SF Tasks"     value={sfTotal.toLocaleString()}               sub="total logged"        iconBg="#fff7ed" icon={<Svg.tasks />} />
+          <KpiCard label="SF Resolved"  value={sfDone.toLocaleString()}                sub={`${sfRate}% rate`}   iconBg="#dcfce7" icon={<Svg.check />} />
+          <KpiCard label="Open Issues"  value={sfOpen.toLocaleString()}                sub="pending"             iconBg="#fee2e2" icon={<Svg.open />} />
+        </div>
+      </div>
+
+      {/* Main 3-col content */}
+      <div style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: '1fr 1fr 270px', gap: '10px' }}>
+
+        {/* GR Detail */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#2563eb', flexShrink: 0 }}>Geo Rep — Visit & Compliance</div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {grEntries.length === 0
+              ? <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: '#94a3b8' }}>No Geo Rep captures at this store.</div>
+              : <>
+                  <div style={{ display: 'flex', gap: '14px', padding: '10px 14px', borderBottom: '1px solid #f8fafc', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', width: '66px', height: '66px', flexShrink: 0 }}>
+                      <RingChart rate={grVisitRate} color="#2563eb" size={66} strokeWidth={7} />
+                      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#2563eb' }}>{grVisitRate}%</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.6 }}>
+                      <div>{grVisited} visited / {grTotal} forms</div>
+                      <div>Avg compliance: <span style={{ fontWeight: 700, color: rateColor(grComp) }}>{grComp > 0 ? `${grComp}%` : 'N/A'}</span></div>
+                      <div>{repsAtStore.filter(m => m.geoRep?.stores.some(s => s.name === storeNameUpper)).length} rep(s) assigned</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 52px 72px', padding: '6px 14px', backgroundColor: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                    {['Form / Rep','Visited','Comp%','Date'].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{h}</div>)}
+                  </div>
+                  {grEntries.slice(0, 10).map((e, i) => (
+                    <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 52px 72px', padding: '7px 14px', borderBottom: '1px solid #f8fafc', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '11px', fontWeight: 500, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{e.formName || '—'}</div>
+                        <div style={{ fontSize: '10px', color: '#94a3b8' }}>{e.rep}</div>
+                      </div>
+                      <div><span style={{ fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '8px', backgroundColor: e.visited ? '#dcfce7' : '#fee2e2', color: e.visited ? '#16a34a' : '#dc2626' }}>{e.visited ? 'Yes' : 'No'}</span></div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: e.compliance ? rateColor(e.compliance) : '#cbd5e1' }}>{e.compliance != null ? `${Math.round(e.compliance)}%` : '—'}</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>{fmtDate(e.date)}</div>
+                    </div>
+                  ))}
+                </>
+            }
+          </div>
+        </div>
+
+        {/* SF Detail */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#f97316', flexShrink: 0 }}>Stock Fix — Task & Resolution</div>
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+            {sfEntries.length === 0
+              ? <div style={{ padding: '20px', textAlign: 'center', fontSize: '12px', color: '#94a3b8' }}>No Stock Fix tasks at this store.</div>
+              : <>
+                  <div style={{ display: 'flex', gap: '14px', padding: '10px 14px', borderBottom: '1px solid #f8fafc', alignItems: 'center' }}>
+                    <div style={{ position: 'relative', width: '66px', height: '66px', flexShrink: 0 }}>
+                      <RingChart rate={sfRate} color="#f97316" size={66} strokeWidth={7} />
+                      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%,-50%)', textAlign: 'center' }}>
+                        <div style={{ fontSize: '13px', fontWeight: 700, color: '#f97316' }}>{sfRate}%</div>
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', lineHeight: 1.6 }}>
+                      <div>{sfDone} completed / {sfTotal} tasks</div>
+                      <div>Open: <span style={{ fontWeight: 700, color: sfOpen > 0 ? '#dc2626' : '#16a34a' }}>{sfOpen}</span></div>
+                      <div>{sfEntries.length} rep(s) with SF tasks</div>
+                    </div>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 55px 55px 60px', padding: '6px 14px', backgroundColor: '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                    {['Rep','Tasks','Done','Rate'].map(h => <div key={h} style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{h}</div>)}
+                  </div>
+                  {sfEntries.map((e, i) => (
+                    <div key={i} style={{ padding: '8px 14px', borderBottom: '1px solid #f8fafc' }}>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 55px 55px 60px', alignItems: 'center' }}>
+                        <div style={{ fontSize: '12px', fontWeight: 500, color: '#1e293b' }}>{e.rep}</div>
+                        <div style={{ fontSize: '12px', color: '#f97316', fontWeight: 600 }}>{e.tasks}</div>
+                        <div style={{ fontSize: '12px', color: '#16a34a', fontWeight: 600 }}>{e.completed}</div>
+                        <div><span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 6px', borderRadius: '8px', backgroundColor: rateStatus(e.captureRate).bg, color: rateStatus(e.captureRate).color }}>{e.captureRate}%</span></div>
+                      </div>
+                      {e.clients.length > 0 && (
+                        <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: '4px', marginTop: '5px' }}>
+                          {e.clients.map((c, j) => <span key={j} style={{ fontSize: '10px', padding: '1px 6px', borderRadius: '6px', backgroundColor: '#fff7ed', color: '#f97316', border: '1px solid #fed7aa' }}>{c}</span>)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </>
+            }
+          </div>
+        </div>
+
+        {/* Right col: chart + actions */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div style={{ ...card(), flexShrink: 0, height: '160px', display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#1e293b', flexShrink: 0 }}>GR vs SF Performance</div>
+            <div style={{ flex: 1, minHeight: 0, padding: '4px 8px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: -18 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                  <YAxis domain={[0, 100]} tick={{ fontSize: 10 }} />
+                  <Tooltip contentStyle={{ fontSize: 11 }} />
+                  <Bar dataKey="GR" name="Geo Rep" fill="#2563eb" barSize={16} radius={[3,3,0,0]} />
+                  <Bar dataKey="SF" name="Stock Fix" fill="#f97316" barSize={16} radius={[3,3,0,0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+          <div style={{ ...card(), flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#1e293b', flexShrink: 0 }}>Store Action Summary</div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '10px 14px', display: 'flex', flexDirection: 'column', gap: '7px' }}>
+              {[
+                sfOpen > 0           && { icon: 'alert', color: '#dc2626', bg: '#fee2e2', text: `Resolve ${sfOpen} open Stock Fix issue${sfOpen !== 1 ? 's' : ''}` },
+                grComp > 0 && grComp < 70 && { icon: 'bar', color: '#f97316', bg: '#fff7ed', text: `Improve GR compliance — currently ${grComp}%, target 70%` },
+                grVisited < grTotal  && grTotal > 0 && { icon: 'visit', color: '#2563eb', bg: '#dbeafe', text: `${grTotal - grVisited} GR form${(grTotal - grVisited) !== 1 ? 's' : ''} not yet visited` },
+                grComp >= 80         && { icon: 'check', color: '#16a34a', bg: '#dcfce7', text: `Strong GR compliance — maintain ${grComp}% standard` },
+                sfRate >= 80         && { icon: 'check', color: '#16a34a', bg: '#dcfce7', text: `SF resolution rate is strong at ${sfRate}%` },
+                sfOpen === 0 && grComp >= 70 && grVisited >= grTotal && { icon: 'check', color: '#16a34a', bg: '#dcfce7', text: 'All metrics on track. Keep up the good work.' },
+              ].filter(Boolean).map((a: any, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '7px', padding: '7px 9px', borderRadius: '7px', backgroundColor: a.bg }}>
+                  <div style={{ color: a.color, marginTop: '1px', flexShrink: 0 }}>
+                    {a.icon === 'alert' && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>}
+                    {a.icon === 'bar'   && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="2" y1="20" x2="22" y2="20"/></svg>}
+                    {a.icon === 'visit' && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>}
+                    {a.icon === 'check' && <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>}
+                  </div>
+                  <span style={{ fontSize: '11px', color: a.color, fontWeight: 500, lineHeight: 1.4 }}>{a.text}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Stores Dashboard ─────────────────────────────────────
+function StoresDashboard({ data }: { data: PilotReport }) {
+  const { merchandisers } = data;
+  const [selStore, setSelStore] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 8;
+
+  const storePerf = useMemo((): StoreDetailProp[] => {
+    const map = new Map<string, {
+      name: string; manager: string; region: string;
+      grForms: number; grVisited: number; grCompSum: number; grCompCount: number; grLastDate: string;
+      sfTasks: number; sfDone: number;
+    }>();
+    merchandisers.forEach(m => {
+      const mgr = m.lineManager ? tc(m.lineManager) : '';
+      const reg = m.region ? tc(m.region) : '';
+      (m.geoRep?.stores || []).forEach(s => {
+        if (!map.has(s.name)) map.set(s.name, { name: s.name, manager: mgr, region: reg, grForms: 0, grVisited: 0, grCompSum: 0, grCompCount: 0, grLastDate: '', sfTasks: 0, sfDone: 0 });
+        const st = map.get(s.name)!;
+        st.grForms += s.forms; st.grVisited += s.visited;
+        if (s.avgCompliance > 0) { st.grCompSum += s.avgCompliance * s.visited; st.grCompCount += s.visited; }
+        const latestDate = s.formDetails.reduce((mx, fd) => fd.date > mx ? fd.date : mx, '');
+        if (latestDate > st.grLastDate) st.grLastDate = latestDate;
+        if (!st.manager && mgr) st.manager = mgr;
+        if (!st.region && reg) st.region = reg;
+      });
+      (m.stockFix?.stores || []).forEach(s => {
+        if (!map.has(s.name)) map.set(s.name, { name: s.name, manager: mgr, region: reg, grForms: 0, grVisited: 0, grCompSum: 0, grCompCount: 0, grLastDate: '', sfTasks: 0, sfDone: 0 });
+        const st = map.get(s.name)!;
+        st.sfTasks += s.tasks; st.sfDone += s.completed;
+        if (!st.manager && mgr) st.manager = mgr;
+        if (!st.region && reg) st.region = reg;
+      });
+    });
+    return [...map.values()].map(s => {
+      const grRate = s.grForms > 0 ? Math.round((s.grVisited / s.grForms) * 100) : 0;
+      const grCompliance = s.grCompCount > 0 ? Math.round(s.grCompSum / s.grCompCount) : 0;
+      const sfRate = s.sfTasks > 0 ? Math.round((s.sfDone / s.sfTasks) * 100) : 0;
+      const total  = s.grForms + s.sfTasks;
+      const done   = s.grVisited + s.sfDone;
+      const overall = total > 0 ? Math.round((done / total) * 100) : 0;
+      return {
+        name: tc(s.name), manager: s.manager, region: s.region,
+        grForms: s.grForms, grVisited: s.grVisited, grCompliance,
+        grLastDate: s.grLastDate,
+        sfTasks: s.sfTasks, sfDone: s.sfDone, sfOpen: s.sfTasks - s.sfDone, sfRate,
+        grRate, overallRate: overall, status: rateStatus(overall),
+      } as StoreDetailProp & { grLastDate: string };
+    }).filter(s => s.grForms > 0 || s.sfTasks > 0)
+      .sort((a, b) => b.overallRate - a.overallRate);
+  }, [merchandisers]);
+
+  if (selStore) {
+    const storeData = storePerf.find(s => s.name === selStore);
+    return <StoreDetailPanel storeName={selStore} storeData={storeData || null} data={data} onBack={() => setSelStore(null)} />;
+  }
+
+  const visited    = storePerf.filter(s => s.grVisited > 0 || s.sfDone > 0).length;
+  const notVisited = storePerf.filter(s => s.grVisited === 0 && s.sfDone === 0).length;
+  const compStores = storePerf.filter(s => s.grCompliance > 0);
+  const avgComp    = compStores.length > 0 ? Math.round(compStores.reduce((s, x) => s + x.grCompliance, 0) / compStores.length) : 0;
+  const sfIssues   = storePerf.reduce((s, x) => s + x.sfTasks, 0);
+  const atRisk     = storePerf.filter(s => s.overallRate > 0 && s.overallRate < 70).length;
+
+  const statusGroups = [
+    { name: 'Excellent', count: storePerf.filter(s => s.overallRate >= 85).length, fill: '#16a34a' },
+    { name: 'Good',      count: storePerf.filter(s => s.overallRate >= 70 && s.overallRate < 85).length, fill: '#2563eb' },
+    { name: 'At Risk',   count: storePerf.filter(s => s.overallRate >= 50 && s.overallRate < 70).length, fill: '#f97316' },
+    { name: 'Poor',      count: storePerf.filter(s => s.overallRate > 0 && s.overallRate < 50).length, fill: '#dc2626' },
+    { name: 'No Data',   count: storePerf.filter(s => s.overallRate === 0).length, fill: '#94a3b8' },
+  ].filter(s => s.count > 0);
+
+  const topStoreChart = storePerf.filter(s => s.grCompliance > 0 || s.sfRate > 0).slice(0, 6).map(s => ({
+    name: s.name.length > 13 ? s.name.slice(0, 13) + '…' : s.name,
+    grComp: s.grCompliance, sfRate: s.sfRate,
+  }));
+
+  const needsAttention = [...storePerf].sort((a,b) => a.overallRate - b.overallRate).filter(s => s.overallRate < 70).slice(0, 4);
+
+  const card = (extra?: React.CSSProperties): React.CSSProperties => ({
+    backgroundColor: '#fff', borderRadius: '10px',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.07)', overflow: 'hidden',
+    boxSizing: 'border-box' as const, ...extra,
+  });
+
+  const totalPages  = Math.ceil(storePerf.length / PAGE_SIZE);
+  const pageStores  = storePerf.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0, gap: '10px' }}>
+
+      {/* KPI Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6,1fr)', gap: '10px', flexShrink: 0, height: '84px' }}>
+        <KpiCard label="Pilot Stores"      value={storePerf.length}           sub="total stores"        iconBg="#dbeafe" icon={<Svg.store />} />
+        <KpiCard label="Stores Visited"    value={visited}                    sub="with activity"       iconBg="#dcfce7" icon={<Svg.check />} />
+        <KpiCard label="Not Visited"       value={notVisited}                 sub="no activity logged"  iconBg="#fee2e2" icon={<Svg.open />} />
+        <KpiCard label="Avg GR Compliance" value={avgComp > 0 ? `${avgComp}%` : '—'} sub="when visited" iconBg="#ede9fe" icon={<Svg.rate />} />
+        <KpiCard label="SF Issues Logged"  value={sfIssues.toLocaleString()}  sub="total SF tasks"      iconBg="#fff7ed" icon={<Svg.tasks />} />
+        <KpiCard label="Stores At Risk"    value={atRisk}                     sub="below 70% rate"      iconBg="#fee2e2" icon={<Svg.alert />} />
+      </div>
+
+      {/* Charts Row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px 230px', gap: '10px', flexShrink: 0, height: '200px' }}>
+
+        {/* Store Performance Bar */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#1e293b', flexShrink: 0 }}>Store Performance (Top Stores by Compliance)</div>
+          <div style={{ flex: 1, minHeight: 0, padding: '6px 10px 6px 6px' }}>
+            {topStoreChart.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={topStoreChart} layout="vertical" margin={{ top: 0, right: 44, bottom: 0, left: 6 }}>
+                  <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 10 }} />
+                  <YAxis type="category" dataKey="name" tick={{ fontSize: 11, fill: '#475569' }} width={84} />
+                  <Tooltip contentStyle={{ fontSize: 11 }} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  <Bar dataKey="grComp" name="GR Compliance %" fill="#2563eb" radius={[0, 3, 3, 0]} barSize={8} label={{ position: 'right', fontSize: 10, fill: '#94a3b8', formatter: (v: any) => v > 0 ? `${v}%` : '' }} />
+                  <Bar dataKey="sfRate"  name="SF Rate %"       fill="#f97316" radius={[0, 3, 3, 0]} barSize={8} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#94a3b8', fontSize: '12px' }}>No store data</div>}
+          </div>
+        </div>
+
+        {/* Status Donut */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#1e293b', flexShrink: 0 }}>Status Breakdown</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px' }}>
+            <div style={{ width: '96px', height: '96px', flexShrink: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={statusGroups.map(s => ({ name: s.name, value: s.count, fill: s.fill }))} innerRadius={30} outerRadius={46} dataKey="value" paddingAngle={2}>
+                    {statusGroups.map((s, i) => <Cell key={i} fill={s.fill} />)}
+                  </Pie>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+              {statusGroups.map(s => (
+                <div key={s.name} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: s.fill, flexShrink: 0 }} />
+                  <span style={{ fontSize: '10px', color: '#64748b' }}>{s.name}</span>
+                  <span style={{ fontSize: '11px', fontWeight: 700, color: '#1e293b', marginLeft: '4px' }}>{s.count}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Needs Attention */}
+        <div style={{ ...card(), display: 'flex', flexDirection: 'column' }}>
+          <div style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', fontSize: '12px', fontWeight: 700, color: '#dc2626', flexShrink: 0 }}>Requiring Attention</div>
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {needsAttention.length === 0
+              ? <div style={{ padding: '16px', textAlign: 'center', fontSize: '12px', color: '#94a3b8' }}>All stores performing well</div>
+              : needsAttention.map((s, i) => (
+                  <div key={i} style={{ padding: '9px 14px', borderBottom: '1px solid #f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }} onClick={() => setSelStore(s.name)}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const, maxWidth: '135px' }}>{s.name}</div>
+                      <div style={{ fontSize: '10px', color: '#94a3b8' }}>
+                        {s.sfOpen > 0 ? `${s.sfOpen} open SF` : ''}{s.grVisited === 0 ? (s.sfOpen > 0 ? ' · ' : '') + 'Not visited' : ''}
+                      </div>
+                    </div>
+                    <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', backgroundColor: s.status.bg, color: s.status.color, flexShrink: 0 }}>{s.overallRate}%</span>
+                  </div>
+                ))
+            }
+          </div>
+        </div>
+      </div>
+
+      {/* Store Table */}
+      <div style={{ flex: 1, minHeight: 0, ...card(), display: 'flex', flexDirection: 'column' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 110px 90px 78px 78px 68px 65px 58px 68px 72px 78px', padding: '8px 14px', backgroundColor: '#f8fafc', borderBottom: '1px solid #f1f5f9', flexShrink: 0 }}>
+          {['Store','Manager','Region','Last Visit','GR Comp%','GR Cap.','SF Issues','Open','SF Rate','Status','Action'].map(h => (
+            <div key={h} style={{ fontSize: '10px', fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.05em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{h}</div>
+          ))}
+        </div>
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+          {pageStores.map((s: any, i) => (
+            <div key={s.name} style={{ display: 'grid', gridTemplateColumns: '1.3fr 110px 90px 78px 78px 68px 65px 58px 68px 72px 78px', padding: '9px 14px', borderBottom: i < pageStores.length - 1 ? '1px solid #f8fafc' : 'none', alignItems: 'center' }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#1e293b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{s.name}</div>
+              <div style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{s.manager || '—'}</div>
+              <div style={{ fontSize: '11px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{s.region || '—'}</div>
+              <div style={{ fontSize: '11px', color: '#94a3b8' }}>{s.grLastDate ? fmtDate(s.grLastDate) : '—'}</div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: s.grCompliance > 0 ? rateColor(s.grCompliance) : '#cbd5e1' }}>{s.grCompliance > 0 ? `${s.grCompliance}%` : '—'}</div>
+              <div style={{ fontSize: '12px', color: '#2563eb', fontWeight: 500 }}>{s.grVisited}/{s.grForms}</div>
+              <div style={{ fontSize: '12px', color: '#f97316', fontWeight: 500 }}>{s.sfTasks}</div>
+              <div style={{ fontSize: '12px', color: s.sfOpen > 0 ? '#dc2626' : '#16a34a', fontWeight: 600 }}>{s.sfOpen}</div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: s.sfTasks > 0 ? rateColor(s.sfRate) : '#cbd5e1' }}>{s.sfTasks > 0 ? `${s.sfRate}%` : '—'}</div>
+              <div><span style={{ fontSize: '10px', fontWeight: 700, padding: '2px 7px', borderRadius: '10px', backgroundColor: s.status.bg, color: s.status.color }}>{s.status.label}</span></div>
+              <div><button onClick={() => setSelStore(s.name)} style={{ fontSize: '11px', fontWeight: 600, padding: '3px 8px', borderRadius: '5px', border: '1px solid #e2e8f0', backgroundColor: '#f8fafc', color: '#2563eb', cursor: 'pointer', whiteSpace: 'nowrap' as const }}>View Detail</button></div>
+            </div>
+          ))}
+        </div>
+        {totalPages > 1 && (
+          <div style={{ flexShrink: 0, padding: '8px 14px', borderTop: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '11px', color: '#94a3b8' }}>Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, storePerf.length)} of {storePerf.length} stores</span>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <button onClick={() => setPage(p => Math.max(0, p-1))} disabled={page === 0} style={{ padding: '3px 10px', fontSize: '11px', borderRadius: '5px', border: '1px solid #e2e8f0', cursor: page === 0 ? 'default' : 'pointer', color: page === 0 ? '#cbd5e1' : '#475569', background: '#fff' }}>Prev</button>
+              <button onClick={() => setPage(p => Math.min(totalPages-1, p+1))} disabled={page === totalPages-1} style={{ padding: '3px 10px', fontSize: '11px', borderRadius: '5px', border: '1px solid #e2e8f0', cursor: page === totalPages-1 ? 'default' : 'pointer', color: page === totalPages-1 ? '#cbd5e1' : '#475569', background: '#fff' }}>Next</button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Managers View ────────────────────────────────────────
 function ManagersView({ data, onSelectRep }: { data: PilotReport; onSelectRep: (m: Merchandiser) => void }) {
   const [expandedMgr, setExpandedMgr] = useState<string | null>(null);
@@ -934,7 +1582,19 @@ export default function MerchandiserPilotPage() {
   });
 
   const lastUpdated = dataUpdatedAt ? new Date(dataUpdatedAt).toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : null;
-  const isOverviewScreen = navSection === 'overview' && view === 'list';
+  const isDashboardScreen = ['overview', 'stockfix', 'stores'].includes(navSection) && view === 'list';
+
+  const headerMeta: Record<string, { title: string; sub: string }> = {
+    overview:  { title: 'Merchandiser Pilot Dashboard',      sub: 'Geo Rep & Stock Fix Monitoring' },
+    georep:    { title: 'Geo Rep Performance',               sub: 'Visit Rate & Compliance Monitoring' },
+    stockfix:  { title: 'Stock Fix Performance Dashboard',   sub: 'Task Logging, Resolution & Issue Closure Monitoring' },
+    stores:    { title: 'Store Performance Dashboard',       sub: 'Store-Level Geo Rep & Stock Fix Performance' },
+    managers:  { title: 'Compliance by Manager',             sub: 'Manager-Level Geo Rep & Stock Fix Performance' },
+    regions:   { title: 'Compliance by Region',              sub: 'Regional Geo Rep & Stock Fix Performance' },
+    reports:   { title: 'Reports',                           sub: 'All Merchandiser Activity' },
+    alerts:    { title: 'Action Required',                   sub: 'Merchandisers needing attention' },
+  };
+  const hdr = headerMeta[navSection] || headerMeta.overview;
 
   function handleSelectRep(m: Merchandiser) {
     setSelMerch(m);
@@ -951,8 +1611,8 @@ export default function MerchandiserPilotPage() {
     if (!data) return null;
     if (navSection === 'overview')  return <OverviewDashboard data={data} recentActivity={recentData?.activity || []} onSelectRep={handleSelectRep} />;
     if (navSection === 'georep')    return <RepsView data={data} onSelect={handleSelectRep} sourceFilter="georep" />;
-    if (navSection === 'stockfix')  return <RepsView data={data} onSelect={handleSelectRep} sourceFilter="stockfix" />;
-    if (navSection === 'stores')    return <OverviewDashboard data={data} recentActivity={recentData?.activity || []} onSelectRep={handleSelectRep} />;
+    if (navSection === 'stockfix')  return <StockFixDashboard data={data} recentActivity={recentData?.activity || []} />;
+    if (navSection === 'stores')    return <StoresDashboard data={data} />;
     if (navSection === 'managers')  return <ManagersView data={data} onSelectRep={handleSelectRep} />;
     if (navSection === 'regions')   return <RegionsView data={data} />;
     if (navSection === 'reports')   return <RepsView data={data} onSelect={handleSelectRep} />;
@@ -969,9 +1629,9 @@ export default function MerchandiserPilotPage() {
         {/* ── Header (55px) ── */}
         <div style={{ flexShrink: 0, height: '55px', backgroundColor: '#fff', borderBottom: '1px solid #e2e8f0', padding: '0 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ fontSize: '17px', fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>Merchandiser Pilot Dashboard</div>
+            <div style={{ fontSize: '17px', fontWeight: 700, color: '#1e293b', lineHeight: 1.2 }}>{hdr.title}</div>
             <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-              Geo Rep &amp; Stock Fix Monitoring
+              {hdr.sub}
               {lastUpdated && <span style={{ marginLeft: '8px' }}>· Updated {lastUpdated}</span>}
             </div>
           </div>
@@ -1000,8 +1660,8 @@ export default function MerchandiserPilotPage() {
         {/* ── Content area ── */}
         <div style={{
           flex: 1, minHeight: 0,
-          padding: isOverviewScreen ? '10px 20px' : '20px 24px',
-          overflow: isOverviewScreen ? 'hidden' : 'auto',
+          padding: isDashboardScreen ? '10px 20px' : '20px 24px',
+          overflow: isDashboardScreen ? 'hidden' : 'auto',
           display: 'flex', flexDirection: 'column',
         }}>
           {isLoading && (
