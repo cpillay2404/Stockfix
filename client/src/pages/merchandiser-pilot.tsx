@@ -70,24 +70,19 @@ function RingChart({ rate, color, size = 110, strokeWidth = 11 }: { rate: number
 }
 
 // ─── KPI Card ─────────────────────────────────────────────
-function KpiCard({ label, value, sub, iconBg, icon, trend }: {
+function KpiCard({ label, value, sub, iconBg, icon }: {
   label: string; value: string | number; sub?: string;
-  iconBg: string; icon: string; trend?: { val: string; up: boolean };
+  iconBg: string; icon: string;
 }) {
   return (
-    <div style={{ backgroundColor: '#fff', borderRadius: '12px', padding: '18px 20px', boxShadow: '0 1px 4px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'flex-start', gap: '14px', flex: 1, minWidth: 0 }}>
-      <div style={{ width: '44px', height: '44px', borderRadius: '10px', backgroundColor: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '22px', flexShrink: 0 }}>
+    <div style={{ backgroundColor: '#fff', borderRadius: '10px', padding: '11px 13px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)', display: 'flex', alignItems: 'flex-start', gap: '10px', height: '100%', boxSizing: 'border-box' as const }}>
+      <div style={{ width: '36px', height: '36px', borderRadius: '8px', backgroundColor: iconBg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px', flexShrink: 0 }}>
         {icon}
       </div>
-      <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500, textTransform: 'uppercase' as const, letterSpacing: '0.06em', marginBottom: '4px' }}>{label}</div>
-        <div style={{ fontSize: '26px', fontWeight: 700, color: '#1e293b', lineHeight: 1 }}>{value}</div>
-        {sub && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{sub}</div>}
-        {trend && (
-          <div style={{ fontSize: '11px', marginTop: '5px', color: trend.up ? '#16a34a' : '#dc2626', fontWeight: 600 }}>
-            {trend.up ? '↑' : '↓'} {trend.val}
-          </div>
-        )}
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: '10px', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: '2px', whiteSpace: 'nowrap' as const, overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
+        <div style={{ fontSize: '22px', fontWeight: 700, color: '#1e293b', lineHeight: 1.1 }}>{value}</div>
+        {sub && <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{sub}</div>}
       </div>
     </div>
   );

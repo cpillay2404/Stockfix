@@ -1,0 +1,119 @@
+lease improve the dashboard layout so it looks more like a polished executive BI dashboard and fits onto one screen without vertical scrolling.
+
+Current issue:
+The dashboard currently requires scrolling, and the cards/charts are too large vertically. I want the full overview dashboard to fit within the visible browser height, similar to a one-page Power BI-style dashboard.
+
+Main objective:
+Redesign the Merchandiser Pilot Dashboard as a single-screen responsive dashboard with no vertical scrolling on standard laptop/desktop screens.
+
+Requirements:
+
+1. Overall layout
+- Keep the left navigation sidebar.
+- The main dashboard content must fit within one viewport height.
+- Use a compact grid layout.
+- Reduce excessive vertical padding and card heights.
+- Use smaller but still readable fonts.
+- Use consistent spacing between cards.
+- Avoid large empty spaces inside cards and charts.
+
+2. Header
+- Keep the title: Merchandiser Pilot Dashboard.
+- Keep the subtitle: Geo Rep & Stock Fix Monitoring.
+- Show the selected week on the top right.
+- Make the header compact, maximum height around 55px.
+
+3. Filters
+- Keep filters for Manager, Region, and Store.
+- Add Store filter if it is missing.
+- Place filters in one horizontal row directly under the header.
+- Make filters compact, not tall.
+
+4. KPI cards
+- Keep the KPI cards but make them smaller and aligned in one row.
+- KPI cards should show:
+  - Active Reps
+  - Geo Rep Visit Rate
+  - Geo Rep Visits
+  - Stock Fix Tasks
+  - Stock Fix Done
+  - Pilot Coverage
+- Reduce card height and icon size.
+- Ensure percentages display correctly. For example, Pilot Coverage should not show 785% unless that is truly correct. It should be calculated as active pilot reps divided by total pilot reps, or whichever denominator is correct.
+
+5. Main dashboard body
+Create a compact 3-column dashboard section:
+- Left card: Geo Rep vs Stock Fix Performance
+- Middle card: Compliance Capture Over Time
+- Right card: Compliance by Manager
+
+These cards should be the same height and fit neatly in one row.
+
+6. Bottom dashboard body
+Create a second row with:
+- Left wide card: Store Performance table
+- Right card: Latest Submissions
+
+This row must also fit within the same screen height without scrolling.
+
+7. Chart improvements
+- The Compliance Capture Over Time chart currently has too much empty space. Reduce the chart height and make the plotted data more visible.
+- Add both Geo Rep and Stock Fix trends if available.
+- If only one week of data exists, show a clear single-week marker but avoid a large empty chart.
+- Add labels or tooltips for better readability.
+
+8. Compliance by Manager
+- Make the manager performance card more compact.
+- Show top 6 managers only.
+- Use horizontal bars with percentages.
+- Use colour indicators:
+  - Green for good performance
+  - Amber for medium performance
+  - Red for low performance
+
+9. Store Performance table
+- Keep this table visible on the same page.
+- Show only top 5 to 6 rows on the overview page.
+- Add a “View all stores” link or button instead of forcing the user to scroll.
+- Columns should include:
+  - Store
+  - Manager
+  - Region
+  - Geo Rep
+  - Stock Fix
+  - Status
+
+10. Latest Submissions
+- Show only the latest 4 to 5 submissions.
+- Keep it compact.
+- Use badges for Geo Rep and Stock Fix.
+- Include merchandiser name, store name, captured item/task, and date.
+
+11. Visual design
+- Use a clean corporate style.
+- Keep Meridian branding colours, but make the dashboard feel more premium and modern.
+- Use white cards, soft shadows, rounded corners, and clear section headings.
+- Use blue for Geo Rep and orange for Stock Fix.
+- Use green, amber, and red status badges.
+- Make the dashboard feel more like an executive reporting dashboard, not a long webpage.
+
+12. No-scroll requirement
+- The overview page must not require vertical scrolling.
+- Use CSS such as:
+  - height: 100vh
+  - overflow: hidden on the main dashboard page
+  - compact card heights
+  - CSS grid with fixed row heights
+- If the content exceeds the screen, reduce card spacing, font sizes, chart heights, and table row count rather than allowing scrolling.
+
+Suggested layout:
+- Sidebar fixed width: 220px
+- Main area height: 100vh
+- Header: 55px
+- Filters: 50px
+- KPI row: 120px
+- Main chart row: 300px
+- Bottom row: remaining available height
+- Use CSS grid to ensure everything fits in one viewport.
+
+Please refactor the dashboard UI and CSS accordingly, keeping the current data logic intact but improving the layout, spacing, calculations, and responsiveness.
