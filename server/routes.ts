@@ -2998,153 +2998,126 @@ export async function registerRoutes(
   app.get('/api/pilot-report', async (req, res) => {
     try {
       const PILOT_REPS = [
-        'PORTIA RAMAHLEKA',
-        'YVONNE TEBOGO MTSHANA',
-        'HAPPY SANGO',
-        'ITANI WISEMAN HLUNGWANE',
-        'MAGDELINE VILAKAZI',
-        'ANDILE RARA',
-        'RITO SAMBO',
-        'THEODO THABANG CHIDI',
-        'PERTUNIA MATHAPELO MORUTLOA',
-        'LINDANI RONNIE MCHUNU',
-        'NKULULEKO PATRICK KHUMALO',
-        'NOMCEBO GUGULETHU KHUMALO',
-        'ZILUNGILE BULELWA TUKU',
-        'THOKOZANI NDLOVU',
-        'SLINDILE MNGADI',
-        'WISEMAN CELUXOLO MKHONZA',
-        'SIFISO MLUNGISI SIBIYA',
-        'NOMPUMELELO DLAMINI',
+        'PORTIA RAMAHLEKA', 'YVONNE TEBOGO MTSHANA', 'HAPPY SANGO',
+        'ITANI WISEMAN HLUNGWANE', 'MAGDELINE VILAKAZI', 'ANDILE RARA',
+        'RITO SAMBO', 'THEODO THABANG CHIDI', 'PERTUNIA MATHAPELO MORUTLOA',
+        'LINDANI RONNIE MCHUNU', 'NKULULEKO PATRICK KHUMALO', 'NOMCEBO GUGULETHU KHUMALO',
+        'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
+        'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
       ];
 
-      const repListSql = sql.raw(PILOT_REPS.map(r => `'${r}'`).join(', '));
+      const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
+      const filterRegion = (req.query.region as string | undefined)?.toUpperCase();
+      const filterStore = (req.query.store as string | undefined)?.toUpperCase();
+      const hasFilter = !!(filterManager || filterRegion || filterStore);
 
-      const latestWeekResult = await db.execute(sql`
-        SELECT MAX(week_ending_date) as latest_week
-        FROM tasks
-        WHERE UPPER(rep_name) IN (${repListSql})
-      `);
-      const latestWeek = (latestWeekResult.rows[0] as any)?.latest_week || null;
+      // --- Read live data from OneDrive Customer Compliance tab ---
+      const { findFileByName, listWorksheets, readWorksheetRows } = await import('./onedrive.js');
+      const file = await findFileByName('Geo Rep -Merch Pilot');
+      if (!file) throw new Error('Pilot Excel file not found on OneDrive');
+      const allRows = await readWorksheetRows(file.id, 'Customer Compliance');
 
-      // Get filter options from pilot rep tasks (all time)
-      const filterOptionsResult = await db.execute(sql`
-        SELECT
-          DISTINCT line_manager, region, store_name
-        FROM tasks
-        WHERE UPPER(rep_name) IN (${repListSql})
-          AND line_manager IS NOT NULL
-          AND region IS NOT NULL
-          AND store_name IS NOT NULL
-        ORDER BY line_manager, region, store_name
-      `);
-      const managers = [...new Set((filterOptionsResult.rows as any[]).map((r: any) => r.line_manager).filter(Boolean))].sort();
-      const regions = [...new Set((filterOptionsResult.rows as any[]).map((r: any) => r.region).filter(Boolean))].sort();
-      const stores = [...new Set((filterOptionsResult.rows as any[]).map((r: any) => r.store_name).filter(Boolean))].sort();
+      // Header row: Report Date(0), Region(1), Customer Name(2), Merchandiser(3),
+      //             Manager(4), Form Name(5), Banner(6), Form Tag(7),
+      //             Start Date(8), End Date(9), Time Gone(10), Visited(11), Compliance %(12)
+      const dataRows = allRows.slice(1).filter(r => r[3]); // skip header, require Merchandiser
 
-      // Parse filter params
-      const filterManager = req.query.manager as string | undefined;
-      const filterRegion = req.query.region as string | undefined;
-      const filterStore = req.query.store as string | undefined;
+      // Derive latestWeek from most recent Report Date in the data
+      const dates = dataRows.map(r => String(r[0] || '')).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
+      const latestWeek = dates[0] || null;
 
-      let repsData: any[] = [];
-      if (latestWeek) {
-        const filterClauses = [];
-        if (filterManager) filterClauses.push(sql`AND UPPER(line_manager) = UPPER(${filterManager})`);
-        if (filterRegion) filterClauses.push(sql`AND UPPER(region) = UPPER(${filterRegion})`);
-        if (filterStore) filterClauses.push(sql`AND UPPER(store_name) = UPPER(${filterStore})`);
+      // Build filter options from raw data
+      const allManagers = [...new Set(dataRows.map(r => String(r[4] || '').toUpperCase()).filter(Boolean))].sort();
+      const allRegions  = [...new Set(dataRows.map(r => String(r[1] || '').toUpperCase()).filter(Boolean))].sort();
+      const allStores   = [...new Set(dataRows.map(r => String(r[2] || '').toUpperCase()).filter(Boolean))].sort();
 
-        const statsResult = await db.execute(sql`
-          SELECT
-            rep_name,
-            MAX(line_manager) as line_manager,
-            MAX(region) as region,
-            COUNT(DISTINCT store_name) as store_count,
-            COUNT(*) as total_tasks,
-            SUM(CASE WHEN action_status = 'Completed' THEN 1 ELSE 0 END) as completed,
-            SUM(CASE WHEN action_status != 'Completed' THEN 1 ELSE 0 END) as pending,
-            MAX(capture_date) as last_capture
-          FROM tasks
-          WHERE week_ending_date = ${latestWeek}
-            AND UPPER(rep_name) IN (${repListSql})
-            ${filterClauses.length ? sql`${filterClauses[0]}` : sql``}
-            ${filterClauses.length > 1 ? sql`${filterClauses[1]}` : sql``}
-            ${filterClauses.length > 2 ? sql`${filterClauses[2]}` : sql``}
-          GROUP BY rep_name
-          ORDER BY rep_name
-        `);
-        repsData = statsResult.rows as any[];
+      // Apply filters
+      const filteredRows = dataRows.filter(r => {
+        if (filterManager && String(r[4] || '').toUpperCase() !== filterManager) return false;
+        if (filterRegion  && String(r[1] || '').toUpperCase() !== filterRegion)  return false;
+        if (filterStore   && String(r[2] || '').toUpperCase() !== filterStore)   return false;
+        return true;
+      });
+
+      // Group by merchandiser
+      const repMap = new Map<string, { lineManager: string; region: string; stores: Set<string>; total: number; completed: number; lastDate: string }>();
+
+      for (const row of filteredRows) {
+        const rawName = String(row[3] || '').trim().toUpperCase();
+        if (!rawName) continue;
+        const visited = String(row[11] || '').toLowerCase() === 'yes';
+        const storeName = String(row[2] || '').trim().toUpperCase();
+        const dateStr = String(row[0] || '');
+
+        if (!repMap.has(rawName)) {
+          repMap.set(rawName, {
+            lineManager: String(row[4] || '').trim(),
+            region: String(row[1] || '').trim(),
+            stores: new Set(),
+            total: 0,
+            completed: 0,
+            lastDate: dateStr,
+          });
+        }
+        const entry = repMap.get(rawName)!;
+        entry.total++;
+        if (visited) entry.completed++;
+        if (storeName) entry.stores.add(storeName);
+        if (dateStr > entry.lastDate) entry.lastDate = dateStr;
+        // Update manager/region in case they vary (take latest)
+        if (row[4]) entry.lineManager = String(row[4]).trim();
+        if (row[1]) entry.region = String(row[1]).trim();
       }
 
-      const foundNames = new Set(repsData.map((r: any) => (r.rep_name || '').toUpperCase()));
-      const hasFilter = !!(filterManager || filterRegion || filterStore);
+      const foundNames = new Set(repMap.keys());
       const reps = [
-        ...repsData.map((row: any) => ({
-          repName: row.rep_name,
-          lineManager: row.line_manager || null,
-          region: row.region || null,
-          storeCount: Number(row.store_count) || 0,
-          totalTasks: Number(row.total_tasks) || 0,
-          completed: Number(row.completed) || 0,
-          pending: Number(row.pending) || 0,
-          captureRate: Number(row.total_tasks) > 0 ? Math.round((Number(row.completed) / Number(row.total_tasks)) * 100) : 0,
-          lastCapture: row.last_capture || null,
+        ...[...repMap.entries()].map(([name, d]) => ({
+          repName: name,
+          lineManager: d.lineManager || null,
+          region: d.region || null,
+          storeCount: d.stores.size,
+          totalTasks: d.total,
+          completed: d.completed,
+          pending: d.total - d.completed,
+          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+          lastCapture: d.lastDate || null,
         })),
         ...(!hasFilter ? PILOT_REPS.filter(p => !foundNames.has(p)).map(name => ({
-          repName: name,
-          lineManager: null,
-          region: null,
-          storeCount: 0,
-          totalTasks: 0,
-          completed: 0,
-          pending: 0,
-          captureRate: 0,
-          lastCapture: null,
+          repName: name, lineManager: null, region: null,
+          storeCount: 0, totalTasks: 0, completed: 0, pending: 0, captureRate: 0, lastCapture: null,
         })) : []),
       ].sort((a, b) => b.captureRate - a.captureRate || a.repName.localeCompare(b.repName));
 
-      const totalTasks = reps.reduce((sum, r) => sum + r.totalTasks, 0);
-      const totalCompleted = reps.reduce((sum, r) => sum + r.completed, 0);
-      const overallRate = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
-      const activeReps = reps.filter(r => r.totalTasks > 0).length;
+      const totalTasks    = reps.reduce((s, r) => s + r.totalTasks, 0);
+      const totalCompleted = reps.reduce((s, r) => s + r.completed, 0);
+      const overallRate   = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
+      const activeReps    = reps.filter(r => r.totalTasks > 0).length;
 
-      // Auto-save snapshot for current week (only reps with tasks, no filter active)
-      if (latestWeek && !hasFilter && repsData.length > 0) {
-        for (const rep of repsData) {
+      // Auto-save snapshot (unfiltered, has data)
+      if (latestWeek && !hasFilter && repMap.size > 0) {
+        for (const [name, d] of repMap.entries()) {
+          const total = d.total;
+          const done  = d.completed;
+          const rate  = total > 0 ? Math.round((done / total) * 100) : 0;
           await db.execute(sql`
             INSERT INTO pilot_snapshots (week_ending_date, rep_name, line_manager, region, total_tasks, completed, pending, capture_rate, saved_at)
-            VALUES (
-              ${latestWeek},
-              ${rep.repName},
-              ${rep.lineManager || null},
-              ${rep.region || null},
-              ${String(rep.totalTasks)},
-              ${String(rep.completed)},
-              ${String(rep.pending)},
-              ${String(rep.captureRate)},
-              NOW()
-            )
+            VALUES (${latestWeek}, ${name}, ${d.lineManager || null}, ${d.region || null},
+                    ${String(total)}, ${String(done)}, ${String(total - done)}, ${String(rate)}, NOW())
             ON CONFLICT (week_ending_date, rep_name)
-            DO UPDATE SET
-              line_manager = EXCLUDED.line_manager,
-              region = EXCLUDED.region,
-              total_tasks = EXCLUDED.total_tasks,
-              completed = EXCLUDED.completed,
-              pending = EXCLUDED.pending,
-              capture_rate = EXCLUDED.capture_rate,
-              saved_at = NOW()
+            DO UPDATE SET line_manager=EXCLUDED.line_manager, region=EXCLUDED.region,
+              total_tasks=EXCLUDED.total_tasks, completed=EXCLUDED.completed,
+              pending=EXCLUDED.pending, capture_rate=EXCLUDED.capture_rate, saved_at=NOW()
           `);
         }
       }
 
-      // Load historical snapshots (all weeks, grouped by week)
+      // Load rolling history from snapshots table
       const historyResult = await db.execute(sql`
-        SELECT
-          week_ending_date,
-          COUNT(DISTINCT rep_name) as rep_count,
-          SUM(total_tasks::int) as total_tasks,
-          SUM(completed::int) as total_completed,
-          CASE WHEN SUM(total_tasks::int) > 0 THEN ROUND(SUM(completed::int) * 100.0 / SUM(total_tasks::int)) ELSE 0 END as capture_rate
+        SELECT week_ending_date,
+               COUNT(DISTINCT rep_name) as rep_count,
+               SUM(total_tasks::int) as total_tasks,
+               SUM(completed::int) as total_completed,
+               CASE WHEN SUM(total_tasks::int) > 0 THEN ROUND(SUM(completed::int)*100.0/SUM(total_tasks::int)) ELSE 0 END as capture_rate
         FROM pilot_snapshots
         GROUP BY week_ending_date
         ORDER BY week_ending_date DESC
@@ -3160,7 +3133,8 @@ export async function registerRoutes(
 
       res.json({
         latestWeek,
-        filters: { managers, regions, stores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } },
+        filters: { managers: allManagers, regions: allRegions, stores: allStores,
+                   active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } },
         summary: { totalTasks, totalCompleted, overallRate, activeReps, totalPilotReps: hasFilter ? reps.length : PILOT_REPS.length },
         reps,
         history,

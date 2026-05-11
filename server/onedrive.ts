@@ -23,7 +23,7 @@ export async function getOneDriveToken(): Promise<string> {
   }
 
   const resp = await fetch(
-    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=onedrive`,
+    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=sharepoint`,
     {
       headers: {
         Accept: 'application/json',
@@ -39,7 +39,7 @@ export async function getOneDriveToken(): Promise<string> {
     conn?.settings?.oauth?.credentials?.access_token;
 
   if (!token) {
-    throw new Error('OneDrive token not found — make sure the OneDrive integration is connected in this project');
+    throw new Error('SharePoint token not found — make sure the SharePoint Online integration is connected in this project');
   }
 
   const expiresAt = conn?.settings?.expires_at
@@ -63,13 +63,36 @@ export async function graphGet(path: string): Promise<any> {
   return resp.json();
 }
 
-// Search for a file by name across the user's OneDrive
+// The pilot Excel file sharing URL (from user's OneDrive/SharePoint)
+const PILOT_FILE_SHARE_URL = 'https://meridiangroupza-my.sharepoint.com/:x:/g/personal/cpillay_meridiangroup_co_za1/IQCXfoSmji4rSIYy7dA2cAcLAYTze7g9RlyWjvm8Te1GbKo?e=a9IPwj';
+
+// Encode a sharing URL into the Microsoft Graph shares format
+function encodeSharingUrl(url: string): string {
+  const b64 = Buffer.from(url).toString('base64').replace(/=/g, '').replace(/\//g, '_').replace(/\+/g, '-');
+  return 'u!' + b64;
+}
+
+// Get the driveItem for the pilot file via its sharing URL
+export async function getPilotFileItem(): Promise<{ id: string; name: string; webUrl: string }> {
+  const encoded = encodeSharingUrl(PILOT_FILE_SHARE_URL);
+  const data = await graphGet(`/shares/${encoded}/driveItem?$select=id,name,webUrl`);
+  if (data.error) throw new Error(`Could not access file: ${data.error.message}`);
+  return data;
+}
+
+// Search for a file by name across the user's OneDrive (fallback)
 export async function findFileByName(name: string): Promise<{ id: string; name: string; webUrl: string } | null> {
-  const data = await graphGet(`/me/drive/root/search(q='${encodeURIComponent(name)}')?$select=id,name,webUrl`);
-  const match = (data.value || []).find((f: any) =>
-    f.name.toLowerCase().includes(name.toLowerCase())
-  );
-  return match || null;
+  try {
+    // First try via the known sharing URL
+    return await getPilotFileItem();
+  } catch {
+    // Fallback: search the drive
+    const data = await graphGet(`/me/drive/root/search(q='${encodeURIComponent(name)}')?$select=id,name,webUrl`);
+    const match = (data.value || []).find((f: any) =>
+      f.name.toLowerCase().includes(name.toLowerCase())
+    );
+    return match || null;
+  }
 }
 
 // Read a worksheet's used range and return as array of row arrays
