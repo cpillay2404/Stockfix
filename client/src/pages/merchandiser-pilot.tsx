@@ -83,29 +83,51 @@ function MerchandiserListView({ data, onSelect }: { data: PilotReport; onSelect:
 
       {/* KPI cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '2px solid rgba(243,108,33,0.5)', textAlign: 'center' }}>
-          <div style={{ fontSize: '42px', fontWeight: 700, color: '#F36C21', lineHeight: 1 }}>{summary.combined.rate}%</div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginTop: '6px', textTransform: 'uppercase' as const, letterSpacing: '0.06em' }}>Combined Rate</div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginTop: '3px' }}>{summary.combined.done} / {summary.combined.total} total</div>
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', overflow: 'hidden', border: '2px solid rgba(243,108,33,0.4)', textAlign: 'center' }}>
+          <div style={{ padding: '8px 16px', backgroundColor: 'rgba(243,108,33,0.12)', borderBottom: '1px solid rgba(243,108,33,0.2)' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#F36C21', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>Combined</span>
+          </div>
+          <div style={{ padding: '16px' }}>
+            <div style={{ fontSize: '44px', fontWeight: 700, color: '#F36C21', lineHeight: 1 }}>{summary.combined.rate}%</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '5px' }}>{summary.combined.done} / {summary.combined.total}</div>
+          </div>
         </div>
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '1px solid rgba(243,108,33,0.2)', textAlign: 'center' }}>
-          <div style={{ fontSize: '30px', fontWeight: 700, color: rateColor(summary.stockFix.captureRate), lineHeight: 1 }}>{summary.stockFix.captureRate}%</div>
-          <div style={{ marginTop: '6px' }}><Badge label="StockFix" color="#F36C21" /></div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginTop: '5px' }}>{summary.stockFix.completed}/{summary.stockFix.total} tasks</div>
+        <div style={{ backgroundColor: '#002a50', borderRadius: '12px', overflow: 'hidden', border: '2px solid rgba(243,108,33,0.6)', textAlign: 'center' }}>
+          <div style={{ padding: '8px 16px', backgroundColor: '#F36C21' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>StockFix Tasks</span>
+          </div>
+          <div style={{ padding: '16px' }}>
+            <div style={{ fontSize: '38px', fontWeight: 700, color: '#F36C21', lineHeight: 1 }}>{summary.stockFix.captureRate}%</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '5px' }}>{summary.stockFix.completed} done · {summary.stockFix.total} total</div>
+          </div>
         </div>
-        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', padding: '18px 16px', border: '1px solid rgba(96,165,250,0.2)', textAlign: 'center' }}>
-          <div style={{ fontSize: '30px', fontWeight: 700, color: rateColor(summary.geoRep.visitRate), lineHeight: 1 }}>{summary.geoRep.visitRate}%</div>
-          <div style={{ marginTop: '6px' }}><Badge label="Geo Rep" color="#60a5fa" /></div>
-          <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.25)', marginTop: '5px' }}>{summary.geoRep.visited}/{summary.geoRep.total} forms</div>
+        <div style={{ backgroundColor: '#001e3a', borderRadius: '12px', overflow: 'hidden', border: '2px solid rgba(96,165,250,0.5)', textAlign: 'center' }}>
+          <div style={{ padding: '8px 16px', backgroundColor: '#2563eb' }}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: '#FFFFFF', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>Geo Rep Forms</span>
+          </div>
+          <div style={{ padding: '16px' }}>
+            <div style={{ fontSize: '38px', fontWeight: 700, color: '#60a5fa', lineHeight: 1 }}>{summary.geoRep.visitRate}%</div>
+            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '5px' }}>{summary.geoRep.visited} visited · {summary.geoRep.total} total</div>
+          </div>
         </div>
       </div>
 
       {/* Merchandiser table */}
       <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.07)', overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 140px 140px 80px 20px', padding: '10px 16px', backgroundColor: 'rgba(0,0,0,0.25)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-          {['Merchandiser', 'Manager / Region', 'StockFix', 'Geo Rep', 'Overall', ''].map((h, i) => (
-            <div key={h + i} style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.3)', textTransform: 'uppercase' as const, letterSpacing: '0.07em', textAlign: i >= 2 ? 'center' : 'left' as any }}>{h}</div>
-          ))}
+        {/* Source-colour band above columns */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 140px 140px 80px 20px', backgroundColor: 'rgba(0,0,0,0.35)' }}>
+          <div /><div />
+          <div style={{ height: '3px', backgroundColor: '#F36C21' }} />
+          <div style={{ height: '3px', backgroundColor: '#2563eb' }} />
+          <div /><div />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 140px 140px 80px 20px', padding: '8px 16px', backgroundColor: 'rgba(0,0,0,0.3)', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>Merchandiser</div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' as const, letterSpacing: '0.07em' }}>Manager / Region</div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#F36C21', textTransform: 'uppercase' as const, letterSpacing: '0.07em', textAlign: 'center', backgroundColor: 'rgba(243,108,33,0.08)', padding: '4px 0', borderRadius: '4px' }}>StockFix</div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: '#60a5fa', textTransform: 'uppercase' as const, letterSpacing: '0.07em', textAlign: 'center', backgroundColor: 'rgba(37,99,235,0.12)', padding: '4px 0', borderRadius: '4px' }}>Geo Rep</div>
+          <div style={{ fontSize: '10px', fontWeight: 700, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase' as const, letterSpacing: '0.07em', textAlign: 'center' }}>Overall</div>
+          <div />
         </div>
 
         {merchandisers.map((m, idx) => {
@@ -134,12 +156,12 @@ function MerchandiserListView({ data, onSelect }: { data: PilotReport; onSelect:
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.5)' }}>{m.lineManager ? tc(m.lineManager) : '—'}</div>
                 <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.28)' }}>{m.region || ''}</div>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '2px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '2px', backgroundColor: 'rgba(243,108,33,0.05)', borderRadius: '6px', padding: '4px 6px' }}>
                 {m.stockFix
                   ? <><MiniBar rate={m.stockFix.captureRate} color={sfColor} /><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.28)' }}>{m.stockFix.completed}/{m.stockFix.tasks} tasks</div></>
                   : <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.14)' }}>—</span>}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '2px' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' as const, alignItems: 'center', gap: '2px', backgroundColor: 'rgba(37,99,235,0.07)', borderRadius: '6px', padding: '4px 6px' }}>
                 {m.geoRep
                   ? <><MiniBar rate={m.geoRep.visitRate} color={grColor} /><div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.28)' }}>{m.geoRep.visited}/{m.geoRep.forms} forms</div></>
                   : <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.14)' }}>—</span>}
