@@ -3040,6 +3040,13 @@ export async function registerRoutes(
         'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
       ];
 
+      // StockFix-only pilot reps (not in the Geo Rep SharePoint file)
+      const STOCKFIX_PILOT_REPS = [
+        'ZEPHANIA ZULU', 'KENNETH NKHOMA', 'OBERT MAKAMO', 'ORELIA DLADLA',
+        'DAWID POTGIETER', 'AYANDA MBONANI', 'JOSEPH MOEMA', 'SUSAN LIVERSAGE',
+      ];
+      const ALL_PILOT_NAMES = [...PILOT_REPS, ...STOCKFIX_PILOT_REPS];
+
       const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
       const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
       const filterStore   = (req.query.store   as string | undefined)?.toUpperCase();
@@ -3053,6 +3060,7 @@ export async function registerRoutes(
             COUNT(*)::int AS tasks,
             SUM(CASE WHEN action_status='Completed' THEN 1 ELSE 0 END)::int AS completed
           FROM tasks
+          WHERE UPPER(TRIM(rep_name)) = ANY(${ALL_PILOT_NAMES})
           GROUP BY rep_name, store_name, client
           ORDER BY rep_name, store_name, client
         `),
@@ -3144,8 +3152,7 @@ export async function registerRoutes(
       }
 
       // --- Build merged merchandiser list (restricted to original pilot reps only) ---
-      const STOCKFIX_PILOT_REPS = [...sfByRep.keys()]; // all 8 SF reps in DB are pilot reps
-      const allNames = new Set([...PILOT_REPS, ...STOCKFIX_PILOT_REPS]);
+      const allNames = new Set(ALL_PILOT_NAMES);
       const merchandisers = [...allNames].map(name => {
         const gr = grByRep.get(name) || null;
         const sf = sfByRep.get(name) || null;
