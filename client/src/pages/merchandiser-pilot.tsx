@@ -14,6 +14,14 @@ interface RepStat {
   lastCapture: string | null;
 }
 
+interface WeekSnapshot {
+  weekEndingDate: string;
+  repCount: number;
+  totalTasks: number;
+  totalCompleted: number;
+  captureRate: number;
+}
+
 interface PilotReport {
   latestWeek: string | null;
   filters: {
@@ -30,6 +38,7 @@ interface PilotReport {
     totalPilotReps: number;
   };
   reps: RepStat[];
+  history: WeekSnapshot[];
 }
 
 function toTitleCase(str: string) {
@@ -86,7 +95,7 @@ function FilterSection({ label, options, value, onChange }: {
 }
 
 function SummaryTab({ data }: { data: PilotReport }) {
-  const { summary, reps } = data;
+  const { summary, reps, history = [] } = data;
   const totalPending = summary.totalTasks - summary.totalCompleted;
   const top3 = reps.filter(r => r.totalTasks > 0).slice(0, 3);
   const bottom3 = [...reps].filter(r => r.totalTasks > 0).sort((a, b) => a.captureRate - b.captureRate).slice(0, 3);
@@ -176,9 +185,48 @@ function SummaryTab({ data }: { data: PilotReport }) {
         </div>
       )}
 
-      {summary.totalTasks === 0 && (
+      {summary.totalTasks === 0 && history.length === 0 && (
         <div style={{ textAlign: 'center', padding: '40px', color: 'rgba(255,255,255,0.3)', fontSize: '14px' }}>
           Summary will populate once merchandiser task data is imported for the current week
+        </div>
+      )}
+
+      {/* Rolling weekly history */}
+      {history.length > 0 && (
+        <div style={{ backgroundColor: '#003B71', borderRadius: '12px', border: '1px solid rgba(243,108,33,0.2)', overflow: 'hidden' }}>
+          <div style={{ padding: '14px 18px', borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+            <span style={{ fontSize: '14px', fontWeight: 600, color: '#FFFFFF' }}>Weekly History</span>
+            <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginLeft: '10px' }}>saved automatically · last {history.length} weeks</span>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px 140px', padding: '8px 18px', backgroundColor: 'rgba(0,0,0,0.2)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            {['Week Ending', 'Assigned', 'Done', 'Active', 'Capture Rate'].map((h, i) => (
+              <div key={h} style={{ fontSize: '10px', fontWeight: 600, color: 'rgba(255,255,255,0.35)', textTransform: 'uppercase', letterSpacing: '0.07em', textAlign: i > 0 && i < 4 ? 'center' : 'left' }}>{h}</div>
+            ))}
+          </div>
+          {history.map((week, index) => {
+            const isCurrentWeek = week.weekEndingDate === data.latestWeek;
+            const rateColor = week.captureRate >= 80 ? '#F36C21' : week.captureRate >= 50 ? '#f59e0b' : '#ef4444';
+            return (
+              <div
+                key={week.weekEndingDate}
+                style={{ display: 'grid', gridTemplateColumns: '1fr 80px 80px 80px 140px', padding: '12px 18px', borderBottom: index < history.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none', backgroundColor: isCurrentWeek ? 'rgba(243,108,33,0.07)' : index % 2 === 0 ? 'transparent' : 'rgba(0,0,0,0.08)', alignItems: 'center' }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: isCurrentWeek ? 700 : 500, color: isCurrentWeek ? '#F36C21' : '#FFFFFF' }}>{week.weekEndingDate}</span>
+                  {isCurrentWeek && <span style={{ fontSize: '10px', backgroundColor: '#F36C21', color: '#FFFFFF', borderRadius: '10px', padding: '1px 7px', fontWeight: 700 }}>Current</span>}
+                </div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{week.totalTasks}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: '#F36C21', textAlign: 'center' }}>{week.totalCompleted}</div>
+                <div style={{ fontSize: '14px', fontWeight: 600, color: 'rgba(255,255,255,0.7)', textAlign: 'center' }}>{week.repCount}</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingRight: '6px' }}>
+                  <div style={{ flex: 1, height: '6px', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: `${week.captureRate}%`, height: '100%', backgroundColor: rateColor, borderRadius: '3px' }} />
+                  </div>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: rateColor, minWidth: '36px', textAlign: 'right' }}>{week.captureRate}%</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

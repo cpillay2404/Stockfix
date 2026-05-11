@@ -105,6 +105,19 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
 export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contacts.$inferSelect;
 
+export const pilotSnapshots = pgTable("pilot_snapshots", {
+  id: serial("id").primaryKey(),
+  weekEndingDate: text("week_ending_date").notNull(),
+  repName: text("rep_name").notNull(),
+  lineManager: text("line_manager"),
+  region: text("region"),
+  totalTasks: text("total_tasks").notNull().default("0"),
+  completed: text("completed").notNull().default("0"),
+  pending: text("pending").notNull().default("0"),
+  captureRate: text("capture_rate").notNull().default("0"),
+  savedAt: timestamp("saved_at").defaultNow().notNull(),
+});
+
 export const clientPasswords = pgTable("client_passwords", {
   id: serial("id").primaryKey(),
   clientName: text("client_name").notNull().unique(),

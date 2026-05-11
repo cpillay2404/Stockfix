@@ -3108,11 +3108,62 @@ export async function registerRoutes(
       const overallRate = totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
       const activeReps = reps.filter(r => r.totalTasks > 0).length;
 
+      // Auto-save snapshot for current week (only reps with tasks, no filter active)
+      if (latestWeek && !hasFilter && repsData.length > 0) {
+        for (const rep of repsData) {
+          await db.execute(sql`
+            INSERT INTO pilot_snapshots (week_ending_date, rep_name, line_manager, region, total_tasks, completed, pending, capture_rate, saved_at)
+            VALUES (
+              ${latestWeek},
+              ${rep.repName},
+              ${rep.lineManager || null},
+              ${rep.region || null},
+              ${String(rep.totalTasks)},
+              ${String(rep.completed)},
+              ${String(rep.pending)},
+              ${String(rep.captureRate)},
+              NOW()
+            )
+            ON CONFLICT (week_ending_date, rep_name)
+            DO UPDATE SET
+              line_manager = EXCLUDED.line_manager,
+              region = EXCLUDED.region,
+              total_tasks = EXCLUDED.total_tasks,
+              completed = EXCLUDED.completed,
+              pending = EXCLUDED.pending,
+              capture_rate = EXCLUDED.capture_rate,
+              saved_at = NOW()
+          `);
+        }
+      }
+
+      // Load historical snapshots (all weeks, grouped by week)
+      const historyResult = await db.execute(sql`
+        SELECT
+          week_ending_date,
+          COUNT(DISTINCT rep_name) as rep_count,
+          SUM(total_tasks::int) as total_tasks,
+          SUM(completed::int) as total_completed,
+          CASE WHEN SUM(total_tasks::int) > 0 THEN ROUND(SUM(completed::int) * 100.0 / SUM(total_tasks::int)) ELSE 0 END as capture_rate
+        FROM pilot_snapshots
+        GROUP BY week_ending_date
+        ORDER BY week_ending_date DESC
+        LIMIT 12
+      `);
+      const history = (historyResult.rows as any[]).map(r => ({
+        weekEndingDate: r.week_ending_date,
+        repCount: Number(r.rep_count),
+        totalTasks: Number(r.total_tasks),
+        totalCompleted: Number(r.total_completed),
+        captureRate: Number(r.capture_rate),
+      }));
+
       res.json({
         latestWeek,
         filters: { managers, regions, stores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } },
         summary: { totalTasks, totalCompleted, overallRate, activeReps, totalPilotReps: hasFilter ? reps.length : PILOT_REPS.length },
         reps,
+        history,
       });
     } catch (error: any) {
       console.error('Pilot report error:', error);
