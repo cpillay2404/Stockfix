@@ -3462,7 +3462,7 @@ export async function registerRoutes(
       `);
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.json({ value: result.rows });
+      res.json(result.rows);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
