@@ -2190,11 +2190,20 @@ export default function MerchandiserPilotPage() {
               {lastUpdated && <span style={{ marginLeft: '8px', color: '#b0bac8' }}>· Updated {lastUpdated}</span>}
             </div>
           </div>
-          {data?.latestWeek && (
-            <span style={{ backgroundColor: '#eff6ff', border: '1px solid #dbeafe', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, color: '#2563eb', flexShrink: 0, letterSpacing: '0.02em' }}>
-              Week {data.latestWeek}
-            </span>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            {data?.latestWeek && (
+              <span style={{ backgroundColor: '#eff6ff', border: '1px solid #dbeafe', borderRadius: '6px', padding: '4px 12px', fontSize: '11px', fontWeight: 600, color: '#2563eb', letterSpacing: '0.02em' }}>
+                Week {data.latestWeek}
+              </span>
+            )}
+            <a
+              href="/api/pilot-export-xlsx"
+              download
+              style={{ backgroundColor: '#16a34a', color: '#fff', borderRadius: '6px', padding: '5px 14px', fontSize: '12px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              ↓ Download Excel
+            </a>
+          </div>
         </div>
 
         {/* ── Filter bar (44px, list views only) ── */}
