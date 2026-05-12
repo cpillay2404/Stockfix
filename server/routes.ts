@@ -3051,13 +3051,12 @@ export async function registerRoutes(
       const [{ allRows, saRows }, sfResult] = await Promise.all([
         getPilotSheetRows(),
         db.execute(sql`
-          SELECT rep_name, store_name, client,
-            COUNT(*)::int AS tasks,
-            SUM(CASE WHEN action_status='Completed' THEN 1 ELSE 0 END)::int AS completed
-          FROM tasks
+          SELECT rep_name,
+            total_tasks::int AS tasks,
+            completed::int   AS completed
+          FROM pilot_snapshots
           WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${ALL_PILOT_NAMES.map(n => `'${n}'`).join(',')}]`)}::text[])
-          GROUP BY rep_name, store_name, client
-          ORDER BY rep_name, store_name, client
+          ORDER BY rep_name
         `),
       ]);
 
@@ -3127,23 +3126,17 @@ export async function registerRoutes(
         if (grByRep.has(name)) grByRep.get(name)!.submissions = subs.size;
       }
 
-      // --- Process StockFix (DB) ---
+      // --- Process StockFix (pilot_snapshots) ---
       type SFStore = { tasks: number; completed: number; clients: string[] };
       type SFRep   = { tasks: number; completed: number; storeMap: Map<string, SFStore> };
       const sfByRep = new Map<string, SFRep>();
       for (const row of sfResult.rows as any[]) {
         const name      = String(row.rep_name).trim().toUpperCase();
-        const store     = String(row.store_name).trim().toUpperCase();
-        const client    = String(row.client).trim();
-        const tasks     = Number(row.tasks);
-        const completed = Number(row.completed);
+        const tasks     = Number(row.tasks) || 0;
+        const completed = Number(row.completed) || 0;
         if (!sfByRep.has(name)) sfByRep.set(name, { tasks: 0, completed: 0, storeMap: new Map() });
         const sfRep = sfByRep.get(name)!;
         sfRep.tasks += tasks; sfRep.completed += completed;
-        if (!sfRep.storeMap.has(store)) sfRep.storeMap.set(store, { tasks: 0, completed: 0, clients: [] });
-        const sfStore = sfRep.storeMap.get(store)!;
-        sfStore.tasks += tasks; sfStore.completed += completed;
-        if (!sfStore.clients.includes(client)) sfStore.clients.push(client);
       }
 
       // --- Build merged merchandiser list (restricted to original pilot reps only) ---
@@ -3221,19 +3214,8 @@ export async function registerRoutes(
           avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
         })).sort((a, b) => b.visited - a.visited || a.formName.localeCompare(b.formName));
 
-      // --- SF client summary (StockFix by brand/client) ---
-      const sfClientMapAgg = new Map<string, { tasks: number; completed: number }>();
-      for (const row of sfResult.rows as any[]) {
-        const client    = String(row.client).trim();
-        const tasks     = Number(row.tasks) || 0;
-        const completed = Number(row.completed) || 0;
-        if (!sfClientMapAgg.has(client)) sfClientMapAgg.set(client, { tasks: 0, completed: 0 });
-        const c = sfClientMapAgg.get(client)!;
-        c.tasks += tasks; c.completed += completed;
-      }
-      const sfClientSummary = [...sfClientMapAgg.entries()]
-        .map(([client, d]) => ({ client, tasks: d.tasks, completed: d.completed, captureRate: d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0 }))
-        .sort((a, b) => b.tasks - a.tasks);
+      // --- SF client summary (no client breakdown in pilot_snapshots) ---
+      const sfClientSummary: { client: string; tasks: number; completed: number; captureRate: number }[] = [];
 
       // --- Banner / Retailer-chain breakdown (Geo Rep) ---
       const bannerMap = new Map<string, { total: number; visited: number; complianceSum: number; complianceCount: number }>();
