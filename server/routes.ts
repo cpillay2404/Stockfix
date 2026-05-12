@@ -3040,7 +3040,12 @@ export async function registerRoutes(
         'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
       ];
 
-      const ALL_PILOT_NAMES = PILOT_REPS;
+      const STOCKFIX_PILOT_REPS = [
+        'ZEPHANIA ZULU', 'KENNETH NKHOMA', 'OBERT MAKAMO', 'ORELIA DLADLA',
+        'DAWID POTGIETER', 'AYANDA MBONANI', 'JOSEPH MOEMA', 'SUSAN LIVERSAGE',
+      ];
+
+      const ALL_PILOT_NAMES = [...PILOT_REPS, ...STOCKFIX_PILOT_REPS];
 
       const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
       const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
