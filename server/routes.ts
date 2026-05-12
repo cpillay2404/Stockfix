@@ -162,6 +162,55 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
     console.log(`Async import [${jobId}] - Starting...`);
     
     if (clearExisting) {
+      // Snapshot pilot rep tasks to history BEFORE wiping
+      console.log(`Async import [${jobId}] - Snapshotting pilot tasks to history...`);
+      const PILOT_REPS_SNAPSHOT = [
+        'PORTIA RAMAHLEKA', 'YVONNE TEBOGO MTSHANA', 'HAPPY SANGO',
+        'ITANI WISEMAN HLUNGWANE', 'MAGDELINE VILAKAZI', 'ANDILE RARA',
+        'RITO SAMBO', 'THEODO THABANG CHIDI', 'PERTUNIA MATHAPELO MORUTLOA',
+        'LINDANI RONNIE MCHUNU', 'NKULULEKO PATRICK KHUMALO', 'NOMCEBO GUGULETHU KHUMALO',
+        'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
+        'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
+      ];
+      try {
+        await db.execute(sql`
+          INSERT INTO pilot_tasks_history (
+            unique_id, key, client, banner, region, store_name, rep_name, line_manager,
+            category, barcode, article_description, dc_soh, store_soh, p4_week_sales,
+            missed_sales, store_wfc, stock_classification, week_ending, week_ending_date,
+            action, action_date, action_status, physical_count, variance, system_adjusted,
+            reason_code, action_taken_comment, feedback, capture_date,
+            image1, image2, image3, image4, saved_at
+          )
+          SELECT
+            unique_id, key, client, banner, region, store_name, rep_name, line_manager,
+            category, barcode, article_description, dc_soh, store_soh, p4_week_sales,
+            missed_sales, store_wfc, stock_classification, week_ending, week_ending_date,
+            action, action_date, action_status, physical_count, variance, system_adjusted,
+            reason_code, action_taken_comment, feedback, capture_date,
+            image1, image2, image3, image4, NOW()
+          FROM tasks
+          WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${PILOT_REPS_SNAPSHOT.map(n => `'${n}'`).join(',')}]`)}::text[])
+          ON CONFLICT (unique_id) DO UPDATE SET
+            action_status        = EXCLUDED.action_status,
+            action_date          = EXCLUDED.action_date,
+            physical_count       = EXCLUDED.physical_count,
+            variance             = EXCLUDED.variance,
+            system_adjusted      = EXCLUDED.system_adjusted,
+            reason_code          = EXCLUDED.reason_code,
+            action_taken_comment = EXCLUDED.action_taken_comment,
+            feedback             = EXCLUDED.feedback,
+            capture_date         = EXCLUDED.capture_date,
+            image1               = EXCLUDED.image1,
+            image2               = EXCLUDED.image2,
+            image3               = EXCLUDED.image3,
+            image4               = EXCLUDED.image4,
+            saved_at             = EXCLUDED.saved_at
+        `);
+        console.log(`Async import [${jobId}] - Pilot task history snapshot complete.`);
+      } catch (snapErr) {
+        console.error(`Async import [${jobId}] - Pilot snapshot error (non-fatal):`, snapErr);
+      }
       console.log(`Async import [${jobId}] - Clearing existing tasks...`);
       await storage.deleteAllTasks();
     }
@@ -3311,6 +3360,57 @@ export async function registerRoutes(
     }
   });
 
+  // Merchandiser Pilot — seed history from current tasks (run once after first deploy)
+  app.post('/api/pilot-seed-history', async (req, res) => {
+    try {
+      const PILOT_REPS_SEED = [
+        'PORTIA RAMAHLEKA', 'YVONNE TEBOGO MTSHANA', 'HAPPY SANGO',
+        'ITANI WISEMAN HLUNGWANE', 'MAGDELINE VILAKAZI', 'ANDILE RARA',
+        'RITO SAMBO', 'THEODO THABANG CHIDI', 'PERTUNIA MATHAPELO MORUTLOA',
+        'LINDANI RONNIE MCHUNU', 'NKULULEKO PATRICK KHUMALO', 'NOMCEBO GUGULETHU KHUMALO',
+        'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
+        'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
+      ];
+      const result = await db.execute(sql`
+        INSERT INTO pilot_tasks_history (
+          unique_id, key, client, banner, region, store_name, rep_name, line_manager,
+          category, barcode, article_description, dc_soh, store_soh, p4_week_sales,
+          missed_sales, store_wfc, stock_classification, week_ending, week_ending_date,
+          action, action_date, action_status, physical_count, variance, system_adjusted,
+          reason_code, action_taken_comment, feedback, capture_date,
+          image1, image2, image3, image4, saved_at
+        )
+        SELECT
+          unique_id, key, client, banner, region, store_name, rep_name, line_manager,
+          category, barcode, article_description, dc_soh, store_soh, p4_week_sales,
+          missed_sales, store_wfc, stock_classification, week_ending, week_ending_date,
+          action, action_date, action_status, physical_count, variance, system_adjusted,
+          reason_code, action_taken_comment, feedback, capture_date,
+          image1, image2, image3, image4, NOW()
+        FROM tasks
+        WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${PILOT_REPS_SEED.map(n => `'${n}'`).join(',')}]`)}::text[])
+        ON CONFLICT (unique_id) DO UPDATE SET
+          action_status        = EXCLUDED.action_status,
+          action_date          = EXCLUDED.action_date,
+          physical_count       = EXCLUDED.physical_count,
+          variance             = EXCLUDED.variance,
+          system_adjusted      = EXCLUDED.system_adjusted,
+          reason_code          = EXCLUDED.reason_code,
+          action_taken_comment = EXCLUDED.action_taken_comment,
+          feedback             = EXCLUDED.feedback,
+          capture_date         = EXCLUDED.capture_date,
+          image1               = EXCLUDED.image1,
+          image2               = EXCLUDED.image2,
+          image3               = EXCLUDED.image3,
+          image4               = EXCLUDED.image4,
+          saved_at             = EXCLUDED.saved_at
+      `);
+      res.json({ seeded: true, message: 'Pilot task history seeded from current tasks table.' });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Merchandiser Pilot — full task export for Power BI (all captured + pending)
   app.get('/api/pilot-export', async (req, res) => {
     try {
@@ -3356,7 +3456,7 @@ export async function registerRoutes(
           image2             AS "image2",
           image3             AS "image3",
           image4             AS "image4"
-        FROM tasks
+        FROM pilot_tasks_history
         WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${PILOT_REPS.map(n => `'${n}'`).join(',')}]`)}::text[])
         ORDER BY rep_name, store_name, client, article_description
       `);

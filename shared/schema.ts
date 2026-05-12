@@ -105,6 +105,43 @@ export const insertContactSchema = createInsertSchema(contacts).omit({
 export type InsertContact = z.infer<typeof insertContactSchema>;
 export type Contact = typeof contacts.$inferSelect;
 
+export const pilotTasksHistory = pgTable("pilot_tasks_history", {
+  uniqueId:             text("unique_id").primaryKey(),
+  key:                  text("key"),
+  client:               text("client"),
+  banner:               text("banner"),
+  region:               text("region"),
+  storeName:            text("store_name"),
+  repName:              text("rep_name"),
+  lineManager:          text("line_manager"),
+  category:             text("category"),
+  barcode:              text("barcode"),
+  articleDescription:   text("article_description"),
+  dcSoh:                text("dc_soh"),
+  storeSoh:             text("store_soh"),
+  p4WeekSales:          text("p4_week_sales"),
+  missedSales:          text("missed_sales"),
+  storeWfc:             text("store_wfc"),
+  stockClassification:  text("stock_classification"),
+  weekEnding:           text("week_ending"),
+  weekEndingDate:       text("week_ending_date"),
+  action:               text("action"),
+  actionDate:           text("action_date"),
+  actionStatus:         text("action_status"),
+  physicalCount:        text("physical_count"),
+  variance:             text("variance"),
+  systemAdjusted:       text("system_adjusted"),
+  reasonCode:           text("reason_code"),
+  actionTakenComment:   text("action_taken_comment"),
+  feedback:             text("feedback"),
+  captureDate:          text("capture_date"),
+  image1:               text("image1"),
+  image2:               text("image2"),
+  image3:               text("image3"),
+  image4:               text("image4"),
+  savedAt:              timestamp("saved_at").defaultNow().notNull(),
+});
+
 export const pilotSnapshots = pgTable("pilot_snapshots", {
   id: serial("id").primaryKey(),
   weekEndingDate: text("week_ending_date").notNull(),
