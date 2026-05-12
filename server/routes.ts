@@ -3311,6 +3311,63 @@ export async function registerRoutes(
     }
   });
 
+  // Merchandiser Pilot — full task export for Power BI (all captured + pending)
+  app.get('/api/pilot-export', async (req, res) => {
+    try {
+      const PILOT_REPS = [
+        'PORTIA RAMAHLEKA', 'YVONNE TEBOGO MTSHANA', 'HAPPY SANGO',
+        'ITANI WISEMAN HLUNGWANE', 'MAGDELINE VILAKAZI', 'ANDILE RARA',
+        'RITO SAMBO', 'THEODO THABANG CHIDI', 'PERTUNIA MATHAPELO MORUTLOA',
+        'LINDANI RONNIE MCHUNU', 'NKULULEKO PATRICK KHUMALO', 'NOMCEBO GUGULETHU KHUMALO',
+        'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
+        'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
+      ];
+      const result = await db.execute(sql`
+        SELECT
+          unique_id          AS "Unique Id",
+          key                AS "Key",
+          client             AS "client",
+          banner             AS "BANNER",
+          region             AS "REGION",
+          store_name         AS "cleaned ss",
+          rep_name           AS "REP NAME",
+          line_manager       AS "LINE MAN",
+          category           AS "Category",
+          barcode            AS "barcode",
+          article_description AS "article des",
+          dc_soh             AS "Supplying c",
+          store_soh          AS "Store SOH",
+          p4_week_sales      AS "Sell out pd",
+          missed_sales       AS "Missed Sal",
+          store_wfc          AS "WFC",
+          stock_classification AS "Stock Clas",
+          week_ending_date   AS "week endi",
+          action             AS "Action Col",
+          action_date        AS "Action Dat",
+          action_status      AS "Action Stat",
+          physical_count     AS "physical Ac",
+          variance           AS "variance",
+          system_adjusted    AS "systemAdj",
+          reason_code        AS "reasonCoc",
+          action_taken_comment AS "actionTake",
+          feedback           AS "feedback",
+          capture_date       AS "captureDa",
+          image1             AS "image1",
+          image2             AS "image2",
+          image3             AS "image3",
+          image4             AS "image4"
+        FROM tasks
+        WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${PILOT_REPS.map(n => `'${n}'`).join(',')}]`)}::text[])
+        ORDER BY rep_name, store_name, client, article_description
+      `);
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.json(result.rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Pilot Excel upload — parse both tabs, return preview + import into tasks
   app.post('/api/pilot-excel-upload', uploadMemory.single('file'), async (req: any, res) => {
     try {
