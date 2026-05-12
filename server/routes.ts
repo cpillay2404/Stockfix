@@ -3474,7 +3474,7 @@ export async function registerRoutes(
     }
   });
 
-  // Merchandiser Pilot — full task export for Power BI (all captured + pending)
+  // Merchandiser Pilot — full task export for Power BI (live + history)
   app.get('/api/pilot-export', async (req, res) => {
     try {
       const PILOT_REPS = [
@@ -3485,43 +3485,83 @@ export async function registerRoutes(
         'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
         'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
       ];
+      const pilotRepArray = sql.raw(`ARRAY[${PILOT_REPS.map(n => `'${n}'`).join(',')}]`);
       const result = await db.execute(sql`
-        SELECT
-          unique_id          AS "Unique Id",
-          key                AS "Key",
-          client             AS "client",
-          banner             AS "BANNER",
-          region             AS "REGION",
-          store_name         AS "cleaned ss",
-          rep_name           AS "REP NAME",
-          line_manager       AS "LINE MAN",
-          category           AS "Category",
-          barcode            AS "barcode",
-          article_description AS "article des",
-          dc_soh             AS "Supplying c",
-          store_soh          AS "Store SOH",
-          p4_week_sales      AS "Sell out pd",
-          missed_sales       AS "Missed Sal",
-          store_wfc          AS "WFC",
-          stock_classification AS "Stock Clas",
-          week_ending_date   AS "week endi",
-          action             AS "Action Col",
-          action_date        AS "Action Dat",
-          action_status      AS "Action Stat",
-          physical_count     AS "physical Ac",
-          variance           AS "variance",
-          system_adjusted    AS "systemAdj",
-          reason_code        AS "reasonCoc",
-          action_taken_comment AS "actionTake",
-          feedback           AS "feedback",
-          capture_date       AS "captureDa",
-          image1             AS "image1",
-          image2             AS "image2",
-          image3             AS "image3",
-          image4             AS "image4"
-        FROM pilot_tasks_history
-        WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${PILOT_REPS.map(n => `'${n}'`).join(',')}]`)}::text[])
-        ORDER BY rep_name, store_name, client, article_description
+        SELECT DISTINCT ON ("Unique Id")
+          "Unique Id", "Key", client, "BANNER", "REGION", "cleaned ss",
+          "REP NAME", "LINE MAN", "Category", barcode, "article des",
+          "Supplying c", "Store SOH", "Sell out pd", "Missed Sal", "WFC",
+          "Stock Clas", "week endi", "Action Col", "Action Dat", "Action Stat",
+          "physical Ac", variance, "systemAdj", "reasonCoc", "actionTake",
+          feedback, "captureDa", image1, image2, image3, image4
+        FROM (
+          SELECT 1 AS _src,
+            unique_id          AS "Unique Id",
+            key                AS "Key",
+            client,
+            banner             AS "BANNER",
+            region             AS "REGION",
+            store_name         AS "cleaned ss",
+            rep_name           AS "REP NAME",
+            line_manager       AS "LINE MAN",
+            category           AS "Category",
+            barcode,
+            article_description AS "article des",
+            dc_soh             AS "Supplying c",
+            store_soh          AS "Store SOH",
+            p4_week_sales      AS "Sell out pd",
+            missed_sales       AS "Missed Sal",
+            store_wfc          AS "WFC",
+            stock_classification AS "Stock Clas",
+            week_ending_date   AS "week endi",
+            action             AS "Action Col",
+            action_date        AS "Action Dat",
+            action_status      AS "Action Stat",
+            physical_count     AS "physical Ac",
+            variance,
+            system_adjusted    AS "systemAdj",
+            reason_code        AS "reasonCoc",
+            action_taken_comment AS "actionTake",
+            feedback,
+            capture_date       AS "captureDa",
+            image1, image2, image3, image4
+          FROM tasks
+          WHERE UPPER(TRIM(rep_name)) = ANY(${pilotRepArray}::text[])
+          UNION ALL
+          SELECT 2 AS _src,
+            unique_id          AS "Unique Id",
+            key                AS "Key",
+            client,
+            banner             AS "BANNER",
+            region             AS "REGION",
+            store_name         AS "cleaned ss",
+            rep_name           AS "REP NAME",
+            line_manager       AS "LINE MAN",
+            category           AS "Category",
+            barcode,
+            article_description AS "article des",
+            dc_soh             AS "Supplying c",
+            store_soh          AS "Store SOH",
+            p4_week_sales      AS "Sell out pd",
+            missed_sales       AS "Missed Sal",
+            store_wfc          AS "WFC",
+            stock_classification AS "Stock Clas",
+            week_ending_date   AS "week endi",
+            action             AS "Action Col",
+            action_date        AS "Action Dat",
+            action_status      AS "Action Stat",
+            physical_count     AS "physical Ac",
+            variance,
+            system_adjusted    AS "systemAdj",
+            reason_code        AS "reasonCoc",
+            action_taken_comment AS "actionTake",
+            feedback,
+            capture_date       AS "captureDa",
+            image1, image2, image3, image4
+          FROM pilot_tasks_history
+          WHERE UPPER(TRIM(rep_name)) = ANY(${pilotRepArray}::text[])
+        ) combined
+        ORDER BY "Unique Id", _src ASC
       `);
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Access-Control-Allow-Origin', '*');
