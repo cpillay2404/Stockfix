@@ -3460,9 +3460,25 @@ export async function registerRoutes(
         WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${PILOT_REPS.map(n => `'${n}'`).join(',')}]`)}::text[])
         ORDER BY rep_name, store_name, client, article_description
       `);
-      res.setHeader('Content-Type', 'application/json');
+      const rows = result.rows as any[];
+      if (rows.length === 0) {
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        return res.send('');
+      }
+      const headers = Object.keys(rows[0]);
+      const escape = (v: any) => {
+        if (v === null || v === undefined) return '';
+        const s = String(v);
+        return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const csv = [
+        headers.join(','),
+        ...rows.map(r => headers.map(h => escape(r[h])).join(','))
+      ].join('\n');
+      res.setHeader('Content-Type', 'text/csv');
       res.setHeader('Access-Control-Allow-Origin', '*');
-      res.json(result.rows);
+      res.send(csv);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
