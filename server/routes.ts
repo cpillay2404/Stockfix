@@ -171,6 +171,7 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
         'LINDANI RONNIE MCHUNU', 'NKULULEKO PATRICK KHUMALO', 'NOMCEBO GUGULETHU KHUMALO',
         'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
         'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
+        'ALINA LIMAKATSO MOSEME',
       ];
       try {
         await db.execute(sql`
@@ -3087,6 +3088,7 @@ export async function registerRoutes(
         'LINDANI RONNIE MCHUNU', 'NKULULEKO PATRICK KHUMALO', 'NOMCEBO GUGULETHU KHUMALO',
         'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
         'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
+        'ALINA LIMAKATSO MOSEME',
       ];
 
       const ALL_PILOT_NAMES = PILOT_REPS;
@@ -3370,6 +3372,7 @@ export async function registerRoutes(
         'LINDANI RONNIE MCHUNU', 'NKULULEKO PATRICK KHUMALO', 'NOMCEBO GUGULETHU KHUMALO',
         'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
         'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
+        'ALINA LIMAKATSO MOSEME',
       ];
       const result = await db.execute(sql`
         INSERT INTO pilot_tasks_history (
@@ -3421,6 +3424,7 @@ export async function registerRoutes(
         'LINDANI RONNIE MCHUNU', 'NKULULEKO PATRICK KHUMALO', 'NOMCEBO GUGULETHU KHUMALO',
         'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
         'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
+        'ALINA LIMAKATSO MOSEME',
       ];
       const result = await db.execute(sql`
         SELECT
@@ -3484,6 +3488,7 @@ export async function registerRoutes(
         'LINDANI RONNIE MCHUNU', 'NKULULEKO PATRICK KHUMALO', 'NOMCEBO GUGULETHU KHUMALO',
         'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
         'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
+        'ALINA LIMAKATSO MOSEME',
       ];
       const pilotRepArray = sql.raw(`ARRAY[${PILOT_REPS.map(n => `'${n}'`).join(',')}]`);
       const result = await db.execute(sql`
