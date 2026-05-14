@@ -3688,23 +3688,92 @@ export async function registerRoutes(
     return null;
   }
 
-  // GET /api/inventory/browse?path=<folder> — list parquet files in a OneDrive folder
+  // Helper: fetch children from a specific item ID (works across any drive)
+  async function browseItemById(token: string, itemId: string) {
+    const r = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/children?$select=name,id,size,folder&$top=200`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return r.json() as Promise<any>;
+  }
+
+  // Helper: fetch children by path from root of personal drive
+  async function browseByPath(token: string, folderPath: string) {
+    if (!folderPath || folderPath === '.') {
+      const r = await fetch(
+        `https://graph.microsoft.com/v1.0/me/drive/root/children?$select=name,id,size,folder&$top=200`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      return r.json() as Promise<any>;
+    }
+    const encoded = folderPath.split('/').map(encodeURIComponent).join('/');
+    const r = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/root:/${encoded}:/children?$select=name,id,size,folder&$top=200`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return r.json() as Promise<any>;
+  }
+
+  function parseChildren(data: any) {
+    const folders = (data.value || [])
+      .filter((f: any) => f.folder)
+      .map((f: any) => ({ name: f.name, id: f.id, type: 'folder' as const }));
+    const files = (data.value || [])
+      .filter((f: any) => !f.folder && f.name?.endsWith('.parquet'))
+      .map((f: any) => ({ name: f.name, id: f.id, size: f.size || 0, type: 'file' as const }));
+    return { folders, files };
+  }
+
+  // GET /api/inventory/browse?path=<folder>&itemId=<id> — list folders + parquet files
+  // If itemId provided: browse that item directly (works across drives)
+  // Otherwise: browse by path in personal OneDrive
   app.get('/api/inventory/browse', async (req, res) => {
     try {
       const { getOneDriveToken } = await import('./onedrive.js');
       const token = await getOneDriveToken();
-      const folderPath = (req.query.path as string) || 'Inventory 25';
-      const encoded = folderPath.split('/').map(encodeURIComponent).join('/');
-      const r = await fetch(
-        `https://graph.microsoft.com/v1.0/me/drive/root:/${encoded}:/children?$select=name,id,size&$top=100`,
+      const itemId = req.query.itemId as string | undefined;
+      const folderPath = (req.query.path as string) || '.';
+
+      let data: any;
+      if (itemId) {
+        data = await browseItemById(token, itemId);
+      } else {
+        data = await browseByPath(token, folderPath);
+      }
+
+      if (data.error) return res.status(400).json({ error: data.error.message });
+      const { folders, files } = parseChildren(data);
+      res.json({ path: folderPath, folders, files });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/drives — list all drives (personal + SharePoint sites) accessible to the user
+  app.get('/api/inventory/drives', async (req, res) => {
+    try {
+      const { getOneDriveToken } = await import('./onedrive.js');
+      const token = await getOneDriveToken();
+
+      // Personal drive root folders
+      const personalRoot = await browseByPath(token, '.');
+      const personalFolders = (personalRoot.value || [])
+        .filter((f: any) => f.folder)
+        .map((f: any) => ({ name: f.name, id: f.id, driveType: 'personal', type: 'folder' as const }));
+
+      // SharePoint/Teams shared drives (sites the user follows)
+      const sitesR = await fetch(
+        `https://graph.microsoft.com/v1.0/me/followedSites?$select=id,name,displayName&$top=20`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      const data = await r.json() as any;
-      if (data.error) return res.status(400).json({ error: data.error.message });
-      const files = (data.value || [])
-        .filter((f: any) => f.name?.endsWith('.parquet'))
-        .map((f: any) => ({ name: f.name, id: f.id, size: f.size || 0 }));
-      res.json({ files });
+      const sitesData = await sitesR.json() as any;
+      const sites = (sitesData.value || []).map((s: any) => ({
+        name: s.displayName || s.name,
+        id: s.id,
+        type: 'site' as const,
+      }));
+
+      res.json({ personalFolders, sites });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }

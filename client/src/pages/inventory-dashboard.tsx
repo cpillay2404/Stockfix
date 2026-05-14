@@ -330,13 +330,23 @@ function SkuTable({ filters, flagFilter, drillStore }: { filters: Filters; flagF
 
 interface ClientRow { client: string; stores: number; skus: number; latest_week: string; synced_at: string; }
 
+type BrowseItem =
+  | { type: "folder"; name: string; id: string }
+  | { type: "file";   name: string; id: string; size: number };
+
+type NavEntry = { label: string; itemId?: string; path?: string };
+
 function SyncPanel() {
   const queryClient = useQueryClient();
-  const [drivePath, setDrivePath] = useState("");
-  const [fileLabel, setFileLabel] = useState("");
-  const [browseResults, setBrowseResults] = useState<{name: string; id: string; size: number}[]>([]);
+  // navigation stack: each entry has a display label + either itemId (preferred) or path
+  const [navStack, setNavStack] = useState<NavEntry[]>([{ label: "My OneDrive", path: "." }]);
+  const currentNav = navStack[navStack.length - 1];
+
+  const [browseItems, setBrowseItems] = useState<BrowseItem[]>([]);
   const [browsing, setBrowsing] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<{id: string; name: string} | null>(null);
+  const [browseError, setBrowseError] = useState("");
+  const [selectedFile, setSelectedFile] = useState<{ id: string; name: string; folderLabel: string } | null>(null);
+  const [resyncingClient, setResyncingClient] = useState<string | null>(null);
 
   const { data: log } = useQuery<SyncLog | null>({
     queryKey: ["inv-sync-log"],
@@ -356,33 +366,54 @@ function SyncPanel() {
     );
   };
 
-  // Sync default (P&G / Inventory_Combined.parquet)
-  const syncDefaultMut = useMutation({
-    mutationFn: () => fetch("/api/inventory/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => r.json()),
-    onSuccess: invalidateAll,
-  });
-
-  // Sync a specific file
   const syncFileMut = useMutation({
     mutationFn: (body: { fileId?: string; drivePath?: string; label?: string }) =>
       fetch("/api/inventory/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
-    onSuccess: () => { invalidateAll(); setSelectedFile(null); setDrivePath(""); setFileLabel(""); },
+    onSuccess: () => { invalidateAll(); setSelectedFile(null); setResyncingClient(null); },
   });
 
-  // Browse for parquet files in a folder path
-  const handleBrowse = async () => {
+  const isSyncing = syncFileMut.isPending;
+
+  const browse = async (nav: NavEntry) => {
     setBrowsing(true);
-    setBrowseResults([]);
+    setBrowseError("");
+    setBrowseItems([]);
+    setSelectedFile(null);
     try {
-      const r = await fetch(`/api/inventory/browse?path=${encodeURIComponent(drivePath || "Inventory 25")}`);
+      const qs = nav.itemId
+        ? `itemId=${encodeURIComponent(nav.itemId)}`
+        : `path=${encodeURIComponent(nav.path || ".")}`;
+      const r = await fetch(`/api/inventory/browse?${qs}`);
       const data = await r.json();
-      setBrowseResults(data.files || []);
-    } catch {}
+      if (data.error) { setBrowseError(data.error); setBrowsing(false); return; }
+      const items: BrowseItem[] = [
+        ...(data.folders || []).map((f: any) => ({ type: "folder" as const, name: f.name, id: f.id })),
+        ...(data.files  || []).map((f: any) => ({ type: "file"   as const, name: f.name, id: f.id, size: f.size })),
+      ];
+      setBrowseItems(items);
+    } catch (e: any) { setBrowseError(e.message); }
     setBrowsing(false);
   };
 
-  const isSyncing = syncDefaultMut.isPending || syncFileMut.isPending;
-  const lastError = (syncDefaultMut.data?.error) || (syncFileMut.data?.error);
+  const openFolder = (item: { name: string; id: string }) => {
+    const entry: NavEntry = { label: item.name, itemId: item.id };
+    setNavStack(s => [...s, entry]);
+    browse(entry);
+  };
+
+  const goUp = () => {
+    if (navStack.length <= 1) return;
+    const newStack = navStack.slice(0, -1);
+    setNavStack(newStack);
+    browse(newStack[newStack.length - 1]);
+  };
+
+  const handleResync = (c: ClientRow) => {
+    setResyncingClient(c.client);
+    syncFileMut.mutate({ fileId: undefined, drivePath: `Client Service Team - SOH Weekly Updates/${c.client}/Inventory_Combined.parquet`, label: c.client });
+  };
+
+  const breadcrumb = navStack.map(n => n.label).join(" › ");
 
   return (
     <div className="max-w-2xl space-y-5">
@@ -392,7 +423,7 @@ function SyncPanel() {
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Currently Loaded Clients</h3>
         {clients.length === 0 ? (
-          <p className="text-sm text-gray-400">No data loaded yet.</p>
+          <p className="text-sm text-gray-400">No data loaded yet. Use the browser below to add a client.</p>
         ) : (
           <div className="space-y-2">
             {clients.map(c => (
@@ -400,69 +431,70 @@ function SyncPanel() {
                 <div>
                   <span className="font-semibold text-gray-800">{c.client}</span>
                   <span className="ml-3 text-xs text-gray-500">
-                    {Number(c.stores).toLocaleString()} stores • {Number(c.skus).toLocaleString()} SKUs • week {fmtWeek(c.latest_week)}
+                    {Number(c.stores).toLocaleString()} stores · {Number(c.skus).toLocaleString()} SKUs · week {fmtWeek(c.latest_week)}
                   </span>
                 </div>
                 <button
-                  onClick={() => syncDefaultMut.mutate()}
-                  disabled={isSyncing || c.client !== "P&G"}
-                  title={c.client !== "P&G" ? "Re-sync via Add Client below" : "Re-sync P&G from Inventory_Combined.parquet"}
+                  onClick={() => handleResync(c)}
+                  disabled={isSyncing}
                   className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-40 flex items-center gap-1"
                   data-testid={`btn-resync-${c.client}`}>
-                  <RefreshCw size={11} className={syncDefaultMut.isPending ? "animate-spin" : ""} />
+                  <RefreshCw size={11} className={isSyncing && resyncingClient === c.client ? "animate-spin" : ""} />
                   Re-sync
                 </button>
               </div>
             ))}
           </div>
         )}
-
-        {/* Re-sync P&G default button when no clients */}
-        {clients.length === 0 && (
-          <button
-            onClick={() => syncDefaultMut.mutate()}
-            disabled={isSyncing}
-            className="mt-3 flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-50"
-            data-testid="btn-sync-default">
-            <RefreshCw size={14} className={syncDefaultMut.isPending ? "animate-spin" : ""} />
-            {syncDefaultMut.isPending ? "Syncing P&G…" : "Sync P&G (Inventory_Combined.parquet)"}
-          </button>
-        )}
       </div>
 
-      {/* Add another client */}
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
-        <h3 className="text-sm font-semibold text-gray-700">Add / Update a Client</h3>
-        <p className="text-xs text-gray-500">Browse your OneDrive to find the parquet file for the next client, then sync it. Existing clients are not affected.</p>
-
-        <div className="flex gap-2">
-          <input
-            className="flex-1 h-8 px-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            placeholder="Folder path, e.g. Inventory 25"
-            value={drivePath}
-            onChange={e => setDrivePath(e.target.value)}
-            data-testid="input-drive-path"
-          />
+      {/* File browser */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">Add / Update a Client</h3>
           <button
-            onClick={handleBrowse}
+            onClick={() => browse(currentNav)}
             disabled={browsing}
-            className="h-8 px-3 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
-            data-testid="btn-browse">
-            {browsing ? "…" : "Browse"}
+            className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-40 flex items-center gap-1"
+            data-testid="btn-open-browser">
+            <RefreshCw size={11} className={browsing ? "animate-spin" : ""} />
+            {browseItems.length === 0 && !browsing ? "Open file browser" : "Refresh"}
           </button>
         </div>
+        <p className="text-xs text-gray-400">
+          Browse your OneDrive to find the parquet file for the next client. Click folders to navigate, then select the file to sync.
+        </p>
 
-        {browseResults.length > 0 && (
-          <div className="border border-gray-100 rounded-lg divide-y divide-gray-50">
-            {browseResults.map(f => (
+        {/* Breadcrumb + up button */}
+        {browseItems.length > 0 && (
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            {navStack.length > 1 && (
+              <button onClick={goUp} className="hover:text-blue-600" data-testid="btn-go-up">← Back</button>
+            )}
+            <span className="font-mono truncate">{breadcrumb}</span>
+          </div>
+        )}
+
+        {browseError && <div className="text-xs text-red-600">{browseError}</div>}
+
+        {browseItems.length > 0 && (
+          <div className="border border-gray-100 rounded-lg divide-y divide-gray-50 max-h-64 overflow-y-auto">
+            {browseItems.map(item => (
               <button
-                key={f.id}
-                onClick={() => setSelectedFile({ id: f.id, name: f.name })}
-                className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors
-                  ${selectedFile?.id === f.id ? "bg-blue-50 text-blue-700" : "text-gray-700"}`}
-                data-testid={`file-option-${f.name}`}>
-                <span className="font-mono text-xs">{f.name}</span>
-                <span className="text-xs text-gray-400">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                key={item.id}
+                onClick={() => {
+                  if (item.type === "folder") { openFolder(item); }
+                  else { setSelectedFile({ id: item.id, name: item.name, folderLabel: currentNav.label }); }
+                }}
+                className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 hover:bg-blue-50 transition-colors
+                  ${item.type === "file" && selectedFile?.id === item.id ? "bg-blue-50 text-blue-700" : "text-gray-700"}`}
+                data-testid={`browse-item-${item.name}`}>
+                <span className="text-base leading-none">{item.type === "folder" ? "📁" : "📄"}</span>
+                <span className="flex-1 text-xs font-mono">{item.name}</span>
+                {item.type === "file" && (
+                  <span className="text-xs text-gray-400">{(item.size / 1024 / 1024).toFixed(1)} MB</span>
+                )}
+                {item.type === "folder" && <span className="text-xs text-gray-400">›</span>}
               </button>
             ))}
           </div>
@@ -470,20 +502,14 @@ function SyncPanel() {
 
         {selectedFile && (
           <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
-            <div className="flex-1 text-sm text-blue-800">
+            <div className="flex-1 text-sm text-blue-800 truncate">
               Selected: <strong>{selectedFile.name}</strong>
+              <span className="text-xs ml-2 opacity-60">from {selectedFile.folderLabel}</span>
             </div>
-            <input
-              className="h-7 px-2 text-xs border border-blue-200 rounded bg-white w-32"
-              placeholder="Label (optional)"
-              value={fileLabel}
-              onChange={e => setFileLabel(e.target.value)}
-              data-testid="input-file-label"
-            />
             <button
-              onClick={() => syncFileMut.mutate({ fileId: selectedFile.id, label: fileLabel || selectedFile.name })}
+              onClick={() => syncFileMut.mutate({ fileId: selectedFile.id, label: selectedFile.folderLabel })}
               disabled={isSyncing}
-              className="h-7 px-3 text-xs bg-blue-700 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50 flex items-center gap-1"
+              className="h-7 px-3 text-xs bg-blue-700 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50 flex items-center gap-1 flex-shrink-0"
               data-testid="btn-sync-selected">
               <RefreshCw size={11} className={syncFileMut.isPending ? "animate-spin" : ""} />
               {syncFileMut.isPending ? "Syncing…" : "Sync This File"}
@@ -492,7 +518,7 @@ function SyncPanel() {
         )}
       </div>
 
-      {/* Status messages */}
+      {/* Status */}
       {isSyncing && (
         <div className="rounded-lg p-3 bg-blue-50 text-blue-800 text-sm flex items-center gap-2">
           <RefreshCw size={14} className="animate-spin flex-shrink-0" />
@@ -500,8 +526,8 @@ function SyncPanel() {
         </div>
       )}
 
-      {lastError && (
-        <div className="rounded-lg p-3 bg-red-50 text-red-800 text-sm">{lastError}</div>
+      {syncFileMut.data?.error && !isSyncing && (
+        <div className="rounded-lg p-3 bg-red-50 text-red-800 text-sm">{syncFileMut.data.error}</div>
       )}
 
       {log && !isSyncing && (
@@ -509,7 +535,7 @@ function SyncPanel() {
           <div className="font-semibold mb-1">{log.status === "ok" ? "✓ Last sync successful" : "✗ Last sync failed"}</div>
           <div className="text-xs space-y-0.5 opacity-80">
             <div>{new Date(log.syncedAt).toLocaleString("en-ZA")}</div>
-            {log.storeRows != null && <div>{log.storeRows?.toLocaleString()} store rows • {log.skuRows?.toLocaleString()} SKU rows • {((log.durationMs || 0) / 1000).toFixed(1)}s</div>}
+            {log.storeRows != null && <div>{log.storeRows?.toLocaleString()} store rows · {log.skuRows?.toLocaleString()} SKU rows · {((log.durationMs || 0) / 1000).toFixed(1)}s</div>}
             {log.error && <div className="text-red-600 mt-1">{log.error}</div>}
           </div>
         </div>
