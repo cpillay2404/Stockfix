@@ -1,0 +1,323 @@
+Improve the existing Inventory Hub dashboard design and functionality. Keep the current structure, but upgrade it into a premium, client-ready stock management dashboard with stronger branding, better executive summary visuals, and more operational insight.
+
+The dashboard should use a dark navy and orange design theme.
+
+Keep what is working
+
+Keep the following existing elements:
+
+Left-hand sidebar navigation
+Top filter bar
+KPI cards
+Store Performance table
+Pages for Overview, OOS Monitor, No Sales, Negative SOH, All SKUs, and Sync Data
+Store-level drilldown style
+Search box
+Latest week filter
+Client, banner, and region filters
+
+The current layout is practical, but it needs to be elevated visually and analytically.
+
+1. Upgrade the Sidebar
+
+The sidebar should become a stronger branded element.
+
+Add a thin vertical orange strip on the far-left edge of the sidebar.
+
+Sidebar design:
+
+Sidebar background: deep navy #071A2D
+Far-left orange strip: #F58220, 6–8 px wide
+Active menu item background: #163B5C
+Active menu item left border or icon: orange
+Inactive menu text: muted blue-grey
+Active menu text: white
+Icons should be consistent and aligned
+
+The top of the sidebar should show:
+
+STOCKFIX
+Inventory Hub
+Stock Health Dashboard
+Week ending: [latest week]
+
+The orange strip must run the full height of the page and should remain visible on every page.
+
+2. Convert the Overview Page into a Single-Screen Executive Cockpit
+
+The current Overview page is too table-heavy. It should become a non-scrollable executive overview page.
+
+The first page must fit on one 16:9 screen without scrolling.
+
+Do not show the full Store Performance table on the first Overview page. Move that table to a dedicated operational page or keep it lower down on another page.
+
+The Overview page should include:
+
+Top Filter Bar
+
+Keep the filters at the top:
+
+Client
+Banner
+Region
+Week
+
+Make them compact and aligned.
+
+KPI Row
+
+Show no more than 7 or 8 KPI cards.
+
+Recommended KPI cards:
+
+Stores
+Total SKUs
+OOS SKUs
+No Sales
+Negative SOH
+Store SOH
+DC SOH
+Sales P4
+
+Improve KPI cards with:
+
+Small icon
+Main value
+Percentage or week-on-week movement
+Status indicator
+Clean spacing
+
+Use orange only for warning/action metrics like No Sales, Negative SOH, and risk highlights. Use red only for critical OOS.
+
+3. Add Executive Visuals to the Overview Page
+
+Below the KPI row, add compact executive visuals instead of the large table.
+
+Recommended layout:
+
+Row 1: Filters
+Row 2: KPI Cards
+Row 3: Main insight visuals
+Row 4: Commentary / focus area
+
+Main visual panels should include:
+
+Stock Health Summary
+Risk distribution by status
+Healthy, OOS, No Sales, Negative SOH, Low Stock, Overstock
+Top 5 Banners by Risk
+Based on OOS count, no-sales count, or missed sales where available
+Top 5 Regions by Risk
+Based on OOS count or stock issue count
+DC vs Store Issue Split
+Separate issues where stores are out of stock but DC stock exists from issues where DC stock is also unavailable
+Top 5 Problem Stores
+Stores with the highest OOS or no-sales SKU count
+
+Keep each visual compact. The page should not scroll.
+
+4. Add a Client Commentary Card
+
+Add a short automated insight card at the bottom of the Overview page.
+
+Style:
+
+Dark blue card background
+Thin orange left border
+White headline
+Muted grey body text
+Orange for key numbers
+
+Example copy:
+
+Stock health is under pressure this week, with OOS risk concentrated in Dischem and Pick n Pay Corporate.
+The largest operational opportunity is store replenishment where DC stock exists but stores are showing zero SOH.
+Priority focus: resolve high-volume OOS stores, investigate no-sales SKUs, and clear negative SOH exceptions.
+
+This section should be dynamic and use the filtered data.
+
+5. Improve the KPI Card Design
+
+Current KPI cards are useful but need a more premium design.
+
+Use:
+
+Card background: white if keeping light theme, or #102A43 if moving to dark theme
+Rounded corners: 12–16 px
+Subtle shadow
+Clear label hierarchy
+Monospace only if intentional; otherwise use a clean sans-serif
+Smaller labels
+Large bold values
+Percentage below values
+Icon in the top-right or top-left
+
+If keeping the main content area light, use the dark navy sidebar and orange highlights. If converting the full dashboard to dark mode, use:
+
+Page background: #071A2D
+Card background: #102A43
+Card border: #254B6D
+Text: white / light grey
+Muted text: #9FB3C8
+6. Fix the Current Layout Issue
+
+The current dashboard appears to have horizontal overflow on the right-hand side. Fix this.
+
+Requirements:
+
+The page should not horizontally scroll.
+KPI cards must resize within the available width.
+DC SOH and Store SOH values must not overflow out of their cards.
+Large numbers should use compact formatting where needed.
+
+Use number formatting like:
+
+7.03M instead of 7 033 579
+495.8M instead of a very long number
+59.3K instead of 59 301
+
+Add tooltips to show the full values.
+
+7. Improve the Store Performance Table
+
+The current table is good for operations. Keep it, but move it to an Operational Store Performance page or below the overview, not as the main first-page content.
+
+Improve table styling:
+
+Sticky header
+Compact row height
+Conditional formatting
+Risk badges
+Priority badges
+Search by store, banner, SKU, barcode, or rep
+Sort by OOS, No Sales, Negative SOH, Store SOH, DC SOH, Sales P4
+Export button
+Pagination
+
+Add columns if available:
+
+Region
+Rep
+Supervisor
+Risk Status
+Recommended Action
+Priority
+
+Add calculated fields:
+
+OOS %
+No Sales %
+Negative SOH %
+Store SOH
+DC SOH
+Sales P4
+Stock Health Score
+8. Add Risk and Action Logic
+
+Create a clear operational action classification.
+
+Risk Status examples:
+
+Healthy
+OOS
+Low Stock
+No Sales
+Negative SOH
+Overstock
+DC Constraint
+Store Replenishment Issue
+
+Recommended Action examples:
+
+Replenish from DC
+Escalate DC supply
+Investigate no sales
+Correct negative SOH
+Review overstock
+Monitor
+No action
+
+Priority examples:
+
+P1 Urgent
+P2 Supply Constraint
+P3 Low Stock
+P4 Overstock
+P5 Data Issue
+
+Use conditional formatting:
+
+P1 Urgent: red
+P2 Supply Constraint: orange
+P3 Low Stock: amber
+P4 Overstock: purple
+P5 Data Issue: grey
+9. Improve Page Navigation
+
+Update the sidebar navigation to better match the dashboard purpose.
+
+Suggested pages:
+
+Overview
+OOS Monitor
+No Sales
+Negative SOH
+Store Performance
+SKU Performance
+DC / Supply Chain
+Exceptions
+Sync Data
+
+Optional future pages:
+
+Trends
+Field Team View
+Client Summary
+10. Add “What Needs Attention” Section
+
+On the Overview page, add a compact panel called What Needs Attention.
+
+It should show the top 3–5 focus items, for example:
+
+1. 59,301 OOS SKU-store combinations require review.
+2. 135,947 SKU-store combinations have no sales and need investigation.
+3. 567 records have negative SOH and may indicate data or execution issues.
+4. Dischem Savoy and PnP Gonubie East London have 100% OOS across listed SKUs.
+5. Review stores where DC SOH exists but store SOH is zero.
+
+Use orange bullet markers or small alert icons.
+
+11. Suggested Final Overview Layout
+
+Design the first page like this:
+
+--------------------------------------------------------------------------------
+| Sidebar | Top Filter Bar                                                       |
+|         | KPI Row: Stores | Total SKUs | OOS | No Sales | Neg SOH | Store SOH |
+|         | ------------------------------------------------------------------- |
+|         | Stock Health Summary       | Top 5 Risk Banners | Top 5 Risk Stores |
+|         | ------------------------------------------------------------------- |
+|         | DC vs Store Issue Split    | What Needs Attention / Commentary       |
+--------------------------------------------------------------------------------
+
+This first page must fit on one screen without vertical scrolling.
+
+12. Specific Changes Based on Current Screenshot
+
+Apply these specific fixes to the current dashboard:
+
+Add orange vertical strip to the left sidebar.
+Reduce the height of the top filter area.
+Make KPI cards slightly smaller so they fit cleanly.
+Compact large numbers in KPI cards.
+Prevent the DC SOH card from overflowing.
+Replace the large Store Performance table on Overview with executive summary visuals.
+Move Store Performance table to its own page.
+Add stock health/risk summary visuals.
+Add Top 5 problem stores and banners.
+Add commentary card with orange left border.
+Add “What Needs Attention” panel.
+Make the overview page non-scrollable.
+Improve typography so values look less cramped.
+Keep dark blue sidebar, but add stronger orange branding.
+Use orange highlights consistently for alerts, active navigation, and action areas.
