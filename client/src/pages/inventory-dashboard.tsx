@@ -646,14 +646,16 @@ function SyncPanel() {
     try {
       const r = await fetch("/api/inventory/search-sharepoint?q=Inventory_Combined.parquet");
       const d = await r.json();
-      // Show only SharePoint site files (not personal OneDrive), sorted by lastModified desc
-      const filtered = (d.results || [])
-        .filter((f: SpFile) => f.siteUrl && f.siteUrl.includes("/sites/"))
+      // Show ALL parquet files, sorted by lastModified desc
+      const sorted = (d.results || [])
         .sort((a: SpFile, b: SpFile) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
-      setSpFiles(filtered);
+      setSpFiles(sorted);
     } catch {}
     setSpSearching(false);
   };
+
+  // A file is directly syncable if it's in the personal OneDrive (my.sharepoint.com)
+  const isPersonalOneDrive = (f: SpFile) => f.webUrl?.includes("-my.sharepoint.com") ?? false;
 
   const browse = async (nav: NavEntrySync) => {
     setBrowsing(true); setBrowseError(""); setBrowseItems([]); setSelectedFile(null);
@@ -722,43 +724,72 @@ function SyncPanel() {
         )}
       </div>
 
-      {/* SharePoint file discovery */}
+      {/* File discovery — searches across personal OneDrive and SharePoint */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">SharePoint Files</h3>
-          <button onClick={searchSp} disabled={spSearching}
+          <h3 className="text-sm font-semibold text-gray-700">Find & Sync Files</h3>
+          <button onClick={searchSp} disabled={spSearching || isSyncing}
             className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-40 flex items-center gap-1"
             data-testid="btn-search-sp">
             <Search size={11} className={spSearching ? "animate-spin" : ""} />
-            {spSearching ? "Searching…" : "Find files"}
+            {spSearching ? "Searching…" : "Search now"}
           </button>
         </div>
         <p className="text-xs text-gray-400">
-          Search shows all <span className="font-mono">Inventory_Combined.parquet</span> files on SharePoint.
-          Open the file in SharePoint, download it, then upload it below to sync.
+          Searches across your OneDrive and SharePoint for <span className="font-mono">Inventory_Combined.parquet</span> files.
+          Files in your personal OneDrive can be synced directly — click <strong>Sync</strong> to load them.
         </p>
         {spFiles.length > 0 && (
-          <div className="border border-gray-100 rounded-xl divide-y divide-gray-50 max-h-72 overflow-y-auto">
-            {spFiles.map(f => (
-              <div key={f.id} className="px-3 py-2.5 flex items-start gap-3 hover:bg-gray-50">
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-mono text-gray-700 truncate">{f.name}</div>
-                  <div className="text-xs text-gray-400 mt-0.5 flex gap-3">
-                    <span>{(f.size / 1024 / 1024).toFixed(1)} MB</span>
-                    <span>{new Date(f.lastModified).toLocaleDateString("en-ZA", { day:"2-digit", month:"short", year:"numeric" })}</span>
-                    {f.siteUrl && <span className="truncate">{f.siteUrl.split("/sites/")[1] ?? ""}</span>}
+          <div className="border border-gray-100 rounded-xl divide-y divide-gray-50 max-h-96 overflow-y-auto">
+            {spFiles.map(f => {
+              const accessible = isPersonalOneDrive(f);
+              const location = accessible
+                ? "My OneDrive"
+                : (f.siteUrl ? f.siteUrl.replace("https://meridiangroupza.sharepoint.com/sites/", "") : "SharePoint");
+              return (
+                <div key={f.id} className={`px-3 py-2.5 flex items-center gap-3 ${accessible ? "hover:bg-orange-50" : "hover:bg-gray-50"}`}>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs font-mono text-gray-700 truncate`}>{f.name}</span>
+                      {accessible && (
+                        <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium flex-shrink-0">accessible</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5 flex gap-3 flex-wrap">
+                      <span>{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                      <span>{new Date(f.lastModified).toLocaleDateString("en-ZA", { day:"2-digit", month:"short", year:"numeric" })}</span>
+                      <span className="truncate">{location}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    {f.webUrl && (
+                      <a href={f.webUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-gray-400 hover:text-blue-600"
+                        title="Open in SharePoint / OneDrive" data-testid={`sp-file-link-${f.id}`}>
+                        <ExternalLink size={13} />
+                      </a>
+                    )}
+                    {accessible ? (
+                      <button
+                        onClick={() => syncFileMut.mutate({ fileId: f.id, label: location })}
+                        disabled={isSyncing}
+                        className="h-6 px-2.5 text-xs text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
+                        style={{ backgroundColor: ORANGE }}
+                        data-testid={`btn-sync-file-${f.id}`}>
+                        <RefreshCw size={10} className={syncFileMut.isPending ? "animate-spin" : ""} />
+                        Sync
+                      </button>
+                    ) : (
+                      <span className="text-xs text-gray-300 italic">move to OneDrive to sync</span>
+                    )}
                   </div>
                 </div>
-                {f.webUrl && (
-                  <a href={f.webUrl} target="_blank" rel="noopener noreferrer"
-                    className="text-blue-500 hover:text-blue-700 flex-shrink-0 mt-0.5"
-                    title="Open in SharePoint" data-testid={`sp-file-link-${f.id}`}>
-                    <ExternalLink size={13} />
-                  </a>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
+        )}
+        {spFiles.length === 0 && !spSearching && (
+          <p className="text-xs text-gray-300 italic">Click "Search now" to find available files.</p>
         )}
       </div>
 
