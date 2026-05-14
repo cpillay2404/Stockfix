@@ -67,6 +67,7 @@
     "express-session": "^1.18.1",
     "framer-motion": "^12.23.24",
     "google-auth-library": "^10.5.0",
+    "hyparquet": "^1.25.8",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.545.0",
     "mailersend": "^2.6.0",
