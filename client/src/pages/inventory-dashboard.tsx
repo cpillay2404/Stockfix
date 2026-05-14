@@ -4,6 +4,7 @@ import {
   AlertCircle, BarChart3, Package, RefreshCw, ShoppingCart, Store,
   TrendingDown, X, ChevronDown, ChevronUp, ArrowLeft,
   MapPin, Building2, Activity, Database, Zap, AlertTriangle,
+  Upload, ExternalLink, Search,
 } from "lucide-react";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -595,6 +596,8 @@ function SkuTable({ filters, flagFilter, drillStore }: { filters: Filters; flagF
 
 // ─── Sync Panel ───────────────────────────────────────────────────────────────
 
+interface SpFile { name: string; id: string; driveId: string; size: number; lastModified: string; webUrl: string; siteUrl: string | null; libraryRelUrl: string | null; listItemId: string | null; }
+
 type NavEntrySync = { label: string; itemId?: string; path?: string };
 
 function SyncPanel() {
@@ -606,6 +609,10 @@ function SyncPanel() {
   const [browseError, setBrowseError] = useState("");
   const [selectedFile, setSelectedFile] = useState<{ id: string; name: string; folderLabel: string } | null>(null);
   const [resyncingClient, setResyncingClient] = useState<string | null>(null);
+  const [spFiles, setSpFiles] = useState<SpFile[]>([]);
+  const [spSearching, setSpSearching] = useState(false);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadResult, setUploadResult] = useState<any>(null);
 
   const { data: log } = useQuery<SyncLog | null>({ queryKey: ["inv-sync-log"], queryFn: () => apiFetch("/api/inventory/sync-status"), staleTime: 30000 });
   const { data: clients = [] } = useQuery<ClientRow[]>({ queryKey: ["inv-clients"], queryFn: () => apiFetch("/api/inventory/clients"), staleTime: 30000 });
@@ -622,7 +629,31 @@ function SyncPanel() {
     onSuccess: () => { invalidateAll(); setSelectedFile(null); setResyncingClient(null); },
   });
 
-  const isSyncing = syncFileMut.isPending;
+  const uploadMut = useMutation({
+    mutationFn: async (file: File) => {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await fetch("/api/inventory/sync-upload", { method: "POST", body: fd });
+      return r.json();
+    },
+    onSuccess: (data) => { setUploadResult(data); setUploadFile(null); invalidateAll(); },
+  });
+
+  const isSyncing = syncFileMut.isPending || uploadMut.isPending;
+
+  const searchSp = async () => {
+    setSpSearching(true); setSpFiles([]);
+    try {
+      const r = await fetch("/api/inventory/search-sharepoint?q=Inventory_Combined.parquet");
+      const d = await r.json();
+      // Show only SharePoint site files (not personal OneDrive), sorted by lastModified desc
+      const filtered = (d.results || [])
+        .filter((f: SpFile) => f.siteUrl && f.siteUrl.includes("/sites/"))
+        .sort((a: SpFile, b: SpFile) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+      setSpFiles(filtered);
+    } catch {}
+    setSpSearching(false);
+  };
 
   const browse = async (nav: NavEntrySync) => {
     setBrowsing(true); setBrowseError(""); setBrowseItems([]); setSelectedFile(null);
@@ -664,10 +695,11 @@ function SyncPanel() {
     <div className="max-w-2xl space-y-5">
       <h2 className="text-lg font-bold text-gray-800">Data Sync</h2>
 
+      {/* Currently loaded clients */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
         <h3 className="text-sm font-semibold text-gray-700 mb-3">Currently Loaded Clients</h3>
         {clients.length === 0 ? (
-          <p className="text-sm text-gray-400">No data loaded yet. Use the browser below to add a client.</p>
+          <p className="text-sm text-gray-400">No data loaded yet. Upload a parquet file below to get started.</p>
         ) : (
           <div className="space-y-2">
             {clients.map(c => (
@@ -690,16 +722,104 @@ function SyncPanel() {
         )}
       </div>
 
+      {/* SharePoint file discovery */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold text-gray-700">Add / Update a Client</h3>
+          <h3 className="text-sm font-semibold text-gray-700">SharePoint Files</h3>
+          <button onClick={searchSp} disabled={spSearching}
+            className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-40 flex items-center gap-1"
+            data-testid="btn-search-sp">
+            <Search size={11} className={spSearching ? "animate-spin" : ""} />
+            {spSearching ? "Searching…" : "Find files"}
+          </button>
+        </div>
+        <p className="text-xs text-gray-400">
+          Search shows all <span className="font-mono">Inventory_Combined.parquet</span> files on SharePoint.
+          Open the file in SharePoint, download it, then upload it below to sync.
+        </p>
+        {spFiles.length > 0 && (
+          <div className="border border-gray-100 rounded-xl divide-y divide-gray-50 max-h-72 overflow-y-auto">
+            {spFiles.map(f => (
+              <div key={f.id} className="px-3 py-2.5 flex items-start gap-3 hover:bg-gray-50">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-mono text-gray-700 truncate">{f.name}</div>
+                  <div className="text-xs text-gray-400 mt-0.5 flex gap-3">
+                    <span>{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <span>{new Date(f.lastModified).toLocaleDateString("en-ZA", { day:"2-digit", month:"short", year:"numeric" })}</span>
+                    {f.siteUrl && <span className="truncate">{f.siteUrl.split("/sites/")[1] ?? ""}</span>}
+                  </div>
+                </div>
+                {f.webUrl && (
+                  <a href={f.webUrl} target="_blank" rel="noopener noreferrer"
+                    className="text-blue-500 hover:text-blue-700 flex-shrink-0 mt-0.5"
+                    title="Open in SharePoint" data-testid={`sp-file-link-${f.id}`}>
+                    <ExternalLink size={13} />
+                  </a>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Manual file upload */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+        <h3 className="text-sm font-semibold text-gray-700">Upload Parquet File</h3>
+        <p className="text-xs text-gray-400">
+          Download the file from SharePoint (use the links above), then upload it here to load it into the dashboard.
+          Supports any <span className="font-mono">Inventory_Combined.parquet</span> file — up to 150 MB.
+        </p>
+        <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center">
+          {uploadFile ? (
+            <div className="space-y-3">
+              <div className="text-sm text-gray-700">
+                <span className="font-mono font-semibold">{uploadFile.name}</span>
+                <span className="ml-2 text-gray-400">({(uploadFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+              </div>
+              <div className="flex items-center justify-center gap-2">
+                <button onClick={() => setUploadFile(null)} disabled={isSyncing}
+                  className="h-7 px-3 text-xs border border-gray-200 rounded-lg text-gray-500 hover:text-gray-700 disabled:opacity-40"
+                  data-testid="btn-clear-upload">
+                  Clear
+                </button>
+                <button onClick={() => uploadMut.mutate(uploadFile)} disabled={isSyncing}
+                  className="h-7 px-4 text-xs text-white rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1"
+                  style={{ backgroundColor: ORANGE }} data-testid="btn-do-upload">
+                  <Upload size={11} className={uploadMut.isPending ? "animate-spin" : ""} />
+                  {uploadMut.isPending ? "Processing…" : "Sync This File"}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label className="cursor-pointer block" data-testid="upload-label">
+              <input type="file" accept=".parquet" className="hidden"
+                onChange={e => { setUploadFile(e.target.files?.[0] ?? null); setUploadResult(null); }}
+                data-testid="input-upload-parquet" />
+              <Upload size={20} className="mx-auto mb-2 text-gray-300" />
+              <span className="text-xs text-gray-400">Click to select <span className="font-mono">.parquet</span> file</span>
+            </label>
+          )}
+        </div>
+        {uploadResult && !uploadMut.isPending && (
+          uploadResult.error
+            ? <div className="text-xs text-red-600 p-2 bg-red-50 rounded-lg">{uploadResult.error}</div>
+            : <div className="text-xs text-green-700 p-2 bg-green-50 rounded-lg">
+                ✓ Loaded {uploadResult.skuRows?.toLocaleString()} SKU rows from {uploadResult.clients?.join(", ")} in {((uploadResult.durationMs || 0)/1000).toFixed(1)}s
+              </div>
+        )}
+      </div>
+
+      {/* OneDrive file browser (personal drive fallback) */}
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">OneDrive Browser</h3>
           <button onClick={() => browse(currentNav)} disabled={browsing}
             className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-40 flex items-center gap-1" data-testid="btn-open-browser">
             <RefreshCw size={11} className={browsing ? "animate-spin" : ""} />
-            {browseItems.length === 0 && !browsing ? "Open file browser" : "Refresh"}
+            {browseItems.length === 0 && !browsing ? "Open browser" : "Refresh"}
           </button>
         </div>
-        <p className="text-xs text-gray-400">Browse your OneDrive to find the parquet file for the next client. Click folders to navigate, then select the file to sync.</p>
+        <p className="text-xs text-gray-400">Browse your personal OneDrive to sync a file directly (if the file is saved there).</p>
 
         {browseItems.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-gray-500">
@@ -742,7 +862,7 @@ function SyncPanel() {
 
       {isSyncing && (
         <div className="rounded-xl p-3 bg-blue-50 text-blue-800 text-sm flex items-center gap-2">
-          <RefreshCw size={14} className="animate-spin flex-shrink-0" /> Syncing from SharePoint… this may take 1–2 minutes.
+          <RefreshCw size={14} className="animate-spin flex-shrink-0" /> Processing… this may take 1–3 minutes for large files.
         </div>
       )}
       {syncFileMut.data?.error && !isSyncing && (

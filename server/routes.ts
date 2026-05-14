@@ -3633,7 +3633,25 @@ export async function registerRoutes(
     return new Date((serial - 25569) * 86400 * 1000);
   }
 
-  // Helper: download a parquet file from a known SharePoint/OneDrive item ID
+  // Helper: parse a SharePoint DispForm webUrl into { siteUrl, libraryRelUrl, listItemId }
+  function parseSharePointWebUrl(webUrl: string): { siteUrl: string; libraryRelUrl: string; listItemId: string } | null {
+    try {
+      const u = new URL(webUrl);
+      const listItemId = u.searchParams.get('ID');
+      if (!listItemId) return null;
+      // pathname: /sites/ClientServiceTeam319/Shared Documents/Forms/DispForm.aspx
+      const parts = decodeURIComponent(u.pathname).split('/');
+      const formsIdx = parts.indexOf('Forms');
+      if (formsIdx < 2) return null;
+      const libraryParts = parts.slice(0, formsIdx); // e.g. ['','sites','ClientServiceTeam319','Shared Documents']
+      const siteParts = parts.slice(0, formsIdx - 1); // e.g. ['','sites','ClientServiceTeam319']
+      const libraryRelUrl = libraryParts.join('/'); // /sites/ClientServiceTeam319/Shared Documents
+      const siteUrl = u.origin + siteParts.join('/'); // https://...sharepoint.com/sites/ClientServiceTeam319
+      return { siteUrl, libraryRelUrl, listItemId };
+    } catch { return null; }
+  }
+
+  // Helper: download a parquet file from a known SharePoint/OneDrive item ID (personal OneDrive)
   async function downloadParquetById(token: string, itemId: string): Promise<ArrayBuffer> {
     const contentResp = await fetch(
       `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/content`,
@@ -3652,6 +3670,39 @@ export async function registerRoutes(
     );
     if (!contentResp.ok) throw new Error(`Failed to download ${drivePath}: ${contentResp.status}`);
     return contentResp.arrayBuffer();
+  }
+
+  // Helper: download via SharePoint REST API using list item ID
+  // Uses the same Graph bearer token — modern SharePoint Online accepts it for REST API calls
+  async function downloadParquetBySharePointRest(
+    token: string, siteUrl: string, libraryRelUrl: string, listItemId: string
+  ): Promise<ArrayBuffer> {
+    // Encode library rel URL for use inside OData string param via @a query pattern
+    const encodedLib = encodeURIComponent(libraryRelUrl);
+    const restUrl = `${siteUrl}/_api/web/GetList(@a)/items(${listItemId})/File/$value?@a='${encodedLib}'`;
+    const resp = await fetch(restUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json;odata=nometadata',
+      },
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`SharePoint REST download failed ${resp.status}: ${errText.substring(0, 300)}`);
+    }
+    return resp.arrayBuffer();
+  }
+
+  // Helper: try Graph drive-specific download (requires Sites.Read.All or site-granted access)
+  async function downloadParquetByDriveItem(
+    token: string, driveId: string, itemId: string
+  ): Promise<ArrayBuffer> {
+    const resp = await fetch(
+      `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/content`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!resp.ok) throw new Error(`Graph drive download failed ${resp.status}`);
+    return resp.arrayBuffer();
   }
 
   // Helper: read all rows from a parquet ArrayBuffer using hyparquet
@@ -3790,6 +3841,8 @@ export async function registerRoutes(
 
       const results = hits.map((h: any) => {
         const r = h.resource;
+        const webUrl = r.webUrl as string | undefined;
+        const parsed = webUrl ? parseSharePointWebUrl(webUrl) : null;
         return {
           name: r.name,
           id: r.id,
@@ -3798,7 +3851,11 @@ export async function registerRoutes(
           parentPath: r.parentReference?.path,
           size: r.size,
           lastModified: r.lastModifiedDateTime,
-          webUrl: r.webUrl,
+          webUrl,
+          // SharePoint REST API fields (parsed from webUrl DispForm URL)
+          siteUrl: parsed?.siteUrl ?? null,
+          libraryRelUrl: parsed?.libraryRelUrl ?? null,
+          listItemId: parsed?.listItemId ?? null,
         };
       }).filter((r: any) => r.name?.toLowerCase().endsWith('.parquet'));
 
@@ -3949,20 +4006,154 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/inventory/sync-upload — accept a manually uploaded parquet file and run sync
+  app.post('/api/inventory/sync-upload', upload.single('file'), async (req, res) => {
+    const startMs = Date.now();
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+      const fs = await import('fs');
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const invAb: ArrayBuffer = fileBuffer.buffer.slice(fileBuffer.byteOffset, fileBuffer.byteOffset + fileBuffer.byteLength) as ArrayBuffer;
+
+      // Clean up temp file
+      fs.unlinkSync(req.file.path);
+
+      console.log(`[Inventory Sync Upload] Parsing ${req.file.originalname} (${(invAb.byteLength / 1024 / 1024).toFixed(1)} MB)…`);
+      const invRows = await readParquetRows(invAb);
+      console.log(`[Inventory Sync Upload] Parsed ${invRows.length} rows`);
+
+      const clientsInFile = [...new Set(invRows.map((r: any) => r['client']).filter(Boolean))] as string[];
+      console.log(`[Inventory Sync Upload] Clients: ${clientsInFile.join(', ')}`);
+
+      for (const c of clientsInFile) {
+        await db.execute(sql`DELETE FROM inv_sku_metrics WHERE client = ${c}`);
+        await db.execute(sql`DELETE FROM inv_store_summary WHERE client = ${c}`);
+      }
+
+      const BATCH = 500;
+      const skuMapped = invRows.map((r: any) => {
+        const storeSoh = r['store soh'] ?? null;
+        const sellOutP4 = r['sell out p4 weeks'] ?? null;
+        const oosFlag = storeSoh !== null && storeSoh <= 0 ? 1 : 0;
+        const noSalesFlag = sellOutP4 !== null && sellOutP4 <= 0 && storeSoh !== null && storeSoh > 0 ? 1 : 0;
+        const negativeSohFlag = storeSoh !== null && storeSoh < 0 ? 1 : 0;
+        let stockClass = 'OK';
+        if (oosFlag) stockClass = 'OOS';
+        else if (noSalesFlag) stockClass = 'No Sales';
+        else if (storeSoh !== null && storeSoh < 5) stockClass = 'Low Stock';
+        return {
+          client: r['client'] ?? null,
+          banner: r['banner'] ? String(r['banner']).trim() : null,
+          storeName: r['store name'] ? String(r['store name']).trim() : null,
+          storeNumber: r['store number'] != null ? String(r['store number']) : null,
+          region: r['region'] ? String(r['region']).trim().toUpperCase() : null,
+          productCode: r['product code'] ? String(r['product code']) : null,
+          productDescription: r['product description'] ? String(r['product description']) : null,
+          weekEnding: toDateStr(r['week ending']),
+          storeSoh: storeSoh != null ? Number(storeSoh) : null,
+          dcSoh: r['supplying dc soh'] != null ? Number(r['supplying dc soh']) : null,
+          sellOutP4: sellOutP4 != null ? Number(sellOutP4) : null,
+          oosFlag, noSalesFlag, negativeSohFlag, stockClass,
+        };
+      });
+
+      for (let i = 0; i < skuMapped.length; i += BATCH) {
+        await db.insert(invSkuMetrics).values(skuMapped.slice(i, i + BATCH));
+      }
+
+      // Aggregate store summaries
+      const storeSummaryRows = await db.execute(sql`
+        SELECT client, banner, store_name, store_number, region, week_ending,
+          COUNT(*) as sku_count,
+          SUM(CASE WHEN oos_flag = 1 THEN 1 ELSE 0 END) as oos_count,
+          SUM(CASE WHEN no_sales_flag = 1 THEN 1 ELSE 0 END) as no_sales_count,
+          SUM(CASE WHEN negative_soh_flag = 1 THEN 1 ELSE 0 END) as negative_soh_count,
+          SUM(store_soh) as total_store_soh,
+          SUM(dc_soh) as total_dc_soh,
+          SUM(sell_out_p4) as total_sales_p4
+        FROM inv_sku_metrics
+        WHERE client = ANY(${clientsInFile})
+        GROUP BY client, banner, store_name, store_number, region, week_ending
+      `);
+
+      for (let i = 0; i < storeSummaryRows.rows.length; i += BATCH) {
+        await db.insert(invStoreSummary).values(storeSummaryRows.rows.slice(i, i + BATCH).map((r: any) => ({
+          client: r.client, banner: r.banner, storeName: r.store_name, storeNumber: r.store_number,
+          region: r.region, weekEnding: r.week_ending,
+          skuCount: Number(r.sku_count), oosCount: Number(r.oos_count),
+          noSalesCount: Number(r.no_sales_count), negativeSohCount: Number(r.negative_soh_count),
+          totalStoreSoh: Number(r.total_store_soh), totalDcSoh: Number(r.total_dc_soh),
+          totalSalesP4: Number(r.total_sales_p4), syncedAt: new Date(),
+        })));
+      }
+
+      const durationMs = Date.now() - startMs;
+      await db.insert(invSyncLog).values({
+        fileName: req.file.originalname, status: 'ok',
+        skuRows: invRows.length, storeRows: storeSummaryRows.rows.length, durationMs,
+      });
+
+      console.log(`[Inventory Sync Upload] Done in ${durationMs}ms`);
+      res.json({ ok: true, skuRows: invRows.length, storeRows: storeSummaryRows.rows.length, durationMs, clients: clientsInFile });
+    } catch (err: any) {
+      console.error('[Inventory Sync Upload] Error:', err.message);
+      try {
+        await db.insert(invSyncLog).values({ fileName: 'upload', status: 'error', error: err.message, durationMs: Date.now() - startMs });
+      } catch {}
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/test-sp-rest — test SharePoint REST API access for a specific file
+  // Query: siteUrl, libraryRelUrl, listItemId
+  app.get('/api/inventory/test-sp-rest', async (req, res) => {
+    try {
+      const { getOneDriveToken } = await import('./onedrive.js');
+      const token = await getOneDriveToken();
+      const { siteUrl, libraryRelUrl, listItemId } = req.query as Record<string, string>;
+      if (!siteUrl || !libraryRelUrl || !listItemId) {
+        return res.status(400).json({ error: 'siteUrl, libraryRelUrl, listItemId required' });
+      }
+      const encodedLib = encodeURIComponent(libraryRelUrl);
+      // Fetch just the file metadata (not $value) to test access
+      const metaUrl = `${siteUrl}/_api/web/GetList(@a)/items(${listItemId})/File?@a='${encodedLib}'&$select=Name,Length,TimeLastModified`;
+      const resp = await fetch(metaUrl, {
+        headers: { Authorization: `Bearer ${token}`, Accept: 'application/json;odata=nometadata' },
+      });
+      if (!resp.ok) {
+        const txt = await resp.text();
+        return res.status(resp.status).json({ error: `SP REST ${resp.status}`, detail: txt.substring(0, 400) });
+      }
+      const data = await resp.json() as any;
+      res.json({ ok: true, name: data.Name, size: data.Length, modified: data.TimeLastModified });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/inventory/sync — download Inventory_Combined.parquet and load into DB
-  // Body (optional): { fileId?: string, drivePath?: string, label?: string }
+  // Body (optional): { fileId?, drivePath?, driveId?, siteUrl?, libraryRelUrl?, listItemId?, label? }
   app.post('/api/inventory/sync', async (req, res) => {
     const startMs = Date.now();
-    const { fileId, drivePath, label } = req.body || {};
+    const { fileId, drivePath, driveId, siteUrl, libraryRelUrl, listItemId, label } = req.body || {};
     try {
       const { getOneDriveToken } = await import('./onedrive.js');
       const token = await getOneDriveToken();
 
       // Download the specified file, or default to Inventory_Combined.parquet
-      const fileLabel = label || drivePath || fileId || 'Inventory_Combined.parquet';
+      const fileLabel = label || siteUrl || drivePath || fileId || 'Inventory_Combined.parquet';
       console.log(`[Inventory Sync] Downloading ${fileLabel}…`);
       let invAb: ArrayBuffer;
-      if (fileId) {
+      if (siteUrl && libraryRelUrl && listItemId) {
+        // SharePoint REST API download (works with Sites.Selected scope)
+        console.log(`[Inventory Sync] Using SharePoint REST API for listItemId=${listItemId}`);
+        invAb = await downloadParquetBySharePointRest(token, siteUrl, libraryRelUrl, listItemId);
+      } else if (driveId && fileId) {
+        // Graph drive-specific download (requires Sites.Read.All)
+        console.log(`[Inventory Sync] Using Graph drive download for driveId=${driveId}`);
+        invAb = await downloadParquetByDriveItem(token, driveId, fileId);
+      } else if (fileId) {
         invAb = await downloadParquetById(token, fileId);
       } else if (drivePath) {
         invAb = await downloadParquetByPath(token, drivePath);
