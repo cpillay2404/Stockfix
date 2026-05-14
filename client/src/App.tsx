@@ -24,6 +24,7 @@ import SelectManager from "@/pages/select-manager";
 import AdminLeaderboard from "@/pages/admin-leaderboard";
 import QRPage from "@/pages/qr";
 import MerchandiserPilot from "@/pages/merchandiser-pilot";
+import InventoryDashboard from "@/pages/inventory-dashboard";
 
 function Router() {
   return (
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/admin/leaderboard">{() => <ClientGuard><AdminLeaderboard /></ClientGuard>}</Route>
       <Route path="/qr" component={QRPage} />
       <Route path="/merchandiser-pilot" component={MerchandiserPilot} />
+      <Route path="/inventory" component={InventoryDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -53,7 +55,7 @@ function Router() {
 function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [location] = useLocation();
-  const skipSplash = location === '/merchandiser-pilot';
+  const skipSplash = location === '/merchandiser-pilot' || location === '/inventory';
 
   return (
     <QueryClientProvider client={queryClient}>

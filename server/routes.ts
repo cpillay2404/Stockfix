@@ -12,7 +12,8 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { sendTaskCompletedEmail } from "./email";
 import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
-import { sql, eq, and } from "drizzle-orm";
+import { sql, eq, and, desc, type SQL } from "drizzle-orm";
+import { invStoreSummary, invSkuMetrics, invSyncLog } from "@shared/schema";
 
 function safeParseFloat(val: string | number | null | undefined): number {
   if (val === null || val === undefined) return 0;
@@ -3621,6 +3622,328 @@ export async function registerRoutes(
       res.json({ fileId: file.id, fileName: file.name, sheet, rows });
     } catch (err: any) {
       console.error('[OneDrive] read error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ─── Inventory Dashboard Routes ───────────────────────────────────────────
+
+  // Helper: parse an Excel serial date integer to a JS Date
+  function excelSerialToDate(serial: number): Date {
+    return new Date((serial - 25569) * 86400 * 1000);
+  }
+
+  // Helper: download a parquet file from a known SharePoint/OneDrive item ID
+  async function downloadParquetById(token: string, itemId: string): Promise<ArrayBuffer> {
+    const contentResp = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/items/${itemId}/content`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!contentResp.ok) throw new Error(`Failed to download item ${itemId}: ${contentResp.status}`);
+    return contentResp.arrayBuffer();
+  }
+
+  // Helper: download from a known OneDrive path
+  async function downloadParquetByPath(token: string, drivePath: string): Promise<ArrayBuffer> {
+    const encoded = encodeURIComponent(drivePath).replace(/%2F/g, '/');
+    const contentResp = await fetch(
+      `https://graph.microsoft.com/v1.0/me/drive/root:/${encoded}:/content`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (!contentResp.ok) throw new Error(`Failed to download ${drivePath}: ${contentResp.status}`);
+    return contentResp.arrayBuffer();
+  }
+
+  // Helper: read all rows from a parquet ArrayBuffer using hyparquet
+  async function readParquetRows(ab: ArrayBuffer): Promise<Record<string, any>[]> {
+    const { parquetRead } = await import('hyparquet');
+    return new Promise((resolve, reject) => {
+      parquetRead({
+        file: {
+          byteLength: ab.byteLength,
+          slice: (start: number, end?: number) => Promise.resolve(ab.slice(start, end)),
+        } as any,
+        rowFormat: 'object',
+        onComplete: (rows: any) => resolve(rows),
+      }).catch(reject);
+    });
+  }
+
+  // Known file IDs in OneDrive "Inventory 25" folder
+  const INV_FILE_IDS = {
+    inventoryCombined: '01PWHOXR5YWQVGQTKRCBGYBQI4MUM3FZ27',
+    listingGaps: '01PWHOXR6725HBD4EBLVH3R5SMK6QJK4QW',
+  };
+
+  // Convert a parquet date value to ISO date string "YYYY-MM-DD"
+  function toDateStr(val: any): string | null {
+    if (!val) return null;
+    if (val instanceof Date) return val.toISOString().slice(0, 10);
+    if (typeof val === 'number') {
+      // Excel serial → JS Date
+      const d = new Date((val - 25569) * 86400 * 1000);
+      return isNaN(d.getTime()) ? null : d.toISOString().slice(0, 10);
+    }
+    if (typeof val === 'string') return val.slice(0, 10);
+    return null;
+  }
+
+  // POST /api/inventory/sync — download Inventory_Combined.parquet and load into DB
+  app.post('/api/inventory/sync', async (req, res) => {
+    const startMs = Date.now();
+    try {
+      const { getOneDriveToken } = await import('./onedrive.js');
+      const token = await getOneDriveToken();
+
+      // Download Inventory_Combined.parquet
+      console.log('[Inventory Sync] Downloading Inventory_Combined.parquet…');
+      const invAb = await downloadParquetById(token, INV_FILE_IDS.inventoryCombined);
+      console.log('[Inventory Sync] Downloaded. Parsing…');
+
+      const invRows = await readParquetRows(invAb);
+      console.log(`[Inventory Sync] Parsed ${invRows.length} rows`);
+
+      // Clear existing data
+      await db.delete(invSkuMetrics);
+      await db.delete(invStoreSummary);
+
+      // Map Inventory_Combined.parquet → inv_sku_metrics rows
+      const BATCH = 500;
+      const skuMapped = invRows.map((r: any) => {
+        const storeSoh = r['store soh'] ?? null;
+        const sellOutP4 = r['sell out p4 weeks'] ?? null;
+        const oosFlag = storeSoh !== null && storeSoh <= 0 ? 1 : 0;
+        const noSalesFlag = sellOutP4 !== null && sellOutP4 <= 0 && storeSoh !== null && storeSoh > 0 ? 1 : 0;
+        const negativeSohFlag = storeSoh !== null && storeSoh < 0 ? 1 : 0;
+        let stockClass = 'OK';
+        if (oosFlag) stockClass = 'OOS';
+        else if (noSalesFlag) stockClass = 'No Sales';
+        else if (storeSoh !== null && storeSoh < 5) stockClass = 'Low Stock';
+
+        return {
+          client: r['client'] ?? null,
+          banner: r['cleaned banner'] ?? r['banner'] ?? null,
+          region: r['region'] ?? null,
+          storeName: r['cleaned store name'] ?? r['site name'] ?? null,
+          repName: null,
+          lineManager: null,
+          weekEnding: toDateStr(r['week ending']),
+          barcode: r['barcode'] != null ? String(r['barcode']) : null,
+          brand: r['brand'] ?? null,
+          category: r['category'] ?? null,
+          article: r['article'] != null ? String(r['article']) : null,
+          articleDescription: r['article description'] ?? null,
+          dcSoh: r['supplying dc soh'] ?? null,
+          storeSoh,
+          sellOutP4,
+          openPoQty: r['open po qty'] != null ? Number(r['open po qty']) : null,
+          avgSales: null,
+          wfc: null,
+          wfcWithPo: null,
+          stockClassification: stockClass,
+          action: null,
+          oosFlag,
+          noSalesFlag,
+          negativeSohFlag,
+          exceptionFlag: r['exceptionflag'] === true || r['exceptionflag'] === 1 ? true
+            : r['exceptionflag'] === false || r['exceptionflag'] === 0 ? false : null,
+        };
+      });
+
+      for (let i = 0; i < skuMapped.length; i += BATCH) {
+        await db.insert(invSkuMetrics).values(skuMapped.slice(i, i + BATCH));
+      }
+      console.log(`[Inventory Sync] Inserted ${skuMapped.length} SKU rows`);
+
+      // Compute store summary by aggregation
+      await db.execute(sql`
+        INSERT INTO inv_store_summary (client, banner, store_name, rep_name, line_manager, week_ending,
+          total_sales_p4, total_store_soh, total_dc_soh, sku_count, oos_sku_count, no_sales_sku_count, negative_soh_sku_count)
+        SELECT
+          client, banner, store_name, NULL, NULL, week_ending,
+          COALESCE(SUM(sell_out_p4), 0),
+          COALESCE(SUM(store_soh), 0),
+          COALESCE(SUM(dc_soh), 0),
+          COUNT(*),
+          COALESCE(SUM(oos_flag), 0),
+          COALESCE(SUM(no_sales_flag), 0),
+          COALESCE(SUM(negative_soh_flag), 0)
+        FROM inv_sku_metrics
+        GROUP BY client, banner, store_name, week_ending
+      `);
+
+      const storeCount = await db.execute(sql`SELECT COUNT(*) as c FROM inv_store_summary`);
+      const storeRows = Number((storeCount.rows[0] as any).c);
+
+      const durationMs = Date.now() - startMs;
+      await db.insert(invSyncLog).values({ storeRows, skuRows: skuMapped.length, durationMs, status: 'ok' });
+      console.log(`[Inventory Sync] Done in ${durationMs}ms — ${storeRows} store rows, ${skuMapped.length} SKU rows`);
+      res.json({ ok: true, storeRows, skuRows: skuMapped.length, durationMs });
+    } catch (err: any) {
+      const durationMs = Date.now() - startMs;
+      console.error('[Inventory Sync] Error:', err.message);
+      try { await db.insert(invSyncLog).values({ durationMs, status: 'error', error: err.message }); } catch {}
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/sync-status
+  app.get('/api/inventory/sync-status', async (req, res) => {
+    try {
+      const rows = await db.select().from(invSyncLog).orderBy(desc(invSyncLog.syncedAt)).limit(1);
+      res.json(rows[0] ?? null);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/filters
+  app.get('/api/inventory/filters', async (req, res) => {
+    try {
+      const clientFilter = req.query.client as string | undefined;
+
+      const [clients, banners, regions, weeks] = await Promise.all([
+        db.execute(sql`SELECT DISTINCT client FROM inv_store_summary WHERE client IS NOT NULL ORDER BY client`),
+        clientFilter
+          ? db.execute(sql`SELECT DISTINCT banner FROM inv_store_summary WHERE client = ${clientFilter} AND banner IS NOT NULL ORDER BY banner`)
+          : db.execute(sql`SELECT DISTINCT banner FROM inv_store_summary WHERE banner IS NOT NULL ORDER BY banner`),
+        clientFilter
+          ? db.execute(sql`SELECT DISTINCT region FROM inv_sku_metrics WHERE client = ${clientFilter} AND region IS NOT NULL ORDER BY region`)
+          : db.execute(sql`SELECT DISTINCT region FROM inv_sku_metrics WHERE region IS NOT NULL ORDER BY region`),
+        db.execute(sql`SELECT DISTINCT week_ending FROM inv_store_summary WHERE week_ending IS NOT NULL ORDER BY week_ending DESC LIMIT 20`),
+      ]);
+
+      res.json({
+        clients: (clients.rows as any[]).map(r => r.client),
+        banners: (banners.rows as any[]).map(r => r.banner),
+        regions: (regions.rows as any[]).map(r => r.region),
+        weeks: (weeks.rows as any[]).map(r => r.week_ending as string),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Helper: build a WHERE clause from optional filter values using Drizzle sql template
+  function buildInvWhere(opts: {
+    weekEnding?: string | null; client?: string; banner?: string; region?: string;
+    store?: string; flag?: string;
+  }): SQL {
+    const parts: SQL[] = [];
+    if (opts.weekEnding) parts.push(sql`week_ending = ${opts.weekEnding}`);
+    if (opts.client) parts.push(sql`client = ${opts.client}`);
+    if (opts.banner) parts.push(sql`banner = ${opts.banner}`);
+    if (opts.region) parts.push(sql`region = ${opts.region}`);
+    if (opts.store) parts.push(sql`store_name = ${opts.store}`);
+    if (opts.flag === 'oos') parts.push(sql`oos_flag = 1`);
+    else if (opts.flag === 'nosales') parts.push(sql`no_sales_flag = 1`);
+    else if (opts.flag === 'negative') parts.push(sql`negative_soh_flag = 1`);
+    return parts.length ? sql`WHERE ${sql.join(parts, sql` AND `)}` : sql``;
+  }
+
+  // Helper: get latest week_ending from a table
+  async function getLatestWeek(table: 'inv_store_summary' | 'inv_sku_metrics'): Promise<string | null> {
+    const r = await db.execute(
+      table === 'inv_store_summary'
+        ? sql`SELECT MAX(week_ending) as w FROM inv_store_summary`
+        : sql`SELECT MAX(week_ending) as w FROM inv_sku_metrics`
+    );
+    return (r.rows[0] as any)?.w ?? null;
+  }
+
+  // GET /api/inventory/kpis
+  app.get('/api/inventory/kpis', async (req, res) => {
+    try {
+      const { client, banner, region, week } = req.query as Record<string, string>;
+      const weekEnding = week || await getLatestWeek('inv_store_summary');
+      const where = buildInvWhere({ weekEnding, client, banner });
+
+      const result = await db.execute(sql`
+        SELECT COUNT(DISTINCT store_name) as store_count,
+          COALESCE(SUM(sku_count),0) as total_skus,
+          COALESCE(SUM(oos_sku_count),0) as oos_count,
+          COALESCE(SUM(no_sales_sku_count),0) as no_sales_count,
+          COALESCE(SUM(negative_soh_sku_count),0) as negative_soh_count,
+          COALESCE(SUM(total_store_soh),0) as total_store_soh,
+          COALESCE(SUM(total_dc_soh),0) as total_dc_soh,
+          COALESCE(SUM(total_sales_p4),0) as total_sales_p4
+        FROM inv_store_summary ${where}
+      `);
+
+      const row = result.rows[0] as any;
+      res.json({
+        weekEnding,
+        storeCount: Number(row.store_count),
+        totalSkus: Number(row.total_skus),
+        oosCount: Number(row.oos_count),
+        noSalesCount: Number(row.no_sales_count),
+        negativeSohCount: Number(row.negative_soh_count),
+        totalStoreSoh: Number(row.total_store_soh),
+        totalDcSoh: Number(row.total_dc_soh),
+        totalSalesP4: Number(row.total_sales_p4),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/stores
+  app.get('/api/inventory/stores', async (req, res) => {
+    try {
+      const { client, banner, week } = req.query as Record<string, string>;
+      const weekEnding = week || await getLatestWeek('inv_store_summary');
+      const where = buildInvWhere({ weekEnding, client, banner });
+
+      const result = await db.execute(sql`
+        SELECT store_name as "storeName", banner, rep_name as "repName", line_manager as "lineManager",
+          COALESCE(sku_count,0) as "skuCount",
+          COALESCE(oos_sku_count,0) as "oosSkuCount",
+          COALESCE(no_sales_sku_count,0) as "noSalesSkuCount",
+          COALESCE(negative_soh_sku_count,0) as "negativeSohSkuCount",
+          COALESCE(total_store_soh,0) as "totalStoreSoh",
+          COALESCE(total_dc_soh,0) as "totalDcSoh",
+          COALESCE(total_sales_p4,0) as "totalSalesP4"
+        FROM inv_store_summary ${where}
+        ORDER BY oos_sku_count DESC NULLS LAST, store_name
+      `);
+
+      res.json(result.rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/skus
+  app.get('/api/inventory/skus', async (req, res) => {
+    try {
+      const { client, banner, region, week, flag, store } = req.query as Record<string, string>;
+      const weekEnding = week || await getLatestWeek('inv_sku_metrics');
+      const where = buildInvWhere({ weekEnding, client, banner, region, store, flag });
+
+      const result = await db.execute(sql`
+        SELECT id, barcode,
+          article_description as "articleDescription", brand, category, article,
+          store_name as "storeName", banner, region, rep_name as "repName",
+          COALESCE(store_soh,0) as "storeSoh",
+          COALESCE(dc_soh,0) as "dcSoh",
+          COALESCE(sell_out_p4,0) as "sellOutP4",
+          COALESCE(open_po_qty,0) as "openPoQty",
+          COALESCE(avg_sales,0) as "avgSales",
+          COALESCE(wfc,0) as "wfc",
+          COALESCE(wfc_with_po,0) as "wfcWithPo",
+          stock_classification as "stockClassification",
+          action,
+          COALESCE(oos_flag,0) as "oosFlag",
+          COALESCE(no_sales_flag,0) as "noSalesFlag",
+          COALESCE(negative_soh_flag,0) as "negativeSohFlag",
+          exception_flag as "exceptionFlag"
+        FROM inv_sku_metrics ${where}
+        ORDER BY store_soh ASC NULLS LAST, article_description
+        LIMIT 2000
+      `);
+
+      res.json(result.rows);
+    } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
   });

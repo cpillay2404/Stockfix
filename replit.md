@@ -50,6 +50,18 @@ The database stores users and tasks. Tasks contain comprehensive retail data inc
    - **Store Landing Page**: Header with store stats, client breakdown grid with severity colors (red=urgent, orange=OOS, green=stable), Top 5 clients by issue type sections, quick filter chips
    - **Navigation Flow**: Dashboard → Store Landing Page → Task List (drill-down pattern)
 
+### Recent Changes (May 14, 2026)
+
+- Built standalone Inventory Hub dashboard at `/inventory`
+- Reads `Inventory_Combined.parquet` from SharePoint via Graph API (OneDrive "Inventory 25" folder, file ID: `01PWHOXR5YWQVGQTKRCBGYBQI4MUM3FZ27`)
+- New DB tables: `inv_sku_metrics` (571K rows), `inv_store_summary` (2,422 rows), `inv_sync_log`
+- Sync endpoint: `POST /api/inventory/sync` — downloads parquet, maps columns, derives OOS/NoSales/NegSOH flags, aggregates store summary via SQL
+- Dashboard: dark blue sidebar, KPI cards (Stores, Total SKUs, OOS, No Sales, Neg SOH, Store SOH, DC SOH), filterable store table with drill-down, OOS/No Sales/Negative SOH SKU views, Sync panel
+- Filters: client, banner, region, week_ending (text "YYYY-MM-DD")
+- week_ending stored as text, hyparquet auto-converts parquet date columns to JS Date objects
+- Column mapping: cleaned banner→banner, cleaned store name→storeName, supplying dc soh→dcSoh, sell out p4 weeks→sellOutP4, etc.
+- Known parquet file location: OneDrive root > "Inventory 25" folder
+
 ### Recent Changes (Jan 19, 2026)
 
 - Optimized `/api/store-overview` endpoint performance:

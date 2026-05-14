@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, timestamp, integer, doublePrecision, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -171,3 +171,63 @@ export const insertClientPasswordSchema = createInsertSchema(clientPasswords).om
 
 export type InsertClientPassword = z.infer<typeof insertClientPasswordSchema>;
 export type ClientPassword = typeof clientPasswords.$inferSelect;
+
+// ─── Inventory Dashboard Tables ───────────────────────────────────────────────
+
+export const invStoreSummary = pgTable("inv_store_summary", {
+  id: serial("id").primaryKey(),
+  client: text("client"),
+  banner: text("banner"),
+  storeName: text("store_name"),
+  repName: text("rep_name"),
+  lineManager: text("line_manager"),
+  weekEnding: text("week_ending"),
+  totalSalesP4: doublePrecision("total_sales_p4"),
+  totalStoreSoh: doublePrecision("total_store_soh"),
+  totalDcSoh: doublePrecision("total_dc_soh"),
+  skuCount: integer("sku_count"),
+  oosSkuCount: integer("oos_sku_count"),
+  noSalesSkuCount: integer("no_sales_sku_count"),
+  negativeSohSkuCount: integer("negative_soh_sku_count"),
+  syncedAt: timestamp("synced_at").defaultNow(),
+});
+
+export const invSkuMetrics = pgTable("inv_sku_metrics", {
+  id: serial("id").primaryKey(),
+  client: text("client"),
+  banner: text("banner"),
+  region: text("region"),
+  storeName: text("store_name"),
+  repName: text("rep_name"),
+  lineManager: text("line_manager"),
+  weekEnding: text("week_ending"),
+  barcode: text("barcode"),
+  brand: text("brand"),
+  category: text("category"),
+  article: text("article"),
+  articleDescription: text("article_description"),
+  dcSoh: doublePrecision("dc_soh"),
+  storeSoh: doublePrecision("store_soh"),
+  sellOutP4: doublePrecision("sell_out_p4"),
+  openPoQty: doublePrecision("open_po_qty"),
+  avgSales: doublePrecision("avg_sales"),
+  wfc: doublePrecision("wfc"),
+  wfcWithPo: doublePrecision("wfc_with_po"),
+  stockClassification: text("stock_classification"),
+  action: text("action"),
+  oosFlag: integer("oos_flag"),
+  noSalesFlag: integer("no_sales_flag"),
+  negativeSohFlag: integer("negative_soh_flag"),
+  exceptionFlag: boolean("exception_flag"),
+  syncedAt: timestamp("synced_at").defaultNow(),
+});
+
+export const invSyncLog = pgTable("inv_sync_log", {
+  id: serial("id").primaryKey(),
+  syncedAt: timestamp("synced_at").defaultNow(),
+  storeRows: integer("store_rows"),
+  skuRows: integer("sku_rows"),
+  durationMs: integer("duration_ms"),
+  status: text("status"),
+  error: text("error"),
+});
