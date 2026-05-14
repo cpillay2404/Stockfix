@@ -4010,6 +4010,76 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/inventory/insights — pre-aggregated executive data (top banners, regions, stores, DC split)
+  app.get('/api/inventory/insights', async (req, res) => {
+    try {
+      const { client, banner, region, week } = req.query as Record<string, string>;
+      const weekEnding = week || await getLatestWeek('inv_store_summary');
+      const storeWhere = buildInvWhere({ weekEnding, client, banner });
+
+      // Build SKU-level where with region filter + exclude nulls
+      const skuParts: SQL[] = [];
+      if (weekEnding) skuParts.push(sql`week_ending = ${weekEnding}`);
+      if (client)     skuParts.push(sql`client = ${client}`);
+      if (banner)     skuParts.push(sql`banner = ${banner}`);
+      if (region)     skuParts.push(sql`region = ${region}`);
+      const skuBaseWhere = skuParts.length ? sql`WHERE ${sql.join(skuParts, sql` AND `)}` : sql``;
+      const skuRegionWhere = sql`WHERE ${sql.join([...skuParts, sql`region IS NOT NULL`, sql`region != ''`], sql` AND `)}`;
+
+      const [bannersRes, regionsRes, storesRes, dcSplitRes] = await Promise.all([
+        db.execute(sql`
+          SELECT banner,
+            COALESCE(SUM(oos_sku_count),0) as oos_count,
+            COALESCE(SUM(sku_count),0) as total_skus,
+            COALESCE(SUM(no_sales_sku_count),0) as no_sales_count
+          FROM inv_store_summary ${storeWhere}
+          GROUP BY banner ORDER BY oos_count DESC LIMIT 5
+        `),
+        db.execute(sql`
+          SELECT region,
+            COALESCE(SUM(oos_flag),0) as oos_count,
+            COUNT(*) as total_skus
+          FROM inv_sku_metrics ${skuRegionWhere}
+          GROUP BY region ORDER BY oos_count DESC LIMIT 5
+        `),
+        db.execute(sql`
+          SELECT store_name as "storeName", banner,
+            COALESCE(oos_sku_count,0) as "oosCount",
+            COALESCE(sku_count,0) as "totalSkus",
+            COALESCE(total_dc_soh,0) as "dcSoh"
+          FROM inv_store_summary ${storeWhere}
+          ORDER BY oos_sku_count DESC NULLS LAST LIMIT 5
+        `),
+        db.execute(sql`
+          SELECT
+            COALESCE(SUM(CASE WHEN oos_flag = 1 AND dc_soh > 0 THEN 1 ELSE 0 END),0) as store_replenish,
+            COALESCE(SUM(CASE WHEN oos_flag = 1 AND (dc_soh IS NULL OR dc_soh <= 0) THEN 1 ELSE 0 END),0) as dc_constrained
+          FROM inv_sku_metrics ${skuBaseWhere}
+        `),
+      ]);
+
+      res.json({
+        weekEnding,
+        topBanners: bannersRes.rows.map((r: any) => ({
+          banner: r.banner, oosCount: Number(r.oos_count), totalSkus: Number(r.total_skus), noSalesCount: Number(r.no_sales_count),
+        })),
+        topRegions: regionsRes.rows.map((r: any) => ({
+          region: r.region, oosCount: Number(r.oos_count), totalSkus: Number(r.total_skus),
+        })),
+        topStores: storesRes.rows.map((r: any) => ({
+          storeName: r.storeName, banner: r.banner,
+          oosCount: Number(r.oosCount), totalSkus: Number(r.totalSkus), dcSoh: Number(r.dcSoh),
+        })),
+        dcSplit: {
+          storeReplenish: Number((dcSplitRes.rows[0] as any).store_replenish),
+          dcConstrained: Number((dcSplitRes.rows[0] as any).dc_constrained),
+        },
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET /api/inventory/stores
   app.get('/api/inventory/stores', async (req, res) => {
     try {
