@@ -3724,18 +3724,34 @@ export async function registerRoutes(
     return { folders, files };
   }
 
-  // GET /api/inventory/browse?path=<folder>&itemId=<id> — list folders + parquet files
+  // GET /api/inventory/browse?path=<folder>&itemId=<id>&driveId=<driveId>
   // If itemId provided: browse that item directly (works across drives)
+  // If driveId + itemId: browse item in a specific SharePoint drive
   // Otherwise: browse by path in personal OneDrive
   app.get('/api/inventory/browse', async (req, res) => {
     try {
       const { getOneDriveToken } = await import('./onedrive.js');
       const token = await getOneDriveToken();
       const itemId = req.query.itemId as string | undefined;
+      const driveId = req.query.driveId as string | undefined;
       const folderPath = (req.query.path as string) || '.';
 
       let data: any;
-      if (itemId) {
+      if (driveId && itemId) {
+        // Browse a specific item in a SharePoint drive
+        const r = await fetch(
+          `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}/children?$select=name,id,size,folder,parentReference&$top=200`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        data = await r.json();
+      } else if (driveId) {
+        // Browse root of a specific SharePoint drive
+        const r = await fetch(
+          `https://graph.microsoft.com/v1.0/drives/${driveId}/root/children?$select=name,id,size,folder,parentReference&$top=200`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        data = await r.json();
+      } else if (itemId) {
         data = await browseItemById(token, itemId);
       } else {
         data = await browseByPath(token, folderPath);
@@ -3743,7 +3759,145 @@ export async function registerRoutes(
 
       if (data.error) return res.status(400).json({ error: data.error.message });
       const { folders, files } = parseChildren(data);
-      res.json({ path: folderPath, folders, files });
+      res.json({ path: folderPath, folders, files, driveId });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/search-sharepoint?q=filename — search across all drives incl SharePoint
+  app.get('/api/inventory/search-sharepoint', async (req, res) => {
+    try {
+      const { getOneDriveToken } = await import('./onedrive.js');
+      const token = await getOneDriveToken();
+      const q = (req.query.q as string) || 'Inventory_Combined.parquet';
+
+      // Use Microsoft Search API to find files across all accessible drives
+      const searchResp = await fetch('https://graph.microsoft.com/v1.0/search/query', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requests: [{
+            entityTypes: ['driveItem'],
+            query: { queryString: q },
+            fields: ['name', 'id', 'size', 'parentReference', 'lastModifiedDateTime', 'webUrl'],
+            from: 0, size: 20,
+          }],
+        }),
+      });
+      const searchData = await searchResp.json() as any;
+      const hits = searchData?.value?.[0]?.hitsContainers?.[0]?.hits ?? [];
+
+      const results = hits.map((h: any) => {
+        const r = h.resource;
+        return {
+          name: r.name,
+          id: r.id,
+          driveId: r.parentReference?.driveId,
+          driveType: r.parentReference?.driveType,
+          parentPath: r.parentReference?.path,
+          size: r.size,
+          lastModified: r.lastModifiedDateTime,
+          webUrl: r.webUrl,
+        };
+      }).filter((r: any) => r.name?.toLowerCase().endsWith('.parquet'));
+
+      res.json({ results, query: q });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/list-drives — list all SharePoint site drives the user can access
+  app.get('/api/inventory/list-drives', async (req, res) => {
+    try {
+      const { getOneDriveToken } = await import('./onedrive.js');
+      const token = await getOneDriveToken();
+
+      // Get user's followed sites
+      const sitesResp = await fetch(
+        'https://graph.microsoft.com/v1.0/me/followedSites?$select=id,displayName,webUrl&$top=50',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const sitesData = await sitesResp.json() as any;
+      const followedSites = sitesData.value ?? [];
+
+      // Also get the joined teams' SharePoint sites
+      const teamsResp = await fetch(
+        'https://graph.microsoft.com/v1.0/me/joinedTeams?$select=id,displayName&$top=50',
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const teamsData = await teamsResp.json() as any;
+
+      res.json({
+        followedSites: followedSites.map((s: any) => ({ id: s.id, name: s.displayName, url: s.webUrl })),
+        teams: (teamsData.value ?? []).map((t: any) => ({ id: t.id, name: t.displayName })),
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/item-meta?driveId=&itemId= — get item name + parent path
+  app.get('/api/inventory/item-meta', async (req, res) => {
+    try {
+      const { getOneDriveToken } = await import('./onedrive.js');
+      const token = await getOneDriveToken();
+      const { driveId, itemId } = req.query as Record<string, string>;
+      if (!driveId || !itemId) return res.status(400).json({ error: 'driveId and itemId required' });
+
+      const r = await fetch(
+        `https://graph.microsoft.com/v1.0/drives/${driveId}/items/${itemId}?$select=name,size,parentReference,lastModifiedDateTime`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await r.json() as any;
+      if (data.error) return res.status(400).json({ error: data.error.message });
+      res.json({
+        name: data.name,
+        size: data.size,
+        lastModified: data.lastModifiedDateTime,
+        parentPath: data.parentReference?.path,
+        parentId: data.parentReference?.id,
+        driveId: data.parentReference?.driveId,
+      });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/site-browse?siteHost=&sitePath=&folderPath= — browse SharePoint site library
+  app.get('/api/inventory/site-browse', async (req, res) => {
+    try {
+      const { getOneDriveToken } = await import('./onedrive.js');
+      const token = await getOneDriveToken();
+      const { siteHost, sitePath, folderPath } = req.query as Record<string, string>;
+
+      // Resolve site ID
+      const siteResp = await fetch(
+        `https://graph.microsoft.com/v1.0/sites/${siteHost}:/${sitePath}?$select=id,displayName`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const site = await siteResp.json() as any;
+      if (site.error) return res.status(400).json({ error: site.error.message, detail: 'Could not resolve site' });
+
+      // Get the default drive (Shared Documents)
+      const driveResp = await fetch(
+        `https://graph.microsoft.com/v1.0/sites/${site.id}/drive/root${folderPath ? `:/${folderPath}:` : ''}/children?$select=name,id,size,folder&$top=200`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const driveData = await driveResp.json() as any;
+      if (driveData.error) return res.status(400).json({ error: driveData.error.message });
+
+      const { folders, files } = parseChildren(driveData);
+
+      // Get the drive ID for future browsing
+      const driveMetaResp = await fetch(
+        `https://graph.microsoft.com/v1.0/sites/${site.id}/drive?$select=id`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const driveMeta = await driveMetaResp.json() as any;
+
+      res.json({ siteId: site.id, siteName: site.displayName, driveId: driveMeta.id, folderPath, folders, files });
     } catch (err: any) {
       res.status(500).json({ error: err.message });
     }
