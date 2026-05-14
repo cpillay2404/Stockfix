@@ -328,68 +328,192 @@ function SkuTable({ filters, flagFilter, drillStore }: { filters: Filters; flagF
 
 // ─── Sync Panel ───────────────────────────────────────────────────────────────
 
+interface ClientRow { client: string; stores: number; skus: number; latest_week: string; synced_at: string; }
+
 function SyncPanel() {
   const queryClient = useQueryClient();
+  const [drivePath, setDrivePath] = useState("");
+  const [fileLabel, setFileLabel] = useState("");
+  const [browseResults, setBrowseResults] = useState<{name: string; id: string; size: number}[]>([]);
+  const [browsing, setBrowsing] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<{id: string; name: string} | null>(null);
+
   const { data: log } = useQuery<SyncLog | null>({
     queryKey: ["inv-sync-log"],
     queryFn: () => apiFetch("/api/inventory/sync-status"),
     staleTime: 30000,
   });
 
-  const syncMut = useMutation({
-    mutationFn: () => fetch("/api/inventory/sync", { method: "POST" }).then(r => r.json()),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["inv-stores"] });
-      queryClient.invalidateQueries({ queryKey: ["inv-skus"] });
-      queryClient.invalidateQueries({ queryKey: ["inv-kpis"] });
-      queryClient.invalidateQueries({ queryKey: ["inv-filters"] });
-      queryClient.invalidateQueries({ queryKey: ["inv-sync-log"] });
-    },
+  const { data: clients = [] } = useQuery<ClientRow[]>({
+    queryKey: ["inv-clients"],
+    queryFn: () => apiFetch("/api/inventory/clients"),
+    staleTime: 30000,
   });
 
+  const invalidateAll = () => {
+    ["inv-stores","inv-skus","inv-kpis","inv-filters","inv-sync-log","inv-clients"].forEach(k =>
+      queryClient.invalidateQueries({ queryKey: [k] })
+    );
+  };
+
+  // Sync default (P&G / Inventory_Combined.parquet)
+  const syncDefaultMut = useMutation({
+    mutationFn: () => fetch("/api/inventory/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) }).then(r => r.json()),
+    onSuccess: invalidateAll,
+  });
+
+  // Sync a specific file
+  const syncFileMut = useMutation({
+    mutationFn: (body: { fileId?: string; drivePath?: string; label?: string }) =>
+      fetch("/api/inventory/sync", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).then(r => r.json()),
+    onSuccess: () => { invalidateAll(); setSelectedFile(null); setDrivePath(""); setFileLabel(""); },
+  });
+
+  // Browse for parquet files in a folder path
+  const handleBrowse = async () => {
+    setBrowsing(true);
+    setBrowseResults([]);
+    try {
+      const r = await fetch(`/api/inventory/browse?path=${encodeURIComponent(drivePath || "Inventory 25")}`);
+      const data = await r.json();
+      setBrowseResults(data.files || []);
+    } catch {}
+    setBrowsing(false);
+  };
+
+  const isSyncing = syncDefaultMut.isPending || syncFileMut.isPending;
+  const lastError = (syncDefaultMut.data?.error) || (syncFileMut.data?.error);
+
   return (
-    <div className="max-w-lg">
-      <h2 className="text-lg font-bold text-gray-800 mb-4">Data Sync</h2>
+    <div className="max-w-2xl space-y-5">
+      <h2 className="text-lg font-bold text-gray-800">Data Sync</h2>
+
+      {/* Loaded clients */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 className="text-sm font-semibold text-gray-700 mb-3">Currently Loaded Clients</h3>
+        {clients.length === 0 ? (
+          <p className="text-sm text-gray-400">No data loaded yet.</p>
+        ) : (
+          <div className="space-y-2">
+            {clients.map(c => (
+              <div key={c.client} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg" data-testid={`client-row-${c.client}`}>
+                <div>
+                  <span className="font-semibold text-gray-800">{c.client}</span>
+                  <span className="ml-3 text-xs text-gray-500">
+                    {Number(c.stores).toLocaleString()} stores • {Number(c.skus).toLocaleString()} SKUs • week {fmtWeek(c.latest_week)}
+                  </span>
+                </div>
+                <button
+                  onClick={() => syncDefaultMut.mutate()}
+                  disabled={isSyncing || c.client !== "P&G"}
+                  title={c.client !== "P&G" ? "Re-sync via Add Client below" : "Re-sync P&G from Inventory_Combined.parquet"}
+                  className="text-xs text-blue-600 hover:text-blue-800 disabled:opacity-40 flex items-center gap-1"
+                  data-testid={`btn-resync-${c.client}`}>
+                  <RefreshCw size={11} className={syncDefaultMut.isPending ? "animate-spin" : ""} />
+                  Re-sync
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Re-sync P&G default button when no clients */}
+        {clients.length === 0 && (
+          <button
+            onClick={() => syncDefaultMut.mutate()}
+            disabled={isSyncing}
+            className="mt-3 flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-50"
+            data-testid="btn-sync-default">
+            <RefreshCw size={14} className={syncDefaultMut.isPending ? "animate-spin" : ""} />
+            {syncDefaultMut.isPending ? "Syncing P&G…" : "Sync P&G (Inventory_Combined.parquet)"}
+          </button>
+        )}
+      </div>
+
+      {/* Add another client */}
       <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">Reads <strong>store_week_summary.parquet</strong> and <strong>store_sku_week_metrics.parquet</strong> from SharePoint and loads them into the dashboard database.</p>
-          <p className="text-xs text-gray-400">Run this weekly after the parquet files are updated. The sync replaces all existing data.</p>
+        <h3 className="text-sm font-semibold text-gray-700">Add / Update a Client</h3>
+        <p className="text-xs text-gray-500">Browse your OneDrive to find the parquet file for the next client, then sync it. Existing clients are not affected.</p>
+
+        <div className="flex gap-2">
+          <input
+            className="flex-1 h-8 px-3 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            placeholder="Folder path, e.g. Inventory 25"
+            value={drivePath}
+            onChange={e => setDrivePath(e.target.value)}
+            data-testid="input-drive-path"
+          />
+          <button
+            onClick={handleBrowse}
+            disabled={browsing}
+            className="h-8 px-3 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50"
+            data-testid="btn-browse">
+            {browsing ? "…" : "Browse"}
+          </button>
         </div>
 
-        {log && (
-          <div className={`rounded-lg p-3 text-sm ${log.status === "ok" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
-            <div className="font-semibold mb-1">{log.status === "ok" ? "✓ Last sync successful" : "✗ Last sync failed"}</div>
-            <div className="text-xs space-y-0.5">
-              <div>Time: {new Date(log.syncedAt).toLocaleString("en-ZA")}</div>
-              {log.storeRows != null && <div>Store rows: {log.storeRows?.toLocaleString()} • SKU rows: {log.skuRows?.toLocaleString()}</div>}
-              {log.durationMs != null && <div>Duration: {(log.durationMs / 1000).toFixed(1)}s</div>}
-              {log.error && <div className="text-red-600 mt-1">{log.error}</div>}
-            </div>
+        {browseResults.length > 0 && (
+          <div className="border border-gray-100 rounded-lg divide-y divide-gray-50">
+            {browseResults.map(f => (
+              <button
+                key={f.id}
+                onClick={() => setSelectedFile({ id: f.id, name: f.name })}
+                className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between hover:bg-blue-50 transition-colors
+                  ${selectedFile?.id === f.id ? "bg-blue-50 text-blue-700" : "text-gray-700"}`}
+                data-testid={`file-option-${f.name}`}>
+                <span className="font-mono text-xs">{f.name}</span>
+                <span className="text-xs text-gray-400">{(f.size / 1024 / 1024).toFixed(1)} MB</span>
+              </button>
+            ))}
           </div>
         )}
 
-        {syncMut.isPending && (
-          <div className="rounded-lg p-3 bg-blue-50 text-blue-800 text-sm">
-            <div className="flex items-center gap-2">
-              <RefreshCw size={14} className="animate-spin" />
-              <span>Syncing from SharePoint… this may take 1–2 minutes for large files.</span>
+        {selectedFile && (
+          <div className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg">
+            <div className="flex-1 text-sm text-blue-800">
+              Selected: <strong>{selectedFile.name}</strong>
             </div>
+            <input
+              className="h-7 px-2 text-xs border border-blue-200 rounded bg-white w-32"
+              placeholder="Label (optional)"
+              value={fileLabel}
+              onChange={e => setFileLabel(e.target.value)}
+              data-testid="input-file-label"
+            />
+            <button
+              onClick={() => syncFileMut.mutate({ fileId: selectedFile.id, label: fileLabel || selectedFile.name })}
+              disabled={isSyncing}
+              className="h-7 px-3 text-xs bg-blue-700 text-white rounded-lg hover:bg-blue-800 disabled:opacity-50 flex items-center gap-1"
+              data-testid="btn-sync-selected">
+              <RefreshCw size={11} className={syncFileMut.isPending ? "animate-spin" : ""} />
+              {syncFileMut.isPending ? "Syncing…" : "Sync This File"}
+            </button>
           </div>
         )}
-
-        {syncMut.isSuccess && syncMut.data?.error && (
-          <div className="rounded-lg p-3 bg-red-50 text-red-800 text-sm">{syncMut.data.error}</div>
-        )}
-
-        <button
-          onClick={() => syncMut.mutate()}
-          disabled={syncMut.isPending}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-700 text-white rounded-lg text-sm font-medium hover:bg-blue-800 disabled:opacity-50 transition-colors"
-          data-testid="btn-sync">
-          <RefreshCw size={14} className={syncMut.isPending ? "animate-spin" : ""} />
-          {syncMut.isPending ? "Syncing…" : "Sync Now"}
-        </button>
       </div>
+
+      {/* Status messages */}
+      {isSyncing && (
+        <div className="rounded-lg p-3 bg-blue-50 text-blue-800 text-sm flex items-center gap-2">
+          <RefreshCw size={14} className="animate-spin flex-shrink-0" />
+          Syncing from SharePoint… this may take 1–2 minutes for large files.
+        </div>
+      )}
+
+      {lastError && (
+        <div className="rounded-lg p-3 bg-red-50 text-red-800 text-sm">{lastError}</div>
+      )}
+
+      {log && !isSyncing && (
+        <div className={`rounded-lg p-3 text-sm ${log.status === "ok" ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"}`}>
+          <div className="font-semibold mb-1">{log.status === "ok" ? "✓ Last sync successful" : "✗ Last sync failed"}</div>
+          <div className="text-xs space-y-0.5 opacity-80">
+            <div>{new Date(log.syncedAt).toLocaleString("en-ZA")}</div>
+            {log.storeRows != null && <div>{log.storeRows?.toLocaleString()} store rows • {log.skuRows?.toLocaleString()} SKU rows • {((log.durationMs || 0) / 1000).toFixed(1)}s</div>}
+            {log.error && <div className="text-red-600 mt-1">{log.error}</div>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -3688,24 +3688,78 @@ export async function registerRoutes(
     return null;
   }
 
+  // GET /api/inventory/browse?path=<folder> — list parquet files in a OneDrive folder
+  app.get('/api/inventory/browse', async (req, res) => {
+    try {
+      const { getOneDriveToken } = await import('./onedrive.js');
+      const token = await getOneDriveToken();
+      const folderPath = (req.query.path as string) || 'Inventory 25';
+      const encoded = folderPath.split('/').map(encodeURIComponent).join('/');
+      const r = await fetch(
+        `https://graph.microsoft.com/v1.0/me/drive/root:/${encoded}:/children?$select=name,id,size&$top=100`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const data = await r.json() as any;
+      if (data.error) return res.status(400).json({ error: data.error.message });
+      const files = (data.value || [])
+        .filter((f: any) => f.name?.endsWith('.parquet'))
+        .map((f: any) => ({ name: f.name, id: f.id, size: f.size || 0 }));
+      res.json({ files });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // GET /api/inventory/clients — list which clients are loaded
+  app.get('/api/inventory/clients', async (req, res) => {
+    try {
+      const result = await db.execute(sql`
+        SELECT client, COUNT(DISTINCT store_name) as stores, SUM(sku_count) as skus,
+          MAX(week_ending) as latest_week, MIN(synced_at) as synced_at
+        FROM inv_store_summary
+        WHERE client IS NOT NULL
+        GROUP BY client ORDER BY client
+      `);
+      res.json(result.rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // POST /api/inventory/sync — download Inventory_Combined.parquet and load into DB
+  // Body (optional): { fileId?: string, drivePath?: string, label?: string }
   app.post('/api/inventory/sync', async (req, res) => {
     const startMs = Date.now();
+    const { fileId, drivePath, label } = req.body || {};
     try {
       const { getOneDriveToken } = await import('./onedrive.js');
       const token = await getOneDriveToken();
 
-      // Download Inventory_Combined.parquet
-      console.log('[Inventory Sync] Downloading Inventory_Combined.parquet…');
-      const invAb = await downloadParquetById(token, INV_FILE_IDS.inventoryCombined);
+      // Download the specified file, or default to Inventory_Combined.parquet
+      const fileLabel = label || drivePath || fileId || 'Inventory_Combined.parquet';
+      console.log(`[Inventory Sync] Downloading ${fileLabel}…`);
+      let invAb: ArrayBuffer;
+      if (fileId) {
+        invAb = await downloadParquetById(token, fileId);
+      } else if (drivePath) {
+        invAb = await downloadParquetByPath(token, drivePath);
+      } else {
+        invAb = await downloadParquetById(token, INV_FILE_IDS.inventoryCombined);
+      }
       console.log('[Inventory Sync] Downloaded. Parsing…');
 
       const invRows = await readParquetRows(invAb);
       console.log(`[Inventory Sync] Parsed ${invRows.length} rows`);
 
-      // Clear existing data
-      await db.delete(invSkuMetrics);
-      await db.delete(invStoreSummary);
+      // Detect which clients are in this file
+      const clientsInFile = [...new Set(invRows.map((r: any) => r['client']).filter(Boolean))] as string[];
+      console.log(`[Inventory Sync] Clients in file: ${clientsInFile.join(', ')}`);
+
+      // Delete only the affected clients (leaves other clients intact)
+      for (const c of clientsInFile) {
+        await db.execute(sql`DELETE FROM inv_sku_metrics WHERE client = ${c}`);
+        await db.execute(sql`DELETE FROM inv_store_summary WHERE client = ${c}`);
+      }
 
       // Map Inventory_Combined.parquet → inv_sku_metrics rows
       const BATCH = 500;
