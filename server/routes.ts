@@ -1583,6 +1583,73 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/tasks/all-json — full task export for external apps / Power BI
+  // Default: latest week only. Pass ?week=all for all history, ?week=YYYY-MM-DD for a specific week.
+  app.get('/api/tasks/all-json', async (req, res) => {
+    try {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Content-Type', 'application/json');
+
+      const weekParam = (req.query.week as string) || 'latest';
+      const clientParam = (req.query.client as string) || '';
+
+      let weekFilter: string | null = null;
+      if (weekParam === 'latest' || !weekParam) {
+        weekFilter = await storage.getMostPopulatedWeekEndingDate();
+      } else if (weekParam !== 'all') {
+        weekFilter = weekParam;
+      }
+
+      const whereParts: string[] = [];
+      if (weekFilter) {
+        whereParts.push(`week_ending_date = '${weekFilter.replace(/'/g, "''")}'`);
+      }
+      if (clientParam) {
+        whereParts.push(`client = '${clientParam.replace(/'/g, "''")}'`);
+      }
+      const whereClause = whereParts.length ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+      const result = await db.execute(sql`
+        SELECT
+          unique_id            AS "uniqueId",
+          key,
+          client,
+          banner,
+          region,
+          store_name           AS "storeName",
+          rep_name             AS "repName",
+          line_manager         AS "lineManager",
+          category,
+          barcode,
+          article_description  AS "articleDescription",
+          dc_soh               AS "dcSoh",
+          store_soh            AS "storeSoh",
+          p4_week_sales        AS "p4WeekSales",
+          missed_sales         AS "missedSales",
+          store_wfc            AS "storeWfc",
+          stock_classification AS "stockClassification",
+          week_ending_date     AS "weekEndingDate",
+          action,
+          action_date          AS "actionDate",
+          action_status        AS "actionStatus",
+          physical_count       AS "physicalCount",
+          variance,
+          system_adjusted      AS "systemAdjusted",
+          reason_code          AS "reasonCode",
+          action_taken_comment AS "actionTakenComment",
+          feedback,
+          capture_date         AS "captureDate"
+        FROM tasks
+        ${sql.raw(whereClause)}
+        ORDER BY week_ending_date DESC, rep_name, store_name
+      `);
+
+      res.json(result.rows);
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // GET single task by uniqueId
   app.get("/api/tasks/:uniqueId", async (req, res) => {
     try {
@@ -3479,7 +3546,6 @@ export async function registerRoutes(
     }
   });
 
-  // Merchandiser Pilot — full task export for Power BI (live + history)
   app.get('/api/pilot-export', async (req, res) => {
     try {
       const PILOT_REPS = [
