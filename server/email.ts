@@ -178,6 +178,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'RACEFOODS': ['chelsea@certosports.co.za'],
       'DYNAMIC BRANDS': ['illona@dynamicbrands.co.za', 'vbotha@meridiangroup.co.za'],
       'BUTTERFLY': ['snaidoo@meridiangroup.co.za', 'msithole@meridiangroup.co.za', 'stockfix@butterflysa.co.za'],
+      'PENFLEX': ['jonny@penflex.co.za'],
     };
 
     if (task.client) {
