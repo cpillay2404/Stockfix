@@ -179,6 +179,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'DYNAMIC BRANDS': ['illona@dynamicbrands.co.za', 'vbotha@meridiangroup.co.za'],
       'BUTTERFLY': ['snaidoo@meridiangroup.co.za', 'msithole@meridiangroup.co.za', 'stockfix@butterflysa.co.za'],
       'PENFLEX': ['jonny@penflex.co.za'],
+      'MAGALIES': ['christo@magaliesbrands.co.za', 'ldiale@meridiangroup.co.za', 'Wayne@magaliesbrands.co.za', 'lisa@magaliesbrands.co.za', 'accounts@magaliesbrands.co.za'],
     };
 
     if (task.client) {
