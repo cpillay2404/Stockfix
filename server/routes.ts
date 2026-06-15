@@ -4552,5 +4552,26 @@ export async function registerRoutes(
     }
   });
 
+  // TEMPORARY: diagnose unmatched stores after rep mapping fix
+  app.post('/api/admin/unmatched-stores', async (req, res) => {
+    if (req.query.secret !== 'stockfix-rep-fix-2026') return res.status(401).json({ error: 'Unauthorized' });
+    try {
+      const mappingStores: string[] = req.body.stores; // array of uppercased store names from mapping
+      const weekResult = await db.execute(sql`SELECT week_ending_date FROM tasks WHERE UPPER(client) NOT IN ('AQUELLE','P&G') ORDER BY week_ending_date DESC LIMIT 1`);
+      const latestWeek = (weekResult.rows[0] as any)?.week_ending_date;
+      const result = await db.execute(sql`
+        SELECT UPPER(TRIM(store_name)) as store, rep_name, client, COUNT(*) as cnt
+        FROM tasks
+        WHERE week_ending_date = ${latestWeek}
+          AND UPPER(client) NOT IN ('AQUELLE','P&G')
+        GROUP BY UPPER(TRIM(store_name)), rep_name, client
+        ORDER BY store
+      `);
+      const storeSet = new Set(mappingStores);
+      const unmatched = result.rows.filter((r: any) => !storeSet.has(r.store));
+      res.json({ latestWeek, totalGroups: result.rows.length, unmatchedCount: unmatched.length, unmatched });
+    } catch (err: any) { res.status(500).json({ error: err.message }); }
+  });
+
   return httpServer;
 }
