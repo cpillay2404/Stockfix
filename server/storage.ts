@@ -816,17 +816,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStoresForRep(repName: string): Promise<string[]> {
-    const result = await db.selectDistinct({ value: tasks.storeName })
-      .from(tasks)
-      .where(eq(tasks.repName, repName));
-    return result.map(r => r.value).filter(Boolean).sort() as string[];
+    const result = await db.execute(sql`
+      SELECT DISTINCT store_name
+      FROM tasks
+      WHERE rep_name = ${repName}
+        AND week_ending_date = (SELECT MAX(week_ending_date) FROM tasks WHERE rep_name = ${repName})
+      ORDER BY store_name
+    `);
+    return result.rows.map((r: any) => r.store_name).filter(Boolean) as string[];
   }
 
   async getStoresForClient(clientName: string): Promise<string[]> {
-    const result = await db.selectDistinct({ value: tasks.storeName })
-      .from(tasks)
-      .where(eq(tasks.client, clientName));
-    return result.map(r => r.value).filter(Boolean).sort() as string[];
+    const result = await db.execute(sql`
+      SELECT DISTINCT store_name
+      FROM tasks
+      WHERE client = ${clientName}
+        AND week_ending_date = (SELECT MAX(week_ending_date) FROM tasks WHERE client = ${clientName})
+      ORDER BY store_name
+    `);
+    return result.rows.map((r: any) => r.store_name).filter(Boolean) as string[];
   }
 
   async getDashboardStatsOptimized(filters?: { client?: string; region?: string; weekEndingDate?: string }): Promise<{
