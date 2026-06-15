@@ -4552,5 +4552,53 @@ export async function registerRoutes(
     }
   });
 
+  // TEMPORARY: bulk fix rep/line-manager mapping for latest week (remove after use)
+  app.post('/api/admin/fix-rep-mapping', async (req, res) => {
+    if (req.query.secret !== 'stockfix-rep-fix-2026') {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+    try {
+      const mapping: { storeName: string; repName: string; lineManager: string }[] = req.body.mapping;
+      if (!Array.isArray(mapping) || mapping.length === 0) {
+        return res.status(400).json({ error: 'No mapping provided' });
+      }
+
+      // Get latest week
+      const weekResult = await db.execute(sql`
+        SELECT week_ending_date FROM tasks
+        WHERE UPPER(client) NOT IN ('AQUELLE','P&G')
+        ORDER BY week_ending_date DESC LIMIT 1
+      `);
+      const latestWeek = (weekResult.rows[0] as any)?.week_ending_date;
+      if (!latestWeek) return res.status(404).json({ error: 'No tasks found' });
+
+      let updated = 0;
+      // Process in batches of 200
+      const BATCH = 200;
+      for (let i = 0; i < mapping.length; i += BATCH) {
+        const chunk = mapping.slice(i, i + BATCH);
+        const values = chunk.map(m =>
+          `(${db.execute.length}, '${m.storeName.replace(/'/g, "''")}', '${m.repName.replace(/'/g, "''")}', '${m.lineManager.replace(/'/g, "''")}')`
+        ).join(',');
+        const valuesSQL = chunk.map(m =>
+          `('${m.storeName.replace(/'/g, "''")}','${m.repName.replace(/'/g, "''")}','${m.lineManager.replace(/'/g, "''")}')`
+        ).join(',');
+        const r = await db.execute(sql.raw(`
+          UPDATE tasks
+          SET rep_name = v.rep_name, line_manager = v.line_manager
+          FROM (VALUES ${valuesSQL}) AS v(store_name, rep_name, line_manager)
+          WHERE UPPER(TRIM(tasks.store_name)) = v.store_name
+            AND tasks.week_ending_date = '${latestWeek}'
+            AND UPPER(tasks.client) NOT IN ('AQUELLE','P&G')
+        `));
+        updated += (r as any).rowCount ?? 0;
+      }
+
+      res.json({ success: true, latestWeek, updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return httpServer;
 }
