@@ -1,0 +1,92 @@
+Good morning Carin
+
+Can you please advise on the below for me.
+
+The stockfix reports we are receiving,some of them are coming through with both images showing as N/A.
+Is there an issue on the app perhaps that does not pull the image through as I am picking up this issue on 2 of my reps work thus far.
+
+Regards
+
+From: Marianthe Christolis <mchristolis@meridiangroup.co.za> 
+Sent: Tuesday, 16 June 2026 08:10
+To: Johan Kleinhans <jkleinhans@meridiangroup.co.za>
+Cc: Taylor Wilson <twilson@meridiangroup.co.za>
+Subject: Re: StockFix | P&G | DISCHEM LINTON'S CORNER | Check Count: No Sales in 30 Days
+
+Morning Johan, 
+
+Trust me I took photo's as it won't let you submit unless all the tabs are filled in.
+
+So I think there is something wrong with the app.
+
+Regards 
+Marianthe 
+
+ 
+________________________________________
+From: Johan Kleinhans <jkleinhans@meridiangroup.co.za>
+Sent: Tuesday, 16 June 2026 05:41:13
+To: Marianthe Christolis <mchristolis@meridiangroup.co.za>
+Cc: Taylor Wilson <twilson@meridiangroup.co.za>
+Subject: RE: StockFix | P&G | DISCHEM LINTON'S CORNER | Check Count: No Sales in 30 Days 
+ 
+Hi Marianthe
+
+Same here,no photo submitted so this feedback does not mean anything without the proof.
+
+Regards
+
+-----Original Message-----
+From: StockFix Notifications <noreply@stockfixapp.online> 
+Sent: Monday, 15 June 2026 08:20
+To: Marianthe Christolis <mchristolis@meridiangroup.co.za>; Johan Kleinhans <jkleinhans@meridiangroup.co.za>
+Cc: Jaco Jooste <jjooste@meridiangroup.co.za>; Carin Pillay <cpillay@meridiangroup.co.za>
+Subject: StockFix | P&G | DISCHEM LINTON'S CORNER | Check Count: No Sales in 30 Days
+
+⚠️ CAUTION: External E-mail
+Do not click links or open attachments unless you recognise the sender and know the content is safe.
+
+
+StockFix Task Completion Notification
+======================================
+
+Store Details
+-------------
+Store: DISCHEM LINTON'S CORNER
+Banner: DISCHEM
+Region: GAUTENG
+Week Ending: 2026-06-10
+Client: P&G
+
+Rep & Manager
+-------------
+Rep: MARIANTHE CHRISTOLIS
+
+Product Details
+---------------
+Barcode: 8700216896658
+Article: 557.2 Fusion PS Body 4CT
+Category:
+Stock Classification: No Sales (Idle Stock) Action Required: Check Count: No Sales in 30 Days Action Status: Completed
+
+Inventory Data
+--------------
+Store SOH: 3
+Supplying DC SOH: 24
+Sell Out (P4 Weeks): 0
+WFC: 0.0 weeks
+
+Rep Feedback
+------------
+Physical Count: 3
+Variance: 0
+System Adjusted: N/A
+Reason Code: On shelf but slow moving
+Action/Comment: No action required
+Feedback: On shelf
+Capture Date: 2026-06-15T06:19:59.980Z
+
+Images
+------
+Image 1: N/A
+Image 2: N/A
