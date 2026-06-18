@@ -168,6 +168,7 @@ export default function TaskDetail() {
   const [image3, setImage3] = useState<string | null>(null);
   const [image4, setImage4] = useState<string | null>(null);
   const [uploadingImage, setUploadingImage] = useState<1 | 2 | 3 | 4 | null>(null);
+  const [uploadFailedSlots, setUploadFailedSlots] = useState<Set<number>>(new Set());
   const [showPhotoChoice, setShowPhotoChoice] = useState(false);
   const [activePhotoSlot, setActivePhotoSlot] = useState<1 | 2 | 3 | 4>(1);
   const [cachedGeo, setCachedGeo] = useState<string>('');
@@ -363,6 +364,24 @@ export default function TaskDetail() {
   };
 
   const handleSubmit = () => {
+    if (uploadingImage !== null) {
+      toast({
+        title: "Upload in progress",
+        description: "Please wait for the photo to finish uploading.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (uploadFailedSlots.size > 0) {
+      toast({
+        title: "Photo upload failed",
+        description: "Please check your connection and try again before submitting.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     if (!physicalCount) {
       toast({
         title: "Physical Count Required",
@@ -554,6 +573,8 @@ export default function TaskDetail() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // Clear any previous failure for this slot when retrying
+    setUploadFailedSlots(prev => { const next = new Set(prev); next.delete(slot); return next; });
     setUploadingImage(slot);
     try {
       const geo = await getGeoLocation();
@@ -584,9 +605,11 @@ export default function TaskDetail() {
       });
     } catch (error) {
       console.error('Upload error:', error);
+      // Mark this slot as failed so submission is blocked until they retry
+      setUploadFailedSlots(prev => new Set(prev).add(slot));
       toast({
-        title: "Upload Failed",
-        description: "Failed to upload image. Please try again.",
+        title: "Photo upload failed",
+        description: "Please check your connection and try again before submitting.",
         variant: "destructive",
       });
     } finally {
@@ -1042,7 +1065,22 @@ export default function TaskDetail() {
                 Go Back & Review
               </Button>
               <Button
-                onClick={() => { setShowVarianceModal(false); doSubmit(); }}
+                onClick={() => {
+                  setShowVarianceModal(false);
+                  if (uploadingImage !== null) {
+                    toast({ title: "Upload in progress", description: "Please wait for the photo to finish uploading.", variant: "destructive" });
+                    return;
+                  }
+                  if (uploadFailedSlots.size > 0) {
+                    toast({ title: "Photo upload failed", description: "Please check your connection and try again before submitting.", variant: "destructive" });
+                    return;
+                  }
+                  if (!image1 && !image2 && !image3 && !image4) {
+                    toast({ title: "Photo Required", description: "Please capture at least one photo.", variant: "destructive" });
+                    return;
+                  }
+                  doSubmit();
+                }}
                 data-testid="button-submit-anyway"
                 variant="outline"
                 style={{ width: '100%', height: '44px', fontSize: '14px', fontWeight: 600, borderRadius: '10px', borderColor: '#D1D5DB', color: '#6B7280' }}
@@ -1059,9 +1097,9 @@ export default function TaskDetail() {
         <div style={{ position: 'fixed', bottom: '56px', left: 0, right: 0, padding: '12px 16px', backgroundColor: '#FFFFFF', boxShadow: '0 -2px 10px rgba(0,0,0,0.1)', zIndex: 50 }}>
           <Button
             onClick={handleSubmit}
-            disabled={updateMutation.isPending}
+            disabled={updateMutation.isPending || uploadingImage !== null || uploadFailedSlots.size > 0}
             data-testid="button-submit-action"
-            style={{ width: '100%', height: '44px', backgroundColor: '#F36C21', color: '#FFFFFF', fontSize: '15px', fontWeight: 600, borderRadius: '10px' }}
+            style={{ width: '100%', height: '44px', backgroundColor: uploadFailedSlots.size > 0 ? '#DC2626' : uploadingImage !== null ? '#9CA3AF' : '#F36C21', color: '#FFFFFF', fontSize: '15px', fontWeight: 600, borderRadius: '10px' }}
             className="hover:bg-[#E05A10]"
           >
             {updateMutation.isPending ? (
@@ -1069,6 +1107,13 @@ export default function TaskDetail() {
                 <Loader2 style={{ marginRight: '8px', width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />
                 Submitting...
               </>
+            ) : uploadingImage !== null ? (
+              <>
+                <Loader2 style={{ marginRight: '8px', width: '20px', height: '20px', animation: 'spin 1s linear infinite' }} />
+                Uploading photo...
+              </>
+            ) : uploadFailedSlots.size > 0 ? (
+              "Photo upload failed — retry photo"
             ) : (
               "Submit Action"
             )}
