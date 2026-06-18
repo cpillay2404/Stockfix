@@ -182,6 +182,12 @@ export default function TaskDetail() {
   const galleryInput3 = useRef<HTMLInputElement>(null);
   const galleryInput4 = useRef<HTMLInputElement>(null);
 
+  // In-app camera state
+  const [showCamera, setShowCamera] = useState(false);
+  const [cameraFacing, setCameraFacing] = useState<'environment' | 'user'>('environment');
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
   const { data: task, isLoading } = useQuery({
     queryKey: ["task", params?.id],
     queryFn: () => fetchTask(params!.id),
@@ -449,10 +455,112 @@ export default function TaskDetail() {
     setShowPhotoChoice(true);
   };
 
-  const handleCameraChoice = () => {
+  const stopCamera = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    setShowCamera(false);
+  };
+
+  const startCameraStream = async (facing: 'environment' | 'user') => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(t => t.stop());
+      streamRef.current = null;
+    }
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: facing, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false,
+    });
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+    }
+  };
+
+  const handleCameraChoice = async () => {
     setShowPhotoChoice(false);
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        setCameraFacing('environment');
+        await startCameraStream('environment');
+        setShowCamera(true);
+        return;
+      } catch {
+        // Permission denied or not supported — fall back to file input
+      }
+    }
+    // Fallback: trigger file input
     const cameraInputs = { 1: cameraInput1, 2: cameraInput2, 3: cameraInput3, 4: cameraInput4 };
     cameraInputs[activePhotoSlot].current?.click();
+  };
+
+  const flipCamera = async () => {
+    const next = cameraFacing === 'environment' ? 'user' : 'environment';
+    setCameraFacing(next);
+    try {
+      await startCameraStream(next);
+    } catch {
+      // flip failed, stay on current
+      const prev = cameraFacing;
+      setCameraFacing(prev);
+      await startCameraStream(prev);
+    }
+  };
+
+  const capturePhoto = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(async (blob) => {
+      if (!blob) return;
+      stopCamera();
+      const file = new File([blob], `photo_${Date.now()}.jpg`, { type: 'image/jpeg' });
+      await processAndUploadFile(activePhotoSlot, file);
+    }, 'image/jpeg', 0.9);
+  };
+
+  const processAndUploadFile = async (slot: 1 | 2 | 3 | 4, file: File) => {
+    setUploadFailedSlots(prev => { const next = new Set(prev); next.delete(slot); return next; });
+    setUploadingImage(slot);
+    try {
+      const geo = await getGeoLocation();
+      let fileToUpload = file;
+      try {
+        fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription, geo);
+      } catch (timestampError) {
+        console.warn('Timestamp attempt 1 failed, retrying:', timestampError);
+        try {
+          fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription, geo);
+        } catch (retryError) {
+          console.warn('Timestamp retry failed, uploading without stamp:', retryError);
+          toast({
+            title: "Photo uploaded without timestamp",
+            description: "The date/time stamp could not be added to this photo.",
+            variant: "destructive",
+          });
+        }
+      }
+      const result = await uploadImage(fileToUpload);
+      const setters = { 1: setImage1, 2: setImage2, 3: setImage3, 4: setImage4 };
+      setters[slot](result.url);
+      toast({ title: "Image Uploaded", description: `Photo ${slot} attached successfully.` });
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadFailedSlots(prev => new Set(prev).add(slot));
+      toast({
+        title: "Photo upload failed",
+        description: "Please check your connection and try again before submitting.",
+        variant: "destructive",
+      });
+    } finally {
+      setUploadingImage(null);
+    }
   };
 
   const handleGalleryChoice = () => {
@@ -572,49 +680,9 @@ export default function TaskDetail() {
   const handleFileChange = async (slot: 1 | 2 | 3 | 4, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    // Clear any previous failure for this slot when retrying
-    setUploadFailedSlots(prev => { const next = new Set(prev); next.delete(slot); return next; });
-    setUploadingImage(slot);
-    try {
-      const geo = await getGeoLocation();
-      let fileToUpload = file;
-      try {
-        fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription, geo);
-      } catch (timestampError) {
-        console.warn('Timestamp attempt 1 failed, retrying:', timestampError);
-        try {
-          fileToUpload = await addTimestampToImage(file, task?.storeName, task?.articleDescription, geo);
-        } catch (retryError) {
-          console.warn('Timestamp retry failed, uploading without stamp:', retryError);
-          toast({
-            title: "Photo uploaded without timestamp",
-            description: "The date/time stamp could not be added to this photo.",
-            variant: "destructive",
-          });
-        }
-      }
-      
-      const result = await uploadImage(fileToUpload);
-      const setters = { 1: setImage1, 2: setImage2, 3: setImage3, 4: setImage4 };
-      setters[slot](result.url);
-      
-      toast({
-        title: "Image Uploaded",
-        description: `Photo ${slot} attached successfully.`,
-      });
-    } catch (error) {
-      console.error('Upload error:', error);
-      // Mark this slot as failed so submission is blocked until they retry
-      setUploadFailedSlots(prev => new Set(prev).add(slot));
-      toast({
-        title: "Photo upload failed",
-        description: "Please check your connection and try again before submitting.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploadingImage(null);
-    }
+    // Reset input so the same file can be selected again if needed
+    e.target.value = '';
+    await processAndUploadFile(slot, file);
   };
 
   const isCompleted = task.actionStatus === 'Completed' || !!task.captureDate;
@@ -632,6 +700,49 @@ export default function TaskDetail() {
       <input ref={galleryInput2} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileChange(2, e)} disabled={isCompleted} />
       <input ref={galleryInput3} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileChange(3, e)} disabled={isCompleted} />
       <input ref={galleryInput4} type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => handleFileChange(4, e)} disabled={isCompleted} />
+
+      {/* In-app Camera Overlay */}
+      {showCamera && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: '#000', zIndex: 200, display: 'flex', flexDirection: 'column' }}>
+          {/* Top bar */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px', position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+            <button
+              onClick={stopCamera}
+              style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: '20px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              ✕
+            </button>
+            <div style={{ color: '#fff', fontSize: '14px', fontWeight: 600, backgroundColor: 'rgba(0,0,0,0.5)', padding: '6px 14px', borderRadius: '20px' }}>
+              Photo {activePhotoSlot}
+            </div>
+            {/* Flip camera button */}
+            <button
+              onClick={flipCamera}
+              style={{ width: '44px', height: '44px', borderRadius: '50%', backgroundColor: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+              🔄
+            </button>
+          </div>
+
+          {/* Video preview */}
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            muted
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
+
+          {/* Bottom bar with capture button */}
+          <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '32px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'linear-gradient(transparent, rgba(0,0,0,0.6))' }}>
+            <button
+              onClick={capturePhoto}
+              data-testid="button-capture-photo"
+              style={{ width: '80px', height: '80px', borderRadius: '50%', backgroundColor: '#fff', border: '4px solid rgba(255,255,255,0.5)', cursor: 'pointer', boxShadow: '0 4px 20px rgba(0,0,0,0.4)' }}
+            />
+          </div>
+        </div>
+      )}
 
       {/* Photo Choice Modal */}
       {showPhotoChoice && (
