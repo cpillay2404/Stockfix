@@ -181,6 +181,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'PENFLEX': ['jonny@penflex.co.za'],
       'MAGALIES': ['christo@magaliesbrands.co.za', 'ldiale@meridiangroup.co.za', 'Wayne@magaliesbrands.co.za', 'accounts@magaliesbrands.co.za'],
       'SIR JUICE': ['MorvinM@sirfruit.co.za', 'AnnelizeV@sirfruit.co.za', 'Karmenv@sirfruit.co.za'],
+      'CAPE COOKIES': ['chris.calitz@capecookies.com', 'sureshin.aroonslam@capecookies.com'],
     };
 
     if (task.client) {
