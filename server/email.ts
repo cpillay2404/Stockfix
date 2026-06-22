@@ -199,21 +199,36 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       }
     }
 
-    const regionCcMap: Record<string, string[]> = {
-      'WESTERN CAPE': ['glwigington@meridiangroup.co.za'],
-    };
-
     if (task.region) {
       const regionUpper = task.region.toUpperCase();
-      for (const [regionName, emails] of Object.entries(regionCcMap)) {
-        if (regionUpper.includes(regionName)) {
-          for (const email of emails) {
-            if (!ccRecipients.includes(email)) {
-              ccRecipients.push(email);
-              console.log('[Email] Adding region-specific CC for', regionName, ':', email);
-            }
-          }
-          break;
+
+      // Western Cape — specific manager
+      if (regionUpper.includes('WESTERN CAPE')) {
+        if (!ccRecipients.includes('glwigington@meridiangroup.co.za')) {
+          ccRecipients.push('glwigington@meridiangroup.co.za');
+          console.log('[Email] Adding region CC (Western Cape): glwigington@meridiangroup.co.za');
+        }
+      }
+
+      // Regional portfolio managers
+      const fsenekhalRegions = ['GAUTENG', 'MPUMALANGA', 'LIMPOPO'];
+      const jversterRegions = ['FREE STATE', 'NORTH WEST'];
+
+      if (fsenekhalRegions.some(r => regionUpper.includes(r))) {
+        if (!ccRecipients.includes('fsenekal@meridiangroup.co.za')) {
+          ccRecipients.push('fsenekal@meridiangroup.co.za');
+          console.log('[Email] Adding region CC (Gauteng/Mpu/Lim):', 'fsenekal@meridiangroup.co.za');
+        }
+      } else if (jversterRegions.some(r => regionUpper.includes(r))) {
+        if (!ccRecipients.includes('jverster@meridiangroup.co.za')) {
+          ccRecipients.push('jverster@meridiangroup.co.za');
+          console.log('[Email] Adding region CC (FS/NW):', 'jverster@meridiangroup.co.za');
+        }
+      } else {
+        // All other regions (Western Cape, KZN, Eastern Cape, Northern Cape, etc.)
+        if (!ccRecipients.includes('vbotha@meridiangroup.co.za')) {
+          ccRecipients.push('vbotha@meridiangroup.co.za');
+          console.log('[Email] Adding region CC (other):', 'vbotha@meridiangroup.co.za');
         }
       }
     }
