@@ -176,7 +176,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'PMI': ['aviwe.sondlo@pmi.com', 'charl.grove@pmi.com'],
       'AGROSERVE': ['lrensburg@meridiangroup.co.za', 'bradley.chenchiah@agroserve.co.za', 'kirsten.cocks@agroserve.co.za'],
       'RACEFOODS': ['chelsea@certosports.co.za'],
-      'DYNAMIC BRANDS': ['illona@dynamicbrands.co.za', 'vbotha@meridiangroup.co.za'],
+      'DYNAMIC BRANDS': ['illona@dynamicbrands.co.za'],
       'BUTTERFLY': ['snaidoo@meridiangroup.co.za', 'msithole@meridiangroup.co.za', 'stockfix@butterflysa.co.za'],
       'PENFLEX': ['jonny@penflex.co.za'],
       'MAGALIES': ['christo@magaliesbrands.co.za', 'ldiale@meridiangroup.co.za', 'Wayne@magaliesbrands.co.za', 'accounts@magaliesbrands.co.za'],
@@ -223,12 +223,6 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
         if (!ccRecipients.includes('jverster@meridiangroup.co.za')) {
           ccRecipients.push('jverster@meridiangroup.co.za');
           console.log('[Email] Adding region CC (FS/NW):', 'jverster@meridiangroup.co.za');
-        }
-      } else {
-        // All other regions (Western Cape, KZN, Eastern Cape, Northern Cape, etc.)
-        if (!ccRecipients.includes('vbotha@meridiangroup.co.za')) {
-          ccRecipients.push('vbotha@meridiangroup.co.za');
-          console.log('[Email] Adding region CC (other):', 'vbotha@meridiangroup.co.za');
         }
       }
     }
