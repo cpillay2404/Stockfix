@@ -3114,7 +3114,8 @@ export async function registerRoutes(
       const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
       const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
       const filterStore   = (req.query.store   as string | undefined)?.toUpperCase();
-      const hasFilter = !!(filterManager || filterRegion || filterStore);
+      const filterBanner  = (req.query.banner  as string | undefined)?.toUpperCase();
+      const hasFilter = !!(filterManager || filterRegion || filterStore || filterBanner);
 
       // --- Fetch all pilot reps (new StockFix-only pilot list) ---
       const pilotRepsResult = await db.execute(sql`SELECT rep_name FROM pilot_reps`);
@@ -3122,7 +3123,8 @@ export async function registerRoutes(
 
       // --- Fetch StockFix task rows restricted to pilot reps ---
       const taskRows = await db.execute(sql`
-        SELECT rep_name, store_name, client, line_manager, region, banner, action_status, week_ending_date
+        SELECT rep_name, store_name, client, line_manager, region, banner, action_status, week_ending_date,
+               unique_id, article_description, barcode, store_soh, store_wfc, action, reason_code, feedback, image1
         FROM tasks
         WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
       `);
@@ -3134,13 +3136,31 @@ export async function registerRoutes(
       const allManagers = [...new Set(dataRows.map(r => String(r.line_manager || '').toUpperCase()).filter(Boolean))].sort();
       const allRegions  = [...new Set(dataRows.map(r => String(r.region || '').toUpperCase()).filter(Boolean))].sort();
       const allStores   = [...new Set(dataRows.map(r => String(r.store_name || '').toUpperCase()).filter(Boolean))].sort();
+      const allBanners  = [...new Set(dataRows.map(r => String(r.banner || '').toUpperCase()).filter(Boolean))].sort();
 
       const filteredRows = dataRows.filter(r => {
         if (filterManager && String(r.line_manager || '').toUpperCase() !== filterManager) return false;
         if (filterRegion  && String(r.region || '').toUpperCase() !== filterRegion)  return false;
         if (filterStore   && String(r.store_name || '').toUpperCase() !== filterStore)   return false;
+        if (filterBanner  && String(r.banner || '').toUpperCase() !== filterBanner)  return false;
         return true;
       });
+
+      // --- Task-level detail rows (article-level, for the store detail table) ---
+      const taskDetail = filteredRows.slice(0, 3000).map(r => ({
+        uniqueId: r.unique_id,
+        storeName: String(r.store_name || '').trim(),
+        repName: String(r.rep_name || '').trim(),
+        articleDescription: String(r.article_description || '').trim(),
+        barcode: String(r.barcode || '').trim(),
+        storeSoh: r.store_soh,
+        storeWfc: r.store_wfc,
+        action: String(r.action || '').trim(),
+        actionStatus: String(r.action_status || '').trim(),
+        reasonCode: String(r.reason_code || '').trim(),
+        feedback: String(r.feedback || '').trim(),
+        imageUrl: r.image1 || null,
+      }));
 
       // --- Build StockFix hierarchy: rep → store → clients ---
       type SFStore = { tasks: number; completed: number; clients: Set<string> };
@@ -3236,6 +3256,55 @@ export async function registerRoutes(
           captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
         })).sort((a, b) => b.total - a.total);
 
+      // --- Manager breakdown (% captured by manager) ---
+      const managerMap = new Map<string, { total: number; completed: number }>();
+      for (const row of filteredRows) {
+        const manager = String(row.line_manager || '').trim();
+        if (!manager) continue;
+        const completed = String(row.action_status || '').toLowerCase() === 'completed';
+        if (!managerMap.has(manager)) managerMap.set(manager, { total: 0, completed: 0 });
+        const m = managerMap.get(manager)!;
+        m.total++;
+        if (completed) m.completed++;
+      }
+      const managerBreakdown = [...managerMap.entries()]
+        .map(([manager, d]) => ({
+          manager, total: d.total, completed: d.completed,
+          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+        })).sort((a, b) => b.captureRate - a.captureRate);
+
+      // --- Region breakdown (% captured by region) ---
+      const regionMap = new Map<string, { total: number; completed: number }>();
+      for (const row of filteredRows) {
+        const region = String(row.region || '').trim();
+        if (!region) continue;
+        const completed = String(row.action_status || '').toLowerCase() === 'completed';
+        if (!regionMap.has(region)) regionMap.set(region, { total: 0, completed: 0 });
+        const r = regionMap.get(region)!;
+        r.total++;
+        if (completed) r.completed++;
+      }
+      const regionBreakdown = [...regionMap.entries()]
+        .map(([region, d]) => ({
+          region, total: d.total, completed: d.completed,
+          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+        })).sort((a, b) => b.captureRate - a.captureRate);
+
+      // --- Top / Bottom 5 merchandisers by capture % (only merch with activity) ---
+      const activeMerch = merchandisers
+        .filter(m => m.stockFix && m.stockFix.tasks > 0)
+        .map(m => {
+          const totalStores = m.stockFix!.stores.length;
+          const storesActioned = m.stockFix!.stores.filter(s => s.completed > 0).length;
+          return {
+            name: m.name, lineManager: m.lineManager, region: m.region,
+            pctStoresActioned: totalStores > 0 ? Math.round((storesActioned / totalStores) * 100) : 0,
+            pctItemsActioned: m.stockFix!.captureRate,
+          };
+        });
+      const top5Merchandisers = [...activeMerch].sort((a, b) => b.pctItemsActioned - a.pctItemsActioned).slice(0, 5);
+      const bottom5Merchandisers = [...activeMerch].sort((a, b) => a.pctItemsActioned - b.pctItemsActioned).slice(0, 5);
+
       // --- Snapshot saving (StockFix data, unfiltered) ---
       if (latestWeek && !hasFilter && sfByRep.size > 0) {
         for (const [name, d] of sfByRep.entries()) {
@@ -3266,7 +3335,15 @@ export async function registerRoutes(
         totalTasks: Number(r.total_tasks), totalCompleted: Number(r.total_completed), captureRate: Number(r.capture_rate),
       }));
 
-      res.json({ latestWeek, filters: { managers: allManagers, regions: allRegions, stores: allStores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } }, summary, merchandisers, sfClientSummary, bannerBreakdown, history });
+      res.json({
+        latestWeek,
+        filters: {
+          managers: allManagers, regions: allRegions, stores: allStores, banners: allBanners,
+          active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null, banner: filterBanner || null },
+        },
+        summary, merchandisers, sfClientSummary, bannerBreakdown, managerBreakdown, regionBreakdown,
+        top5Merchandisers, bottom5Merchandisers, taskDetail, history,
+      });
     } catch (error: any) {
       console.error('Pilot report error:', error);
       res.status(500).json({ error: error.message });

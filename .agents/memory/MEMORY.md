@@ -1,4 +1,4 @@
 - [Splash screen skip list](splash-screen-skip.md) — full-page dashboards (non-mobile-nav routes) must be added to App.tsx's skipSplash list or they show a 5s branded splash first.
 - [Analytics data caveats](analytics-data-caveats.md) — tasks.action_status is almost always 'Pending' in this app; low "Completed" counts on dashboards reflect real data, not a query bug.
 - [Sandbox environment quirks](sandbox-notes.md) — code_execution notebook var persistence, db:push interactive prompt workaround, and clearing a stray git index.lock from the main agent.
-- [Pilot dashboard store aggregation](pilot-dashboard-store-aggregation.md) — /api/pilot-report has no store-level rollup; merchandiser-pilot.tsx aggregates stores client-side from per-rep stockFix.stores.
+- [Pilot dashboard store aggregation](pilot-dashboard-store-aggregation.md) — /api/pilot-report has no store rollup endpoint but does support manager/region/store/banner filters + a flat taskDetail array.

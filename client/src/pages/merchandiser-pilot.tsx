@@ -1,14 +1,11 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  BarChart, Bar, Cell,
-} from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import {
   Users, ClipboardCheck, CheckCircle2, Gauge, Store as StoreIcon, Trophy,
-  ArrowLeft, Search, Download, FileJson, ChevronRight, TrendingUp,
-  Package, Tag,
+  ArrowLeft, Search, Download, FileJson, ChevronRight, TrendingUp, TrendingDown,
+  Package, Filter, X, ImageOff, ExternalLink,
 } from "lucide-react";
 import shopriteCheckersLogo from "@assets/image_1783089822744.png";
 
@@ -22,13 +19,35 @@ interface Merchandiser {
   stockFix: { tasks: number; completed: number; captureRate: number; stores: SFStore[] } | null;
 }
 interface WeekSnapshot { weekEndingDate: string; repCount: number; totalTasks: number; totalCompleted: number; captureRate: number }
+interface BreakdownStat { total: number; completed: number; captureRate: number }
+interface MerchRank { name: string; lineManager: string | null; region: string | null; pctStoresActioned: number; pctItemsActioned: number }
+interface TaskDetailRow {
+  uniqueId: string;
+  storeName: string;
+  repName: string;
+  articleDescription: string;
+  barcode: string;
+  storeSoh: string | number | null;
+  storeWfc: string | number | null;
+  action: string;
+  actionStatus: string;
+  reasonCode: string;
+  feedback: string;
+  imageUrl: string | null;
+}
 interface PilotReport {
   latestWeek: string | null;
-  filters: { managers: string[]; regions: string[]; stores: string[]; active: { manager: string | null; region: string | null; store: string | null } };
+  filters: {
+    managers: string[]; regions: string[]; stores: string[]; banners: string[];
+    active: { manager: string | null; region: string | null; store: string | null; banner: string | null };
+  };
   summary: { stockFix: { total: number; completed: number; captureRate: number }; activeReps: number };
   merchandisers: Merchandiser[];
-  sfClientSummary: { client: string; tasks: number; completed: number; captureRate: number }[];
-  bannerBreakdown: { banner: string; total: number; completed: number; captureRate: number }[];
+  managerBreakdown: (BreakdownStat & { manager: string })[];
+  regionBreakdown: (BreakdownStat & { region: string })[];
+  top5Merchandisers: MerchRank[];
+  bottom5Merchandisers: MerchRank[];
+  taskDetail: TaskDetailRow[];
   history: WeekSnapshot[];
 }
 
@@ -38,8 +57,9 @@ interface StoreAgg {
   completed: number;
   captureRate: number;
   reps: { name: string; tasks: number; completed: number; captureRate: number }[];
-  clients: string[];
 }
+
+interface Filters { manager: string; region: string; store: string; banner: string }
 
 // ─── Helpers ────────────────────────────────────────────────────────
 function tc(s: string) { return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
@@ -110,7 +130,7 @@ function CustomTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null;
   return (
     <div className="rounded-xl border border-white/10 bg-slate-900/95 px-3 py-2 text-xs shadow-2xl backdrop-blur-xl">
-      <div className="mb-1 font-semibold text-slate-300">{fmtDate(label)}</div>
+      <div className="mb-1 font-semibold text-slate-300">{label}</div>
       {payload.map((p: any, i: number) => (
         <div key={i} className="flex items-center gap-1.5" style={{ color: p.color }}>
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: p.color }} />
@@ -121,45 +141,281 @@ function CustomTooltip({ active, payload, label }: any) {
   );
 }
 
-// ─── Overview Page ──────────────────────────────────────────────────
-function OverviewPage({ data, storeList, onSelectStore }: {
-  data: PilotReport; storeList: StoreAgg[]; onSelectStore: (name: string) => void;
+function FilterBar({ filters, active, onChange, onReset }: {
+  filters: PilotReport["filters"]; active: Filters; onChange: (f: Filters) => void; onReset: () => void;
+}) {
+  const hasActive = !!(active.manager || active.region || active.store || active.banner);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
+      className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 backdrop-blur-xl"
+    >
+      <div className="flex items-center gap-1.5 pr-1 text-xs font-semibold text-slate-400">
+        <Filter className="h-3.5 w-3.5 text-cyan-400" /> Filters
+      </div>
+      <select
+        value={active.manager}
+        onChange={e => onChange({ ...active, manager: e.target.value })}
+        data-testid="select-filter-manager"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+      >
+        <option value="" className="bg-slate-900">All Line Managers</option>
+        {filters.managers.map(m => <option key={m} value={m} className="bg-slate-900">{tc(m)}</option>)}
+      </select>
+      <select
+        value={active.region}
+        onChange={e => onChange({ ...active, region: e.target.value })}
+        data-testid="select-filter-region"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+      >
+        <option value="" className="bg-slate-900">All Regions</option>
+        {filters.regions.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
+      </select>
+      <select
+        value={active.store}
+        onChange={e => onChange({ ...active, store: e.target.value })}
+        data-testid="select-filter-store"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+      >
+        <option value="" className="bg-slate-900">All Stores</option>
+        {filters.stores.map(s => <option key={s} value={s} className="bg-slate-900">{tc(s)}</option>)}
+      </select>
+      <select
+        value={active.banner}
+        onChange={e => onChange({ ...active, banner: e.target.value })}
+        data-testid="select-filter-banner"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+      >
+        <option value="" className="bg-slate-900">All Banners</option>
+        {filters.banners.map(b => <option key={b} value={b} className="bg-slate-900">{tc(b)}</option>)}
+      </select>
+      {hasActive && (
+        <button
+          onClick={onReset}
+          data-testid="button-clear-filters"
+          className="ml-auto flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white"
+        >
+          <X className="h-3 w-3" /> Clear
+        </button>
+      )}
+    </motion.div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const done = status.toLowerCase() === "completed";
+  return (
+    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+      done ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
+    }`}>
+      {status || "Pending"}
+    </span>
+  );
+}
+
+function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
+  rows: TaskDetailRow[]; onSelectStore?: (name: string) => void; showStoreColumn?: boolean;
 }) {
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<"tasks" | "captureRate" | "reps">("tasks");
+  const [page, setPage] = useState(0);
+  const pageSize = 40;
 
-  const totalPilotReps = data.merchandisers.length;
-  const activeReps = data.summary.activeReps;
-  const coverage = totalPilotReps > 0 ? Math.round((activeReps / totalPilotReps) * 100) : 0;
-  const topStore = storeList[0];
+  const filtered = useMemo(() => {
+    if (!search.trim()) return rows;
+    const q = search.trim().toUpperCase();
+    return rows.filter(r =>
+      r.storeName.toUpperCase().includes(q) ||
+      r.articleDescription.toUpperCase().includes(q) ||
+      r.barcode.toUpperCase().includes(q)
+    );
+  }, [rows, search]);
 
-  const filteredStores = useMemo(() => {
-    let list = storeList;
-    if (search.trim()) {
-      const q = search.trim().toUpperCase();
-      list = list.filter(s => s.name.includes(q));
-    }
-    return [...list].sort((a, b) => {
-      if (sortKey === "captureRate") return b.captureRate - a.captureRate;
-      if (sortKey === "reps") return b.reps.length - a.reps.length;
-      return b.tasks - a.tasks;
-    });
-  }, [storeList, search, sortKey]);
-
-  const chartData = [...data.history].reverse().map(h => ({
-    week: h.weekEndingDate, tasks: h.totalTasks, completed: h.totalCompleted, captureRate: h.captureRate,
-  }));
-
-  const topClients = [...data.sfClientSummary].slice(0, 6);
+  const visible = filtered.slice(0, (page + 1) * pageSize);
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-8 md:px-10">
+    <>
+      <div className="flex flex-col gap-3 border-b border-white/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-emerald-400" />
+          <h3 className="text-sm font-bold text-white">Store Performance</h3>
+          <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{fmtNum(filtered.length)}</span>
+        </div>
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+          <input
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(0); }}
+            placeholder="Search store, article, barcode..."
+            data-testid="input-search-tasks"
+            className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-slate-600 outline-none focus:border-cyan-500/50 sm:w-72"
+          />
+        </div>
+      </div>
+
+      <div className="max-h-[560px] overflow-auto">
+        {visible.length === 0 ? (
+          <div className="flex h-40 items-center justify-center text-sm text-slate-600">
+            {rows.length === 0 ? "No task activity yet — waiting on StockFix data for pilot merchandisers." : "No tasks match your search."}
+          </div>
+        ) : (
+          <table className="w-full min-w-[1100px] text-left text-sm">
+            <thead className="sticky top-0 z-10 bg-[#0b0f1a]">
+              <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                {showStoreColumn && <th className="px-4 py-2.5">Store</th>}
+                <th className="px-4 py-2.5">Article</th>
+                <th className="px-4 py-2.5">Barcode</th>
+                <th className="px-4 py-2.5 text-center">SOH</th>
+                <th className="px-4 py-2.5 text-center">WFC</th>
+                <th className="px-4 py-2.5">Action</th>
+                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5">Reason Code</th>
+                <th className="px-4 py-2.5">Feedback</th>
+                <th className="px-4 py-2.5 text-center">Image</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.map((r, i) => (
+                <tr key={`${r.uniqueId}-${i}`} className="border-t border-white/[0.04] transition-colors hover:bg-white/[0.03]" data-testid={`row-task-${r.uniqueId}`}>
+                  {showStoreColumn && (
+                    <td
+                      className={`px-4 py-2.5 font-semibold text-white ${onSelectStore ? "cursor-pointer hover:text-cyan-400" : ""}`}
+                      onClick={() => onSelectStore?.(r.storeName)}
+                    >
+                      {tc(r.storeName)}
+                    </td>
+                  )}
+                  <td className="max-w-[220px] truncate px-4 py-2.5 text-slate-300" title={r.articleDescription}>{r.articleDescription || "—"}</td>
+                  <td className="px-4 py-2.5 font-mono text-[11px] text-slate-400">{r.barcode || "—"}</td>
+                  <td className="px-4 py-2.5 text-center tabular-nums text-slate-300">{r.storeSoh ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-center tabular-nums text-slate-300">{r.storeWfc ?? "—"}</td>
+                  <td className="max-w-[160px] truncate px-4 py-2.5 text-slate-300" title={r.action}>{r.action || "—"}</td>
+                  <td className="px-4 py-2.5"><StatusBadge status={r.actionStatus} /></td>
+                  <td className="px-4 py-2.5 text-slate-400">{r.reasonCode || "—"}</td>
+                  <td className="max-w-[200px] truncate px-4 py-2.5 text-slate-400" title={r.feedback}>{r.feedback || "—"}</td>
+                  <td className="px-4 py-2.5 text-center">
+                    {r.imageUrl ? (
+                      <a href={r.imageUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-image-${r.uniqueId}`} className="inline-flex text-cyan-400 hover:text-cyan-300">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    ) : (
+                      <ImageOff className="mx-auto h-3.5 w-3.5 text-slate-700" />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+      {visible.length < filtered.length && (
+        <div className="flex justify-center border-t border-white/[0.06] p-3">
+          <button
+            onClick={() => setPage(p => p + 1)}
+            data-testid="button-load-more-tasks"
+            className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/[0.08]"
+          >
+            Load more ({filtered.length - visible.length} remaining)
+          </button>
+        </div>
+      )}
+    </>
+  );
+}
+
+function BreakdownTable({ title, icon: Icon, accent, rows }: {
+  title: string; icon: any; accent: string; rows: { label: string; total: number; completed: number; captureRate: number }[];
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+      className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
+    >
+      <div className="flex items-center gap-2 border-b border-white/[0.06] p-5">
+        <Icon className={`h-4 w-4 ${accent}`} />
+        <h3 className="text-sm font-bold text-white">{title}</h3>
+        <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{rows.length}</span>
+      </div>
+      <div className="max-h-[280px] overflow-y-auto">
+        {rows.length === 0 ? (
+          <div className="flex h-32 items-center justify-center text-sm text-slate-600">No data yet</div>
+        ) : (
+          <table className="w-full text-left text-sm">
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.label} className="border-t border-white/[0.04] first:border-t-0">
+                  <td className="px-5 py-2.5 font-medium text-slate-300">{tc(r.label)}</td>
+                  <td className="px-5 py-2.5 text-right text-[11px] text-slate-500 tabular-nums">{fmtNum(r.completed)}/{fmtNum(r.total)}</td>
+                  <td className="w-32 px-5 py-2.5"><GlowBar rate={r.captureRate} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+function MerchRankTable({ title, icon: Icon, accent, rows }: { title: string; icon: any; accent: string; rows: MerchRank[] }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+      className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
+    >
+      <div className="flex items-center gap-2 border-b border-white/[0.06] p-5">
+        <Icon className={`h-4 w-4 ${accent}`} />
+        <h3 className="text-sm font-bold text-white">{title}</h3>
+      </div>
+      <div className="overflow-x-auto">
+        {rows.length === 0 ? (
+          <div className="flex h-32 items-center justify-center text-sm text-slate-600">No data yet</div>
+        ) : (
+          <table className="w-full min-w-[420px] text-left text-sm">
+            <thead>
+              <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                <th className="px-5 py-2.5">Merchandiser</th>
+                <th className="px-5 py-2.5">Line Manager</th>
+                <th className="px-5 py-2.5">Region</th>
+                <th className="px-5 py-2.5 text-center">% Stores</th>
+                <th className="px-5 py-2.5">% Items</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(r => (
+                <tr key={r.name} className="border-t border-white/[0.04]" data-testid={`row-merch-${r.name}`}>
+                  <td className="px-5 py-2.5 font-semibold text-white">{tc(r.name)}</td>
+                  <td className="px-5 py-2.5 text-slate-400">{r.lineManager ? tc(r.lineManager) : "—"}</td>
+                  <td className="px-5 py-2.5 text-slate-400">{r.region ? tc(r.region) : "—"}</td>
+                  <td className="px-5 py-2.5 text-center tabular-nums text-slate-300">{r.pctStoresActioned}%</td>
+                  <td className="px-5 py-2.5"><GlowBar rate={r.pctItemsActioned} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
+// ─── Overview Page ──────────────────────────────────────────────────
+function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterReset }: {
+  data: PilotReport; onSelectStore: (name: string) => void;
+  filters: Filters; onFilterChange: (f: Filters) => void; onFilterReset: () => void;
+}) {
+  const totalMerchandisers = data.merchandisers.length;
+  const activeReps = data.summary.activeReps;
+  const coverage = totalMerchandisers > 0 ? Math.round((activeReps / totalMerchandisers) * 100) : 0;
+  const storesCovered = new Set(data.taskDetail.map(t => t.storeName)).size;
+
+  return (
+    <div className="mx-auto max-w-[1500px] px-6 py-8 md:px-10">
       {/* Hero header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
+        className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
       >
         <div>
           <div className="mb-3 flex items-center gap-3">
@@ -170,7 +426,7 @@ function OverviewPage({ data, storeList, onSelectStore }: {
             Field Coverage Overview
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Live StockFix task performance across {fmtNum(totalPilotReps)} enrolled reps in Shoprite &amp; Checkers stores
+            Live StockFix task performance across {fmtNum(totalMerchandisers)} merchandisers in Shoprite &amp; Checkers stores
             {data.latestWeek && <> · Week ending {fmtDate(data.latestWeek)}</>}
           </p>
         </div>
@@ -194,157 +450,55 @@ function OverviewPage({ data, storeList, onSelectStore }: {
         </div>
       </motion.div>
 
+      <FilterBar filters={data.filters} active={filters} onChange={onFilterChange} onReset={onFilterReset} />
+
       {/* KPI grid */}
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
-        <KpiTile icon={Users} label="Active Reps" value={fmtNum(activeReps)} sub={`of ${fmtNum(totalPilotReps)} enrolled`} accent="from-cyan-500 to-blue-600" delay={0} />
+        <KpiTile icon={Users} label="Active Merchandisers" value={fmtNum(activeReps)} sub={`of ${fmtNum(totalMerchandisers)} merchandisers`} accent="from-cyan-500 to-blue-600" delay={0} />
         <KpiTile icon={ClipboardCheck} label="Tasks Logged" value={fmtNum(data.summary.stockFix.total)} sub="total StockFix tasks" accent="from-violet-500 to-purple-600" delay={0.05} />
         <KpiTile icon={CheckCircle2} label="Completed" value={fmtNum(data.summary.stockFix.completed)} sub={`${data.summary.stockFix.captureRate}% rate`} accent="from-emerald-500 to-teal-600" delay={0.1} />
         <KpiTile icon={Gauge} label="Capture Rate" value={`${data.summary.stockFix.captureRate}%`} sub="overall completion" accent="from-amber-500 to-orange-600" delay={0.15} />
-        <KpiTile icon={StoreIcon} label="Stores Covered" value={fmtNum(storeList.length)} sub="with logged tasks" accent="from-pink-500 to-rose-600" delay={0.2} />
-        <KpiTile icon={Trophy} label="Pilot Coverage" value={`${coverage}%`} sub={topStore ? `top: ${tc(topStore.name)}` : "no data yet"} accent="from-indigo-500 to-violet-600" delay={0.25} />
+        <KpiTile icon={StoreIcon} label="Stores Covered" value={fmtNum(storesCovered)} sub="with logged tasks" accent="from-pink-500 to-rose-600" delay={0.2} />
+        <KpiTile icon={Trophy} label="Pilot Coverage" value={`${coverage}%`} sub={`of ${fmtNum(totalMerchandisers)} merchandisers`} accent="from-indigo-500 to-violet-600" delay={0.25} />
       </div>
 
-      {/* Chart + client breakdown */}
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <motion.div
-          initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
-          className="lg:col-span-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-xl"
-        >
-          <div className="mb-4 flex items-center gap-2">
-            <TrendingUp className="h-4 w-4 text-cyan-400" />
-            <h3 className="text-sm font-bold text-white">Capture Rate Trend</h3>
-          </div>
-          {chartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={240}>
-              <AreaChart data={chartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="captureFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.35} />
-                    <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="week" tickFormatter={fmtDate} tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} unit="%" />
-                <Tooltip content={<CustomTooltip />} />
-                <Area type="monotone" dataKey="captureRate" name="Capture Rate" stroke="#22d3ee" strokeWidth={2.5} fill="url(#captureFill)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          ) : (
-            <div className="flex h-[240px] items-center justify-center text-sm text-slate-600">No trend data yet</div>
-          )}
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}
-          className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-xl"
-        >
-          <div className="mb-4 flex items-center gap-2">
-            <Tag className="h-4 w-4 text-violet-400" />
-            <h3 className="text-sm font-bold text-white">Top Clients</h3>
-          </div>
-          {topClients.length > 0 ? (
-            <div className="space-y-3">
-              {topClients.map((c, i) => (
-                <div key={c.client} className="flex items-center gap-3">
-                  <span className="w-4 shrink-0 text-[10px] font-bold text-slate-600">{i + 1}</span>
-                  <span className="min-w-0 flex-1 truncate text-xs font-medium text-slate-300">{c.client}</span>
-                  <span className="shrink-0 text-[11px] font-bold tabular-nums text-slate-500">{fmtNum(c.tasks)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex h-[180px] items-center justify-center text-sm text-slate-600">No client data yet</div>
-          )}
-        </motion.div>
+      {/* Manager / Region breakdown */}
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <BreakdownTable
+          title="% Captured by Manager" icon={Users} accent="text-cyan-400"
+          rows={data.managerBreakdown.map(m => ({ label: m.manager, total: m.total, completed: m.completed, captureRate: m.captureRate }))}
+        />
+        <BreakdownTable
+          title="% Captured by Region" icon={StoreIcon} accent="text-violet-400"
+          rows={data.regionBreakdown.map(r => ({ label: r.region, total: r.total, completed: r.completed, captureRate: r.captureRate }))}
+        />
       </div>
 
-      {/* Store leaderboard */}
+      {/* Top 5 / Bottom 5 merchandisers */}
+      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <MerchRankTable title="Top 5 Merchandisers — Capture %" icon={TrendingUp} accent="text-emerald-400" rows={data.top5Merchandisers} />
+        <MerchRankTable title="Bottom 5 Merchandisers — Capture %" icon={TrendingDown} accent="text-rose-400" rows={data.bottom5Merchandisers} />
+      </div>
+
+      {/* Store-level task detail */}
       <motion.div
-        initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}
+        initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
         className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
       >
-        <div className="flex flex-col gap-3 border-b border-white/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white">Store Performance</h3>
-            <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{filteredStores.length}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search store..."
-                data-testid="input-search-store"
-                className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-slate-600 outline-none focus:border-cyan-500/50 sm:w-52"
-              />
-            </div>
-            <select
-              value={sortKey}
-              onChange={e => setSortKey(e.target.value as any)}
-              data-testid="select-sort-stores"
-              className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none"
-            >
-              <option value="tasks" className="bg-slate-900">Sort: Tasks</option>
-              <option value="captureRate" className="bg-slate-900">Sort: Capture Rate</option>
-              <option value="reps" className="bg-slate-900">Sort: Reps</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="max-h-[520px] overflow-y-auto">
-          {filteredStores.length === 0 ? (
-            <div className="flex h-40 items-center justify-center text-sm text-slate-600">
-              {storeList.length === 0 ? "No store activity yet — waiting on StockFix task data for pilot reps." : "No stores match your search."}
-            </div>
-          ) : (
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  <th className="px-5 py-2.5">Store</th>
-                  <th className="px-5 py-2.5 text-center">Reps</th>
-                  <th className="px-5 py-2.5 text-center">Tasks</th>
-                  <th className="px-5 py-2.5 text-center">Done</th>
-                  <th className="px-5 py-2.5">Capture Rate</th>
-                  <th className="w-8 px-5 py-2.5" />
-                </tr>
-              </thead>
-              <tbody>
-                {filteredStores.map((s, i) => (
-                  <motion.tr
-                    key={s.name}
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2, delay: Math.min(i * 0.02, 0.4) }}
-                    onClick={() => onSelectStore(s.name)}
-                    data-testid={`row-store-${s.name}`}
-                    className="cursor-pointer border-t border-white/[0.04] transition-colors hover:bg-white/[0.04]"
-                  >
-                    <td className="px-5 py-3 font-semibold text-white">{tc(s.name)}</td>
-                    <td className="px-5 py-3 text-center text-slate-400 tabular-nums">{s.reps.length}</td>
-                    <td className="px-5 py-3 text-center text-slate-400 tabular-nums">{fmtNum(s.tasks)}</td>
-                    <td className="px-5 py-3 text-center font-semibold text-emerald-400 tabular-nums">{fmtNum(s.completed)}</td>
-                    <td className="px-5 py-3"><GlowBar rate={s.captureRate} /></td>
-                    <td className="px-5 py-3 text-slate-600"><ChevronRight className="h-4 w-4" /></td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
+        <TaskDetailTable rows={data.taskDetail} onSelectStore={onSelectStore} />
       </motion.div>
     </div>
   );
 }
 
 // ─── Store Detail Page ──────────────────────────────────────────────
-function StoreDetailPage({ store, onBack }: { store: StoreAgg; onBack: () => void }) {
+function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: TaskDetailRow[]; onBack: () => void }) {
   const repChartData = [...store.reps].sort((a, b) => b.tasks - a.tasks).slice(0, 10).map(r => ({
     name: tc(r.name).split(" ")[0], tasks: r.tasks, completed: r.completed, captureRate: r.captureRate,
   }));
 
   return (
-    <div className="mx-auto max-w-[1400px] px-6 py-8 md:px-10">
+    <div className="mx-auto max-w-[1500px] px-6 py-8 md:px-10">
       <motion.button
         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
         onClick={onBack}
@@ -356,7 +510,7 @@ function StoreDetailPage({ store, onBack }: { store: StoreAgg; onBack: () => voi
 
       <motion.div
         initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        className="mb-8 flex flex-col gap-6 rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-transparent p-7 backdrop-blur-xl md:flex-row md:items-center md:justify-between"
+        className="mb-6 flex flex-col gap-6 rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-transparent p-7 backdrop-blur-xl md:flex-row md:items-center md:justify-between"
       >
         <div>
           <div className="mb-2 flex items-center gap-2">
@@ -365,7 +519,7 @@ function StoreDetailPage({ store, onBack }: { store: StoreAgg; onBack: () => voi
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Store Detail</span>
           </div>
           <h1 className="text-3xl font-extrabold tracking-tight text-white" data-testid="text-store-name">{tc(store.name)}</h1>
-          <p className="mt-2 text-sm text-slate-500">{store.reps.length} rep{store.reps.length !== 1 ? "s" : ""} assigned · {store.clients.length} client{store.clients.length !== 1 ? "s" : ""}</p>
+          <p className="mt-2 text-sm text-slate-500">{store.reps.length} merchandiser{store.reps.length !== 1 ? "s" : ""} assigned</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-center">
@@ -385,17 +539,17 @@ function StoreDetailPage({ store, onBack }: { store: StoreAgg; onBack: () => voi
         </div>
       </motion.div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
-          className="lg:col-span-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-xl"
+          className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-xl"
         >
           <div className="mb-4 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-violet-400" />
-            <h3 className="text-sm font-bold text-white">Tasks by Rep</h3>
+            <h3 className="text-sm font-bold text-white">Tasks by Merchandiser</h3>
           </div>
           {repChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={280}>
+            <ResponsiveContainer width="100%" height={260}>
               <BarChart data={repChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis dataKey="name" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -409,44 +563,25 @@ function StoreDetailPage({ store, onBack }: { store: StoreAgg; onBack: () => voi
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-[280px] items-center justify-center text-sm text-slate-600">No rep data yet</div>
-          )}
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}
-          className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-xl"
-        >
-          <div className="mb-4 flex items-center gap-2">
-            <Tag className="h-4 w-4 text-pink-400" />
-            <h3 className="text-sm font-bold text-white">Clients</h3>
-          </div>
-          {store.clients.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {store.clients.map(c => (
-                <span key={c} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[11px] font-medium text-slate-300">{c}</span>
-              ))}
-            </div>
-          ) : (
-            <div className="flex h-[180px] items-center justify-center text-sm text-slate-600">No client data yet</div>
+            <div className="flex h-[260px] items-center justify-center text-sm text-slate-600">No merchandiser data yet</div>
           )}
         </motion.div>
       </div>
 
       <motion.div
-        initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}
-        className="mt-4 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
+        initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}
+        className="mb-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
       >
         <div className="flex items-center gap-2 border-b border-white/[0.06] p-5">
           <Users className="h-4 w-4 text-cyan-400" />
-          <h3 className="text-sm font-bold text-white">Rep Breakdown</h3>
+          <h3 className="text-sm font-bold text-white">Merchandiser Breakdown</h3>
           <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{store.reps.length}</span>
         </div>
-        <div className="max-h-[420px] overflow-y-auto">
+        <div className="max-h-[320px] overflow-y-auto">
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                <th className="px-5 py-2.5">Rep</th>
+                <th className="px-5 py-2.5">Merchandiser</th>
                 <th className="px-5 py-2.5 text-center">Tasks</th>
                 <th className="px-5 py-2.5 text-center">Done</th>
                 <th className="px-5 py-2.5">Capture Rate</th>
@@ -465,6 +600,13 @@ function StoreDetailPage({ store, onBack }: { store: StoreAgg; onBack: () => voi
           </table>
         </div>
       </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}
+        className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
+      >
+        <TaskDetailTable rows={tasks} showStoreColumn={false} />
+      </motion.div>
     </div>
   );
 }
@@ -472,11 +614,18 @@ function StoreDetailPage({ store, onBack }: { store: StoreAgg; onBack: () => voi
 // ─── Root Component ─────────────────────────────────────────────────
 export default function MerchandiserPilot() {
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
+  const [filters, setFilters] = useState<Filters>({ manager: "", region: "", store: "", banner: "" });
 
   const { data } = useQuery<PilotReport>({
-    queryKey: ["/api/pilot-report"],
+    queryKey: ["/api/pilot-report", filters],
     queryFn: async () => {
-      const res = await fetch("/api/pilot-report");
+      const params = new URLSearchParams();
+      if (filters.manager) params.set("manager", filters.manager);
+      if (filters.region) params.set("region", filters.region);
+      if (filters.store) params.set("store", filters.store);
+      if (filters.banner) params.set("banner", filters.banner);
+      const qs = params.toString();
+      const res = await fetch(`/api/pilot-report${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to load pilot report");
       return res.json();
     },
@@ -489,12 +638,11 @@ export default function MerchandiserPilot() {
     for (const m of data.merchandisers) {
       if (!m.stockFix) continue;
       for (const s of m.stockFix.stores) {
-        if (!map.has(s.name)) map.set(s.name, { name: s.name, tasks: 0, completed: 0, captureRate: 0, reps: [], clients: [] });
+        if (!map.has(s.name)) map.set(s.name, { name: s.name, tasks: 0, completed: 0, captureRate: 0, reps: [] });
         const agg = map.get(s.name)!;
         agg.tasks += s.tasks;
         agg.completed += s.completed;
         agg.reps.push({ name: m.name, tasks: s.tasks, completed: s.completed, captureRate: s.captureRate });
-        for (const c of s.clients) if (!agg.clients.includes(c)) agg.clients.push(c);
       }
     }
     return Array.from(map.values())
@@ -503,6 +651,10 @@ export default function MerchandiserPilot() {
   }, [data]);
 
   const selected = selectedStore ? storeList.find(s => s.name === selectedStore) : undefined;
+  const selectedTasks = useMemo(() => {
+    if (!data || !selectedStore) return [];
+    return data.taskDetail.filter(t => t.storeName === selectedStore);
+  }, [data, selectedStore]);
 
   if (!data) {
     return (
@@ -523,11 +675,17 @@ export default function MerchandiserPilot() {
         <AnimatePresence mode="wait">
           {selected ? (
             <motion.div key="store" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-              <StoreDetailPage store={selected} onBack={() => setSelectedStore(null)} />
+              <StoreDetailPage store={selected} tasks={selectedTasks} onBack={() => setSelectedStore(null)} />
             </motion.div>
           ) : (
             <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-              <OverviewPage data={data} storeList={storeList} onSelectStore={setSelectedStore} />
+              <OverviewPage
+                data={data}
+                onSelectStore={setSelectedStore}
+                filters={filters}
+                onFilterChange={setFilters}
+                onFilterReset={() => setFilters({ manager: "", region: "", store: "", banner: "" })}
+              />
             </motion.div>
           )}
         </AnimatePresence>
