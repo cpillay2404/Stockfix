@@ -30,6 +30,8 @@ export default function Home() {
       if (!res.ok) throw new Error("Failed to fetch stats");
       return res.json();
     },
+    refetchInterval: 15000,
+    refetchIntervalInBackground: true,
   });
 
   const hasActiveFilters = selectedRegion || selectedClient;
