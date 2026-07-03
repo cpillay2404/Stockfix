@@ -1436,6 +1436,13 @@ export default function MerchandiserPilotPage() {
               </span>
             )}
             <a
+              href="/api/pilot-export"
+              download="pilot-tasks.json"
+              style={{ backgroundColor: '#2563eb', color: '#fff', borderRadius: '6px', padding: '5px 14px', fontSize: '12px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            >
+              ↓ Download JSON
+            </a>
+            <a
               href="/api/pilot-export-xlsx"
               download
               style={{ backgroundColor: '#16a34a', color: '#fff', borderRadius: '6px', padding: '5px 14px', fontSize: '12px', fontWeight: 600, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
