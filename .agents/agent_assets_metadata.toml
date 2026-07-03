@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "7UvugXiwoyi1cLlu_TMv-"
+uri = "file://screenshots/StockFix_Navigation_Guide.pptx"
+type = "slides"
+title = "StockFix App Navigation Guide"
