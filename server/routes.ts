@@ -519,9 +519,14 @@ export async function registerRoutes(
       const response = {
         totalTasks: result.totalTasks,
         totalStores: result.filters.stores.length,
+        totalP4WeekSales: result.totalP4WeekSales,
         pendingCount: result.statusCounts['Pending'] || 0,
         completedCount: result.statusCounts['Completed'] || 0,
         statusCounts: result.statusCounts,
+        actionBreakdown: result.actionBreakdown,
+        topStores: result.topStores,
+        topReps: result.topReps,
+        clients: result.clients,
         filters: {
           regions: result.filters.regions,
           reps: result.filters.reps,

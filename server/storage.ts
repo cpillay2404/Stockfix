@@ -993,6 +993,11 @@ export class DatabaseStorage implements IStorage {
   async getDashboardStatsOptimized(filters?: { client?: string; region?: string; weekEndingDate?: string }): Promise<{
     statusCounts: Record<string, number>;
     totalTasks: number;
+    totalP4WeekSales: number;
+    actionBreakdown: { action: string; count: number }[];
+    topStores: { name: string; count: number }[];
+    topReps: { name: string; count: number }[];
+    clients: { name: string; count: number }[];
     filters: { reps: string[]; stores: string[]; clients: string[]; regions: string[] };
   }> {
     let conditions: any[] = [];
@@ -1007,12 +1012,23 @@ export class DatabaseStorage implements IStorage {
     }
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const [statusResults, filterData] = await Promise.all([
+    const [statusResults, filterData, p4Result, actionResults, storeResults, repResults, clientResults] = await Promise.all([
       db.select({ 
         status: tasks.actionStatus, 
         cnt: count() 
       }).from(tasks).where(whereClause).groupBy(tasks.actionStatus),
       this.getDistinctFilters(filters),
+      db.select({
+        totalP4WeekSales: sql<number>`COALESCE(SUM(CAST(NULLIF(${tasks.p4WeekSales}, '') AS NUMERIC)), 0)`,
+      }).from(tasks).where(whereClause),
+      db.select({ action: tasks.action, cnt: count() })
+        .from(tasks).where(whereClause).groupBy(tasks.action).orderBy(desc(count())).limit(6),
+      db.select({ name: tasks.storeName, cnt: count() })
+        .from(tasks).where(whereClause).groupBy(tasks.storeName).orderBy(desc(count())).limit(5),
+      db.select({ name: tasks.repName, cnt: count() })
+        .from(tasks).where(whereClause).groupBy(tasks.repName).orderBy(desc(count())).limit(5),
+      db.select({ name: tasks.client, cnt: count() })
+        .from(tasks).where(whereClause).groupBy(tasks.client).orderBy(desc(count())),
     ]);
 
     const statusCounts: Record<string, number> = {};
@@ -1025,6 +1041,11 @@ export class DatabaseStorage implements IStorage {
     return {
       statusCounts,
       totalTasks,
+      totalP4WeekSales: Math.round(Number(p4Result[0]?.totalP4WeekSales) || 0),
+      actionBreakdown: actionResults.map(r => ({ action: r.action || 'Unknown', count: Number(r.cnt) || 0 })),
+      topStores: storeResults.map(r => ({ name: r.name || 'Unknown', count: Number(r.cnt) || 0 })),
+      topReps: repResults.map(r => ({ name: r.name || 'Unknown', count: Number(r.cnt) || 0 })),
+      clients: clientResults.map(r => ({ name: r.name || 'Unknown', count: Number(r.cnt) || 0 })),
       filters: filterData,
     };
   }
