@@ -7,9 +7,10 @@ import {
 } from "recharts";
 import {
   Users, ClipboardCheck, CheckCircle2, Gauge, Store as StoreIcon, Trophy,
-  ArrowLeft, Search, Download, FileJson, ChevronRight, Sparkles, TrendingUp,
+  ArrowLeft, Search, Download, FileJson, ChevronRight, TrendingUp,
   Package, Tag,
 } from "lucide-react";
+import shopriteCheckersLogo from "@assets/image_1783089822744.png";
 
 // ─── Types ──────────────────────────────────────────────────────────
 interface SFStore { name: string; tasks: number; completed: number; captureRate: number; clients: string[] }
@@ -161,15 +162,15 @@ function OverviewPage({ data, storeList, onSelectStore }: {
         className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
       >
         <div>
-          <div className="mb-2 flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-cyan-400" />
+          <div className="mb-3 flex items-center gap-3">
+            <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-9 w-auto rounded-md shadow-lg shadow-black/40" data-testid="img-retailer-logo" />
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Merchandiser Pilot</span>
           </div>
           <h1 className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">
             Field Coverage Overview
           </h1>
           <p className="mt-2 text-sm text-slate-500">
-            Live StockFix task performance across {fmtNum(totalPilotReps)} enrolled reps
+            Live StockFix task performance across {fmtNum(totalPilotReps)} enrolled reps in Shoprite &amp; Checkers stores
             {data.latestWeek && <> · Week ending {fmtDate(data.latestWeek)}</>}
           </p>
         </div>
@@ -359,6 +360,7 @@ function StoreDetailPage({ store, onBack }: { store: StoreAgg; onBack: () => voi
       >
         <div>
           <div className="mb-2 flex items-center gap-2">
+            <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-6 w-auto rounded shadow shadow-black/40" />
             <StoreIcon className="h-4 w-4 text-cyan-400" />
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Store Detail</span>
           </div>

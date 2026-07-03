@@ -4,6 +4,8 @@
 
 StockFix is a mobile-first retail inventory management application designed for field representatives to track and complete stock-related tasks. The application allows users to view assigned inventory tasks, capture feedback with photos, and submit action completions. Managers can import task data via Excel files and monitor task completion status across stores and regions.
 
+A separate "Merchandiser Pilot" dashboard (`/merchandiser-pilot`) tracks a trial of 1,023 field reps working Shoprite & Checkers stores, branded with the Shoprite & Checkers logo.
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
