@@ -5,7 +5,7 @@ import { fetchTasks } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, ArrowLeft, LogOut, User, MapPin, ChevronDown, RefreshCw, BarChart3 } from "lucide-react";
+import { Search, ArrowLeft, LogOut, User, MapPin, ChevronDown, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Task } from "@shared/schema";
 import BottomNav from "@/components/BottomNav";
@@ -369,21 +369,6 @@ export default function Dashboard() {
           </h1>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <button
-              onClick={() => setLocation('/analytics')}
-              data-testid="button-analytics"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                color: 'rgba(255,255,255,0.85)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '4px',
-              }}
-            >
-              <BarChart3 style={{ width: '16px', height: '16px' }} />
-            </button>
             <button
               onClick={handleRefresh}
               disabled={refreshing}
