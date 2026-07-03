@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import {
   Users, ClipboardCheck, CheckCircle2, Gauge, Store as StoreIcon, Trophy,
   ArrowLeft, Search, ChevronRight, TrendingUp, TrendingDown,
-  Package, Filter, X, ImageOff, ExternalLink,
+  Package, Filter, X, ImageOff, ExternalLink, Download, Sparkles,
 } from "lucide-react";
 import shopriteCheckersLogo from "@assets/image_1783089822744.png";
 import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -244,22 +244,86 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+const SAMPLE_STORES = ["Shoprite Sandton City", "Checkers Cavendish Square", "Shoprite Boksburg", "Checkers Hyde Park", "Shoprite Menlyn Park"];
+const SAMPLE_ARTICLES = ["Coca-Cola 2L PET", "Jungle Oats 1kg", "Sunlight Dishwashing Liquid 750ml", "Albany Superior White Bread 700g", "Omo Auto Powder 2kg", "Ricoffy 250g Jar", "White Star Maize Meal 5kg"];
+const SAMPLE_ACTIONS = ["Restock shelf", "Reorder from DC", "Correct planogram", "Update shelf tag", "Report OOS to manager"];
+const SAMPLE_REASONS = ["Delivery delay", "Supplier shortage", "Planogram change", "High demand", "Damaged stock"];
+const SAMPLE_STATUSES = ["Completed", "Pending"];
+const SAMPLE_FEEDBACK = ["Shelf replenished from back stock", "Escalated to store manager", "Awaiting next delivery", "Corrected facings on shelf", "No stock available in DC"];
+
+function generateSampleTaskRows(count: number): TaskDetailRow[] {
+  const rows: TaskDetailRow[] = [];
+  for (let i = 0; i < count; i++) {
+    const status = SAMPLE_STATUSES[i % SAMPLE_STATUSES.length];
+    rows.push({
+      uniqueId: `sample-${i}`,
+      storeName: SAMPLE_STORES[i % SAMPLE_STORES.length],
+      repName: `Sample Merchandiser ${(i % 12) + 1}`,
+      articleDescription: SAMPLE_ARTICLES[i % SAMPLE_ARTICLES.length],
+      barcode: `60012345${(1000 + i).toString().slice(-4)}`,
+      storeSoh: (i * 7) % 40,
+      storeWfc: ((i * 3) % 12) + 1,
+      action: SAMPLE_ACTIONS[i % SAMPLE_ACTIONS.length],
+      actionStatus: status,
+      reasonCode: SAMPLE_REASONS[i % SAMPLE_REASONS.length],
+      feedback: SAMPLE_FEEDBACK[i % SAMPLE_FEEDBACK.length],
+      imageUrl: i % 3 === 0 ? "https://example.com/sample-photo.jpg" : null,
+    });
+  }
+  return rows;
+}
+
+const TASK_CSV_COLUMNS: { key: keyof TaskDetailRow; header: string }[] = [
+  { key: "storeName", header: "Store" },
+  { key: "articleDescription", header: "Article" },
+  { key: "barcode", header: "Barcode" },
+  { key: "storeSoh", header: "SOH" },
+  { key: "storeWfc", header: "WFC" },
+  { key: "action", header: "Action" },
+  { key: "actionStatus", header: "Status" },
+  { key: "reasonCode", header: "Reason Code" },
+  { key: "feedback", header: "Feedback" },
+  { key: "imageUrl", header: "Image URL" },
+];
+
+function exportTasksToCsv(rows: TaskDetailRow[]) {
+  const escapeCsv = (val: unknown) => {
+    const s = val === null || val === undefined ? "" : String(val);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = TASK_CSV_COLUMNS.map(c => c.header).join(",");
+  const lines = rows.map(r => TASK_CSV_COLUMNS.map(c => escapeCsv(r[c.key])).join(","));
+  const csv = [header, ...lines].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `store-performance-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
   rows: TaskDetailRow[]; onSelectStore?: (name: string) => void; showStoreColumn?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
+  const [showSample, setShowSample] = useState(false);
   const pageSize = 40;
 
+  const sourceRows = showSample ? generateSampleTaskRows(60) : rows;
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return rows;
+    if (!search.trim()) return sourceRows;
     const q = search.trim().toUpperCase();
-    return rows.filter(r =>
+    return sourceRows.filter(r =>
       r.storeName.toUpperCase().includes(q) ||
       r.articleDescription.toUpperCase().includes(q) ||
       r.barcode.toUpperCase().includes(q)
     );
-  }, [rows, search]);
+  }, [sourceRows, search]);
 
   const visible = filtered.slice(0, (page + 1) * pageSize);
 
@@ -270,19 +334,47 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
           <Package className="h-4 w-4 text-emerald-400" />
           <h3 className="text-sm font-bold text-white">Store Performance</h3>
           <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{fmtNum(filtered.length)}</span>
+          {showSample && (
+            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">Sample data</span>
+          )}
         </div>
-        <Hint label="Search by store name, article description, or barcode">
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-            <input
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(0); }}
-              placeholder="Search store, article, barcode..."
-              data-testid="input-search-tasks"
-              className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-slate-600 outline-none focus:border-cyan-500/50 sm:w-72"
-            />
-          </div>
-        </Hint>
+        <div className="flex items-center gap-2">
+          <Hint label={showSample ? "Switch back to live StockFix data" : "Preview the table with sample data"}>
+            <button
+              onClick={() => { setShowSample(v => !v); setPage(0); }}
+              data-testid="button-toggle-sample-data"
+              className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                showSample
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20"
+                  : "border-white/10 bg-white/[0.03] text-slate-400 hover:bg-white/[0.08] hover:text-white"
+              }`}
+            >
+              <Sparkles className="h-3.5 w-3.5" /> {showSample ? "Sample" : "Preview sample"}
+            </button>
+          </Hint>
+          <Hint label="Download the currently visible rows as a CSV file">
+            <button
+              onClick={() => exportTasksToCsv(filtered)}
+              data-testid="button-export-csv"
+              disabled={filtered.length === 0}
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              <Download className="h-3.5 w-3.5" /> Export CSV
+            </button>
+          </Hint>
+          <Hint label="Search by store name, article description, or barcode">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+              <input
+                value={search}
+                onChange={e => { setSearch(e.target.value); setPage(0); }}
+                placeholder="Search store, article, barcode..."
+                data-testid="input-search-tasks"
+                className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-slate-600 outline-none focus:border-cyan-500/50 sm:w-64"
+              />
+            </div>
+          </Hint>
+        </div>
       </div>
 
       <div className="max-h-[620px] overflow-auto">
