@@ -522,17 +522,15 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         transition={{ duration: 0.4 }}
         className="mb-3"
       >
+        <div className="mb-1.5 flex items-center gap-2">
+          <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-6 w-auto rounded-md shadow-lg shadow-black/40" data-testid="img-retailer-logo" />
+          <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Merchandiser Pilot</span>
+        </div>
         <div className="flex items-center justify-between gap-4">
-          <div>
-            <div className="mb-1.5 flex items-center gap-2">
-              <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-6 w-auto rounded-md shadow-lg shadow-black/40" data-testid="img-retailer-logo" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Merchandiser Pilot</span>
-            </div>
-            <h1 className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">
-              Field Coverage Overview
-            </h1>
-          </div>
-          <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-14 w-auto shrink-0" data-testid="img-meridian-logo" />
+          <h1 className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">
+            Field Coverage Overview
+          </h1>
+          <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-20 w-auto shrink-0" data-testid="img-meridian-logo" />
         </div>
         <p className="mt-0.5 text-xs text-slate-500">
           Live StockFix task performance across {fmtNum(totalMerchandisers)} merchandisers in Shoprite &amp; Checkers stores
