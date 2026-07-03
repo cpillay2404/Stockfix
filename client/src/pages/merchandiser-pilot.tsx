@@ -109,17 +109,17 @@ function KpiTile({ icon: Icon, label, value, sub, accent, delay = 0 }: {
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay }}
-      className="group relative overflow-hidden rounded-2xl border border-white/[0.06] bg-white/[0.02] p-5 backdrop-blur-xl transition-all hover:border-white/[0.12] hover:bg-white/[0.04]"
+      className="group relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5 backdrop-blur-xl transition-all hover:border-white/[0.12] hover:bg-white/[0.04]"
     >
       <div className={`pointer-events-none absolute -right-8 -top-8 h-24 w-24 rounded-full bg-gradient-to-br ${accent} opacity-[0.12] blur-2xl transition-opacity group-hover:opacity-25`} />
       <div className="relative flex items-start justify-between">
         <div>
-          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">{label}</div>
-          <div className="mt-2 text-3xl font-extrabold tracking-tight text-white tabular-nums">{value}</div>
-          {sub && <div className="mt-1 text-[11px] text-slate-500">{sub}</div>}
+          <div className="text-[9px] font-semibold uppercase tracking-[0.1em] text-slate-500">{label}</div>
+          <div className="mt-1 text-2xl font-extrabold tracking-tight text-white tabular-nums">{value}</div>
+          {sub && <div className="mt-0.5 text-[10px] text-slate-500">{sub}</div>}
         </div>
-        <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br ${accent} shadow-lg`}>
-          <Icon className="h-4.5 w-4.5 text-white" strokeWidth={2.2} />
+        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br ${accent} shadow-lg`}>
+          <Icon className="h-3.5 w-3.5 text-white" strokeWidth={2.2} />
         </div>
       </div>
     </motion.div>
@@ -148,7 +148,7 @@ function FilterBar({ filters, active, onChange, onReset }: {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
-      className="mb-6 flex flex-wrap items-center gap-2 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 backdrop-blur-xl"
+      className="mb-3 flex flex-wrap items-center gap-1.5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-2.5 backdrop-blur-xl"
     >
       <div className="flex items-center gap-1.5 pr-1 text-xs font-semibold text-slate-400">
         <Filter className="h-3.5 w-3.5 text-cyan-400" /> Filters
@@ -157,7 +157,7 @@ function FilterBar({ filters, active, onChange, onReset }: {
         value={active.manager}
         onChange={e => onChange({ ...active, manager: e.target.value })}
         data-testid="select-filter-manager"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
       >
         <option value="" className="bg-slate-900">All Line Managers</option>
         {filters.managers.map(m => <option key={m} value={m} className="bg-slate-900">{tc(m)}</option>)}
@@ -166,7 +166,7 @@ function FilterBar({ filters, active, onChange, onReset }: {
         value={active.region}
         onChange={e => onChange({ ...active, region: e.target.value })}
         data-testid="select-filter-region"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
       >
         <option value="" className="bg-slate-900">All Regions</option>
         {filters.regions.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
@@ -175,7 +175,7 @@ function FilterBar({ filters, active, onChange, onReset }: {
         value={active.store}
         onChange={e => onChange({ ...active, store: e.target.value })}
         data-testid="select-filter-store"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
       >
         <option value="" className="bg-slate-900">All Stores</option>
         {filters.stores.map(s => <option key={s} value={s} className="bg-slate-900">{tc(s)}</option>)}
@@ -184,7 +184,7 @@ function FilterBar({ filters, active, onChange, onReset }: {
         value={active.banner}
         onChange={e => onChange({ ...active, banner: e.target.value })}
         data-testid="select-filter-banner"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
       >
         <option value="" className="bg-slate-900">All Banners</option>
         {filters.banners.map(b => <option key={b} value={b} className="bg-slate-900">{tc(b)}</option>)}
@@ -193,7 +193,7 @@ function FilterBar({ filters, active, onChange, onReset }: {
         value={active.rep}
         onChange={e => onChange({ ...active, rep: e.target.value })}
         data-testid="select-filter-rep"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
       >
         <option value="" className="bg-slate-900">All Merchandisers</option>
         {filters.reps.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
@@ -202,7 +202,7 @@ function FilterBar({ filters, active, onChange, onReset }: {
         <button
           onClick={onReset}
           data-testid="button-clear-filters"
-          className="ml-auto flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs font-medium text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white"
+          className="ml-auto flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white"
         >
           <X className="h-3 w-3" /> Clear
         </button>
@@ -243,7 +243,7 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
 
   return (
     <>
-      <div className="flex flex-col gap-3 border-b border-white/[0.06] p-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-col gap-2 border-b border-white/[0.06] p-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-2">
           <Package className="h-4 w-4 text-emerald-400" />
           <h3 className="text-sm font-bold text-white">Store Performance</h3>
@@ -261,7 +261,7 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
         </div>
       </div>
 
-      <div className="max-h-[560px] overflow-auto">
+      <div className="max-h-[620px] overflow-auto">
         {visible.length === 0 ? (
           <div className="flex h-40 items-center justify-center text-sm text-slate-600">
             {rows.length === 0 ? "No task activity yet — waiting on StockFix data for pilot merchandisers." : "No tasks match your search."}
@@ -270,16 +270,16 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
           <table className="w-full min-w-[1100px] text-left text-sm">
             <thead className="sticky top-0 z-10 bg-[#0b0f1a]">
               <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                {showStoreColumn && <th className="px-4 py-2.5">Store</th>}
-                <th className="px-4 py-2.5">Article</th>
-                <th className="px-4 py-2.5">Barcode</th>
-                <th className="px-4 py-2.5 text-center">SOH</th>
-                <th className="px-4 py-2.5 text-center">WFC</th>
-                <th className="px-4 py-2.5">Action</th>
-                <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5">Reason Code</th>
-                <th className="px-4 py-2.5">Feedback</th>
-                <th className="px-4 py-2.5 text-center">Image</th>
+                {showStoreColumn && <th className="px-3 py-1.5">Store</th>}
+                <th className="px-3 py-1.5">Article</th>
+                <th className="px-3 py-1.5">Barcode</th>
+                <th className="px-3 py-1.5 text-center">SOH</th>
+                <th className="px-3 py-1.5 text-center">WFC</th>
+                <th className="px-3 py-1.5">Action</th>
+                <th className="px-3 py-1.5">Status</th>
+                <th className="px-3 py-1.5">Reason Code</th>
+                <th className="px-3 py-1.5">Feedback</th>
+                <th className="px-3 py-1.5 text-center">Image</th>
               </tr>
             </thead>
             <tbody>
@@ -287,21 +287,21 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
                 <tr key={`${r.uniqueId}-${i}`} className="border-t border-white/[0.04] transition-colors hover:bg-white/[0.03]" data-testid={`row-task-${r.uniqueId}`}>
                   {showStoreColumn && (
                     <td
-                      className={`px-4 py-2.5 font-semibold text-white ${onSelectStore ? "cursor-pointer hover:text-cyan-400" : ""}`}
+                      className={`px-3 py-1.5 font-semibold text-white ${onSelectStore ? "cursor-pointer hover:text-cyan-400" : ""}`}
                       onClick={() => onSelectStore?.(r.storeName)}
                     >
                       {tc(r.storeName)}
                     </td>
                   )}
-                  <td className="max-w-[220px] truncate px-4 py-2.5 text-slate-300" title={r.articleDescription}>{r.articleDescription || "—"}</td>
-                  <td className="px-4 py-2.5 font-mono text-[11px] text-slate-400">{r.barcode || "—"}</td>
-                  <td className="px-4 py-2.5 text-center tabular-nums text-slate-300">{r.storeSoh ?? "—"}</td>
-                  <td className="px-4 py-2.5 text-center tabular-nums text-slate-300">{r.storeWfc ?? "—"}</td>
-                  <td className="max-w-[160px] truncate px-4 py-2.5 text-slate-300" title={r.action}>{r.action || "—"}</td>
-                  <td className="px-4 py-2.5"><StatusBadge status={r.actionStatus} /></td>
-                  <td className="px-4 py-2.5 text-slate-400">{r.reasonCode || "—"}</td>
-                  <td className="max-w-[200px] truncate px-4 py-2.5 text-slate-400" title={r.feedback}>{r.feedback || "—"}</td>
-                  <td className="px-4 py-2.5 text-center">
+                  <td className="max-w-[220px] truncate px-3 py-1.5 text-slate-300" title={r.articleDescription}>{r.articleDescription || "—"}</td>
+                  <td className="px-3 py-1.5 font-mono text-[11px] text-slate-400">{r.barcode || "—"}</td>
+                  <td className="px-3 py-1.5 text-center tabular-nums text-slate-300">{r.storeSoh ?? "—"}</td>
+                  <td className="px-3 py-1.5 text-center tabular-nums text-slate-300">{r.storeWfc ?? "—"}</td>
+                  <td className="max-w-[160px] truncate px-3 py-1.5 text-slate-300" title={r.action}>{r.action || "—"}</td>
+                  <td className="px-3 py-1.5"><StatusBadge status={r.actionStatus} /></td>
+                  <td className="px-3 py-1.5 text-slate-400">{r.reasonCode || "—"}</td>
+                  <td className="max-w-[200px] truncate px-3 py-1.5 text-slate-400" title={r.feedback}>{r.feedback || "—"}</td>
+                  <td className="px-3 py-1.5 text-center">
                     {r.imageUrl ? (
                       <a href={r.imageUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-image-${r.uniqueId}`} className="inline-flex text-cyan-400 hover:text-cyan-300">
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -317,7 +317,7 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
         )}
       </div>
       {visible.length < filtered.length && (
-        <div className="flex justify-center border-t border-white/[0.06] p-3">
+        <div className="flex justify-center border-t border-white/[0.06] p-2">
           <button
             onClick={() => setPage(p => p + 1)}
             data-testid="button-load-more-tasks"
@@ -339,22 +339,22 @@ function BreakdownTable({ title, icon: Icon, accent, rows }: {
       initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
     >
-      <div className="flex items-center gap-2 border-b border-white/[0.06] p-5">
+      <div className="flex items-center gap-2 border-b border-white/[0.06] p-3">
         <Icon className={`h-4 w-4 ${accent}`} />
         <h3 className="text-sm font-bold text-white">{title}</h3>
         <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{rows.length}</span>
       </div>
-      <div className="max-h-[280px] overflow-y-auto">
+      <div className="max-h-[220px] overflow-y-auto">
         {rows.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-slate-600">No data yet</div>
+          <div className="flex h-24 items-center justify-center text-sm text-slate-600">No data yet</div>
         ) : (
           <table className="w-full text-left text-sm">
             <tbody>
               {rows.map(r => (
                 <tr key={r.label} className="border-t border-white/[0.04] first:border-t-0">
-                  <td className="px-5 py-2.5 font-medium text-slate-300">{tc(r.label)}</td>
-                  <td className="px-5 py-2.5 text-right text-[11px] text-slate-500 tabular-nums">{fmtNum(r.completed)}/{fmtNum(r.total)}</td>
-                  <td className="w-32 px-5 py-2.5"><GlowBar rate={r.captureRate} /></td>
+                  <td className="px-4 py-1.5 font-medium text-slate-300">{tc(r.label)}</td>
+                  <td className="px-4 py-1.5 text-right text-[11px] text-slate-500 tabular-nums">{fmtNum(r.completed)}/{fmtNum(r.total)}</td>
+                  <td className="w-32 px-4 py-1.5"><GlowBar rate={r.captureRate} /></td>
                 </tr>
               ))}
             </tbody>
@@ -371,32 +371,32 @@ function MerchRankTable({ title, icon: Icon, accent, rows }: { title: string; ic
       initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
     >
-      <div className="flex items-center gap-2 border-b border-white/[0.06] p-5">
+      <div className="flex items-center gap-2 border-b border-white/[0.06] p-3">
         <Icon className={`h-4 w-4 ${accent}`} />
         <h3 className="text-sm font-bold text-white">{title}</h3>
       </div>
       <div className="overflow-x-auto">
         {rows.length === 0 ? (
-          <div className="flex h-32 items-center justify-center text-sm text-slate-600">No data yet</div>
+          <div className="flex h-24 items-center justify-center text-sm text-slate-600">No data yet</div>
         ) : (
           <table className="w-full min-w-[420px] text-left text-sm">
             <thead>
               <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                <th className="px-5 py-2.5">Merchandiser</th>
-                <th className="px-5 py-2.5">Line Manager</th>
-                <th className="px-5 py-2.5">Region</th>
-                <th className="px-5 py-2.5 text-center">% Stores</th>
-                <th className="px-5 py-2.5">% Items</th>
+                <th className="px-4 py-1.5">Merchandiser</th>
+                <th className="px-4 py-1.5">Line Manager</th>
+                <th className="px-4 py-1.5">Region</th>
+                <th className="px-4 py-1.5 text-center">% Stores</th>
+                <th className="px-4 py-1.5">% Items</th>
               </tr>
             </thead>
             <tbody>
               {rows.map(r => (
                 <tr key={r.name} className="border-t border-white/[0.04]" data-testid={`row-merch-${r.name}`}>
-                  <td className="px-5 py-2.5 font-semibold text-white">{tc(r.name)}</td>
-                  <td className="px-5 py-2.5 text-slate-400">{r.lineManager ? tc(r.lineManager) : "—"}</td>
-                  <td className="px-5 py-2.5 text-slate-400">{r.region ? tc(r.region) : "—"}</td>
-                  <td className="px-5 py-2.5 text-center tabular-nums text-slate-300">{r.pctStoresActioned}%</td>
-                  <td className="px-5 py-2.5"><GlowBar rate={r.pctItemsActioned} /></td>
+                  <td className="px-4 py-1.5 font-semibold text-white">{tc(r.name)}</td>
+                  <td className="px-4 py-1.5 text-slate-400">{r.lineManager ? tc(r.lineManager) : "—"}</td>
+                  <td className="px-4 py-1.5 text-slate-400">{r.region ? tc(r.region) : "—"}</td>
+                  <td className="px-4 py-1.5 text-center tabular-nums text-slate-300">{r.pctStoresActioned}%</td>
+                  <td className="px-4 py-1.5"><GlowBar rate={r.pctItemsActioned} /></td>
                 </tr>
               ))}
             </tbody>
@@ -418,23 +418,23 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
   const storesCovered = new Set(data.taskDetail.map(t => t.storeName)).size;
 
   return (
-    <div className="mx-auto max-w-[1500px] px-6 py-8 md:px-10">
+    <div className="mx-auto max-w-[1600px] px-5 py-4 md:px-8">
       {/* Hero header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="mb-6 flex flex-col gap-4 md:flex-row md:items-end md:justify-between"
+        className="mb-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
       >
         <div>
-          <div className="mb-3 flex items-center gap-3">
-            <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-9 w-auto rounded-md shadow-lg shadow-black/40" data-testid="img-retailer-logo" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Merchandiser Pilot</span>
+          <div className="mb-1.5 flex items-center gap-2">
+            <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-6 w-auto rounded-md shadow-lg shadow-black/40" data-testid="img-retailer-logo" />
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Merchandiser Pilot</span>
           </div>
-          <h1 className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-4xl font-extrabold tracking-tight text-transparent">
+          <h1 className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">
             Field Coverage Overview
           </h1>
-          <p className="mt-2 text-sm text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-500">
             Live StockFix task performance across {fmtNum(totalMerchandisers)} merchandisers in Shoprite &amp; Checkers stores
             {data.latestWeek && <> · Week ending {fmtDate(data.latestWeek)}</>}
           </p>
@@ -444,7 +444,7 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
       <FilterBar filters={data.filters} active={filters} onChange={onFilterChange} onReset={onFilterReset} />
 
       {/* KPI grid */}
-      <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <div className="mb-3 grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
         <KpiTile icon={Users} label="Active Merchandisers" value={fmtNum(activeReps)} sub={`of ${fmtNum(totalMerchandisers)} merchandisers`} accent="from-cyan-500 to-blue-600" delay={0} />
         <KpiTile icon={ClipboardCheck} label="Tasks Logged" value={fmtNum(data.summary.stockFix.total)} sub="total StockFix tasks" accent="from-violet-500 to-purple-600" delay={0.05} />
         <KpiTile icon={CheckCircle2} label="Completed" value={fmtNum(data.summary.stockFix.completed)} sub={`${data.summary.stockFix.captureRate}% rate`} accent="from-emerald-500 to-teal-600" delay={0.1} />
@@ -454,7 +454,7 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
       </div>
 
       {/* Manager / Region breakdown */}
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mb-3 grid grid-cols-1 gap-2.5 lg:grid-cols-2">
         <BreakdownTable
           title="% Captured by Manager" icon={Users} accent="text-cyan-400"
           rows={data.managerBreakdown.map(m => ({ label: m.manager, total: m.total, completed: m.completed, captureRate: m.captureRate }))}
@@ -466,7 +466,7 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
       </div>
 
       {/* Top 5 / Bottom 5 merchandisers */}
-      <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="mb-3 grid grid-cols-1 gap-2.5 lg:grid-cols-2">
         <MerchRankTable title="Top 5 Merchandisers — Capture %" icon={TrendingUp} accent="text-emerald-400" rows={data.top5Merchandisers} />
         <MerchRankTable title="Bottom 5 Merchandisers — Capture %" icon={TrendingDown} accent="text-rose-400" rows={data.bottom5Merchandisers} />
       </div>
@@ -489,58 +489,58 @@ function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: Tas
   }));
 
   return (
-    <div className="mx-auto max-w-[1500px] px-6 py-8 md:px-10">
+    <div className="mx-auto max-w-[1600px] px-5 py-4 md:px-8">
       <motion.button
         initial={{ opacity: 0 }} animate={{ opacity: 1 }}
         onClick={onBack}
         data-testid="button-back-overview"
-        className="mb-6 flex items-center gap-2 text-xs font-semibold text-slate-400 transition-colors hover:text-cyan-400"
+        className="mb-3 flex items-center gap-2 text-xs font-semibold text-slate-400 transition-colors hover:text-cyan-400"
       >
         <ArrowLeft className="h-3.5 w-3.5" /> Back to overview
       </motion.button>
 
       <motion.div
         initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
-        className="mb-6 flex flex-col gap-6 rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-transparent p-7 backdrop-blur-xl md:flex-row md:items-center md:justify-between"
+        className="mb-3 flex flex-col gap-3 rounded-2xl border border-white/[0.06] bg-gradient-to-br from-white/[0.04] to-transparent p-4 backdrop-blur-xl md:flex-row md:items-center md:justify-between"
       >
         <div>
-          <div className="mb-2 flex items-center gap-2">
-            <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-6 w-auto rounded shadow shadow-black/40" />
+          <div className="mb-1.5 flex items-center gap-2">
+            <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-5 w-auto rounded shadow shadow-black/40" />
             <StoreIcon className="h-4 w-4 text-cyan-400" />
-            <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Store Detail</span>
+            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Store Detail</span>
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight text-white" data-testid="text-store-name">{tc(store.name)}</h1>
-          <p className="mt-2 text-sm text-slate-500">{store.reps.length} merchandiser{store.reps.length !== 1 ? "s" : ""} assigned</p>
+          <h1 className="text-xl font-extrabold tracking-tight text-white" data-testid="text-store-name">{tc(store.name)}</h1>
+          <p className="mt-1 text-xs text-slate-500">{store.reps.length} merchandiser{store.reps.length !== 1 ? "s" : ""} assigned</p>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-center">
-            <div className="text-2xl font-extrabold text-white tabular-nums">{fmtNum(store.tasks)}</div>
+            <div className="text-xl font-extrabold text-white tabular-nums">{fmtNum(store.tasks)}</div>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Tasks</div>
           </div>
-          <div className="h-10 w-px bg-white/10" />
+          <div className="h-8 w-px bg-white/10" />
           <div className="text-center">
-            <div className="text-2xl font-extrabold text-emerald-400 tabular-nums">{fmtNum(store.completed)}</div>
+            <div className="text-xl font-extrabold text-emerald-400 tabular-nums">{fmtNum(store.completed)}</div>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Completed</div>
           </div>
-          <div className="h-10 w-px bg-white/10" />
+          <div className="h-8 w-px bg-white/10" />
           <div className="text-center">
-            <div className={`text-2xl font-extrabold tabular-nums ${rateText(store.captureRate)}`}>{store.captureRate}%</div>
+            <div className={`text-xl font-extrabold tabular-nums ${rateText(store.captureRate)}`}>{store.captureRate}%</div>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Capture Rate</div>
           </div>
         </div>
       </motion.div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4">
+      <div className="mb-3 grid grid-cols-1 gap-2.5">
         <motion.div
           initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
-          className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-6 backdrop-blur-xl"
+          className="rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 backdrop-blur-xl"
         >
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-2 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-violet-400" />
             <h3 className="text-sm font-bold text-white">Tasks by Merchandiser</h3>
           </div>
           {repChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height={260}>
+            <ResponsiveContainer width="100%" height={200}>
               <BarChart data={repChartData} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                 <CartesianGrid stroke="rgba(255,255,255,0.05)" vertical={false} />
                 <XAxis dataKey="name" tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
@@ -554,16 +554,16 @@ function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: Tas
               </BarChart>
             </ResponsiveContainer>
           ) : (
-            <div className="flex h-[260px] items-center justify-center text-sm text-slate-600">No merchandiser data yet</div>
+            <div className="flex h-[200px] items-center justify-center text-sm text-slate-600">No merchandiser data yet</div>
           )}
         </motion.div>
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.15 }}
-        className="mb-6 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
+        className="mb-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
       >
-        <div className="flex items-center gap-2 border-b border-white/[0.06] p-5">
+        <div className="flex items-center gap-2 border-b border-white/[0.06] p-3">
           <Users className="h-4 w-4 text-cyan-400" />
           <h3 className="text-sm font-bold text-white">Merchandiser Breakdown</h3>
           <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{store.reps.length}</span>
@@ -572,19 +572,19 @@ function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: Tas
           <table className="w-full text-left text-sm">
             <thead>
               <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                <th className="px-5 py-2.5">Merchandiser</th>
-                <th className="px-5 py-2.5 text-center">Tasks</th>
-                <th className="px-5 py-2.5 text-center">Done</th>
-                <th className="px-5 py-2.5">Capture Rate</th>
+                <th className="px-4 py-1.5">Merchandiser</th>
+                <th className="px-4 py-1.5 text-center">Tasks</th>
+                <th className="px-4 py-1.5 text-center">Done</th>
+                <th className="px-4 py-1.5">Capture Rate</th>
               </tr>
             </thead>
             <tbody>
               {[...store.reps].sort((a, b) => b.tasks - a.tasks).map(r => (
                 <tr key={r.name} className="border-t border-white/[0.04] transition-colors hover:bg-white/[0.03]" data-testid={`row-rep-${r.name}`}>
-                  <td className="px-5 py-3 font-semibold text-white">{tc(r.name)}</td>
-                  <td className="px-5 py-3 text-center text-slate-400 tabular-nums">{fmtNum(r.tasks)}</td>
-                  <td className="px-5 py-3 text-center font-semibold text-emerald-400 tabular-nums">{fmtNum(r.completed)}</td>
-                  <td className="px-5 py-3"><GlowBar rate={r.captureRate} /></td>
+                  <td className="px-4 py-2 font-semibold text-white">{tc(r.name)}</td>
+                  <td className="px-4 py-2 text-center text-slate-400 tabular-nums">{fmtNum(r.tasks)}</td>
+                  <td className="px-4 py-2 text-center font-semibold text-emerald-400 tabular-nums">{fmtNum(r.completed)}</td>
+                  <td className="px-4 py-2"><GlowBar rate={r.captureRate} /></td>
                 </tr>
               ))}
             </tbody>
