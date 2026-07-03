@@ -374,6 +374,7 @@ function generateSamplePilotReport(): PilotReport {
 
 const TASK_CSV_COLUMNS: { key: keyof TaskDetailRow; header: string }[] = [
   { key: "storeName", header: "Store" },
+  { key: "repName", header: "Merchandiser" },
   { key: "articleDescription", header: "Article" },
   { key: "barcode", header: "Barcode" },
   { key: "storeSoh", header: "SOH" },
@@ -416,6 +417,7 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true, sampleMo
     const q = search.trim().toUpperCase();
     return rows.filter(r =>
       r.storeName.toUpperCase().includes(q) ||
+      (r.repName ?? "").toUpperCase().includes(q) ||
       r.articleDescription.toUpperCase().includes(q) ||
       r.barcode.toUpperCase().includes(q)
     );
@@ -451,7 +453,7 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true, sampleMo
               <input
                 value={search}
                 onChange={e => { setSearch(e.target.value); setPage(0); }}
-                placeholder="Search store, article, barcode..."
+                placeholder="Search store, merchandiser, article, barcode..."
                 data-testid="input-search-tasks"
                 className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-slate-600 outline-none focus:border-cyan-500/50 sm:w-64"
               />
@@ -466,10 +468,11 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true, sampleMo
             {rows.length === 0 ? "No task activity yet — waiting on StockFix data for pilot merchandisers." : "No tasks match your search."}
           </div>
         ) : (
-          <table className="w-full min-w-[1100px] text-left text-sm">
+          <table className="w-full min-w-[1250px] text-left text-sm">
             <thead className="sticky top-0 z-10 bg-[#0b0f1a]">
               <tr className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                 {showStoreColumn && <th className="px-3 py-1.5">Store</th>}
+                <th className="px-3 py-1.5">Merchandiser</th>
                 <th className="px-3 py-1.5">Article</th>
                 <th className="px-3 py-1.5">Barcode</th>
                 <th className="px-3 py-1.5 text-center">SOH</th>
@@ -498,6 +501,7 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true, sampleMo
                       <td className="px-3 py-1.5 font-semibold text-white">{tc(r.storeName)}</td>
                     )
                   )}
+                  <td className="px-3 py-1.5 text-slate-300">{r.repName ? tc(r.repName) : "—"}</td>
                   <td className="max-w-[220px] truncate px-3 py-1.5 text-slate-300" title={r.articleDescription}>{r.articleDescription || "—"}</td>
                   <td className="px-3 py-1.5 font-mono text-[11px] text-slate-400">{r.barcode || "—"}</td>
                   <td className="px-3 py-1.5 text-center tabular-nums text-slate-300">{r.storeSoh ?? "—"}</td>
