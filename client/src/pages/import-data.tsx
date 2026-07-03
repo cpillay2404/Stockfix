@@ -738,6 +738,29 @@ export default function ImportData() {
                   </>
                 )}
               </Button>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mt-4 mb-1">Merchandiser Pilot</div>
+              <Button
+                className="w-full"
+                variant="outline"
+                asChild
+                data-testid="button-export-pilot-json"
+              >
+                <a href="/api/pilot-export" download="pilot-tasks.json">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Download Pilot Data (JSON)
+                </a>
+              </Button>
+              <Button
+                className="w-full"
+                variant="outline"
+                asChild
+                data-testid="button-export-pilot-xlsx"
+              >
+                <a href="/api/pilot-export-xlsx" download>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Pilot Data (Excel)
+                </a>
+              </Button>
             </div>
           </CardContent>
         </Card>
