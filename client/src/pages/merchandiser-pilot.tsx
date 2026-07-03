@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactElement } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell, BarChart, Bar } from "recharts";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
@@ -108,7 +108,7 @@ const Svg = {
 };
 
 // ─── Sidebar SVG Icons ────────────────────────────────────
-const Icons: Record<string, JSX.Element> = {
+const Icons: Record<string, ReactElement> = {
   overview: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
@@ -890,7 +890,7 @@ function ManagersView({ data, onSelectRep }: { data: PilotReport; onSelectRep: (
                   <div style={{ textAlign: 'center' }}><span style={{ fontSize: '10px', fontWeight: 700, padding: '3px 8px', borderRadius: '20px', backgroundColor: st.bg, color: st.color }}>{st.label}</span></div>
                   <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '11px' }}>{expanded ? '▲' : '▼'}</div>
                 </div>
-                {expanded && mgr.reps.filter(r => r.stockFix).map(rep => {
+                {expanded && mgr.reps.filter((r: Merchandiser) => r.stockFix).map((rep: Merchandiser) => {
                   const rSfRate = rep.stockFix?.captureRate ?? 0;
                   return (
                     <div key={rep.name} onClick={() => onSelectRep(rep)}
@@ -1197,7 +1197,7 @@ function SettingsView({ data }: { data: PilotReport | null }) {
       <span style={{ display: 'inline-block', width: '3px', height: '13px', borderRadius: '2px', backgroundColor: color }} />{label}
     </div>
   );
-  const row = (label: string, value: React.ReactNode, last = false): JSX.Element => (
+  const row = (label: string, value: React.ReactNode, last = false): ReactElement => (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 0', borderBottom: last ? 'none' : '1px solid #f1f5f9', fontSize: '13px' }}>
       <span style={{ color: '#64748b' }}>{label}</span>
       <span style={{ fontWeight: 600, color: '#1e293b' }}>{value}</span>
