@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, timestamp, integer, doublePrecision, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, timestamp, integer, doublePrecision, boolean, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -153,7 +153,9 @@ export const pilotSnapshots = pgTable("pilot_snapshots", {
   pending: text("pending").notNull().default("0"),
   captureRate: text("capture_rate").notNull().default("0"),
   savedAt: timestamp("saved_at").defaultNow().notNull(),
-});
+}, (table) => ({
+  weekRepUnique: unique().on(table.weekEndingDate, table.repName),
+}));
 
 export const clientPasswords = pgTable("client_passwords", {
   id: serial("id").primaryKey(),
