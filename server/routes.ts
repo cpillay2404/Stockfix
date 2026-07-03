@@ -3115,7 +3115,8 @@ export async function registerRoutes(
       const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
       const filterStore   = (req.query.store   as string | undefined)?.toUpperCase();
       const filterBanner  = (req.query.banner  as string | undefined)?.toUpperCase();
-      const hasFilter = !!(filterManager || filterRegion || filterStore || filterBanner);
+      const filterRep     = (req.query.rep     as string | undefined)?.toUpperCase();
+      const hasFilter = !!(filterManager || filterRegion || filterStore || filterBanner || filterRep);
 
       // --- Fetch all pilot reps (new StockFix-only pilot list) ---
       const pilotRepsResult = await db.execute(sql`SELECT rep_name FROM pilot_reps`);
@@ -3137,12 +3138,14 @@ export async function registerRoutes(
       const allRegions  = [...new Set(dataRows.map(r => String(r.region || '').toUpperCase()).filter(Boolean))].sort();
       const allStores   = [...new Set(dataRows.map(r => String(r.store_name || '').toUpperCase()).filter(Boolean))].sort();
       const allBanners  = [...new Set(dataRows.map(r => String(r.banner || '').toUpperCase()).filter(Boolean))].sort();
+      const allReps     = [...new Set(dataRows.map(r => String(r.rep_name || '').toUpperCase()).filter(Boolean))].sort();
 
       const filteredRows = dataRows.filter(r => {
         if (filterManager && String(r.line_manager || '').toUpperCase() !== filterManager) return false;
         if (filterRegion  && String(r.region || '').toUpperCase() !== filterRegion)  return false;
         if (filterStore   && String(r.store_name || '').toUpperCase() !== filterStore)   return false;
         if (filterBanner  && String(r.banner || '').toUpperCase() !== filterBanner)  return false;
+        if (filterRep     && String(r.rep_name || '').toUpperCase() !== filterRep)     return false;
         return true;
       });
 
@@ -3338,8 +3341,8 @@ export async function registerRoutes(
       res.json({
         latestWeek,
         filters: {
-          managers: allManagers, regions: allRegions, stores: allStores, banners: allBanners,
-          active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null, banner: filterBanner || null },
+          managers: allManagers, regions: allRegions, stores: allStores, banners: allBanners, reps: allReps,
+          active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null, banner: filterBanner || null, rep: filterRep || null },
         },
         summary, merchandisers, sfClientSummary, bannerBreakdown, managerBreakdown, regionBreakdown,
         top5Merchandisers, bottom5Merchandisers, taskDetail, history,

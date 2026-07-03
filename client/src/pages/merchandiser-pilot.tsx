@@ -38,8 +38,8 @@ interface TaskDetailRow {
 interface PilotReport {
   latestWeek: string | null;
   filters: {
-    managers: string[]; regions: string[]; stores: string[]; banners: string[];
-    active: { manager: string | null; region: string | null; store: string | null; banner: string | null };
+    managers: string[]; regions: string[]; stores: string[]; banners: string[]; reps: string[];
+    active: { manager: string | null; region: string | null; store: string | null; banner: string | null; rep: string | null };
   };
   summary: { stockFix: { total: number; completed: number; captureRate: number }; activeReps: number };
   merchandisers: Merchandiser[];
@@ -59,7 +59,7 @@ interface StoreAgg {
   reps: { name: string; tasks: number; completed: number; captureRate: number }[];
 }
 
-interface Filters { manager: string; region: string; store: string; banner: string }
+interface Filters { manager: string; region: string; store: string; banner: string; rep: string }
 
 // ─── Helpers ────────────────────────────────────────────────────────
 function tc(s: string) { return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
@@ -144,7 +144,7 @@ function CustomTooltip({ active, payload, label }: any) {
 function FilterBar({ filters, active, onChange, onReset }: {
   filters: PilotReport["filters"]; active: Filters; onChange: (f: Filters) => void; onReset: () => void;
 }) {
-  const hasActive = !!(active.manager || active.region || active.store || active.banner);
+  const hasActive = !!(active.manager || active.region || active.store || active.banner || active.rep);
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
@@ -188,6 +188,15 @@ function FilterBar({ filters, active, onChange, onReset }: {
       >
         <option value="" className="bg-slate-900">All Banners</option>
         {filters.banners.map(b => <option key={b} value={b} className="bg-slate-900">{tc(b)}</option>)}
+      </select>
+      <select
+        value={active.rep}
+        onChange={e => onChange({ ...active, rep: e.target.value })}
+        data-testid="select-filter-rep"
+        className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+      >
+        <option value="" className="bg-slate-900">All Merchandisers</option>
+        {filters.reps.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
       </select>
       {hasActive && (
         <button
@@ -614,7 +623,7 @@ function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: Tas
 // ─── Root Component ─────────────────────────────────────────────────
 export default function MerchandiserPilot() {
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({ manager: "", region: "", store: "", banner: "" });
+  const [filters, setFilters] = useState<Filters>({ manager: "", region: "", store: "", banner: "", rep: "" });
 
   const { data } = useQuery<PilotReport>({
     queryKey: ["/api/pilot-report", filters],
@@ -624,6 +633,7 @@ export default function MerchandiserPilot() {
       if (filters.region) params.set("region", filters.region);
       if (filters.store) params.set("store", filters.store);
       if (filters.banner) params.set("banner", filters.banner);
+      if (filters.rep) params.set("rep", filters.rep);
       const qs = params.toString();
       const res = await fetch(`/api/pilot-report${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to load pilot report");
@@ -684,7 +694,7 @@ export default function MerchandiserPilot() {
                 onSelectStore={setSelectedStore}
                 filters={filters}
                 onFilterChange={setFilters}
-                onFilterReset={() => setFilters({ manager: "", region: "", store: "", banner: "" })}
+                onFilterReset={() => setFilters({ manager: "", region: "", store: "", banner: "", rep: "" })}
               />
             </motion.div>
           )}
