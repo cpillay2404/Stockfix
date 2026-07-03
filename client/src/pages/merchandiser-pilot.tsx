@@ -8,6 +8,7 @@ import {
   Package, Filter, X, ImageOff, ExternalLink, Download, Sparkles,
 } from "lucide-react";
 import shopriteCheckersLogo from "@assets/image_1783089822744.png";
+import meridianLogo from "@assets/Meridian_Logo_update-02_1783095474731.png";
 import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 function Hint({ label, children }: { label: string; children: React.ReactNode }) {
@@ -567,6 +568,7 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
             {data.latestWeek && <> · Week ending {fmtDate(data.latestWeek)}</>}
           </p>
         </div>
+        <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-9 w-auto self-start md:self-auto" data-testid="img-meridian-logo" />
       </motion.div>
 
       <FilterBar filters={data.filters} active={filters} onChange={onFilterChange} onReset={onFilterReset} />
@@ -657,6 +659,8 @@ function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: Tas
             <div className={`text-xl font-extrabold tabular-nums ${rateText(store.captureRate)}`}>{store.captureRate}%</div>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Capture Rate</div>
           </div>
+          <div className="h-8 w-px bg-white/10" />
+          <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-8 w-auto" data-testid="img-meridian-logo-store" />
         </div>
       </motion.div>
 
