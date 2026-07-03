@@ -635,22 +635,24 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4 }}
-        className="mb-3 flex flex-col gap-2 md:flex-row md:items-end md:justify-between"
+        className="mb-3"
       >
-        <div>
-          <div className="mb-1.5 flex items-center gap-2">
-            <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-6 w-auto rounded-md shadow-lg shadow-black/40" data-testid="img-retailer-logo" />
-            <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Merchandiser Pilot</span>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="mb-1.5 flex items-center gap-2">
+              <img src={shopriteCheckersLogo} alt="Shoprite & Checkers" className="h-6 w-auto rounded-md shadow-lg shadow-black/40" data-testid="img-retailer-logo" />
+              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-400">Merchandiser Pilot</span>
+            </div>
+            <h1 className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">
+              Field Coverage Overview
+            </h1>
           </div>
-          <h1 className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">
-            Field Coverage Overview
-          </h1>
-          <p className="mt-0.5 text-xs text-slate-500">
-            Live StockFix task performance across {fmtNum(totalMerchandisers)} merchandisers in Shoprite &amp; Checkers stores
-            {data.latestWeek && <> · Week ending {fmtDate(data.latestWeek)}</>}
-          </p>
+          <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-14 w-auto shrink-0" data-testid="img-meridian-logo" />
         </div>
-        <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-9 w-auto self-start md:self-auto" data-testid="img-meridian-logo" />
+        <p className="mt-0.5 text-xs text-slate-500">
+          Live StockFix task performance across {fmtNum(totalMerchandisers)} merchandisers in Shoprite &amp; Checkers stores
+          {data.latestWeek && <> · Week ending {fmtDate(data.latestWeek)}</>}
+        </p>
       </motion.div>
 
       <FilterBar filters={data.filters} active={filters} onChange={onFilterChange} onReset={onFilterReset} />
