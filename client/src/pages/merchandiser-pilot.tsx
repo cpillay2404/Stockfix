@@ -5,7 +5,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import {
   Users, ClipboardCheck, CheckCircle2, Gauge, Store as StoreIcon, Trophy,
   ArrowLeft, Search, ChevronRight, TrendingUp, TrendingDown,
-  Package, Filter, X, ImageOff, ExternalLink, Download, Sparkles,
+  Package, Filter, X, ImageOff, ExternalLink, Download,
 } from "lucide-react";
 import shopriteCheckersLogo from "@assets/image_1783089822744.png";
 import meridianLogo from "@assets/Meridian_Logo_update-02_1783095474731.png";
@@ -49,8 +49,8 @@ interface TaskDetailRow {
 interface PilotReport {
   latestWeek: string | null;
   filters: {
-    managers: string[]; regions: string[]; stores: string[]; banners: string[]; reps: string[];
-    active: { manager: string | null; region: string | null; store: string | null; banner: string | null; rep: string | null };
+    managers: string[]; regions: string[]; stores: string[]; banners: string[]; reps: string[]; weeks: string[];
+    active: { manager: string | null; region: string | null; store: string | null; banner: string | null; rep: string | null; week: string | null };
   };
   summary: { stockFix: { total: number; completed: number; captureRate: number }; activeReps: number };
   merchandisers: Merchandiser[];
@@ -70,7 +70,7 @@ interface StoreAgg {
   reps: { name: string; tasks: number; completed: number; captureRate: number }[];
 }
 
-interface Filters { manager: string; region: string; store: string; banner: string; rep: string }
+interface Filters { manager: string; region: string; store: string; banner: string; rep: string; week: string }
 
 // ─── Helpers ────────────────────────────────────────────────────────
 function tc(s: string) { return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
@@ -155,7 +155,7 @@ function CustomTooltip({ active, payload, label }: any) {
 function FilterBar({ filters, active, onChange, onReset }: {
   filters: PilotReport["filters"]; active: Filters; onChange: (f: Filters) => void; onReset: () => void;
 }) {
-  const hasActive = !!(active.manager || active.region || active.store || active.banner || active.rep);
+  const hasActive = !!(active.manager || active.region || active.store || active.banner || active.rep || active.week);
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
@@ -219,6 +219,17 @@ function FilterBar({ filters, active, onChange, onReset }: {
           {filters.reps.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
         </select>
       </Hint>
+      <Hint label="Filter all data by week ending">
+        <select
+          value={active.week}
+          onChange={e => onChange({ ...active, week: e.target.value })}
+          data-testid="select-filter-week"
+          className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        >
+          <option value="" className="bg-slate-900">All Weeks</option>
+          {filters.weeks.map(w => <option key={w} value={w} className="bg-slate-900">{fmtDate(w)}</option>)}
+        </select>
+      </Hint>
       {hasActive && (
         <Hint label="Reset all filters">
           <button
@@ -243,133 +254,6 @@ function StatusBadge({ status }: { status: string }) {
       {status || "Pending"}
     </span>
   );
-}
-
-const SAMPLE_STORES = ["Shoprite Sandton City", "Checkers Cavendish Square", "Shoprite Boksburg", "Checkers Hyde Park", "Shoprite Menlyn Park"];
-const SAMPLE_ARTICLES = ["Coca-Cola 2L PET", "Jungle Oats 1kg", "Sunlight Dishwashing Liquid 750ml", "Albany Superior White Bread 700g", "Omo Auto Powder 2kg", "Ricoffy 250g Jar", "White Star Maize Meal 5kg"];
-const SAMPLE_ACTIONS = ["Restock shelf", "Reorder from DC", "Correct planogram", "Update shelf tag", "Report OOS to manager"];
-const SAMPLE_REASONS = ["Delivery delay", "Supplier shortage", "Planogram change", "High demand", "Damaged stock"];
-const SAMPLE_STATUSES = ["Completed", "Pending"];
-const SAMPLE_FEEDBACK = ["Shelf replenished from back stock", "Escalated to store manager", "Awaiting next delivery", "Corrected facings on shelf", "No stock available in DC"];
-
-function generateSampleTaskRows(count: number): TaskDetailRow[] {
-  const rows: TaskDetailRow[] = [];
-  for (let i = 0; i < count; i++) {
-    const status = SAMPLE_STATUSES[i % SAMPLE_STATUSES.length];
-    rows.push({
-      uniqueId: `sample-${i}`,
-      storeName: SAMPLE_STORES[i % SAMPLE_STORES.length],
-      repName: `Sample Merchandiser ${(i % 12) + 1}`,
-      articleDescription: SAMPLE_ARTICLES[i % SAMPLE_ARTICLES.length],
-      barcode: `60012345${(1000 + i).toString().slice(-4)}`,
-      storeSoh: (i * 7) % 40,
-      storeWfc: ((i * 3) % 12) + 1,
-      action: SAMPLE_ACTIONS[i % SAMPLE_ACTIONS.length],
-      actionStatus: status,
-      reasonCode: SAMPLE_REASONS[i % SAMPLE_REASONS.length],
-      feedback: SAMPLE_FEEDBACK[i % SAMPLE_FEEDBACK.length],
-      imageUrl: i % 3 === 0 ? "https://example.com/sample-photo.jpg" : null,
-    });
-  }
-  return rows;
-}
-
-const SAMPLE_MANAGERS = ["John Kruger", "Sarah Naidoo", "Thabo Mokoena"];
-const SAMPLE_REGIONS = ["Gauteng", "Western Cape", "KwaZulu-Natal"];
-const SAMPLE_BANNERS = ["Shoprite", "Checkers"];
-const SAMPLE_REP_NAMES = Array.from({ length: 18 }, (_, i) => `Sample Merchandiser ${i + 1}`);
-
-function seededRand(seed: number) {
-  const x = Math.sin(seed) * 10000;
-  return x - Math.floor(x);
-}
-
-function generateSamplePilotReport(): PilotReport {
-  const merchandisers: Merchandiser[] = SAMPLE_REP_NAMES.map((name, i) => {
-    const lineManager = SAMPLE_MANAGERS[i % SAMPLE_MANAGERS.length];
-    const region = SAMPLE_REGIONS[i % SAMPLE_REGIONS.length];
-    const repStores: SFStore[] = SAMPLE_STORES.slice(0, 2 + (i % 3)).map((storeName, j) => {
-      const tasks = 20 + ((i * 7 + j * 5) % 40);
-      const completed = Math.round(tasks * (0.3 + seededRand(i * 13 + j + 1) * 0.65));
-      const captureRate = tasks > 0 ? Math.round((completed / tasks) * 100) : 0;
-      return { name: storeName, tasks, completed, captureRate, clients: [SAMPLE_BANNERS[j % 2]] };
-    });
-    const tasks = repStores.reduce((s, st) => s + st.tasks, 0);
-    const completed = repStores.reduce((s, st) => s + st.completed, 0);
-    const overallRate = tasks > 0 ? Math.round((completed / tasks) * 100) : 0;
-    return {
-      name, lineManager, region, overallRate,
-      stockFix: { tasks, completed, captureRate: overallRate, stores: repStores },
-    };
-  });
-
-  const total = merchandisers.reduce((s, m) => s + (m.stockFix?.tasks ?? 0), 0);
-  const completedTotal = merchandisers.reduce((s, m) => s + (m.stockFix?.completed ?? 0), 0);
-  const captureRate = total > 0 ? Math.round((completedTotal / total) * 100) : 0;
-
-  const managerBreakdown = SAMPLE_MANAGERS.map(manager => {
-    const relevant = merchandisers.filter(m => m.lineManager === manager);
-    const t = relevant.reduce((s, m) => s + (m.stockFix?.tasks ?? 0), 0);
-    const c = relevant.reduce((s, m) => s + (m.stockFix?.completed ?? 0), 0);
-    return { manager, total: t, completed: c, captureRate: t > 0 ? Math.round((c / t) * 100) : 0 };
-  });
-
-  const regionBreakdown = SAMPLE_REGIONS.map(region => {
-    const relevant = merchandisers.filter(m => m.region === region);
-    const t = relevant.reduce((s, m) => s + (m.stockFix?.tasks ?? 0), 0);
-    const c = relevant.reduce((s, m) => s + (m.stockFix?.completed ?? 0), 0);
-    return { region, total: t, completed: c, captureRate: t > 0 ? Math.round((c / t) * 100) : 0 };
-  });
-
-  const ranked: MerchRank[] = merchandisers
-    .map(m => ({
-      name: m.name,
-      lineManager: m.lineManager,
-      region: m.region,
-      pctStoresActioned: m.stockFix && m.stockFix.stores.length > 0
-        ? Math.round((m.stockFix.stores.filter(s => s.captureRate > 0).length / m.stockFix.stores.length) * 100)
-        : 0,
-      pctItemsActioned: m.overallRate,
-    }))
-    .sort((a, b) => b.pctItemsActioned - a.pctItemsActioned);
-
-  const top5Merchandisers = ranked.slice(0, 5);
-  const bottom5Merchandisers = ranked.slice(-5).reverse();
-
-  const taskDetail: TaskDetailRow[] = generateSampleTaskRows(220).map((r, i) => ({
-    ...r,
-    repName: SAMPLE_REP_NAMES[i % SAMPLE_REP_NAMES.length],
-  }));
-
-  const history: WeekSnapshot[] = Array.from({ length: 8 }, (_, i) => {
-    const weekTasks = 400 + ((i * 37) % 200);
-    const weekCompleted = Math.round(weekTasks * (0.4 + (i % 5) * 0.1));
-    const d = new Date();
-    d.setDate(d.getDate() - (7 - i) * 7);
-    return {
-      weekEndingDate: d.toISOString().slice(0, 10),
-      repCount: SAMPLE_REP_NAMES.length,
-      totalTasks: weekTasks,
-      totalCompleted: weekCompleted,
-      captureRate: weekTasks > 0 ? Math.round((weekCompleted / weekTasks) * 100) : 0,
-    };
-  });
-
-  return {
-    latestWeek: history[history.length - 1]?.weekEndingDate ?? null,
-    filters: {
-      managers: SAMPLE_MANAGERS, regions: SAMPLE_REGIONS, stores: SAMPLE_STORES, banners: SAMPLE_BANNERS, reps: SAMPLE_REP_NAMES,
-      active: { manager: null, region: null, store: null, banner: null, rep: null },
-    },
-    summary: { stockFix: { total, completed: completedTotal, captureRate }, activeReps: merchandisers.length },
-    merchandisers,
-    managerBreakdown,
-    regionBreakdown,
-    top5Merchandisers,
-    bottom5Merchandisers,
-    taskDetail,
-    history,
-  };
 }
 
 const TASK_CSV_COLUMNS: { key: keyof TaskDetailRow; header: string }[] = [
@@ -405,8 +289,8 @@ function exportTasksToCsv(rows: TaskDetailRow[]) {
   URL.revokeObjectURL(url);
 }
 
-function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true, sampleMode = false }: {
-  rows: TaskDetailRow[]; onSelectStore?: (name: string) => void; showStoreColumn?: boolean; sampleMode?: boolean;
+function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
+  rows: TaskDetailRow[]; onSelectStore?: (name: string) => void; showStoreColumn?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
@@ -432,9 +316,6 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true, sampleMo
           <Package className="h-4 w-4 text-emerald-400" />
           <h3 className="text-sm font-bold text-white">Store Performance</h3>
           <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{fmtNum(filtered.length)}</span>
-          {sampleMode && (
-            <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">Sample data</span>
-          )}
         </div>
         <div className="flex items-center gap-2">
           <Hint label="Download the currently visible rows as a CSV file">
@@ -623,9 +504,9 @@ function MerchRankTable({ title, icon: Icon, accent, rows }: { title: string; ic
 }
 
 // ─── Overview Page ──────────────────────────────────────────────────
-function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterReset, sampleMode = false }: {
+function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterReset }: {
   data: PilotReport; onSelectStore: (name: string) => void;
-  filters: Filters; onFilterChange: (f: Filters) => void; onFilterReset: () => void; sampleMode?: boolean;
+  filters: Filters; onFilterChange: (f: Filters) => void; onFilterReset: () => void;
 }) {
   const totalMerchandisers = data.merchandisers.length;
   const activeReps = data.summary.activeReps;
@@ -694,14 +575,14 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.1 }}
         className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
       >
-        <TaskDetailTable rows={data.taskDetail} onSelectStore={onSelectStore} sampleMode={sampleMode} />
+        <TaskDetailTable rows={data.taskDetail} onSelectStore={onSelectStore} />
       </motion.div>
     </div>
   );
 }
 
 // ─── Store Detail Page ──────────────────────────────────────────────
-function StoreDetailPage({ store, tasks, onBack, sampleMode = false }: { store: StoreAgg; tasks: TaskDetailRow[]; onBack: () => void; sampleMode?: boolean }) {
+function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: TaskDetailRow[]; onBack: () => void }) {
   const repChartData = [...store.reps].sort((a, b) => b.tasks - a.tasks).slice(0, 10).map(r => ({
     name: tc(r.name).split(" ")[0], tasks: r.tasks, completed: r.completed, captureRate: r.captureRate,
   }));
@@ -818,7 +699,7 @@ function StoreDetailPage({ store, tasks, onBack, sampleMode = false }: { store: 
         initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: 0.2 }}
         className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
       >
-        <TaskDetailTable rows={tasks} showStoreColumn={false} sampleMode={sampleMode} />
+        <TaskDetailTable rows={tasks} showStoreColumn={false} />
       </motion.div>
     </div>
   );
@@ -827,11 +708,9 @@ function StoreDetailPage({ store, tasks, onBack, sampleMode = false }: { store: 
 // ─── Root Component ─────────────────────────────────────────────────
 export default function MerchandiserPilot() {
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({ manager: "", region: "", store: "", banner: "", rep: "" });
-  const [showSampleData, setShowSampleData] = useState(false);
-  const sampleReport = useMemo(() => generateSamplePilotReport(), []);
+  const [filters, setFilters] = useState<Filters>({ manager: "", region: "", store: "", banner: "", rep: "", week: "" });
 
-  const { data: liveData } = useQuery<PilotReport>({
+  const { data } = useQuery<PilotReport>({
     queryKey: ["/api/pilot-report", filters],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -840,6 +719,7 @@ export default function MerchandiserPilot() {
       if (filters.store) params.set("store", filters.store);
       if (filters.banner) params.set("banner", filters.banner);
       if (filters.rep) params.set("rep", filters.rep);
+      if (filters.week) params.set("week", filters.week);
       const qs = params.toString();
       const res = await fetch(`/api/pilot-report${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to load pilot report");
@@ -847,8 +727,6 @@ export default function MerchandiserPilot() {
     },
     staleTime: 60000,
   });
-
-  const data = showSampleData ? sampleReport : liveData;
 
   const storeList = useMemo<StoreAgg[]>(() => {
     if (!data) return [];
@@ -890,38 +768,11 @@ export default function MerchandiserPilot() {
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(ellipse_60%_50%_at_20%_-10%,rgba(34,211,238,0.10),transparent),radial-gradient(ellipse_50%_40%_at_100%_0%,rgba(139,92,246,0.10),transparent)]" />
       <div className="pointer-events-none fixed inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:48px_48px]" />
 
-      {showSampleData && (
-        <div className="sticky top-0 z-50 flex items-center justify-center gap-2 bg-amber-500/15 px-4 py-1.5 text-xs font-semibold text-amber-300 backdrop-blur-xl">
-          <Sparkles className="h-3.5 w-3.5" /> Previewing sample data — not live StockFix data
-          <button
-            onClick={() => setShowSampleData(false)}
-            data-testid="button-exit-sample-mode"
-            className="ml-2 rounded-md border border-amber-400/40 bg-amber-500/10 px-2 py-0.5 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/20"
-          >
-            Exit preview
-          </button>
-        </div>
-      )}
-
-      <Hint label={showSampleData ? "Switch back to live StockFix data" : "Preview the entire dashboard with sample data"}>
-        <button
-          onClick={() => setShowSampleData(v => !v)}
-          data-testid="button-toggle-sample-data"
-          className={`fixed bottom-5 right-5 z-50 flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-semibold shadow-2xl backdrop-blur-xl transition-colors ${
-            showSampleData
-              ? "border-amber-400/50 bg-amber-500/20 text-amber-200 hover:bg-amber-500/30"
-              : "border-white/10 bg-white/[0.06] text-slate-300 hover:bg-white/[0.12] hover:text-white"
-          }`}
-        >
-          <Sparkles className="h-3.5 w-3.5" /> {showSampleData ? "Sample mode on" : "Preview sample data"}
-        </button>
-      </Hint>
-
       <div className="relative">
         <AnimatePresence mode="wait">
           {selected ? (
             <motion.div key="store" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
-              <StoreDetailPage store={selected} tasks={selectedTasks} onBack={() => setSelectedStore(null)} sampleMode={showSampleData} />
+              <StoreDetailPage store={selected} tasks={selectedTasks} onBack={() => setSelectedStore(null)} />
             </motion.div>
           ) : (
             <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }}>
@@ -930,8 +781,7 @@ export default function MerchandiserPilot() {
                 onSelectStore={setSelectedStore}
                 filters={filters}
                 onFilterChange={setFilters}
-                onFilterReset={() => setFilters({ manager: "", region: "", store: "", banner: "", rep: "" })}
-                sampleMode={showSampleData}
+                onFilterReset={() => setFilters({ manager: "", region: "", store: "", banner: "", rep: "", week: "" })}
               />
             </motion.div>
           )}
