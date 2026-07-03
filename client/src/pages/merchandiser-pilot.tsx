@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 import {
   Users, ClipboardCheck, CheckCircle2, Gauge, Store as StoreIcon, Trophy,
-  ArrowLeft, Search, Download, FileJson, ChevronRight, TrendingUp, TrendingDown,
+  ArrowLeft, Search, ChevronRight, TrendingUp, TrendingDown,
   Package, Filter, X, ImageOff, ExternalLink,
 } from "lucide-react";
 import shopriteCheckersLogo from "@assets/image_1783089822744.png";
@@ -438,24 +438,6 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
             Live StockFix task performance across {fmtNum(totalMerchandisers)} merchandisers in Shoprite &amp; Checkers stores
             {data.latestWeek && <> · Week ending {fmtDate(data.latestWeek)}</>}
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <a
-            href="/api/pilot-export"
-            download="pilot-tasks.json"
-            data-testid="link-download-json"
-            className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-slate-300 backdrop-blur-xl transition-colors hover:bg-white/[0.08]"
-          >
-            <FileJson className="h-3.5 w-3.5" /> JSON
-          </a>
-          <a
-            href="/api/pilot-export-xlsx"
-            download
-            data-testid="link-download-excel"
-            className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg shadow-cyan-500/20 transition-transform hover:scale-[1.03]"
-          >
-            <Download className="h-3.5 w-3.5" /> Excel
-          </a>
         </div>
       </motion.div>
 
