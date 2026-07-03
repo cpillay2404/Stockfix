@@ -3413,6 +3413,32 @@ export async function registerRoutes(
     }
   });
 
+  // Analytics — filter options (clients, regions) for the analytics dashboard
+  app.get('/api/analytics/filters', async (req, res) => {
+    try {
+      const filters = await storage.getDistinctFilters();
+      res.json({ clients: filters.clients, regions: filters.regions });
+    } catch (err: any) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Analytics — trend data for reporting dashboard
+  app.get('/api/analytics/trends', async (req, res) => {
+    try {
+      const { client, region, weeks } = req.query as Record<string, string>;
+      const data = await storage.getTrendAnalytics({
+        client: client || undefined,
+        region: region || undefined,
+        weeks: weeks ? parseInt(weeks, 10) : undefined,
+      });
+      res.json(data);
+    } catch (err: any) {
+      console.error('Analytics trends error:', err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Merchandiser Pilot — recent activity (last completed SF tasks)
   app.get('/api/pilot-recent', async (req, res) => {
     try {

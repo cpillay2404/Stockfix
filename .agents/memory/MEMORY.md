@@ -1,0 +1,2 @@
+- [Splash screen skip list](splash-screen-skip.md) — full-page dashboards (non-mobile-nav routes) must be added to App.tsx's skipSplash list or they show a 5s branded splash first.
+- [Analytics data caveats](analytics-data-caveats.md) — tasks.action_status is almost always 'Pending' in this app; low "Completed" counts on dashboards reflect real data, not a query bug.
