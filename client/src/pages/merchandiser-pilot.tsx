@@ -8,6 +8,16 @@ import {
   Package, Filter, X, ImageOff, ExternalLink,
 } from "lucide-react";
 import shopriteCheckersLogo from "@assets/image_1783089822744.png";
+import { Tooltip as UITooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+
+function Hint({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <UITooltip delayDuration={300}>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="bottom">{label}</TooltipContent>
+    </UITooltip>
+  );
+}
 
 // ─── Types ──────────────────────────────────────────────────────────
 interface SFStore { name: string; tasks: number; completed: number; captureRate: number; clients: string[] }
@@ -153,59 +163,71 @@ function FilterBar({ filters, active, onChange, onReset }: {
       <div className="flex items-center gap-1.5 pr-1 text-xs font-semibold text-slate-400">
         <Filter className="h-3.5 w-3.5 text-cyan-400" /> Filters
       </div>
-      <select
-        value={active.manager}
-        onChange={e => onChange({ ...active, manager: e.target.value })}
-        data-testid="select-filter-manager"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
-      >
-        <option value="" className="bg-slate-900">All Line Managers</option>
-        {filters.managers.map(m => <option key={m} value={m} className="bg-slate-900">{tc(m)}</option>)}
-      </select>
-      <select
-        value={active.region}
-        onChange={e => onChange({ ...active, region: e.target.value })}
-        data-testid="select-filter-region"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
-      >
-        <option value="" className="bg-slate-900">All Regions</option>
-        {filters.regions.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
-      </select>
-      <select
-        value={active.store}
-        onChange={e => onChange({ ...active, store: e.target.value })}
-        data-testid="select-filter-store"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
-      >
-        <option value="" className="bg-slate-900">All Stores</option>
-        {filters.stores.map(s => <option key={s} value={s} className="bg-slate-900">{tc(s)}</option>)}
-      </select>
-      <select
-        value={active.banner}
-        onChange={e => onChange({ ...active, banner: e.target.value })}
-        data-testid="select-filter-banner"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
-      >
-        <option value="" className="bg-slate-900">All Banners</option>
-        {filters.banners.map(b => <option key={b} value={b} className="bg-slate-900">{tc(b)}</option>)}
-      </select>
-      <select
-        value={active.rep}
-        onChange={e => onChange({ ...active, rep: e.target.value })}
-        data-testid="select-filter-rep"
-        className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
-      >
-        <option value="" className="bg-slate-900">All Merchandisers</option>
-        {filters.reps.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
-      </select>
-      {hasActive && (
-        <button
-          onClick={onReset}
-          data-testid="button-clear-filters"
-          className="ml-auto flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white"
+      <Hint label="Filter all data by line manager">
+        <select
+          value={active.manager}
+          onChange={e => onChange({ ...active, manager: e.target.value })}
+          data-testid="select-filter-manager"
+          className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
         >
-          <X className="h-3 w-3" /> Clear
-        </button>
+          <option value="" className="bg-slate-900">All Line Managers</option>
+          {filters.managers.map(m => <option key={m} value={m} className="bg-slate-900">{tc(m)}</option>)}
+        </select>
+      </Hint>
+      <Hint label="Filter all data by region">
+        <select
+          value={active.region}
+          onChange={e => onChange({ ...active, region: e.target.value })}
+          data-testid="select-filter-region"
+          className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        >
+          <option value="" className="bg-slate-900">All Regions</option>
+          {filters.regions.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
+        </select>
+      </Hint>
+      <Hint label="Filter all data by store">
+        <select
+          value={active.store}
+          onChange={e => onChange({ ...active, store: e.target.value })}
+          data-testid="select-filter-store"
+          className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        >
+          <option value="" className="bg-slate-900">All Stores</option>
+          {filters.stores.map(s => <option key={s} value={s} className="bg-slate-900">{tc(s)}</option>)}
+        </select>
+      </Hint>
+      <Hint label="Filter all data by banner">
+        <select
+          value={active.banner}
+          onChange={e => onChange({ ...active, banner: e.target.value })}
+          data-testid="select-filter-banner"
+          className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        >
+          <option value="" className="bg-slate-900">All Banners</option>
+          {filters.banners.map(b => <option key={b} value={b} className="bg-slate-900">{tc(b)}</option>)}
+        </select>
+      </Hint>
+      <Hint label="Filter all data by merchandiser">
+        <select
+          value={active.rep}
+          onChange={e => onChange({ ...active, rep: e.target.value })}
+          data-testid="select-filter-rep"
+          className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        >
+          <option value="" className="bg-slate-900">All Merchandisers</option>
+          {filters.reps.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
+        </select>
+      </Hint>
+      {hasActive && (
+        <Hint label="Reset all filters">
+          <button
+            onClick={onReset}
+            data-testid="button-clear-filters"
+            className="ml-auto flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs font-medium text-slate-400 transition-colors hover:bg-white/[0.08] hover:text-white"
+          >
+            <X className="h-3 w-3" /> Clear
+          </button>
+        </Hint>
       )}
     </motion.div>
   );
@@ -249,16 +271,18 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
           <h3 className="text-sm font-bold text-white">Store Performance</h3>
           <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{fmtNum(filtered.length)}</span>
         </div>
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
-          <input
-            value={search}
-            onChange={e => { setSearch(e.target.value); setPage(0); }}
-            placeholder="Search store, article, barcode..."
-            data-testid="input-search-tasks"
-            className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-slate-600 outline-none focus:border-cyan-500/50 sm:w-72"
-          />
-        </div>
+        <Hint label="Search by store name, article description, or barcode">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-500" />
+            <input
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(0); }}
+              placeholder="Search store, article, barcode..."
+              data-testid="input-search-tasks"
+              className="w-full rounded-lg border border-white/10 bg-white/[0.03] py-1.5 pl-8 pr-3 text-xs text-white placeholder:text-slate-600 outline-none focus:border-cyan-500/50 sm:w-72"
+            />
+          </div>
+        </Hint>
       </div>
 
       <div className="max-h-[620px] overflow-auto">
@@ -286,12 +310,18 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
               {visible.map((r, i) => (
                 <tr key={`${r.uniqueId}-${i}`} className="border-t border-white/[0.04] transition-colors hover:bg-white/[0.03]" data-testid={`row-task-${r.uniqueId}`}>
                   {showStoreColumn && (
-                    <td
-                      className={`px-3 py-1.5 font-semibold text-white ${onSelectStore ? "cursor-pointer hover:text-cyan-400" : ""}`}
-                      onClick={() => onSelectStore?.(r.storeName)}
-                    >
-                      {tc(r.storeName)}
-                    </td>
+                    onSelectStore ? (
+                      <Hint label="View store-level detail">
+                        <td
+                          className="px-3 py-1.5 font-semibold text-white cursor-pointer hover:text-cyan-400"
+                          onClick={() => onSelectStore(r.storeName)}
+                        >
+                          {tc(r.storeName)}
+                        </td>
+                      </Hint>
+                    ) : (
+                      <td className="px-3 py-1.5 font-semibold text-white">{tc(r.storeName)}</td>
+                    )
                   )}
                   <td className="max-w-[220px] truncate px-3 py-1.5 text-slate-300" title={r.articleDescription}>{r.articleDescription || "—"}</td>
                   <td className="px-3 py-1.5 font-mono text-[11px] text-slate-400">{r.barcode || "—"}</td>
@@ -303,11 +333,15 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
                   <td className="max-w-[200px] truncate px-3 py-1.5 text-slate-400" title={r.feedback}>{r.feedback || "—"}</td>
                   <td className="px-3 py-1.5 text-center">
                     {r.imageUrl ? (
-                      <a href={r.imageUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-image-${r.uniqueId}`} className="inline-flex text-cyan-400 hover:text-cyan-300">
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </a>
+                      <Hint label="Open feedback photo in a new tab">
+                        <a href={r.imageUrl} target="_blank" rel="noopener noreferrer" data-testid={`link-image-${r.uniqueId}`} className="inline-flex text-cyan-400 hover:text-cyan-300">
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </a>
+                      </Hint>
                     ) : (
-                      <ImageOff className="mx-auto h-3.5 w-3.5 text-slate-700" />
+                      <Hint label="No photo attached">
+                        <span className="inline-flex"><ImageOff className="mx-auto h-3.5 w-3.5 text-slate-700" /></span>
+                      </Hint>
                     )}
                   </td>
                 </tr>
@@ -318,13 +352,15 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
       </div>
       {visible.length < filtered.length && (
         <div className="flex justify-center border-t border-white/[0.06] p-2">
-          <button
-            onClick={() => setPage(p => p + 1)}
-            data-testid="button-load-more-tasks"
-            className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/[0.08]"
-          >
-            Load more ({filtered.length - visible.length} remaining)
-          </button>
+          <Hint label="Show more rows">
+            <button
+              onClick={() => setPage(p => p + 1)}
+              data-testid="button-load-more-tasks"
+              className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-1.5 text-xs font-semibold text-slate-300 transition-colors hover:bg-white/[0.08]"
+            >
+              Load more ({filtered.length - visible.length} remaining)
+            </button>
+          </Hint>
         </div>
       )}
     </>
@@ -490,14 +526,16 @@ function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: Tas
 
   return (
     <div className="mx-auto max-w-[1600px] px-5 py-4 md:px-8">
-      <motion.button
-        initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-        onClick={onBack}
-        data-testid="button-back-overview"
-        className="mb-3 flex items-center gap-2 text-xs font-semibold text-slate-400 transition-colors hover:text-cyan-400"
-      >
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to overview
-      </motion.button>
+      <Hint label="Return to the pilot overview">
+        <motion.button
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          onClick={onBack}
+          data-testid="button-back-overview"
+          className="mb-3 flex items-center gap-2 text-xs font-semibold text-slate-400 transition-colors hover:text-cyan-400"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" /> Back to overview
+        </motion.button>
+      </Hint>
 
       <motion.div
         initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
