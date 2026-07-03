@@ -165,15 +165,6 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
     if (clearExisting) {
       // Snapshot pilot rep tasks to history BEFORE wiping
       console.log(`Async import [${jobId}] - Snapshotting pilot tasks to history...`);
-      const PILOT_REPS_SNAPSHOT = [
-        'PORTIA RAMAHLEKA', 'YVONNE TEBOGO MTSHANA', 'HAPPY SANGO',
-        'ITANI WISEMAN HLUNGWANE', 'MAGDELINE VILAKAZI', 'ANDILE RARA',
-        'RITO SAMBO', 'THEODO THABANG CHIDI', 'PERTUNIA MATHAPELO MORUTLOA',
-        'LINDANI RONNIE MCHUNU', 'NOMCEBO GUGULETHU KHUMALO',
-        'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
-        'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
-        'ALINA LIMAKATSO MOSEME', 'KEITHENG RACHEL',
-      ];
       try {
         await db.execute(sql`
           INSERT INTO pilot_tasks_history (
@@ -192,7 +183,7 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
             reason_code, action_taken_comment, feedback, capture_date,
             image1, image2, image3, image4, NOW()
           FROM tasks
-          WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${PILOT_REPS_SNAPSHOT.map(n => `'${n}'`).join(',')}]`)}::text[])
+          WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
           ON CONFLICT (unique_id) DO UPDATE SET
             action_status        = EXCLUDED.action_status,
             action_date          = EXCLUDED.action_date,
@@ -3117,170 +3108,73 @@ export async function registerRoutes(
     }
   });
 
-  // Merchandiser Pilot Report
-  // ── In-memory cache for SharePoint rows (TTL: 3 min) ─────────────────────
-  let _pilotCache: { allRows: any[][]; saRows: any[][]; fetchedAt: number } | null = null;
-  const PILOT_CACHE_TTL = 3 * 60 * 1000;
-  let _pilotFetching = false;
-
-  async function getPilotSheetRows(): Promise<{ allRows: any[][]; saRows: any[][] }> {
-    const now = Date.now();
-    if (_pilotCache && now - _pilotCache.fetchedAt < PILOT_CACHE_TTL) {
-      return { allRows: _pilotCache.allRows, saRows: _pilotCache.saRows };
-    }
-    if (_pilotFetching) {
-      // Another request is already fetching — wait briefly then return stale if available
-      await new Promise(r => setTimeout(r, 200));
-      if (_pilotCache) return { allRows: _pilotCache.allRows, saRows: _pilotCache.saRows };
-    }
-    _pilotFetching = true;
-    try {
-      const { findFileByName, readWorksheetRows } = await import('./onedrive.js');
-      const file = await findFileByName('Geo Rep -Merch Pilot');
-      if (!file) throw new Error('Pilot Excel file not found on OneDrive');
-      const [allRows, saRows] = await Promise.all([
-        readWorksheetRows(file.id, 'Customer Compliance'),
-        readWorksheetRows(file.id, 'Submission Answers'),
-      ]);
-      _pilotCache = { allRows, saRows, fetchedAt: Date.now() };
-      return { allRows, saRows };
-    } finally {
-      _pilotFetching = false;
-    }
-  }
-
-  // Warm the cache immediately at startup (fire-and-forget)
-  getPilotSheetRows().catch(() => {});
-
+  // Merchandiser Pilot Report (StockFix data only)
   app.get('/api/pilot-report', async (req, res) => {
     try {
-      const PILOT_REPS = [
-        'PORTIA RAMAHLEKA', 'YVONNE TEBOGO MTSHANA', 'HAPPY SANGO',
-        'ITANI WISEMAN HLUNGWANE', 'MAGDELINE VILAKAZI', 'ANDILE RARA',
-        'RITO SAMBO', 'THEODO THABANG CHIDI', 'PERTUNIA MATHAPELO MORUTLOA',
-        'LINDANI RONNIE MCHUNU', 'NOMCEBO GUGULETHU KHUMALO',
-        'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
-        'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
-        'ALINA LIMAKATSO MOSEME', 'KEITHENG RACHEL',
-      ];
-
-      const ALL_PILOT_NAMES = PILOT_REPS;
-
       const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
       const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
       const filterStore   = (req.query.store   as string | undefined)?.toUpperCase();
       const hasFilter = !!(filterManager || filterRegion || filterStore);
 
-      // --- Fetch SharePoint rows (cached) + StockFix DB in parallel ---
-      const [{ allRows, saRows }, sfResult] = await Promise.all([
-        getPilotSheetRows(),
-        db.execute(sql`
-          SELECT rep_name,
-            total_tasks::int AS tasks,
-            completed::int   AS completed
-          FROM pilot_snapshots
-          WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${ALL_PILOT_NAMES.map(n => `'${n}'`).join(',')}]`)}::text[])
-          ORDER BY rep_name
-        `),
-      ]);
+      // --- Fetch all pilot reps (new StockFix-only pilot list) ---
+      const pilotRepsResult = await db.execute(sql`SELECT rep_name FROM pilot_reps`);
+      const allPilotNames = (pilotRepsResult.rows as any[]).map(r => String(r.rep_name).trim().toUpperCase());
 
-      // --- Process Geo Rep (Customer Compliance) ---
-      // CC headers: Report Date(0), Region(1), Customer Name(2), Merchandiser(3),
-      //             Manager(4), Form Name(5), Banner(6), Form Tag(7),
-      //             Start Date(8), End Date(9), Time Gone(10), Visited(11), Compliance%(12)
-      const dataRows = allRows.slice(1).filter(r => r[3]);
-      const dates = dataRows.map(r => String(r[0] || '')).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
+      // --- Fetch StockFix task rows restricted to pilot reps ---
+      const taskRows = await db.execute(sql`
+        SELECT rep_name, store_name, client, line_manager, region, banner, action_status, week_ending_date
+        FROM tasks
+        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
+      `);
+      const dataRows = (taskRows.rows as any[]).filter(r => r.rep_name);
+
+      const dates = dataRows.map(r => String(r.week_ending_date || '')).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
       const latestWeek = dates[0] || null;
 
-      const allManagers = [...new Set(dataRows.map(r => String(r[4] || '').toUpperCase()).filter(Boolean))].sort();
-      const allRegions  = [...new Set(dataRows.map(r => String(r[1] || '').toUpperCase()).filter(Boolean))].sort();
-      const allStores   = [...new Set(dataRows.map(r => String(r[2] || '').toUpperCase()).filter(Boolean))].sort();
+      const allManagers = [...new Set(dataRows.map(r => String(r.line_manager || '').toUpperCase()).filter(Boolean))].sort();
+      const allRegions  = [...new Set(dataRows.map(r => String(r.region || '').toUpperCase()).filter(Boolean))].sort();
+      const allStores   = [...new Set(dataRows.map(r => String(r.store_name || '').toUpperCase()).filter(Boolean))].sort();
 
       const filteredRows = dataRows.filter(r => {
-        if (filterManager && String(r[4] || '').toUpperCase() !== filterManager) return false;
-        if (filterRegion  && String(r[1] || '').toUpperCase() !== filterRegion)  return false;
-        if (filterStore   && String(r[2] || '').toUpperCase() !== filterStore)   return false;
+        if (filterManager && String(r.line_manager || '').toUpperCase() !== filterManager) return false;
+        if (filterRegion  && String(r.region || '').toUpperCase() !== filterRegion)  return false;
+        if (filterStore   && String(r.store_name || '').toUpperCase() !== filterStore)   return false;
         return true;
       });
 
-      // Build Geo Rep hierarchy: rep → store → form details
-      type GRFormDetail = { formName: string; visited: boolean; compliance: number | null; date: string; banner: string };
-      type GRStore = { forms: number; visited: number; complianceSum: number; complianceCount: number; formDetails: GRFormDetail[] };
-      type GRRep   = { lineManager: string; region: string; forms: number; visited: number; complianceSum: number; complianceCount: number; submissions: number; lastDate: string; storeMap: Map<string, GRStore> };
-      const grByRep = new Map<string, GRRep>();
+      // --- Build StockFix hierarchy: rep → store → clients ---
+      type SFStore = { tasks: number; completed: number; clients: Set<string> };
+      type SFRep   = { lineManager: string; region: string; tasks: number; completed: number; storeMap: Map<string, SFStore> };
+      const sfByRep = new Map<string, SFRep>();
 
       for (const row of filteredRows) {
-        const name  = String(row[3] || '').trim().toUpperCase();
+        const name = String(row.rep_name || '').trim().toUpperCase();
         if (!name) continue;
-        const store   = String(row[2] || '').trim().toUpperCase();
-        const form    = String(row[5] || '').trim().replace(/^Merchandiser:\s*/i, '');
-        const visited = String(row[11] || '').toLowerCase() === 'yes';
-        const compVal = parseFloat(String(row[12] || '').replace('%', '')) || 0;
-        const date    = String(row[0] || '');
+        const store     = String(row.store_name || '').trim().toUpperCase();
+        const client    = String(row.client || '').trim();
+        const completed = String(row.action_status || '').toLowerCase() === 'completed';
 
-        if (!grByRep.has(name)) grByRep.set(name, {
-          lineManager: String(row[4] || '').trim(), region: String(row[1] || '').trim(),
-          forms: 0, visited: 0, complianceSum: 0, complianceCount: 0, submissions: 0, lastDate: date, storeMap: new Map(),
+        if (!sfByRep.has(name)) sfByRep.set(name, {
+          lineManager: String(row.line_manager || '').trim(), region: String(row.region || '').trim(),
+          tasks: 0, completed: 0, storeMap: new Map(),
         });
-        const grRep = grByRep.get(name)!;
-        grRep.forms++;
-        if (visited) { grRep.visited++; grRep.complianceSum += compVal; grRep.complianceCount++; }
-        if (date > grRep.lastDate) grRep.lastDate = date;
-        if (row[4]) grRep.lineManager = String(row[4]).trim();
-        if (row[1]) grRep.region = String(row[1]).trim();
-
-        if (!grRep.storeMap.has(store)) grRep.storeMap.set(store, { forms: 0, visited: 0, complianceSum: 0, complianceCount: 0, formDetails: [] });
-        const grStore = grRep.storeMap.get(store)!;
-        grStore.forms++;
-        if (visited) { grStore.visited++; grStore.complianceSum += compVal; grStore.complianceCount++; }
-        grStore.formDetails.push({ formName: form, visited, compliance: visited ? compVal : null, date, banner: String(row[6] || '') });
-      }
-
-      // Submission Answers: unique submissions per rep
-      const saData = saRows.slice(1).filter(r => r[4]);
-      const submissionsByRep = new Map<string, Set<string>>();
-      for (const row of saData) {
-        const name  = String(row[4] || '').trim().toUpperCase();
-        const subId = String(row[1] || '').trim();
-        if (!name || !subId) continue;
-        if (!submissionsByRep.has(name)) submissionsByRep.set(name, new Set());
-        submissionsByRep.get(name)!.add(subId);
-      }
-      for (const [name, subs] of submissionsByRep) {
-        if (grByRep.has(name)) grByRep.get(name)!.submissions = subs.size;
-      }
-
-      // --- Process StockFix (pilot_snapshots) ---
-      type SFStore = { tasks: number; completed: number; clients: string[] };
-      type SFRep   = { tasks: number; completed: number; storeMap: Map<string, SFStore> };
-      const sfByRep = new Map<string, SFRep>();
-      for (const row of sfResult.rows as any[]) {
-        const name      = String(row.rep_name).trim().toUpperCase();
-        const tasks     = Number(row.tasks) || 0;
-        const completed = Number(row.completed) || 0;
-        if (!sfByRep.has(name)) sfByRep.set(name, { tasks: 0, completed: 0, storeMap: new Map() });
         const sfRep = sfByRep.get(name)!;
-        sfRep.tasks += tasks; sfRep.completed += completed;
+        sfRep.tasks++;
+        if (completed) sfRep.completed++;
+        if (row.line_manager) sfRep.lineManager = String(row.line_manager).trim();
+        if (row.region) sfRep.region = String(row.region).trim();
+
+        if (!sfRep.storeMap.has(store)) sfRep.storeMap.set(store, { tasks: 0, completed: 0, clients: new Set() });
+        const sfStore = sfRep.storeMap.get(store)!;
+        sfStore.tasks++;
+        if (completed) sfStore.completed++;
+        if (client) sfStore.clients.add(client);
       }
 
-      // --- Build merged merchandiser list (restricted to original pilot reps only) ---
-      const allNames = new Set(ALL_PILOT_NAMES);
+      // --- Build merchandiser list (restricted to pilot reps only) ---
+      const allNames = new Set(allPilotNames);
       const merchandisers = [...allNames].map(name => {
-        const gr = grByRep.get(name) || null;
         const sf = sfByRep.get(name) || null;
-
-        const geoRep = gr ? {
-          forms: gr.forms, visited: gr.visited,
-          visitRate: gr.forms > 0 ? Math.round((gr.visited / gr.forms) * 100) : 0,
-          avgCompliance: gr.complianceCount > 0 ? Math.round(gr.complianceSum / gr.complianceCount) : 0,
-          submissions: gr.submissions, lineManager: gr.lineManager, region: gr.region, lastDate: gr.lastDate,
-          stores: [...gr.storeMap.entries()].map(([sName, d]) => ({
-            name: sName, forms: d.forms, visited: d.visited,
-            visitRate: d.forms > 0 ? Math.round((d.visited / d.forms) * 100) : 0,
-            avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
-            formDetails: d.formDetails,
-          })).sort((a, b) => b.forms - a.forms),
-        } : null;
 
         const stockFix = sf ? {
           tasks: sf.tasks, completed: sf.completed,
@@ -3288,16 +3182,14 @@ export async function registerRoutes(
           stores: [...sf.storeMap.entries()].map(([sName, d]) => ({
             name: sName, tasks: d.tasks, completed: d.completed,
             captureRate: d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0,
-            clients: d.clients,
+            clients: [...d.clients],
           })).sort((a, b) => b.tasks - a.tasks),
         } : null;
 
-        const totalAll = (sf?.tasks || 0) + (gr?.forms || 0);
-        const doneAll  = (sf?.completed || 0) + (gr?.visited || 0);
-        const overallRate = totalAll > 0 ? Math.round((doneAll / totalAll) * 100) : 0;
-        return { name, lineManager: gr?.lineManager || null, region: gr?.region || null, stockFix, geoRep, overallRate };
+        const overallRate = sf && sf.tasks > 0 ? Math.round((sf.completed / sf.tasks) * 100) : 0;
+        return { name, lineManager: sf?.lineManager || null, region: sf?.region || null, stockFix, overallRate };
       }).sort((a, b) => {
-        const aHas = !!(a.stockFix || a.geoRep), bHas = !!(b.stockFix || b.geoRep);
+        const aHas = !!a.stockFix, bHas = !!b.stockFix;
         if (aHas && !bHas) return -1; if (!aHas && bHas) return 1;
         return b.overallRate - a.overallRate || a.name.localeCompare(b.name);
       });
@@ -3305,69 +3197,53 @@ export async function registerRoutes(
       // --- Summary KPIs ---
       const sfTotal = [...sfByRep.values()].reduce((s, r) => s + r.tasks, 0);
       const sfDone  = [...sfByRep.values()].reduce((s, r) => s + r.completed, 0);
-      const grTotal = [...grByRep.values()].reduce((s, r) => s + r.forms, 0);
-      const grDone  = [...grByRep.values()].reduce((s, r) => s + r.visited, 0);
-      const grSubmissions = [...submissionsByRep.values()].reduce((s, set) => s + set.size, 0);
-      // Avg compliance across all visited forms (unfiltered)
-      let grCompSum = 0, grCompCount = 0;
-      for (const rep of grByRep.values()) { grCompSum += rep.complianceSum; grCompCount += rep.complianceCount; }
-      const grAvgCompliance = grCompCount > 0 ? Math.round(grCompSum / grCompCount) : 0;
       const summary = {
         stockFix: { total: sfTotal, completed: sfDone, captureRate: sfTotal > 0 ? Math.round((sfDone / sfTotal) * 100) : 0 },
-        geoRep:   { total: grTotal, visited: grDone, visitRate: grTotal > 0 ? Math.round((grDone / grTotal) * 100) : 0, avgCompliance: grAvgCompliance, submissions: grSubmissions },
-        combined: { total: sfTotal + grTotal, done: sfDone + grDone, rate: (sfTotal + grTotal) > 0 ? Math.round(((sfDone + grDone) / (sfTotal + grTotal)) * 100) : 0 },
-        activeReps: merchandisers.filter(m => m.stockFix || m.geoRep).length,
+        activeReps: merchandisers.filter(m => m.stockFix).length,
       };
 
-      // --- Client/form summary (Geo Rep) ---
-      const clientMap = new Map<string, { total: number; visited: number; complianceSum: number; complianceCount: number }>();
-      for (const row of dataRows) {
-        const form = String(row[5] || '').trim().replace(/^Merchandiser:\s*/i, '');
-        if (!form) continue;
-        const visited = String(row[11] || '').toLowerCase() === 'yes';
-        const compVal = parseFloat(String(row[12] || '').replace('%', '')) || 0;
-        if (!clientMap.has(form)) clientMap.set(form, { total: 0, visited: 0, complianceSum: 0, complianceCount: 0 });
-        const c = clientMap.get(form)!;
-        c.total++;
-        if (visited) { c.visited++; c.complianceSum += compVal; c.complianceCount++; }
-      }
-      const clientSummary = [...clientMap.entries()]
-        .map(([formName, d]) => ({
-          formName, total: d.total, visited: d.visited,
-          visitRate: d.total > 0 ? Math.round((d.visited / d.total) * 100) : 0,
-          avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
-        })).sort((a, b) => b.visited - a.visited || a.formName.localeCompare(b.formName));
-
-      // --- SF client summary (no client breakdown in pilot_snapshots) ---
-      const sfClientSummary: { client: string; tasks: number; completed: number; captureRate: number }[] = [];
-
-      // --- Banner / Retailer-chain breakdown (Geo Rep) ---
-      const bannerMap = new Map<string, { total: number; visited: number; complianceSum: number; complianceCount: number }>();
+      // --- Client summary (StockFix) ---
+      const clientMap = new Map<string, { total: number; completed: number }>();
       for (const row of filteredRows) {
-        const banner  = String(row[6] || '').trim();
+        const client = String(row.client || '').trim();
+        if (!client) continue;
+        const completed = String(row.action_status || '').toLowerCase() === 'completed';
+        if (!clientMap.has(client)) clientMap.set(client, { total: 0, completed: 0 });
+        const c = clientMap.get(client)!;
+        c.total++;
+        if (completed) c.completed++;
+      }
+      const sfClientSummary = [...clientMap.entries()]
+        .map(([client, d]) => ({
+          client, tasks: d.total, completed: d.completed,
+          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+        })).sort((a, b) => b.tasks - a.tasks);
+
+      // --- Banner breakdown (StockFix) ---
+      const bannerMap = new Map<string, { total: number; completed: number }>();
+      for (const row of filteredRows) {
+        const banner = String(row.banner || '').trim();
         if (!banner) continue;
-        const visited = String(row[11] || '').toLowerCase() === 'yes';
-        const compVal = parseFloat(String(row[12] || '').replace('%', '')) || 0;
-        if (!bannerMap.has(banner)) bannerMap.set(banner, { total: 0, visited: 0, complianceSum: 0, complianceCount: 0 });
+        const completed = String(row.action_status || '').toLowerCase() === 'completed';
+        if (!bannerMap.has(banner)) bannerMap.set(banner, { total: 0, completed: 0 });
         const b = bannerMap.get(banner)!;
         b.total++;
-        if (visited) { b.visited++; b.complianceSum += compVal; b.complianceCount++; }
+        if (completed) b.completed++;
       }
       const bannerBreakdown = [...bannerMap.entries()]
         .map(([banner, d]) => ({
-          banner, total: d.total, visited: d.visited,
-          visitRate: d.total > 0 ? Math.round((d.visited / d.total) * 100) : 0,
-          avgCompliance: d.complianceCount > 0 ? Math.round(d.complianceSum / d.complianceCount) : 0,
+          banner, total: d.total, completed: d.completed,
+          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
         })).sort((a, b) => b.total - a.total);
 
-      // --- Snapshot saving (Geo Rep data, unfiltered) ---
-      if (latestWeek && !hasFilter && grByRep.size > 0) {
-        for (const [name, d] of grByRep.entries()) {
-          const rate = d.forms > 0 ? Math.round((d.visited / d.forms) * 100) : 0;
+      // --- Snapshot saving (StockFix data, unfiltered) ---
+      if (latestWeek && !hasFilter && sfByRep.size > 0) {
+        for (const [name, d] of sfByRep.entries()) {
+          const rate = d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0;
           await db.execute(sql`
             INSERT INTO pilot_snapshots (week_ending_date, rep_name, line_manager, region, total_tasks, completed, pending, capture_rate, saved_at)
             VALUES (${latestWeek}, ${name}, ${d.lineManager || null}, ${d.region || null},
-                    ${String(d.forms)}, ${String(d.visited)}, ${String(d.forms - d.visited)}, ${String(rate)}, NOW())
+                    ${String(d.tasks)}, ${String(d.completed)}, ${String(d.tasks - d.completed)}, ${String(rate)}, NOW())
             ON CONFLICT (week_ending_date, rep_name)
             DO UPDATE SET line_manager=EXCLUDED.line_manager, region=EXCLUDED.region,
               total_tasks=EXCLUDED.total_tasks, completed=EXCLUDED.completed,
@@ -3390,7 +3266,7 @@ export async function registerRoutes(
         totalTasks: Number(r.total_tasks), totalCompleted: Number(r.total_completed), captureRate: Number(r.capture_rate),
       }));
 
-      res.json({ latestWeek, filters: { managers: allManagers, regions: allRegions, stores: allStores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } }, summary, merchandisers, clientSummary, sfClientSummary, bannerBreakdown, history });
+      res.json({ latestWeek, filters: { managers: allManagers, regions: allRegions, stores: allStores, active: { manager: filterManager || null, region: filterRegion || null, store: filterStore || null } }, summary, merchandisers, sfClientSummary, bannerBreakdown, history });
     } catch (error: any) {
       console.error('Pilot report error:', error);
       res.status(500).json({ error: error.message });
@@ -3438,15 +3314,6 @@ export async function registerRoutes(
   // Merchandiser Pilot — seed history from current tasks (run once after first deploy)
   app.post('/api/pilot-seed-history', async (req, res) => {
     try {
-      const PILOT_REPS_SEED = [
-        'PORTIA RAMAHLEKA', 'YVONNE TEBOGO MTSHANA', 'HAPPY SANGO',
-        'ITANI WISEMAN HLUNGWANE', 'MAGDELINE VILAKAZI', 'ANDILE RARA',
-        'RITO SAMBO', 'THEODO THABANG CHIDI', 'PERTUNIA MATHAPELO MORUTLOA',
-        'LINDANI RONNIE MCHUNU', 'NOMCEBO GUGULETHU KHUMALO',
-        'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
-        'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
-        'ALINA LIMAKATSO MOSEME', 'KEITHENG RACHEL',
-      ];
       const result = await db.execute(sql`
         INSERT INTO pilot_tasks_history (
           unique_id, key, client, banner, region, store_name, rep_name, line_manager,
@@ -3464,7 +3331,7 @@ export async function registerRoutes(
           reason_code, action_taken_comment, feedback, capture_date,
           image1, image2, image3, image4, NOW()
         FROM tasks
-        WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${PILOT_REPS_SEED.map(n => `'${n}'`).join(',')}]`)}::text[])
+        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
         ON CONFLICT (unique_id) DO UPDATE SET
           action_status        = EXCLUDED.action_status,
           action_date          = EXCLUDED.action_date,
@@ -3490,15 +3357,6 @@ export async function registerRoutes(
   // Merchandiser Pilot — Excel download
   app.get('/api/pilot-export-xlsx', async (req, res) => {
     try {
-      const PILOT_REPS = [
-        'PORTIA RAMAHLEKA', 'YVONNE TEBOGO MTSHANA', 'HAPPY SANGO',
-        'ITANI WISEMAN HLUNGWANE', 'MAGDELINE VILAKAZI', 'ANDILE RARA',
-        'RITO SAMBO', 'THEODO THABANG CHIDI', 'PERTUNIA MATHAPELO MORUTLOA',
-        'LINDANI RONNIE MCHUNU', 'NOMCEBO GUGULETHU KHUMALO',
-        'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
-        'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
-        'ALINA LIMAKATSO MOSEME', 'KEITHENG RACHEL',
-      ];
       const result = await db.execute(sql`
         SELECT
           unique_id          AS "Unique Id",
@@ -3534,7 +3392,7 @@ export async function registerRoutes(
           image3             AS "image3",
           image4             AS "image4"
         FROM pilot_tasks_history
-        WHERE UPPER(TRIM(rep_name)) = ANY(${sql.raw(`ARRAY[${PILOT_REPS.map(n => `'${n}'`).join(',')}]`)}::text[])
+        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
         ORDER BY rep_name, store_name, client, article_description
       `);
       const XLSX = await import('xlsx');
@@ -3553,16 +3411,6 @@ export async function registerRoutes(
 
   app.get('/api/pilot-export', async (req, res) => {
     try {
-      const PILOT_REPS = [
-        'PORTIA RAMAHLEKA', 'YVONNE TEBOGO MTSHANA', 'HAPPY SANGO',
-        'ITANI WISEMAN HLUNGWANE', 'MAGDELINE VILAKAZI', 'ANDILE RARA',
-        'RITO SAMBO', 'THEODO THABANG CHIDI', 'PERTUNIA MATHAPELO MORUTLOA',
-        'LINDANI RONNIE MCHUNU', 'NOMCEBO GUGULETHU KHUMALO',
-        'ZILUNGILE BULELWA TUKU', 'THOKOZANI NDLOVU', 'SLINDILE MNGADI',
-        'WISEMAN CELUXOLO MKHONZA', 'SIFISO MLUNGISI SIBIYA', 'NOMPUMELELO DLAMINI',
-        'ALINA LIMAKATSO MOSEME', 'KEITHENG RACHEL',
-      ];
-      const pilotRepArray = sql.raw(`ARRAY[${PILOT_REPS.map(n => `'${n}'`).join(',')}]`);
       const result = await db.execute(sql`
         SELECT DISTINCT ON ("Unique Id")
           "Unique Id", "Key", client, "BANNER", "REGION", "cleaned ss",
@@ -3603,7 +3451,7 @@ export async function registerRoutes(
             capture_date       AS "captureDa",
             image1, image2, image3, image4
           FROM tasks
-          WHERE UPPER(TRIM(rep_name)) = ANY(${pilotRepArray}::text[])
+          WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
           UNION ALL
           SELECT 2 AS _src,
             unique_id          AS "Unique Id",
@@ -3636,7 +3484,7 @@ export async function registerRoutes(
             capture_date       AS "captureDa",
             image1, image2, image3, image4
           FROM pilot_tasks_history
-          WHERE UPPER(TRIM(rep_name)) = ANY(${pilotRepArray}::text[])
+          WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
         ) combined
         ORDER BY "Unique Id", _src ASC
       `);

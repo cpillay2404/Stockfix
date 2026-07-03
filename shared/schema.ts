@@ -142,6 +142,11 @@ export const pilotTasksHistory = pgTable("pilot_tasks_history", {
   savedAt:              timestamp("saved_at").defaultNow().notNull(),
 });
 
+export const pilotReps = pgTable("pilot_reps", {
+  id: serial("id").primaryKey(),
+  repName: text("rep_name").notNull().unique(),
+});
+
 export const pilotSnapshots = pgTable("pilot_snapshots", {
   id: serial("id").primaryKey(),
   weekEndingDate: text("week_ending_date").notNull(),
