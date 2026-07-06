@@ -3395,6 +3395,19 @@ export async function registerRoutes(
     }
   });
 
+  // Performance — create indexes needed for the pilot report query (run once, idempotent)
+  app.post('/api/admin/create-perf-indexes', async (req, res) => {
+    try {
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_tasks_rep_name_upper_trim ON tasks (UPPER(TRIM(rep_name)))`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_tasks_week_ending_date ON tasks (week_ending_date)`);
+      await db.execute(sql`CREATE INDEX IF NOT EXISTS idx_pilot_reps_rep_name_upper_trim ON pilot_reps (UPPER(TRIM(rep_name)))`);
+      res.json({ created: true });
+    } catch (err: any) {
+      console.error('[PerfIndexes] error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Merchandiser Pilot — seed history from current tasks (run once after first deploy)
   app.post('/api/pilot-reps-seed', async (req, res) => {
     try {
