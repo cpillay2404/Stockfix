@@ -3110,6 +3110,9 @@ export async function registerRoutes(
   });
 
   // Merchandiser Pilot Report (StockFix data only)
+  // Pilot officially started 2026-07-01 — any task weeks before this are pre-pilot history
+  // (reps existed in the system earlier but weren't yet using StockFix) and must be excluded.
+  const PILOT_START_DATE = '2026-07-01';
   app.get('/api/pilot-report', async (req, res) => {
     try {
       const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
@@ -3124,12 +3127,13 @@ export async function registerRoutes(
       const pilotRepsResult = await db.execute(sql`SELECT rep_name FROM pilot_reps`);
       const allPilotNames = (pilotRepsResult.rows as any[]).map(r => String(r.rep_name).trim().toUpperCase());
 
-      // --- Fetch StockFix task rows restricted to pilot reps ---
+      // --- Fetch StockFix task rows restricted to pilot reps, from pilot start date onward ---
       const taskRows = await db.execute(sql`
         SELECT rep_name, store_name, client, line_manager, region, banner, action_status, week_ending_date,
                unique_id, article_description, barcode, store_soh, store_wfc, action, reason_code, feedback, image1
         FROM tasks
         WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
+          AND week_ending_date >= ${PILOT_START_DATE}
       `);
       const dataRows = (taskRows.rows as any[]).filter(r => r.rep_name);
 
@@ -3328,14 +3332,16 @@ export async function registerRoutes(
         }
       }
 
-      // --- Rolling history ---
+      // --- Rolling history (pilot weeks only, from pilot start date onward) ---
       const historyResult = await db.execute(sql`
         SELECT week_ending_date,
                COUNT(DISTINCT rep_name) as rep_count,
                SUM(total_tasks::int) as total_tasks,
                SUM(completed::int) as total_completed,
                CASE WHEN SUM(total_tasks::int) > 0 THEN ROUND(SUM(completed::int)*100.0/SUM(total_tasks::int)) ELSE 0 END as capture_rate
-        FROM pilot_snapshots GROUP BY week_ending_date ORDER BY week_ending_date DESC LIMIT 12
+        FROM pilot_snapshots
+        WHERE week_ending_date >= ${PILOT_START_DATE}
+        GROUP BY week_ending_date ORDER BY week_ending_date DESC LIMIT 12
       `);
       const history = (historyResult.rows as any[]).map(r => ({
         weekEndingDate: r.week_ending_date, repCount: Number(r.rep_count),
