@@ -3317,13 +3317,22 @@ export async function registerRoutes(
       const bottom5Merchandisers = [...activeMerch].sort((a, b) => a.pctItemsActioned - b.pctItemsActioned).slice(0, 5);
 
       // --- Snapshot saving (StockFix data, unfiltered) ---
+      // Only re-save once per week: skip entirely if this week's snapshots already exist,
+      // and always do it as a single bulk statement (never a per-rep loop) to avoid
+      // hundreds of sequential round-trips on every dashboard load.
       if (latestWeek && !hasFilter && sfByRep.size > 0) {
-        for (const [name, d] of sfByRep.entries()) {
-          const rate = d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0;
+        const existingSnapshot = await db.execute(sql`
+          SELECT 1 FROM pilot_snapshots WHERE week_ending_date = ${latestWeek} LIMIT 1
+        `);
+        if (existingSnapshot.rows.length === 0) {
+          const values = [...sfByRep.entries()].map(([name, d]) => {
+            const rate = d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0;
+            return sql`(${latestWeek}, ${name}, ${d.lineManager || null}, ${d.region || null},
+                    ${String(d.tasks)}, ${String(d.completed)}, ${String(d.tasks - d.completed)}, ${String(rate)}, NOW())`;
+          });
           await db.execute(sql`
             INSERT INTO pilot_snapshots (week_ending_date, rep_name, line_manager, region, total_tasks, completed, pending, capture_rate, saved_at)
-            VALUES (${latestWeek}, ${name}, ${d.lineManager || null}, ${d.region || null},
-                    ${String(d.tasks)}, ${String(d.completed)}, ${String(d.tasks - d.completed)}, ${String(rate)}, NOW())
+            VALUES ${sql.join(values, sql`, `)}
             ON CONFLICT (week_ending_date, rep_name)
             DO UPDATE SET line_manager=EXCLUDED.line_manager, region=EXCLUDED.region,
               total_tasks=EXCLUDED.total_tasks, completed=EXCLUDED.completed,
