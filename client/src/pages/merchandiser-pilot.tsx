@@ -461,6 +461,65 @@ function BreakdownTable({ title, icon: Icon, accent, rows }: {
   );
 }
 
+function rateBarColor(r: number) {
+  if (r >= 80) return "#34d399";
+  if (r >= 60) return "#22d3ee";
+  if (r >= 40) return "#fbbf24";
+  if (r > 0) return "#fb7185";
+  return "#475569";
+}
+
+function BreakdownBarChart({ title, icon: Icon, accent, rows }: {
+  title: string; icon: any; accent: string; rows: { label: string; total: number; completed: number; captureRate: number }[];
+}) {
+  const chartData = [...rows].sort((a, b) => b.captureRate - a.captureRate).map(r => ({
+    label: tc(r.label), captureRate: r.captureRate, completed: r.completed, total: r.total,
+  }));
+  const chartHeight = Math.max(chartData.length * 34, 60);
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+      className="rounded-2xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-xl"
+    >
+      <div className="flex items-center gap-2 border-b border-white/[0.06] p-3">
+        <Icon className={`h-4 w-4 ${accent}`} />
+        <h3 className="text-sm font-bold text-white">{title}</h3>
+        <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{rows.length}</span>
+      </div>
+      <div className="p-3" data-testid="chart-captured-by-region">
+        {chartData.length === 0 ? (
+          <div className="flex h-24 items-center justify-center text-sm text-slate-600">No data yet</div>
+        ) : (
+          <ResponsiveContainer width="100%" height={chartHeight}>
+            <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }} barCategoryGap={8}>
+              <XAxis type="number" domain={[0, 100]} hide />
+              <YAxis
+                type="category" dataKey="label" width={110}
+                tick={{ fill: "#cbd5e1", fontSize: 12, fontWeight: 500 }}
+                axisLine={false} tickLine={false}
+              />
+              <Tooltip
+                cursor={{ fill: "rgba(255,255,255,0.03)" }}
+                contentStyle={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 12 }}
+                labelStyle={{ color: "#fff", fontWeight: 600 }}
+                formatter={(value: number, _name: string, item: any) => [
+                  `${item.payload.completed.toLocaleString("en-ZA")}/${item.payload.total.toLocaleString("en-ZA")} (${value}%)`,
+                  "Captured",
+                ]}
+              />
+              <Bar dataKey="captureRate" radius={[0, 6, 6, 0]} maxBarSize={16}
+                label={{ position: "right", fill: "#94a3b8", fontSize: 11, formatter: (v: number) => `${v}%` }}
+              >
+                {chartData.map((d, i) => <Cell key={i} fill={rateBarColor(d.captureRate)} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+    </motion.div>
+  );
+}
+
 function MerchRankTable({ title, icon: Icon, accent, rows }: { title: string; icon: any; accent: string; rows: MerchRank[] }) {
   return (
     <motion.div
@@ -558,7 +617,7 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
           title="% Captured by Manager" icon={Users} accent="text-cyan-400"
           rows={data.managerBreakdown.map(m => ({ label: m.manager, total: m.total, completed: m.completed, captureRate: m.captureRate }))}
         />
-        <BreakdownTable
+        <BreakdownBarChart
           title="% Captured by Region" icon={StoreIcon} accent="text-violet-400"
           rows={data.regionBreakdown.map(r => ({ label: r.region, total: r.total, completed: r.completed, captureRate: r.captureRate }))}
         />
