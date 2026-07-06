@@ -52,7 +52,7 @@ interface PilotReport {
     managers: string[]; regions: string[]; stores: string[]; banners: string[]; reps: string[]; weeks: string[];
     active: { manager: string | null; region: string | null; store: string | null; banner: string | null; rep: string | null; week: string | null };
   };
-  summary: { stockFix: { total: number; completed: number; captureRate: number }; activeReps: number };
+  summary: { stockFix: { total: number; completed: number; captureRate: number }; activeReps: number; repsWithTasks: number };
   merchandisers: Merchandiser[];
   managerBreakdown: (BreakdownStat & { manager: string })[];
   regionBreakdown: (BreakdownStat & { region: string })[];
@@ -510,7 +510,9 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
 }) {
   const totalMerchandisers = data.merchandisers.length;
   const activeReps = data.summary.activeReps;
-  const coverage = totalMerchandisers > 0 ? Math.round((activeReps / totalMerchandisers) * 100) : 0;
+  const activeRate = totalMerchandisers > 0 ? Math.round((activeReps / totalMerchandisers) * 100) : 0;
+  const repsWithTasks = data.summary.repsWithTasks;
+  const coverage = totalMerchandisers > 0 ? Math.round((repsWithTasks / totalMerchandisers) * 100) : 0;
   const storesCovered = new Set(data.taskDetail.map(t => t.storeName)).size;
 
   return (
@@ -542,7 +544,7 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
 
       {/* KPI grid */}
       <div className="mb-3 grid grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-6">
-        <KpiTile icon={Users} label="Active Merchandisers" value={fmtNum(activeReps)} sub={`of ${fmtNum(totalMerchandisers)} merchandisers`} accent="from-cyan-500 to-blue-600" delay={0} />
+        <KpiTile icon={Users} label="Active Merchandisers" value={fmtNum(activeReps)} sub={`${activeRate}% of ${fmtNum(totalMerchandisers)} merchandisers`} accent="from-cyan-500 to-blue-600" delay={0} />
         <KpiTile icon={ClipboardCheck} label="Tasks Logged" value={fmtNum(data.summary.stockFix.total)} sub="total StockFix tasks" accent="from-violet-500 to-purple-600" delay={0.05} />
         <KpiTile icon={CheckCircle2} label="Completed" value={fmtNum(data.summary.stockFix.completed)} sub={`${data.summary.stockFix.captureRate}% rate`} accent="from-emerald-500 to-teal-600" delay={0.1} />
         <KpiTile icon={Gauge} label="Capture Rate" value={`${data.summary.stockFix.captureRate}%`} sub="overall completion" accent="from-amber-500 to-orange-600" delay={0.15} />

@@ -3230,7 +3230,8 @@ export async function registerRoutes(
       const sfDone  = [...sfByRep.values()].reduce((s, r) => s + r.completed, 0);
       const summary = {
         stockFix: { total: sfTotal, completed: sfDone, captureRate: sfTotal > 0 ? Math.round((sfDone / sfTotal) * 100) : 0 },
-        activeReps: merchandisers.filter(m => m.stockFix).length,
+        activeReps: merchandisers.filter(m => m.stockFix && m.stockFix.completed > 0).length,
+        repsWithTasks: merchandisers.filter(m => m.stockFix).length,
       };
 
       // --- Client summary (StockFix) ---
