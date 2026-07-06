@@ -2,3 +2,4 @@
 - [Analytics data caveats](analytics-data-caveats.md) — tasks.action_status is almost always 'Pending' in this app; low "Completed" counts on dashboards reflect real data, not a query bug.
 - [Sandbox environment quirks](sandbox-notes.md) — code_execution notebook var persistence, db:push interactive prompt workaround, and clearing a stray git index.lock from the main agent.
 - [Pilot dashboard store aggregation](pilot-dashboard-store-aggregation.md) — /api/pilot-report has no store rollup endpoint but does support manager/region/store/banner filters + a flat taskDetail array.
+- [Recharts bar chart scale visibility](chart-scale-visibility.md) — fixed 0-100% axis domains make low-magnitude real data (e.g. single-digit rates) render as invisible slivers; scale domain to actual data.

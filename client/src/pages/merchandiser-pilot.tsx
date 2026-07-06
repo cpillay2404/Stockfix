@@ -476,6 +476,8 @@ function BreakdownBarChart({ title, icon: Icon, accent, rows }: {
     label: tc(r.label), captureRate: r.captureRate, completed: r.completed, total: r.total,
   }));
   const chartHeight = Math.max(chartData.length * 34, 60);
+  const maxRate = Math.max(...chartData.map(d => d.captureRate), 0);
+  const axisMax = maxRate <= 0 ? 10 : Math.min(100, Math.ceil((maxRate * 1.25) / 5) * 5);
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
@@ -492,7 +494,7 @@ function BreakdownBarChart({ title, icon: Icon, accent, rows }: {
         ) : (
           <ResponsiveContainer width="100%" height={chartHeight}>
             <BarChart data={chartData} layout="vertical" margin={{ top: 0, right: 40, left: 0, bottom: 0 }} barCategoryGap={8}>
-              <XAxis type="number" domain={[0, 100]} hide />
+              <XAxis type="number" domain={[0, axisMax]} hide />
               <YAxis
                 type="category" dataKey="label" width={110}
                 tick={{ fill: "#cbd5e1", fontSize: 12, fontWeight: 500 }}
@@ -507,7 +509,7 @@ function BreakdownBarChart({ title, icon: Icon, accent, rows }: {
                   "Captured",
                 ]}
               />
-              <Bar dataKey="captureRate" radius={[0, 6, 6, 0]} maxBarSize={16}
+              <Bar dataKey="captureRate" radius={[0, 6, 6, 0]} maxBarSize={16} minPointSize={3}
                 label={{ position: "right", fill: "#94a3b8", fontSize: 11, formatter: (v: number) => `${v}%` }}
               >
                 {chartData.map((d, i) => <Cell key={i} fill={rateBarColor(d.captureRate)} />)}
