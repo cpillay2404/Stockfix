@@ -3399,23 +3399,23 @@ export async function registerRoutes(
   app.post('/api/pilot-reps-seed', async (req, res) => {
     try {
       const names: string[] = Array.isArray(pilotRepsSeed) ? pilotRepsSeed : [];
-      if (names.length === 0) {
+      const trimmedNames = Array.from(new Set(names.map(n => (n || '').trim()).filter(Boolean)));
+      if (trimmedNames.length === 0) {
         return res.status(400).json({ error: 'No pilot rep names found in seed file' });
       }
-      let inserted = 0;
-      for (const name of names) {
-        const trimmed = (name || '').trim();
-        if (!trimmed) continue;
-        const result = await db.execute(sql`
-          INSERT INTO pilot_reps (rep_name)
-          VALUES (${trimmed})
-          ON CONFLICT (rep_name) DO NOTHING
-        `);
-        inserted += result.rowCount ?? 0;
-      }
-      const totalResult = await db.execute(sql`SELECT COUNT(*)::int AS count FROM pilot_reps`);
-      const total = (totalResult.rows[0] as any)?.count ?? 0;
-      res.json({ seeded: true, namesInFile: names.length, newlyInserted: inserted, totalPilotReps: total });
+      const beforeResult = await db.execute(sql`SELECT COUNT(*)::int AS count FROM pilot_reps`);
+      const before = (beforeResult.rows[0] as any)?.count ?? 0;
+
+      const values = sql.join(trimmedNames.map(n => sql`(${n})`), sql`, `);
+      await db.execute(sql`
+        INSERT INTO pilot_reps (rep_name)
+        VALUES ${values}
+        ON CONFLICT (rep_name) DO NOTHING
+      `);
+
+      const afterResult = await db.execute(sql`SELECT COUNT(*)::int AS count FROM pilot_reps`);
+      const total = (afterResult.rows[0] as any)?.count ?? 0;
+      res.json({ seeded: true, namesInFile: trimmedNames.length, newlyInserted: total - before, totalPilotReps: total });
     } catch (err: any) {
       console.error('[PilotRepsSeed] error:', err.message);
       res.status(500).json({ error: err.message });
