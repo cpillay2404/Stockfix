@@ -14,6 +14,7 @@ import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamS
 import { db } from "./db";
 import { sql, eq, and, desc, type SQL } from "drizzle-orm";
 import { invStoreSummary, invSkuMetrics, invSyncLog } from "@shared/schema";
+import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 
 function safeParseFloat(val: string | number | null | undefined): number {
   if (val === null || val === undefined) return 0;
@@ -3395,6 +3396,32 @@ export async function registerRoutes(
   });
 
   // Merchandiser Pilot — seed history from current tasks (run once after first deploy)
+  app.post('/api/pilot-reps-seed', async (req, res) => {
+    try {
+      const names: string[] = Array.isArray(pilotRepsSeed) ? pilotRepsSeed : [];
+      if (names.length === 0) {
+        return res.status(400).json({ error: 'No pilot rep names found in seed file' });
+      }
+      let inserted = 0;
+      for (const name of names) {
+        const trimmed = (name || '').trim();
+        if (!trimmed) continue;
+        const result = await db.execute(sql`
+          INSERT INTO pilot_reps (rep_name)
+          VALUES (${trimmed})
+          ON CONFLICT (rep_name) DO NOTHING
+        `);
+        inserted += result.rowCount ?? 0;
+      }
+      const totalResult = await db.execute(sql`SELECT COUNT(*)::int AS count FROM pilot_reps`);
+      const total = (totalResult.rows[0] as any)?.count ?? 0;
+      res.json({ seeded: true, namesInFile: names.length, newlyInserted: inserted, totalPilotReps: total });
+    } catch (err: any) {
+      console.error('[PilotRepsSeed] error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   app.post('/api/pilot-seed-history', async (req, res) => {
     try {
       const result = await db.execute(sql`
