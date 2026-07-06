@@ -707,6 +707,7 @@ function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: Tas
 export default function MerchandiserPilot() {
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>({ manager: "", region: "", store: "", banner: "", rep: "", week: "" });
+  const [weekInitialized, setWeekInitialized] = useState(false);
 
   const { data } = useQuery<PilotReport>({
     queryKey: ["/api/pilot-report", filters],
@@ -721,7 +722,12 @@ export default function MerchandiserPilot() {
       const qs = params.toString();
       const res = await fetch(`/api/pilot-report${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to load pilot report");
-      return res.json();
+      const json: PilotReport = await res.json();
+      if (!weekInitialized && !filters.week && json.latestWeek) {
+        setWeekInitialized(true);
+        setFilters(prev => ({ ...prev, week: json.latestWeek! }));
+      }
+      return json;
     },
     staleTime: 60000,
   });
