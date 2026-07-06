@@ -111,4 +111,25 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: hsl(220 20% 30%);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: hsl(220 20% 40%);
+  }
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(220 20% 30%) transparent;
+  }
 }
