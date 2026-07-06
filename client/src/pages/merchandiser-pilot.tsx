@@ -427,8 +427,8 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
   );
 }
 
-function BreakdownTable({ title, icon: Icon, accent, rows }: {
-  title: string; icon: any; accent: string; rows: { label: string; total: number; completed: number; captureRate: number }[];
+function BreakdownTable({ title, icon: Icon, accent, rows, height }: {
+  title: string; icon: any; accent: string; rows: { label: string; total: number; completed: number; captureRate: number }[]; height?: number;
 }) {
   return (
     <motion.div
@@ -440,7 +440,7 @@ function BreakdownTable({ title, icon: Icon, accent, rows }: {
         <h3 className="text-sm font-bold text-white">{title}</h3>
         <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{rows.length}</span>
       </div>
-      <div className="max-h-[220px] overflow-y-auto">
+      <div className="overflow-y-auto" style={{ maxHeight: height ?? 220 }}>
         {rows.length === 0 ? (
           <div className="flex h-24 items-center justify-center text-sm text-slate-600">No data yet</div>
         ) : (
@@ -461,21 +461,29 @@ function BreakdownTable({ title, icon: Icon, accent, rows }: {
   );
 }
 
-function rateBarColor(r: number) {
-  if (r >= 80) return "#34d399";
-  if (r >= 60) return "#22d3ee";
-  if (r >= 40) return "#fbbf24";
-  if (r > 0) return "#fb7185";
-  return "#475569";
+function lerpHex(a: string, b: string, t: number) {
+  const pa = [1, 3, 5].map(i => parseInt(a.slice(i, i + 2), 16));
+  const pb = [1, 3, 5].map(i => parseInt(b.slice(i, i + 2), 16));
+  const c = pa.map((v, i) => Math.round(v + (pb[i] - v) * t));
+  return `#${c.map(v => v.toString(16).padStart(2, "0")).join("")}`;
 }
 
-function BreakdownBarChart({ title, icon: Icon, accent, rows }: {
-  title: string; icon: any; accent: string; rows: { label: string; total: number; completed: number; captureRate: number }[];
+function relativeBarColor(value: number, maxValue: number) {
+  if (value <= 0) return "#475569";
+  const t = maxValue > 0 ? Math.min(1, value / maxValue) : 0;
+  const stops = ["#fb7185", "#f59e0b", "#38bdf8", "#a78bfa"];
+  const seg = Math.min(stops.length - 2, Math.floor(t * (stops.length - 1)));
+  const localT = t * (stops.length - 1) - seg;
+  return lerpHex(stops[seg], stops[seg + 1], localT);
+}
+
+function BreakdownBarChart({ title, icon: Icon, accent, rows, height }: {
+  title: string; icon: any; accent: string; rows: { label: string; total: number; completed: number; captureRate: number }[]; height?: number;
 }) {
   const chartData = [...rows].sort((a, b) => b.captureRate - a.captureRate).map(r => ({
     label: tc(r.label), captureRate: r.captureRate, completed: r.completed, total: r.total,
   }));
-  const chartHeight = Math.max(chartData.length * 34, 60);
+  const chartHeight = height ?? Math.max(chartData.length * 34, 60);
   const maxRate = Math.max(...chartData.map(d => d.captureRate), 0);
   const axisMax = maxRate <= 0 ? 10 : Math.min(100, Math.ceil((maxRate * 1.25) / 5) * 5);
   return (
@@ -512,7 +520,7 @@ function BreakdownBarChart({ title, icon: Icon, accent, rows }: {
               <Bar dataKey="captureRate" radius={[0, 6, 6, 0]} maxBarSize={16} minPointSize={3}
                 label={{ position: "right", fill: "#94a3b8", fontSize: 11, formatter: (v: number) => `${v}%` }}
               >
-                {chartData.map((d, i) => <Cell key={i} fill={rateBarColor(d.captureRate)} />)}
+                {chartData.map((d, i) => <Cell key={i} fill={relativeBarColor(d.captureRate, maxRate)} />)}
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -575,6 +583,10 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
   const repsWithTasks = data.summary.repsWithTasks;
   const coverage = totalMerchandisers > 0 ? Math.round((repsWithTasks / totalMerchandisers) * 100) : 0;
   const storesCovered = new Set(data.taskDetail.map(t => t.storeName)).size;
+  const breakdownPanelHeight = Math.min(
+    Math.max(data.managerBreakdown.length, data.regionBreakdown.length, 1) * 34,
+    480,
+  );
 
   return (
     <div className="mx-auto max-w-[1600px] px-5 py-4 md:px-8">
@@ -618,10 +630,12 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         <BreakdownTable
           title="% Captured by Manager" icon={Users} accent="text-cyan-400"
           rows={data.managerBreakdown.map(m => ({ label: m.manager, total: m.total, completed: m.completed, captureRate: m.captureRate }))}
+          height={breakdownPanelHeight}
         />
         <BreakdownBarChart
           title="% Captured by Region" icon={StoreIcon} accent="text-violet-400"
           rows={data.regionBreakdown.map(r => ({ label: r.region, total: r.total, completed: r.completed, captureRate: r.captureRate }))}
+          height={breakdownPanelHeight}
         />
       </div>
 
