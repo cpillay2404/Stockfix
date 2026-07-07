@@ -293,19 +293,23 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
   rows: TaskDetailRow[]; onSelectStore?: (name: string) => void; showStoreColumn?: boolean;
 }) {
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "actioned" | "pending">("all");
   const [page, setPage] = useState(0);
   const pageSize = 40;
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return rows;
+    let result = rows;
+    if (statusFilter === "actioned") result = result.filter(r => r.actionStatus === "Completed");
+    else if (statusFilter === "pending") result = result.filter(r => r.actionStatus !== "Completed");
+    if (!search.trim()) return result;
     const q = search.trim().toUpperCase();
-    return rows.filter(r =>
+    return result.filter(r =>
       r.storeName.toUpperCase().includes(q) ||
       (r.repName ?? "").toUpperCase().includes(q) ||
       r.articleDescription.toUpperCase().includes(q) ||
       r.barcode.toUpperCase().includes(q)
     );
-  }, [rows, search]);
+  }, [rows, search, statusFilter]);
 
   const visible = filtered.slice(0, (page + 1) * pageSize);
 
@@ -316,6 +320,22 @@ function TaskDetailTable({ rows, onSelectStore, showStoreColumn = true }: {
           <Package className="h-4 w-4 text-emerald-400" />
           <h3 className="text-sm font-bold text-white">Store Performance</h3>
           <span className="rounded-full bg-white/[0.06] px-2 py-0.5 text-[10px] font-semibold text-slate-400">{fmtNum(filtered.length)}</span>
+          <div className="ml-1 flex items-center rounded-lg border border-white/[0.08] bg-white/[0.03] p-0.5">
+            {(["all", "actioned", "pending"] as const).map(v => (
+              <button
+                key={v}
+                onClick={() => { setStatusFilter(v); setPage(0); }}
+                data-testid={`toggle-status-${v}`}
+                className={`rounded-md px-2.5 py-1 text-[11px] font-semibold capitalize transition-all ${
+                  statusFilter === v
+                    ? v === "actioned" ? "bg-emerald-500/20 text-emerald-400" : v === "pending" ? "bg-amber-500/20 text-amber-400" : "bg-white/[0.08] text-white"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                {v === "actioned" ? "Actioned" : v === "pending" ? "Pending" : "All"}
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Hint label="Download the currently visible rows as a CSV file">
