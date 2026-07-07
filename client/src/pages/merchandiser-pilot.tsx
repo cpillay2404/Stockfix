@@ -603,7 +603,7 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         </div>
         <div className="flex items-center justify-between gap-4">
           <h1 className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">
-            Field Coverage Overview
+            StockFix Capturing Compliance
           </h1>
           <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-20 w-auto shrink-0" data-testid="img-meridian-logo" />
         </div>
