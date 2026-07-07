@@ -608,6 +608,13 @@ export async function registerRoutes(
       if (latestWeekTasks.length === 0) {
         return res.json({ skus: [] });
       }
+
+      // Only show outstanding (non-completed) tasks as critical SKUs
+      latestWeekTasks = latestWeekTasks.filter(t => t.actionStatus !== "Completed");
+
+      if (latestWeekTasks.length === 0) {
+        return res.json({ skus: [] });
+      }
       
       // Calculate sales statistics for the store
       const sellOutValues = latestWeekTasks
@@ -1696,6 +1703,14 @@ export async function registerRoutes(
       
       // Invalidate gamification cache when tasks are updated
       invalidateGamificationCache();
+
+      // Also purge dashboardStatsCache entries for this store so Critical SKUs
+      // refresh immediately after a rep completes a task (don't serve stale list)
+      for (const key of dashboardStatsCache.keys()) {
+        if (key.startsWith(`top_attention_skus_${task.storeName}`)) {
+          dashboardStatsCache.delete(key);
+        }
+      }
       
       // Send email notification only when task transitions from Pending to completed for the first time.
       // Check previous status to avoid duplicate emails on subsequent edits (e.g. adding photos/comments).
