@@ -331,6 +331,7 @@ export default function ManagerProgress() {
         {/* Leaderboard with badges - at the very top */}
         <Leaderboard 
           manager={selectedManager}
+          client={selectedClient}
           limit={15}
           showTeamStats={true}
           onRepClick={handleRepClick}

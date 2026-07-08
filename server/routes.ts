@@ -2334,8 +2334,9 @@ export async function registerRoutes(
   app.get("/api/gamification/leaderboard", async (req, res) => {
     try {
       const manager = req.query.manager as string | undefined;
+      const client = req.query.client as string | undefined;
       const limit = parseInt(req.query.limit as string) || 10;
-      const cacheKey = `leaderboard_${manager || 'all'}`;
+      const cacheKey = `leaderboard_${manager || 'all'}_${client || 'all'}`;
       
       let cachedData = getCachedGamificationStats(cacheKey);
       let allStats: RepGamificationStats[];
@@ -2351,7 +2352,7 @@ export async function registerRoutes(
         }
         
         const [repStatsRaw, streaks] = await Promise.all([
-          storage.getLeaderboardAggregated(latestWeek),
+          storage.getLeaderboardAggregated(latestWeek, client || undefined),
           storage.getRepStreaks(),
         ]);
         

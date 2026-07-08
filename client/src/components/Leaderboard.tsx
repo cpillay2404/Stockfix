@@ -45,6 +45,7 @@ interface LeaderboardData {
 
 interface LeaderboardProps {
   manager?: string;
+  client?: string;
   limit?: number;
   showTeamStats?: boolean;
   onRepClick?: (repName: string) => void;
@@ -149,12 +150,13 @@ function CompletionBar({ rate }: { rate: number }) {
   );
 }
 
-export default function Leaderboard({ manager, limit = 10, showTeamStats = true, onRepClick }: LeaderboardProps) {
+export default function Leaderboard({ manager, client, limit = 10, showTeamStats = true, onRepClick }: LeaderboardProps) {
   const { data, isLoading } = useQuery<LeaderboardData>({
-    queryKey: ["gamification-leaderboard", manager, limit],
+    queryKey: ["gamification-leaderboard", manager, client, limit],
     queryFn: async () => {
       const params = new URLSearchParams();
       if (manager) params.set('manager', manager);
+      if (client) params.set('client', client);
       params.set('limit', String(limit));
       const res = await fetch(`/api/gamification/leaderboard?${params.toString()}`);
       if (!res.ok) throw new Error("Failed to fetch leaderboard");
