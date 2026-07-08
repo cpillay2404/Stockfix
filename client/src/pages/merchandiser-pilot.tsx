@@ -49,8 +49,8 @@ interface TaskDetailRow {
 interface PilotReport {
   latestWeek: string | null;
   filters: {
-    managers: string[]; regions: string[]; stores: string[]; banners: string[]; reps: string[]; weeks: string[];
-    active: { manager: string | null; region: string | null; store: string | null; banner: string | null; rep: string | null; week: string | null };
+    managers: string[]; regions: string[]; stores: string[]; banners: string[]; reps: string[]; weeks: string[]; clients: string[];
+    active: { manager: string | null; region: string | null; store: string | null; banner: string | null; rep: string | null; week: string | null; client: string | null };
   };
   summary: { stockFix: { total: number; completed: number; captureRate: number }; activeReps: number; repsWithTasks: number };
   merchandisers: Merchandiser[];
@@ -70,7 +70,7 @@ interface StoreAgg {
   reps: { name: string; tasks: number; completed: number; captureRate: number }[];
 }
 
-interface Filters { manager: string; region: string; store: string; banner: string; rep: string; week: string }
+interface Filters { manager: string; region: string; store: string; banner: string; rep: string; week: string; client: string }
 
 // ─── Helpers ────────────────────────────────────────────────────────
 function tc(s: string) { return s.toLowerCase().replace(/\b\w/g, c => c.toUpperCase()); }
@@ -155,7 +155,7 @@ function CustomTooltip({ active, payload, label }: any) {
 function FilterBar({ filters, active, onChange, onReset }: {
   filters: PilotReport["filters"]; active: Filters; onChange: (f: Filters) => void; onReset: () => void;
 }) {
-  const hasActive = !!(active.manager || active.region || active.store || active.banner || active.rep || active.week);
+  const hasActive = !!(active.manager || active.region || active.store || active.banner || active.rep || active.week || active.client);
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}
@@ -217,6 +217,17 @@ function FilterBar({ filters, active, onChange, onReset }: {
         >
           <option value="" className="bg-slate-900">All Merchandisers</option>
           {filters.reps.map(r => <option key={r} value={r} className="bg-slate-900">{tc(r)}</option>)}
+        </select>
+      </Hint>
+      <Hint label="Filter all data by client">
+        <select
+          value={active.client}
+          onChange={e => onChange({ ...active, client: e.target.value })}
+          data-testid="select-filter-client"
+          className="rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 text-xs text-slate-300 outline-none focus:border-cyan-500/50"
+        >
+          <option value="" className="bg-slate-900">All Clients</option>
+          {filters.clients.map(c => <option key={c} value={c} className="bg-slate-900">{tc(c)}</option>)}
         </select>
       </Hint>
       <Hint label="Filter all data by week ending">
@@ -803,7 +814,7 @@ function StoreDetailPage({ store, tasks, onBack }: { store: StoreAgg; tasks: Tas
 // ─── Root Component ─────────────────────────────────────────────────
 export default function MerchandiserPilot() {
   const [selectedStore, setSelectedStore] = useState<string | null>(null);
-  const [filters, setFilters] = useState<Filters>({ manager: "", region: "", store: "", banner: "", rep: "", week: "" });
+  const [filters, setFilters] = useState<Filters>({ manager: "", region: "", store: "", banner: "", rep: "", week: "", client: "" });
   const [weekInitialized, setWeekInitialized] = useState(false);
 
   const { data } = useQuery<PilotReport>({
@@ -816,6 +827,7 @@ export default function MerchandiserPilot() {
       if (filters.banner) params.set("banner", filters.banner);
       if (filters.rep) params.set("rep", filters.rep);
       if (filters.week) params.set("week", filters.week);
+      if (filters.client) params.set("client", filters.client);
       const qs = params.toString();
       const res = await fetch(`/api/pilot-report${qs ? `?${qs}` : ""}`);
       if (!res.ok) throw new Error("Failed to load pilot report");
@@ -882,7 +894,7 @@ export default function MerchandiserPilot() {
                 onSelectStore={setSelectedStore}
                 filters={filters}
                 onFilterChange={setFilters}
-                onFilterReset={() => setFilters({ manager: "", region: "", store: "", banner: "", rep: "", week: "" })}
+                onFilterReset={() => setFilters({ manager: "", region: "", store: "", banner: "", rep: "", week: "", client: "" })}
               />
             </motion.div>
           )}
