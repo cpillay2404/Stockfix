@@ -416,7 +416,7 @@ const upload = multer({
 // Memory-based multer for small files like contacts (uses buffer instead of disk)
 const uploadMemory = multer({ 
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit for contacts
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
   fileFilter: (_req, file, cb) => {
     const allowedTypes = ['.xlsx', '.xls', '.csv'];
     const ext = path.extname(file.originalname).toLowerCase();
@@ -3061,14 +3061,13 @@ export async function registerRoutes(
   });
 
   // Restore captured task data from an Excel export (updates Completed rows only)
-  app.post("/api/import/restore-captures", upload.single('file'), async (req, res) => {
+  app.post("/api/import/restore-captures", uploadMemory.single('file'), async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
     try {
       const XLSX = await import('xlsx');
-      const workbook = XLSX.readFile(req.file.path);
+      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
       const sheet = workbook.Sheets[workbook.SheetNames[0]];
       const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-      fs.unlinkSync(req.file.path);
 
       const getValue = (row: any, ...keys: string[]) => {
         for (const key of keys) {
