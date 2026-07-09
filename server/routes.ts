@@ -3083,42 +3083,72 @@ export async function registerRoutes(
       };
 
       let restored = 0;
-      let skipped = 0;
+      let backedUp = 0;
+      const backupDate = new Date().toISOString();
 
       for (const row of rows) {
-        const actionStatus = getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status', 'actionstatus');
-        if (actionStatus.toLowerCase() !== 'completed') { skipped++; continue; }
+        const actionStatus = getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status', 'actionstatus') || 'Pending';
+        const uniqueId     = getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID');
+        if (!uniqueId) continue;
 
-        const uniqueId = getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID');
-        if (!uniqueId) { skipped++; continue; }
+        const repName      = getValue(row, 'Rep Name', 'RepName', 'rep_name');
+        const storeName    = getValue(row, 'Store Name', 'StoreName', 'store_name');
+        const weekEnding   = getValue(row, 'Week Ending Date', 'WeekEndingDate', 'week_ending_date', 'Week Ending');
+        const client       = getValue(row, 'Client', 'client');
+        const lineManager  = getValue(row, 'Line Manager', 'LineManager', 'line_manager');
+        const region       = getValue(row, 'Region', 'region');
+        const banner       = getValue(row, 'Banner', 'banner');
+        const barcode      = getValue(row, 'Barcode', 'barcode');
+        const articleDesc  = getValue(row, 'Article Description', 'ArticleDescription', 'article_description');
+        const action       = getValue(row, 'Action', 'action');
+        const reasonCode   = getValue(row, 'Reason Code', 'ReasonCode', 'reason_code');
+        const feedback     = getValue(row, 'Feedback', 'feedback', 'Comments');
+        const image1       = getValue(row, 'Image1', 'image1', 'Image 1', 'Photo 1');
+        const image2       = getValue(row, 'Image2', 'image2', 'Image 2');
+        const captureDate  = getValue(row, 'Capture Date', 'CaptureDate', 'capture_date');
+        const storeSoh     = getValue(row, 'Store SOH', 'StoreSoh', 'store_soh');
+        const storeWfc     = getValue(row, 'WFC', 'StoreWfc', 'store_wfc');
 
-        const reasonCode     = getValue(row, 'Reason Code', 'ReasonCode', 'reason_code');
-        const feedback       = getValue(row, 'Feedback', 'feedback', 'Comments');
-        const image1         = getValue(row, 'Image1', 'image1', 'Image 1', 'Photo 1');
-        const image2         = getValue(row, 'Image2', 'image2', 'Image 2');
-        const captureDate    = getValue(row, 'Capture Date', 'CaptureDate', 'capture_date');
-        const actionTaken    = getValue(row, 'Action Taken Comment', 'ActionTakenComment', 'action_taken_comment');
-        const physicalCount  = getValue(row, 'Physical Count', 'PhysicalCount', 'physical_count');
-        const variance       = getValue(row, 'Variance', 'variance');
-
+        // Save every row to pilot_captures backup table
         await db.execute(sql`
-          UPDATE tasks SET
-            action_status        = 'Completed',
-            reason_code          = CASE WHEN ${reasonCode} != '' THEN ${reasonCode} ELSE reason_code END,
-            feedback             = CASE WHEN ${feedback} != '' THEN ${feedback} ELSE feedback END,
-            image1               = CASE WHEN ${image1} != '' THEN ${image1} ELSE image1 END,
-            image2               = CASE WHEN ${image2} != '' THEN ${image2} ELSE image2 END,
-            action_taken_comment = CASE WHEN ${actionTaken} != '' THEN ${actionTaken} ELSE action_taken_comment END,
-            physical_count       = CASE WHEN ${physicalCount} != '' THEN ${physicalCount} ELSE physical_count END,
-            variance             = CASE WHEN ${variance} != '' THEN ${variance} ELSE variance END,
-            capture_date         = CASE WHEN ${captureDate} != '' THEN ${captureDate} ELSE capture_date END
-          WHERE unique_id = ${uniqueId}
+          INSERT INTO pilot_captures (
+            backup_date, week_ending_date, unique_id, rep_name, store_name, client,
+            line_manager, region, banner, barcode, article_description, action,
+            action_status, reason_code, feedback, image1, image2, capture_date,
+            store_soh, store_wfc
+          ) VALUES (
+            ${backupDate}, ${weekEnding}, ${uniqueId}, ${repName}, ${storeName}, ${client},
+            ${lineManager}, ${region}, ${banner}, ${barcode}, ${articleDesc}, ${action},
+            ${actionStatus}, ${reasonCode}, ${feedback}, ${image1}, ${image2}, ${captureDate},
+            ${storeSoh}, ${storeWfc}
+          )
         `);
-        restored++;
+        backedUp++;
+
+        // Also restore Completed status back to the live tasks table
+        if (actionStatus.toLowerCase() === 'completed') {
+          const actionTaken   = getValue(row, 'Action Taken Comment', 'ActionTakenComment', 'action_taken_comment');
+          const physicalCount = getValue(row, 'Physical Count', 'PhysicalCount', 'physical_count');
+          const variance      = getValue(row, 'Variance', 'variance');
+          await db.execute(sql`
+            UPDATE tasks SET
+              action_status        = 'Completed',
+              reason_code          = CASE WHEN ${reasonCode} != '' THEN ${reasonCode} ELSE reason_code END,
+              feedback             = CASE WHEN ${feedback} != '' THEN ${feedback} ELSE feedback END,
+              image1               = CASE WHEN ${image1} != '' THEN ${image1} ELSE image1 END,
+              image2               = CASE WHEN ${image2} != '' THEN ${image2} ELSE image2 END,
+              action_taken_comment = CASE WHEN ${actionTaken} != '' THEN ${actionTaken} ELSE action_taken_comment END,
+              physical_count       = CASE WHEN ${physicalCount} != '' THEN ${physicalCount} ELSE physical_count END,
+              variance             = CASE WHEN ${variance} != '' THEN ${variance} ELSE variance END,
+              capture_date         = CASE WHEN ${captureDate} != '' THEN ${captureDate} ELSE capture_date END
+            WHERE unique_id = ${uniqueId}
+          `);
+          restored++;
+        }
       }
 
       clearAllCaches();
-      res.json({ success: true, restored, skipped, message: `Restored ${restored} completed captures (${skipped} skipped)` });
+      res.json({ success: true, restored, backedUp, message: `Backed up ${backedUp} tasks to pilot_captures. Restored ${restored} completed captures to live data.` });
     } catch (err: any) {
       console.error("Restore captures error:", err);
       res.status(500).json({ error: err.message || "Failed to restore captures" });

@@ -4,6 +4,7 @@ import { serveStatic } from "./static";
 import { createServer } from "http";
 import path from "path";
 import { startWeeklyEmailScheduler } from "./scheduled-emails";
+import { startPilotBackupScheduler } from "./pilot-backup";
 import cors from "cors";
 
 const app = express();
@@ -122,6 +123,7 @@ app.use((req, res, next) => {
     async () => {
       log(`serving on port ${port}`);
       startWeeklyEmailScheduler();
+      startPilotBackupScheduler();
 
       // ONE-TIME STARTUP SCRIPT: Fix mis-parsed week ending dates (2026-03-12 → 2026-03-11)
       // Excel serial numbers were off by one day during import

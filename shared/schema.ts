@@ -162,6 +162,30 @@ export const pilotSnapshots = pgTable("pilot_snapshots", {
   weekRepUnique: unique().on(table.weekEndingDate, table.repName),
 }));
 
+export const pilotCaptures = pgTable("pilot_captures", {
+  id:               serial("id").primaryKey(),
+  backupDate:       timestamp("backup_date").defaultNow().notNull(),
+  weekEndingDate:   text("week_ending_date"),
+  uniqueId:         text("unique_id"),
+  repName:          text("rep_name"),
+  storeName:        text("store_name"),
+  client:           text("client"),
+  lineManager:      text("line_manager"),
+  region:           text("region"),
+  banner:           text("banner"),
+  barcode:          text("barcode"),
+  articleDescription: text("article_description"),
+  action:           text("action"),
+  actionStatus:     text("action_status"),
+  reasonCode:       text("reason_code"),
+  feedback:         text("feedback"),
+  image1:           text("image1"),
+  image2:           text("image2"),
+  captureDate:      text("capture_date"),
+  storeSoh:         text("store_soh"),
+  storeWfc:         text("store_wfc"),
+});
+
 export const clientPasswords = pgTable("client_passwords", {
   id: serial("id").primaryKey(),
   clientName: text("client_name").notNull().unique(),
