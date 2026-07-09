@@ -3088,22 +3088,22 @@ export async function registerRoutes(
         const uniqueId     = getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID');
         if (!uniqueId) continue;
 
-        const repName     = getValue(row, 'Rep Name', 'RepName', 'rep_name');
-        const storeName   = getValue(row, 'Store Name', 'StoreName', 'store_name');
-        const weekEnding  = getValue(row, 'Week Ending Date', 'WeekEndingDate', 'week_ending_date', 'Week Ending');
+        const repName     = getValue(row, 'Rep Name', 'RepName', 'rep_name', 'REP NAME');
+        const storeName   = getValue(row, 'Store Name', 'StoreName', 'store_name', 'cleaned store name');
+        const weekEnding  = getValue(row, 'Week Ending Date', 'WeekEndingDate', 'week_ending_date', 'Week Ending', 'week ending');
         const client      = getValue(row, 'Client', 'client');
-        const lineManager = getValue(row, 'Line Manager', 'LineManager', 'line_manager');
-        const region      = getValue(row, 'Region', 'region');
-        const banner      = getValue(row, 'Banner', 'banner');
+        const lineManager = getValue(row, 'Line Manager', 'LineManager', 'line_manager', 'LINE MANAGER');
+        const region      = getValue(row, 'Region', 'region', 'REGION.1');
+        const banner      = getValue(row, 'Banner', 'banner', 'BANNER.1');
         const barcode     = getValue(row, 'Barcode', 'barcode');
-        const articleDesc = getValue(row, 'Article Description', 'ArticleDescription', 'article_description');
-        const action      = getValue(row, 'Action', 'action');
-        const reasonCode  = getValue(row, 'Reason Code', 'ReasonCode', 'reason_code');
+        const articleDesc = getValue(row, 'Article Description', 'ArticleDescription', 'article_description', 'article description');
+        const action      = getValue(row, 'Action', 'action', 'Action Column');
+        const reasonCode  = getValue(row, 'Reason Code', 'ReasonCode', 'reason_code', 'reasonCode');
         const feedback    = getValue(row, 'Feedback', 'feedback', 'Comments');
         const image1      = getValue(row, 'Image1', 'image1', 'Image 1', 'Photo 1');
         const image2      = getValue(row, 'Image2', 'image2', 'Image 2');
-        const captureDate = getValue(row, 'Capture Date', 'CaptureDate', 'capture_date');
-        const storeSoh    = getValue(row, 'Store SOH', 'StoreSoh', 'store_soh');
+        const captureDate = getValue(row, 'Capture Date', 'CaptureDate', 'capture_date', 'captureDate');
+        const storeSoh    = getValue(row, 'Store SOH', 'StoreSoh', 'store_soh', 'Store SOH');
         const storeWfc    = getValue(row, 'WFC', 'StoreWfc', 'store_wfc');
 
         await db.execute(sql`

@@ -78,24 +78,23 @@ export default function ImportData() {
         rows.push(row);
       }
 
-      // Only send completed rows — massively reduces payload size
-      const completedRows = rows.filter(r => {
-        const status = Object.entries(r).find(([k]) =>
-          k.toLowerCase().replace(/[^a-z]/g, '') === 'actionstatus' || k.toLowerCase().replace(/[^a-z]/g, '') === 'status'
-        );
-        return status && status[1].toLowerCase() === 'completed';
-      });
+      // Send in batches of 5000 to stay well under request size limits
+      const BATCH_SIZE = 5000;
+      let totalBacked = 0;
+      for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+        const batch = rows.slice(i, i + BATCH_SIZE);
+        const res = await fetch('/api/import/restore-captures', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ rows: batch }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Failed to restore captures');
+        totalBacked += data.backedUp || 0;
+        setRestoreCapturesResult(`Saving... ${totalBacked.toLocaleString()} rows saved so far`);
+      }
 
-      if (completedRows.length === 0) throw new Error('No completed rows found in file');
-
-      const res = await fetch('/api/import/restore-captures', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rows: completedRows }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to restore captures');
-      setRestoreCapturesResult(data.message);
+      setRestoreCapturesResult(`Done — saved ${totalBacked.toLocaleString()} rows to pilot store. Live tasks were not affected.`);
       setRestoreCapturesFile(null);
       if (restoreCapturesRef.current) restoreCapturesRef.current.value = '';
     } catch (err: any) {
