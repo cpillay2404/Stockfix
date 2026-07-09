@@ -3124,31 +3124,10 @@ export async function registerRoutes(
           )
         `);
         backedUp++;
-
-        // Also restore Completed status back to the live tasks table
-        if (actionStatus.toLowerCase() === 'completed') {
-          const actionTaken   = getValue(row, 'Action Taken Comment', 'ActionTakenComment', 'action_taken_comment');
-          const physicalCount = getValue(row, 'Physical Count', 'PhysicalCount', 'physical_count');
-          const variance      = getValue(row, 'Variance', 'variance');
-          await db.execute(sql`
-            UPDATE tasks SET
-              action_status        = 'Completed',
-              reason_code          = CASE WHEN ${reasonCode} != '' THEN ${reasonCode} ELSE reason_code END,
-              feedback             = CASE WHEN ${feedback} != '' THEN ${feedback} ELSE feedback END,
-              image1               = CASE WHEN ${image1} != '' THEN ${image1} ELSE image1 END,
-              image2               = CASE WHEN ${image2} != '' THEN ${image2} ELSE image2 END,
-              action_taken_comment = CASE WHEN ${actionTaken} != '' THEN ${actionTaken} ELSE action_taken_comment END,
-              physical_count       = CASE WHEN ${physicalCount} != '' THEN ${physicalCount} ELSE physical_count END,
-              variance             = CASE WHEN ${variance} != '' THEN ${variance} ELSE variance END,
-              capture_date         = CASE WHEN ${captureDate} != '' THEN ${captureDate} ELSE capture_date END
-            WHERE unique_id = ${uniqueId}
-          `);
-          restored++;
-        }
       }
 
       clearAllCaches();
-      res.json({ success: true, restored, backedUp, message: `Backed up ${backedUp} tasks to pilot_captures. Restored ${restored} completed captures to live data.` });
+      res.json({ success: true, backedUp, message: `Saved ${backedUp} rows to pilot_captures. Live tasks were not affected.` });
     } catch (err: any) {
       console.error("Restore captures error:", err);
       res.status(500).json({ error: err.message || "Failed to restore captures" });

@@ -766,7 +766,7 @@ export default function ImportData() {
               </Button>
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mt-4 mb-1">Restore Captures</div>
               <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
-                <p className="text-xs text-amber-800">Upload a July 1st export file to restore completed captures that were overwritten.</p>
+                <p className="text-xs text-amber-800">Upload an export file to save captured data to the background pilot store. Live tasks will not be affected.</p>
                 <input
                   type="file"
                   accept=".xlsx,.xls,.csv"
