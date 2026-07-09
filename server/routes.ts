@@ -3061,8 +3061,17 @@ export async function registerRoutes(
   });
 
   // Restore captured task data from an Excel export (updates Completed rows only)
-  app.post("/api/import/restore-captures", uploadMemory.single('file'), async (req, res) => {
+  app.post("/api/import/restore-captures", (req, res, next) => {
+    uploadMemory.single('file')(req, res, (err) => {
+      if (err) {
+        console.error('[restore-captures] multer error:', err.message);
+        return res.status(400).json({ error: `Upload error: ${err.message}` });
+      }
+      next();
+    });
+  }, async (req, res) => {
     if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    console.log(`[restore-captures] received file: ${req.file.originalname}, size: ${req.file.size} bytes`);
     try {
       const XLSX = await import('xlsx');
       const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
