@@ -3080,14 +3080,14 @@ export async function registerRoutes(
         return '';
       };
 
-      const backupDate = new Date().toISOString();
+      const backupDate = new Date();
       const insertRows: (typeof pilotCaptures.$inferInsert)[] = [];
 
       for (const row of rows) {
         const uniqueId = getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID');
         if (!uniqueId) continue;
         insertRows.push({
-          backupDate:         backupDate as any,
+          backupDate,
           weekEndingDate:     getValue(row, 'Week Ending Date', 'WeekEndingDate', 'week_ending_date', 'Week Ending', 'week ending') || null,
           uniqueId,
           repName:            getValue(row, 'Rep Name', 'RepName', 'rep_name', 'REP NAME') || null,
