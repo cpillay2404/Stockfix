@@ -3060,6 +3060,71 @@ export async function registerRoutes(
     }
   });
 
+  // Restore captured task data from an Excel export (updates Completed rows only)
+  app.post("/api/import/restore-captures", upload.single('file'), async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    try {
+      const XLSX = await import('xlsx');
+      const workbook = XLSX.readFile(req.file.path);
+      const sheet = workbook.Sheets[workbook.SheetNames[0]];
+      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+      fs.unlinkSync(req.file.path);
+
+      const getValue = (row: any, ...keys: string[]) => {
+        for (const key of keys) {
+          for (const k of Object.keys(row)) {
+            if (k.toLowerCase().replace(/[^a-z0-9]/g, '') === key.toLowerCase().replace(/[^a-z0-9]/g, '')) {
+              const v = row[k];
+              if (v !== null && v !== undefined && v !== '') return String(v).trim();
+            }
+          }
+        }
+        return '';
+      };
+
+      let restored = 0;
+      let skipped = 0;
+
+      for (const row of rows) {
+        const actionStatus = getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status', 'actionstatus');
+        if (actionStatus.toLowerCase() !== 'completed') { skipped++; continue; }
+
+        const uniqueId = getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID');
+        if (!uniqueId) { skipped++; continue; }
+
+        const reasonCode     = getValue(row, 'Reason Code', 'ReasonCode', 'reason_code');
+        const feedback       = getValue(row, 'Feedback', 'feedback', 'Comments');
+        const image1         = getValue(row, 'Image1', 'image1', 'Image 1', 'Photo 1');
+        const image2         = getValue(row, 'Image2', 'image2', 'Image 2');
+        const captureDate    = getValue(row, 'Capture Date', 'CaptureDate', 'capture_date');
+        const actionTaken    = getValue(row, 'Action Taken Comment', 'ActionTakenComment', 'action_taken_comment');
+        const physicalCount  = getValue(row, 'Physical Count', 'PhysicalCount', 'physical_count');
+        const variance       = getValue(row, 'Variance', 'variance');
+
+        await db.execute(sql`
+          UPDATE tasks SET
+            action_status        = 'Completed',
+            reason_code          = CASE WHEN ${reasonCode} != '' THEN ${reasonCode} ELSE reason_code END,
+            feedback             = CASE WHEN ${feedback} != '' THEN ${feedback} ELSE feedback END,
+            image1               = CASE WHEN ${image1} != '' THEN ${image1} ELSE image1 END,
+            image2               = CASE WHEN ${image2} != '' THEN ${image2} ELSE image2 END,
+            action_taken_comment = CASE WHEN ${actionTaken} != '' THEN ${actionTaken} ELSE action_taken_comment END,
+            physical_count       = CASE WHEN ${physicalCount} != '' THEN ${physicalCount} ELSE physical_count END,
+            variance             = CASE WHEN ${variance} != '' THEN ${variance} ELSE variance END,
+            capture_date         = CASE WHEN ${captureDate} != '' THEN ${captureDate} ELSE capture_date END
+          WHERE unique_id = ${uniqueId}
+        `);
+        restored++;
+      }
+
+      clearAllCaches();
+      res.json({ success: true, restored, skipped, message: `Restored ${restored} completed captures (${skipped} skipped)` });
+    } catch (err: any) {
+      console.error("Restore captures error:", err);
+      res.status(500).json({ error: err.message || "Failed to restore captures" });
+    }
+  });
+
   // Admin endpoint to delete tasks by client and week
   app.post("/api/admin/delete-tasks", async (req, res) => {
     try {

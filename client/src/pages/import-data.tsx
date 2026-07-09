@@ -37,6 +37,32 @@ export default function ImportData() {
   const [contactsFile, setContactsFile] = useState<File | null>(null);
   const contactsFileInputRef = useRef<HTMLInputElement>(null);
 
+  // Restore captures state
+  const [restoreCapturesFile, setRestoreCapturesFile] = useState<File | null>(null);
+  const [isRestoringCaptures, setIsRestoringCaptures] = useState(false);
+  const [restoreCapturesResult, setRestoreCapturesResult] = useState<string | null>(null);
+  const restoreCapturesRef = useRef<HTMLInputElement>(null);
+
+  const handleRestoreCaptures = async () => {
+    if (!restoreCapturesFile) return;
+    setIsRestoringCaptures(true);
+    setRestoreCapturesResult(null);
+    try {
+      const formData = new FormData();
+      formData.append('file', restoreCapturesFile);
+      const res = await fetch('/api/import/restore-captures', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to restore captures');
+      setRestoreCapturesResult(data.message);
+      setRestoreCapturesFile(null);
+      if (restoreCapturesRef.current) restoreCapturesRef.current.value = '';
+    } catch (err: any) {
+      setRestoreCapturesResult(`Error: ${err.message}`);
+    } finally {
+      setIsRestoringCaptures(false);
+    }
+  };
+
   // Client password management state
   const [newClientName, setNewClientName] = useState("");
   const [newClientPassword, setNewClientPassword] = useState("");
@@ -738,6 +764,28 @@ export default function ImportData() {
                   </>
                 )}
               </Button>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mt-4 mb-1">Restore Captures</div>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg space-y-2">
+                <p className="text-xs text-amber-800">Upload a July 1st export file to restore completed captures that were overwritten.</p>
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  ref={restoreCapturesRef}
+                  className="hidden"
+                  onChange={(e) => setRestoreCapturesFile(e.target.files?.[0] || null)}
+                  data-testid="input-restore-captures-file"
+                />
+                {restoreCapturesFile && <p className="text-xs text-amber-700 truncate">📄 {restoreCapturesFile.name}</p>}
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => restoreCapturesRef.current?.click()} data-testid="button-choose-restore-file">
+                    Choose File
+                  </Button>
+                  <Button size="sm" className="flex-1 text-xs bg-amber-600 hover:bg-amber-700 text-white" disabled={!restoreCapturesFile || isRestoringCaptures} onClick={handleRestoreCaptures} data-testid="button-restore-captures">
+                    {isRestoringCaptures ? <><Loader2 className="h-3 w-3 animate-spin mr-1" />Restoring...</> : "Restore"}
+                  </Button>
+                </div>
+                {restoreCapturesResult && <p className="text-xs font-medium text-green-700">{restoreCapturesResult}</p>}
+              </div>
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wider mt-4 mb-1">Merchandiser Pilot</div>
               <Button
                 className="w-full"
