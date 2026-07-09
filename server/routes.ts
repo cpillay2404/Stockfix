@@ -3144,26 +3144,37 @@ export async function registerRoutes(
       const pilotRepsResult = await db.execute(sql`SELECT rep_name FROM pilot_reps`);
       const allPilotNames = (pilotRepsResult.rows as any[]).map(r => String(r.rep_name).trim().toUpperCase());
 
-      // --- Fetch StockFix task rows restricted to pilot reps, from pilot start date onward ---
+      // --- Lightweight query: get distinct filter options and available weeks (no row data) ---
+      const metaRows = await db.execute(sql`
+        SELECT DISTINCT week_ending_date, line_manager, region, store_name, banner, rep_name, client
+        FROM tasks
+        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
+          AND week_ending_date >= ${PILOT_START_DATE}
+      `);
+      const metaData = metaRows.rows as any[];
+
+      const allDates = metaData.map(r => String(r.week_ending_date || '')).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
+      const latestWeek = allDates[0] || null;
+      const allWeeks   = [...new Set(allDates)].sort().reverse();
+
+      const allManagers = [...new Set(metaData.map(r => String(r.line_manager || '').toUpperCase()).filter(Boolean))].sort();
+      const allRegions  = [...new Set(metaData.map(r => String(r.region || '').toUpperCase()).filter(Boolean))].sort();
+      const allStores   = [...new Set(metaData.map(r => String(r.store_name || '').toUpperCase()).filter(Boolean))].sort();
+      const allBanners  = [...new Set(metaData.map(r => String(r.banner || '').toUpperCase()).filter(Boolean))].sort();
+      const allReps     = [...new Set(metaData.map(r => String(r.rep_name || '').toUpperCase()).filter(Boolean))].sort();
+      const allClients  = [...new Set(metaData.map(r => String(r.client || '').toUpperCase()).filter(Boolean))].sort();
+
+      // --- Fetch task rows with week filter pushed to SQL when provided ---
+      const effectiveWeek = filterWeek || latestWeek;
       const taskRows = await db.execute(sql`
         SELECT rep_name, store_name, client, line_manager, region, banner, action_status, week_ending_date,
                unique_id, article_description, barcode, store_soh, store_wfc, action, reason_code, feedback, image1
         FROM tasks
         WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
           AND week_ending_date >= ${PILOT_START_DATE}
+          ${effectiveWeek ? sql`AND week_ending_date = ${effectiveWeek}` : sql``}
       `);
       const dataRows = (taskRows.rows as any[]).filter(r => r.rep_name);
-
-      const dates = dataRows.map(r => String(r.week_ending_date || '')).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
-      const latestWeek = dates[0] || null;
-
-      const allManagers = [...new Set(dataRows.map(r => String(r.line_manager || '').toUpperCase()).filter(Boolean))].sort();
-      const allRegions  = [...new Set(dataRows.map(r => String(r.region || '').toUpperCase()).filter(Boolean))].sort();
-      const allStores   = [...new Set(dataRows.map(r => String(r.store_name || '').toUpperCase()).filter(Boolean))].sort();
-      const allBanners  = [...new Set(dataRows.map(r => String(r.banner || '').toUpperCase()).filter(Boolean))].sort();
-      const allReps     = [...new Set(dataRows.map(r => String(r.rep_name || '').toUpperCase()).filter(Boolean))].sort();
-      const allClients  = [...new Set(dataRows.map(r => String(r.client || '').toUpperCase()).filter(Boolean))].sort();
-      const allWeeks    = [...new Set(dates)].sort().reverse();
 
       const filteredRows = dataRows.filter(r => {
         if (filterManager && String(r.line_manager || '').toUpperCase() !== filterManager) return false;
@@ -3171,7 +3182,6 @@ export async function registerRoutes(
         if (filterStore   && String(r.store_name || '').toUpperCase() !== filterStore)   return false;
         if (filterBanner  && String(r.banner || '').toUpperCase() !== filterBanner)  return false;
         if (filterRep     && String(r.rep_name || '').toUpperCase() !== filterRep)     return false;
-        if (filterWeek    && String(r.week_ending_date || '') !== filterWeek)     return false;
         if (filterClient  && String(r.client || '').toUpperCase() !== filterClient)  return false;
         return true;
       });
