@@ -3060,6 +3060,37 @@ export async function registerRoutes(
     }
   });
 
+  app.post("/api/admin/restore-completions-from-history", async (_req, res) => {
+    try {
+      const result = await db.execute(sql`
+        UPDATE tasks t
+        SET
+          action_status        = h.action_status,
+          action_date          = h.action_date,
+          physical_count       = h.physical_count,
+          variance             = h.variance,
+          system_adjusted      = h.system_adjusted,
+          reason_code          = h.reason_code,
+          action_taken_comment = h.action_taken_comment,
+          feedback             = h.feedback,
+          capture_date         = h.capture_date,
+          image1               = h.image1,
+          image2               = h.image2,
+          image3               = h.image3,
+          image4               = h.image4
+        FROM pilot_tasks_history h
+        WHERE t.unique_id = h.unique_id
+          AND h.action_status = 'Completed'
+          AND t.action_status != 'Completed'
+      `);
+      clearAllCaches();
+      res.json({ success: true, restored: result.rowCount, message: `Restored ${result.rowCount} completed tasks from history.` });
+    } catch (err: any) {
+      console.error("Restore completions error:", err);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   // Restore captured task data — accepts pre-parsed JSON rows from client (avoids proxy file size limits)
   app.post("/api/import/restore-captures", async (req, res) => {
     const rows: any[] = req.body?.rows;
