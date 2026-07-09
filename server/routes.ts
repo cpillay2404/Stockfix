@@ -3261,12 +3261,19 @@ export async function registerRoutes(
       // --- Fetch task rows — week filter pushed to SQL so only one week's rows are loaded ---
       const effectiveWeek = filterWeek || latestWeek;
       const taskRows = await db.execute(sql`
-        SELECT rep_name, store_name, client, line_manager, region, banner, action_status, week_ending_date,
-               unique_id, article_description, barcode, store_soh, store_wfc, action, reason_code, feedback, image1
-        FROM tasks
-        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
-          AND week_ending_date >= ${PILOT_START_DATE}
-          ${effectiveWeek ? sql`AND week_ending_date = ${effectiveWeek}` : sql``}
+        SELECT t.rep_name, t.store_name, t.client, t.line_manager, t.region, t.banner,
+               CASE WHEN h.action_status = 'Completed' THEN 'Completed' ELSE t.action_status END AS action_status,
+               t.week_ending_date, t.unique_id, t.article_description, t.barcode,
+               t.store_soh, t.store_wfc, t.action,
+               COALESCE(h.reason_code, t.reason_code) AS reason_code,
+               COALESCE(h.feedback, t.feedback) AS feedback,
+               COALESCE(h.image1, t.image1) AS image1
+        FROM tasks t
+        LEFT JOIN pilot_tasks_history h
+          ON h.unique_id = t.unique_id AND h.action_status = 'Completed'
+        WHERE UPPER(TRIM(t.rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
+          AND t.week_ending_date >= ${PILOT_START_DATE}
+          ${effectiveWeek ? sql`AND t.week_ending_date = ${effectiveWeek}` : sql``}
       `);
       const dataRows = (taskRows.rows as any[]).filter(r => r.rep_name);
 
