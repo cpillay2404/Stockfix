@@ -3239,8 +3239,14 @@ export async function registerRoutes(
       const allPilotNames = (pilotRepsResult.rows as any[]).map(r => String(r.rep_name).trim().toUpperCase());
 
       // --- Lightweight queries: get available weeks and distinct filter values separately ---
+      // Weeks come from BOTH tasks and history so all historical weeks appear in the filter
       const [weeksResult, managersResult, regionsResult, storesResult, bannersResult, repsResult, clientsResult] = await Promise.all([
-        db.execute(sql`SELECT DISTINCT week_ending_date FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} ORDER BY week_ending_date DESC`),
+        db.execute(sql`
+          SELECT DISTINCT week_ending_date FROM (
+            SELECT week_ending_date FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+            UNION
+            SELECT week_ending_date FROM pilot_tasks_history WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+          ) w ORDER BY week_ending_date DESC`),
         db.execute(sql`SELECT DISTINCT UPPER(TRIM(line_manager)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND line_manager IS NOT NULL AND line_manager != ''`),
         db.execute(sql`SELECT DISTINCT UPPER(TRIM(region)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND region IS NOT NULL AND region != ''`),
         db.execute(sql`SELECT DISTINCT UPPER(TRIM(store_name)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND store_name IS NOT NULL AND store_name != ''`),
@@ -3260,20 +3266,29 @@ export async function registerRoutes(
 
       // --- Fetch task rows — week filter pushed to SQL so only one week's rows are loaded ---
       const effectiveWeek = filterWeek || latestWeek;
+      // For weeks that exist in pilot_tasks_history, use history as source of truth
+      // (preserves original task IDs + real completion status).
+      // For weeks only in tasks (e.g. the current/latest week), use tasks directly.
       const taskRows = await db.execute(sql`
-        SELECT t.rep_name, t.store_name, t.client, t.line_manager, t.region, t.banner,
-               CASE WHEN h.action_status = 'Completed' THEN 'Completed' ELSE t.action_status END AS action_status,
-               t.week_ending_date, t.unique_id, t.article_description, t.barcode,
-               t.store_soh, t.store_wfc, t.action,
-               COALESCE(h.reason_code, t.reason_code) AS reason_code,
-               COALESCE(h.feedback, t.feedback) AS feedback,
-               COALESCE(h.image1, t.image1) AS image1
-        FROM tasks t
-        LEFT JOIN pilot_tasks_history h
-          ON h.unique_id = t.unique_id AND h.action_status = 'Completed'
-        WHERE UPPER(TRIM(t.rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
-          AND t.week_ending_date >= ${PILOT_START_DATE}
-          ${effectiveWeek ? sql`AND t.week_ending_date = ${effectiveWeek}` : sql``}
+        SELECT rep_name, store_name, client, line_manager, region, banner,
+               action_status, week_ending_date, unique_id, article_description,
+               barcode, store_soh, store_wfc, action, reason_code, feedback, image1
+        FROM pilot_tasks_history
+        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
+          AND week_ending_date >= ${PILOT_START_DATE}
+          AND week_ending_date IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
+          ${effectiveWeek ? sql`AND week_ending_date = ${effectiveWeek}` : sql``}
+
+        UNION ALL
+
+        SELECT rep_name, store_name, client, line_manager, region, banner,
+               action_status, week_ending_date, unique_id, article_description,
+               barcode, store_soh, store_wfc, action, reason_code, feedback, image1
+        FROM tasks
+        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
+          AND week_ending_date >= ${PILOT_START_DATE}
+          AND week_ending_date NOT IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
+          ${effectiveWeek ? sql`AND week_ending_date = ${effectiveWeek}` : sql``}
       `);
       const dataRows = (taskRows.rows as any[]).filter(r => r.rep_name);
 
