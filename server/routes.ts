@@ -3144,27 +3144,27 @@ export async function registerRoutes(
       const pilotRepsResult = await db.execute(sql`SELECT rep_name FROM pilot_reps`);
       const allPilotNames = (pilotRepsResult.rows as any[]).map(r => String(r.rep_name).trim().toUpperCase());
 
-      // --- Lightweight query: get distinct filter options and available weeks (no row data) ---
-      const metaRows = await db.execute(sql`
-        SELECT DISTINCT week_ending_date, line_manager, region, store_name, banner, rep_name, client
-        FROM tasks
-        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
-          AND week_ending_date >= ${PILOT_START_DATE}
-      `);
-      const metaData = metaRows.rows as any[];
+      // --- Lightweight queries: get available weeks and distinct filter values separately ---
+      const [weeksResult, managersResult, regionsResult, storesResult, bannersResult, repsResult, clientsResult] = await Promise.all([
+        db.execute(sql`SELECT DISTINCT week_ending_date FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} ORDER BY week_ending_date DESC`),
+        db.execute(sql`SELECT DISTINCT UPPER(TRIM(line_manager)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND line_manager IS NOT NULL AND line_manager != ''`),
+        db.execute(sql`SELECT DISTINCT UPPER(TRIM(region)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND region IS NOT NULL AND region != ''`),
+        db.execute(sql`SELECT DISTINCT UPPER(TRIM(store_name)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND store_name IS NOT NULL AND store_name != ''`),
+        db.execute(sql`SELECT DISTINCT UPPER(TRIM(banner)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND banner IS NOT NULL AND banner != ''`),
+        db.execute(sql`SELECT DISTINCT UPPER(TRIM(rep_name)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}`),
+        db.execute(sql`SELECT DISTINCT UPPER(TRIM(client)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND client IS NOT NULL AND client != ''`),
+      ]);
 
-      const allDates = metaData.map(r => String(r.week_ending_date || '')).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
-      const latestWeek = allDates[0] || null;
-      const allWeeks   = [...new Set(allDates)].sort().reverse();
+      const allWeeks   = (weeksResult.rows as any[]).map(r => String(r.week_ending_date)).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
+      const latestWeek = allWeeks[0] || null;
+      const allManagers = (managersResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
+      const allRegions  = (regionsResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
+      const allStores   = (storesResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
+      const allBanners  = (bannersResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
+      const allReps     = (repsResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
+      const allClients  = (clientsResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
 
-      const allManagers = [...new Set(metaData.map(r => String(r.line_manager || '').toUpperCase()).filter(Boolean))].sort();
-      const allRegions  = [...new Set(metaData.map(r => String(r.region || '').toUpperCase()).filter(Boolean))].sort();
-      const allStores   = [...new Set(metaData.map(r => String(r.store_name || '').toUpperCase()).filter(Boolean))].sort();
-      const allBanners  = [...new Set(metaData.map(r => String(r.banner || '').toUpperCase()).filter(Boolean))].sort();
-      const allReps     = [...new Set(metaData.map(r => String(r.rep_name || '').toUpperCase()).filter(Boolean))].sort();
-      const allClients  = [...new Set(metaData.map(r => String(r.client || '').toUpperCase()).filter(Boolean))].sort();
-
-      // --- Fetch task rows with week filter pushed to SQL when provided ---
+      // --- Fetch task rows — week filter pushed to SQL so only one week's rows are loaded ---
       const effectiveWeek = filterWeek || latestWeek;
       const taskRows = await db.execute(sql`
         SELECT rep_name, store_name, client, line_manager, region, banner, action_status, week_ending_date,
