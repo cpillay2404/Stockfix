@@ -48,9 +48,51 @@ export default function ImportData() {
     setIsRestoringCaptures(true);
     setRestoreCapturesResult(null);
     try {
-      const formData = new FormData();
-      formData.append('file', restoreCapturesFile);
-      const res = await fetch('/api/import/restore-captures', { method: 'POST', body: formData });
+      // Parse CSV in the browser and send only the rows as JSON (avoids proxy file size limits)
+      const text = await restoreCapturesFile.text();
+      const lines = text.split(/\r?\n/).filter(l => l.trim());
+      if (lines.length < 2) throw new Error('File appears empty');
+
+      // Parse header
+      const parseRow = (line: string): string[] => {
+        const result: string[] = [];
+        let cur = '';
+        let inQuotes = false;
+        for (let i = 0; i < line.length; i++) {
+          const ch = line[i];
+          if (ch === '"') { inQuotes = !inQuotes; }
+          else if (ch === ',' && !inQuotes) { result.push(cur.trim()); cur = ''; }
+          else { cur += ch; }
+        }
+        result.push(cur.trim());
+        return result;
+      };
+
+      const headers = parseRow(lines[0]).map(h => h.replace(/^"|"$/g, ''));
+      const rows: Record<string, string>[] = [];
+      for (let i = 1; i < lines.length; i++) {
+        const vals = parseRow(lines[i]).map(v => v.replace(/^"|"$/g, ''));
+        if (vals.length < 2) continue;
+        const row: Record<string, string> = {};
+        headers.forEach((h, idx) => { row[h] = vals[idx] ?? ''; });
+        rows.push(row);
+      }
+
+      // Only send completed rows — massively reduces payload size
+      const completedRows = rows.filter(r => {
+        const status = Object.entries(r).find(([k]) =>
+          k.toLowerCase().replace(/[^a-z]/g, '') === 'actionstatus' || k.toLowerCase().replace(/[^a-z]/g, '') === 'status'
+        );
+        return status && status[1].toLowerCase() === 'completed';
+      });
+
+      if (completedRows.length === 0) throw new Error('No completed rows found in file');
+
+      const res = await fetch('/api/import/restore-captures', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rows: completedRows }),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Failed to restore captures');
       setRestoreCapturesResult(data.message);

@@ -3060,24 +3060,14 @@ export async function registerRoutes(
     }
   });
 
-  // Restore captured task data from an Excel export (updates Completed rows only)
-  app.post("/api/import/restore-captures", (req, res, next) => {
-    uploadMemory.single('file')(req, res, (err) => {
-      if (err) {
-        console.error('[restore-captures] multer error:', err.message);
-        return res.status(400).json({ error: `Upload error: ${err.message}` });
-      }
-      next();
-    });
-  }, async (req, res) => {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
-    console.log(`[restore-captures] received file: ${req.file.originalname}, size: ${req.file.size} bytes`);
+  // Restore captured task data — accepts pre-parsed JSON rows from client (avoids proxy file size limits)
+  app.post("/api/import/restore-captures", async (req, res) => {
+    const rows: any[] = req.body?.rows;
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return res.status(400).json({ error: "No rows provided" });
+    }
+    console.log(`[restore-captures] received ${rows.length} rows as JSON`);
     try {
-      const XLSX = await import('xlsx');
-      const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
-      const sheet = workbook.Sheets[workbook.SheetNames[0]];
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
-
       const getValue = (row: any, ...keys: string[]) => {
         for (const key of keys) {
           for (const k of Object.keys(row)) {
@@ -3090,7 +3080,6 @@ export async function registerRoutes(
         return '';
       };
 
-      let restored = 0;
       let backedUp = 0;
       const backupDate = new Date().toISOString();
 
@@ -3099,25 +3088,24 @@ export async function registerRoutes(
         const uniqueId     = getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID');
         if (!uniqueId) continue;
 
-        const repName      = getValue(row, 'Rep Name', 'RepName', 'rep_name');
-        const storeName    = getValue(row, 'Store Name', 'StoreName', 'store_name');
-        const weekEnding   = getValue(row, 'Week Ending Date', 'WeekEndingDate', 'week_ending_date', 'Week Ending');
-        const client       = getValue(row, 'Client', 'client');
-        const lineManager  = getValue(row, 'Line Manager', 'LineManager', 'line_manager');
-        const region       = getValue(row, 'Region', 'region');
-        const banner       = getValue(row, 'Banner', 'banner');
-        const barcode      = getValue(row, 'Barcode', 'barcode');
-        const articleDesc  = getValue(row, 'Article Description', 'ArticleDescription', 'article_description');
-        const action       = getValue(row, 'Action', 'action');
-        const reasonCode   = getValue(row, 'Reason Code', 'ReasonCode', 'reason_code');
-        const feedback     = getValue(row, 'Feedback', 'feedback', 'Comments');
-        const image1       = getValue(row, 'Image1', 'image1', 'Image 1', 'Photo 1');
-        const image2       = getValue(row, 'Image2', 'image2', 'Image 2');
-        const captureDate  = getValue(row, 'Capture Date', 'CaptureDate', 'capture_date');
-        const storeSoh     = getValue(row, 'Store SOH', 'StoreSoh', 'store_soh');
-        const storeWfc     = getValue(row, 'WFC', 'StoreWfc', 'store_wfc');
+        const repName     = getValue(row, 'Rep Name', 'RepName', 'rep_name');
+        const storeName   = getValue(row, 'Store Name', 'StoreName', 'store_name');
+        const weekEnding  = getValue(row, 'Week Ending Date', 'WeekEndingDate', 'week_ending_date', 'Week Ending');
+        const client      = getValue(row, 'Client', 'client');
+        const lineManager = getValue(row, 'Line Manager', 'LineManager', 'line_manager');
+        const region      = getValue(row, 'Region', 'region');
+        const banner      = getValue(row, 'Banner', 'banner');
+        const barcode     = getValue(row, 'Barcode', 'barcode');
+        const articleDesc = getValue(row, 'Article Description', 'ArticleDescription', 'article_description');
+        const action      = getValue(row, 'Action', 'action');
+        const reasonCode  = getValue(row, 'Reason Code', 'ReasonCode', 'reason_code');
+        const feedback    = getValue(row, 'Feedback', 'feedback', 'Comments');
+        const image1      = getValue(row, 'Image1', 'image1', 'Image 1', 'Photo 1');
+        const image2      = getValue(row, 'Image2', 'image2', 'Image 2');
+        const captureDate = getValue(row, 'Capture Date', 'CaptureDate', 'capture_date');
+        const storeSoh    = getValue(row, 'Store SOH', 'StoreSoh', 'store_soh');
+        const storeWfc    = getValue(row, 'WFC', 'StoreWfc', 'store_wfc');
 
-        // Save every row to pilot_captures backup table
         await db.execute(sql`
           INSERT INTO pilot_captures (
             backup_date, week_ending_date, unique_id, rep_name, store_name, client,
