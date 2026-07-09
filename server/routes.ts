@@ -13,7 +13,7 @@ import { sendTaskCompletedEmail } from "./email";
 import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
 import { sql, eq, and, desc, type SQL } from "drizzle-orm";
-import { invStoreSummary, invSkuMetrics, invSyncLog } from "@shared/schema";
+import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 
 function safeParseFloat(val: string | number | null | undefined): number {
@@ -3080,47 +3080,40 @@ export async function registerRoutes(
         return '';
       };
 
-      let backedUp = 0;
       const backupDate = new Date().toISOString();
+      const insertRows: (typeof pilotCaptures.$inferInsert)[] = [];
 
       for (const row of rows) {
-        const actionStatus = getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status', 'actionstatus') || 'Pending';
-        const uniqueId     = getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID');
+        const uniqueId = getValue(row, 'Unique Id', 'UniqueId', 'unique_id', 'uniqueid', 'ID');
         if (!uniqueId) continue;
-
-        const repName     = getValue(row, 'Rep Name', 'RepName', 'rep_name', 'REP NAME');
-        const storeName   = getValue(row, 'Store Name', 'StoreName', 'store_name', 'cleaned store name');
-        const weekEnding  = getValue(row, 'Week Ending Date', 'WeekEndingDate', 'week_ending_date', 'Week Ending', 'week ending');
-        const client      = getValue(row, 'Client', 'client');
-        const lineManager = getValue(row, 'Line Manager', 'LineManager', 'line_manager', 'LINE MANAGER');
-        const region      = getValue(row, 'Region', 'region', 'REGION.1');
-        const banner      = getValue(row, 'Banner', 'banner', 'BANNER.1');
-        const barcode     = getValue(row, 'Barcode', 'barcode');
-        const articleDesc = getValue(row, 'Article Description', 'ArticleDescription', 'article_description', 'article description');
-        const action      = getValue(row, 'Action', 'action', 'Action Column');
-        const reasonCode  = getValue(row, 'Reason Code', 'ReasonCode', 'reason_code', 'reasonCode');
-        const feedback    = getValue(row, 'Feedback', 'feedback', 'Comments');
-        const image1      = getValue(row, 'Image1', 'image1', 'Image 1', 'Photo 1');
-        const image2      = getValue(row, 'Image2', 'image2', 'Image 2');
-        const captureDate = getValue(row, 'Capture Date', 'CaptureDate', 'capture_date', 'captureDate');
-        const storeSoh    = getValue(row, 'Store SOH', 'StoreSoh', 'store_soh', 'Store SOH');
-        const storeWfc    = getValue(row, 'WFC', 'StoreWfc', 'store_wfc');
-
-        await db.execute(sql`
-          INSERT INTO pilot_captures (
-            backup_date, week_ending_date, unique_id, rep_name, store_name, client,
-            line_manager, region, banner, barcode, article_description, action,
-            action_status, reason_code, feedback, image1, image2, capture_date,
-            store_soh, store_wfc
-          ) VALUES (
-            ${backupDate}, ${weekEnding}, ${uniqueId}, ${repName}, ${storeName}, ${client},
-            ${lineManager}, ${region}, ${banner}, ${barcode}, ${articleDesc}, ${action},
-            ${actionStatus}, ${reasonCode}, ${feedback}, ${image1}, ${image2}, ${captureDate},
-            ${storeSoh}, ${storeWfc}
-          )
-        `);
-        backedUp++;
+        insertRows.push({
+          backupDate:         backupDate as any,
+          weekEndingDate:     getValue(row, 'Week Ending Date', 'WeekEndingDate', 'week_ending_date', 'Week Ending', 'week ending') || null,
+          uniqueId,
+          repName:            getValue(row, 'Rep Name', 'RepName', 'rep_name', 'REP NAME') || null,
+          storeName:          getValue(row, 'Store Name', 'StoreName', 'store_name', 'cleaned store name') || null,
+          client:             getValue(row, 'Client', 'client') || null,
+          lineManager:        getValue(row, 'Line Manager', 'LineManager', 'line_manager', 'LINE MANAGER') || null,
+          region:             getValue(row, 'Region', 'region', 'REGION.1') || null,
+          banner:             getValue(row, 'Banner', 'banner', 'BANNER.1') || null,
+          barcode:            getValue(row, 'Barcode', 'barcode') || null,
+          articleDescription: getValue(row, 'Article Description', 'ArticleDescription', 'article_description', 'article description') || null,
+          action:             getValue(row, 'Action', 'action', 'Action Column') || null,
+          actionStatus:       getValue(row, 'Action Status', 'ActionStatus', 'action_status', 'Status', 'actionstatus') || 'Pending',
+          reasonCode:         getValue(row, 'Reason Code', 'ReasonCode', 'reason_code', 'reasonCode') || null,
+          feedback:           getValue(row, 'Feedback', 'feedback', 'Comments') || null,
+          image1:             getValue(row, 'Image1', 'image1', 'Image 1', 'Photo 1') || null,
+          image2:             getValue(row, 'Image2', 'image2', 'Image 2') || null,
+          captureDate:        getValue(row, 'Capture Date', 'CaptureDate', 'capture_date', 'captureDate') || null,
+          storeSoh:           getValue(row, 'Store SOH', 'StoreSoh', 'store_soh', 'Store SOH') || null,
+          storeWfc:           getValue(row, 'WFC', 'StoreWfc', 'store_wfc') || null,
+        });
       }
+
+      if (insertRows.length > 0) {
+        await db.insert(pilotCaptures).values(insertRows);
+      }
+      const backedUp = insertRows.length;
 
       clearAllCaches();
       res.json({ success: true, backedUp, message: `Saved ${backedUp} rows to pilot_captures. Live tasks were not affected.` });
