@@ -78,8 +78,8 @@ export default function ImportData() {
         rows.push(row);
       }
 
-      // Send in batches of 5000 to stay well under request size limits
-      const BATCH_SIZE = 5000;
+      // Send in batches of 1000 (PostgreSQL has a 65535 parameter limit; 1000 rows × 20 cols = 20000)
+      const BATCH_SIZE = 1000;
       let totalBacked = 0;
       for (let i = 0; i < rows.length; i += BATCH_SIZE) {
         const batch = rows.slice(i, i + BATCH_SIZE);
