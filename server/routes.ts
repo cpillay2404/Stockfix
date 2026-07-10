@@ -3223,6 +3223,8 @@ export async function registerRoutes(
   // Pilot officially started 2026-07-01 — any task weeks before this are pre-pilot history
   // (reps existed in the system earlier but weren't yet using StockFix) and must be excluded.
   const PILOT_START_DATE = '2026-07-01';
+  // Normalise region strings so "KwaZulu-Natal" / "KwaZulu Natal" / "KWAZULU NATAL" all map to one key
+  const normalizeRegion = (r: string) => r.trim().toUpperCase().replace(/-/g, ' ');
 
   // ── Server-side cache for pilot base data (avoids hammering DB on every filter change) ──
   interface PilotBaseCache {
@@ -3290,7 +3292,7 @@ export async function registerRoutes(
       allPilotNames,
       allWeeks,
       allManagers: (managersResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort(),
-      allRegions:  (regionsResult.rows  as any[]).map(r => String(r.val)).filter(Boolean).sort(),
+      allRegions:  [...new Set((regionsResult.rows as any[]).map(r => normalizeRegion(String(r.val))).filter(Boolean))].sort(),
       allStores:   (storesResult.rows   as any[]).map(r => String(r.val)).filter(Boolean).sort(),
       allBanners:  (bannersResult.rows  as any[]).map(r => String(r.val)).filter(Boolean).sort(),
       allReps:     (repsResult.rows     as any[]).map(r => String(r.val)).filter(Boolean).sort(),
@@ -3304,7 +3306,7 @@ export async function registerRoutes(
   app.get('/api/pilot-report', async (req, res) => {
     try {
       const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
-      const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
+      const filterRegion  = (req.query.region  as string | undefined) ? normalizeRegion(req.query.region as string) : undefined;
       const filterStore   = (req.query.store   as string | undefined)?.toUpperCase();
       const filterBanner  = (req.query.banner  as string | undefined)?.toUpperCase();
       const filterRep     = (req.query.rep     as string | undefined)?.toUpperCase();
@@ -3328,7 +3330,7 @@ export async function registerRoutes(
 
       const filteredRows = dataRows.filter(r => {
         if (filterManager && String(r.line_manager || '').toUpperCase() !== filterManager) return false;
-        if (filterRegion  && String(r.region || '').toUpperCase() !== filterRegion)  return false;
+        if (filterRegion  && normalizeRegion(String(r.region || '')) !== filterRegion)  return false;
         if (filterStore   && String(r.store_name || '').toUpperCase() !== filterStore)   return false;
         if (filterBanner  && String(r.banner || '').toUpperCase() !== filterBanner)  return false;
         if (filterRep     && String(r.rep_name || '').toUpperCase() !== filterRep)     return false;
@@ -3365,14 +3367,14 @@ export async function registerRoutes(
         const completed = String(row.action_status || '').toLowerCase() === 'completed';
 
         if (!sfByRep.has(name)) sfByRep.set(name, {
-          lineManager: String(row.line_manager || '').trim(), region: String(row.region || '').trim().toUpperCase(),
+          lineManager: String(row.line_manager || '').trim(), region: normalizeRegion(String(row.region || '')),
           tasks: 0, completed: 0, storeMap: new Map(),
         });
         const sfRep = sfByRep.get(name)!;
         sfRep.tasks++;
         if (completed) sfRep.completed++;
         if (row.line_manager) sfRep.lineManager = String(row.line_manager).trim();
-        if (row.region) sfRep.region = String(row.region).trim().toUpperCase();
+        if (row.region) sfRep.region = normalizeRegion(String(row.region));
 
         if (!sfRep.storeMap.has(store)) sfRep.storeMap.set(store, { tasks: 0, completed: 0, clients: new Set() });
         const sfStore = sfRep.storeMap.get(store)!;
@@ -3467,7 +3469,7 @@ export async function registerRoutes(
       // --- Region breakdown (% captured by region) ---
       const regionMap = new Map<string, { total: number; completed: number }>();
       for (const row of filteredRows) {
-        const region = String(row.region || '').trim().toUpperCase();
+        const region = normalizeRegion(String(row.region || ''));
         if (!region) continue;
         const completed = String(row.action_status || '').toLowerCase() === 'completed';
         if (!regionMap.has(region)) regionMap.set(region, { total: 0, completed: 0 });
