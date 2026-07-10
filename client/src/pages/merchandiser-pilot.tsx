@@ -282,7 +282,7 @@ const TASK_CSV_COLUMNS: { key: keyof TaskDetailRow; header: string }[] = [
 ];
 
 function exportNoActivityCsv(merchandisers: Merchandiser[]) {
-  const inactive = merchandisers.filter(m => !m.stockFix || m.stockFix.tasks === 0);
+  const inactive = merchandisers.filter(m => !m.stockFix || m.stockFix.completed === 0);
   const escapeCsv = (val: unknown) => {
     const s = val === null || val === undefined ? "" : String(val);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
