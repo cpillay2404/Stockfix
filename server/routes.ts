@@ -3223,53 +3223,45 @@ export async function registerRoutes(
   // Pilot officially started 2026-07-01 — any task weeks before this are pre-pilot history
   // (reps existed in the system earlier but weren't yet using StockFix) and must be excluded.
   const PILOT_START_DATE = '2026-07-01';
-  app.get('/api/pilot-report', async (req, res) => {
-    try {
-      const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
-      const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
-      const filterStore   = (req.query.store   as string | undefined)?.toUpperCase();
-      const filterBanner  = (req.query.banner  as string | undefined)?.toUpperCase();
-      const filterRep     = (req.query.rep     as string | undefined)?.toUpperCase();
-      const filterWeek    = (req.query.week    as string | undefined)?.trim();
-      const filterClient  = (req.query.client  as string | undefined)?.toUpperCase();
-      const hasFilter = !!(filterManager || filterRegion || filterStore || filterBanner || filterRep || filterWeek || filterClient);
 
-      // --- Fetch all pilot reps (new StockFix-only pilot list) ---
-      const pilotRepsResult = await db.execute(sql`SELECT rep_name FROM pilot_reps`);
-      const allPilotNames = (pilotRepsResult.rows as any[]).map(r => String(r.rep_name).trim().toUpperCase());
+  // ── Server-side cache for pilot base data (avoids hammering DB on every filter change) ──
+  interface PilotBaseCache {
+    ts: number;
+    allPilotNames: string[];
+    allWeeks: string[];
+    allManagers: string[];
+    allRegions: string[];
+    allStores: string[];
+    allBanners: string[];
+    allReps: string[];
+    allClients: string[];
+    dataRows: any[];
+  }
+  const pilotBaseCache = new Map<string, PilotBaseCache>();
+  const PILOT_CACHE_TTL_MS = 60_000; // 60 seconds
 
-      // --- Lightweight queries: get available weeks and distinct filter values separately ---
-      // Weeks come from BOTH tasks and history so all historical weeks appear in the filter
-      const [weeksResult, managersResult, regionsResult, storesResult, bannersResult, repsResult, clientsResult] = await Promise.all([
-        db.execute(sql`
-          SELECT DISTINCT week_ending_date FROM (
-            SELECT week_ending_date FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
-            UNION
-            SELECT week_ending_date FROM pilot_tasks_history WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
-          ) w ORDER BY week_ending_date DESC`),
-        db.execute(sql`SELECT DISTINCT UPPER(TRIM(line_manager)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND line_manager IS NOT NULL AND line_manager != ''`),
-        db.execute(sql`SELECT DISTINCT UPPER(TRIM(region)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND region IS NOT NULL AND region != ''`),
-        db.execute(sql`SELECT DISTINCT UPPER(TRIM(store_name)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND store_name IS NOT NULL AND store_name != ''`),
-        db.execute(sql`SELECT DISTINCT UPPER(TRIM(banner)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND banner IS NOT NULL AND banner != ''`),
-        db.execute(sql`SELECT DISTINCT UPPER(TRIM(rep_name)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}`),
-        db.execute(sql`SELECT DISTINCT UPPER(TRIM(client)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND client IS NOT NULL AND client != ''`),
-      ]);
+  async function getPilotBaseData(effectiveWeek: string | null): Promise<PilotBaseCache> {
+    const cacheKey = effectiveWeek || '__none__';
+    const cached = pilotBaseCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < PILOT_CACHE_TTL_MS) return cached;
 
-      const allWeeks   = (weeksResult.rows as any[]).map(r => String(r.week_ending_date)).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
-      const latestWeek = allWeeks[0] || null;
-      const allManagers = (managersResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
-      const allRegions  = (regionsResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
-      const allStores   = (storesResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
-      const allBanners  = (bannersResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
-      const allReps     = (repsResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
-      const allClients  = (clientsResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort();
+    const pilotRepsResult = await db.execute(sql`SELECT rep_name FROM pilot_reps`);
+    const allPilotNames = (pilotRepsResult.rows as any[]).map(r => String(r.rep_name).trim().toUpperCase());
 
-      // --- Fetch task rows — week filter pushed to SQL so only one week's rows are loaded ---
-      const effectiveWeek = filterWeek || latestWeek;
-      // For weeks that exist in pilot_tasks_history, use history as source of truth
-      // (preserves original task IDs + real completion status).
-      // For weeks only in tasks (e.g. the current/latest week), use tasks directly.
-      const taskRows = await db.execute(sql`
+    const [weeksResult, managersResult, regionsResult, storesResult, bannersResult, repsResult, clientsResult, taskRows] = await Promise.all([
+      db.execute(sql`
+        SELECT DISTINCT week_ending_date FROM (
+          SELECT week_ending_date FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+          UNION
+          SELECT week_ending_date FROM pilot_tasks_history WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+        ) w ORDER BY week_ending_date DESC`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(line_manager)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND line_manager IS NOT NULL AND line_manager != ''`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(region)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND region IS NOT NULL AND region != ''`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(store_name)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND store_name IS NOT NULL AND store_name != ''`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(banner)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND banner IS NOT NULL AND banner != ''`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(rep_name)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(client)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND client IS NOT NULL AND client != ''`),
+      db.execute(sql`
         SELECT rep_name, store_name, client, line_manager, region, banner,
                action_status, week_ending_date, unique_id, article_description,
                barcode, store_soh, store_wfc, action, reason_code, feedback, image1
@@ -3289,8 +3281,49 @@ export async function registerRoutes(
           AND week_ending_date >= ${PILOT_START_DATE}
           AND week_ending_date NOT IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
           ${effectiveWeek ? sql`AND week_ending_date = ${effectiveWeek}` : sql``}
-      `);
-      const dataRows = (taskRows.rows as any[]).filter(r => r.rep_name);
+      `),
+    ]);
+
+    const allWeeks    = (weeksResult.rows as any[]).map(r => String(r.week_ending_date)).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
+    const result: PilotBaseCache = {
+      ts: Date.now(),
+      allPilotNames,
+      allWeeks,
+      allManagers: (managersResult.rows as any[]).map(r => String(r.val)).filter(Boolean).sort(),
+      allRegions:  (regionsResult.rows  as any[]).map(r => String(r.val)).filter(Boolean).sort(),
+      allStores:   (storesResult.rows   as any[]).map(r => String(r.val)).filter(Boolean).sort(),
+      allBanners:  (bannersResult.rows  as any[]).map(r => String(r.val)).filter(Boolean).sort(),
+      allReps:     (repsResult.rows     as any[]).map(r => String(r.val)).filter(Boolean).sort(),
+      allClients:  (clientsResult.rows  as any[]).map(r => String(r.val)).filter(Boolean).sort(),
+      dataRows:    (taskRows.rows as any[]).filter(r => r.rep_name),
+    };
+    pilotBaseCache.set(cacheKey, result);
+    return result;
+  }
+
+  app.get('/api/pilot-report', async (req, res) => {
+    try {
+      const filterManager = (req.query.manager as string | undefined)?.toUpperCase();
+      const filterRegion  = (req.query.region  as string | undefined)?.toUpperCase();
+      const filterStore   = (req.query.store   as string | undefined)?.toUpperCase();
+      const filterBanner  = (req.query.banner  as string | undefined)?.toUpperCase();
+      const filterRep     = (req.query.rep     as string | undefined)?.toUpperCase();
+      const filterWeek    = (req.query.week    as string | undefined)?.trim();
+      const filterClient  = (req.query.client  as string | undefined)?.toUpperCase();
+
+      // First pass: get weeks to know effectiveWeek before fetching task rows
+      const weekProbe = await db.execute(sql`
+        SELECT DISTINCT week_ending_date FROM (
+          SELECT week_ending_date FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+          UNION
+          SELECT week_ending_date FROM pilot_tasks_history WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+        ) w ORDER BY week_ending_date DESC LIMIT 1`);
+      const latestWeekProbe = (weekProbe.rows as any[])[0]?.week_ending_date || null;
+      const effectiveWeek = filterWeek || (latestWeekProbe ? String(latestWeekProbe) : null);
+
+      const base = await getPilotBaseData(effectiveWeek);
+      const { allPilotNames, allWeeks, allManagers, allRegions, allStores, allBanners, allReps, allClients, dataRows } = base;
+      const latestWeek = allWeeks[0] || null;
 
       const filteredRows = dataRows.filter(r => {
         if (filterManager && String(r.line_manager || '').toUpperCase() !== filterManager) return false;
