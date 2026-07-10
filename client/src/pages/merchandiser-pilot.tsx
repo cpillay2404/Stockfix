@@ -281,6 +281,30 @@ const TASK_CSV_COLUMNS: { key: keyof TaskDetailRow; header: string }[] = [
   { key: "imageUrl", header: "Image URL" },
 ];
 
+function exportNoActivityCsv(merchandisers: Merchandiser[]) {
+  const inactive = merchandisers.filter(m => !m.stockFix || m.stockFix.tasks === 0);
+  const escapeCsv = (val: unknown) => {
+    const s = val === null || val === undefined ? "" : String(val);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const header = ["Merchandiser", "Line Manager", "Region"].join(",");
+  const lines = inactive.map(m => [
+    escapeCsv(tc(m.name)),
+    escapeCsv(m.lineManager ? tc(m.lineManager) : ""),
+    escapeCsv(m.region ? tc(m.region) : ""),
+  ].join(","));
+  const csv = [header, ...lines].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `no-activity-reps-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
 function exportTasksToCsv(rows: TaskDetailRow[]) {
   const escapeCsv = (val: unknown) => {
     const s = val === null || val === undefined ? "" : String(val);
@@ -636,7 +660,18 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
           <h1 className="bg-gradient-to-r from-white via-white to-slate-400 bg-clip-text text-2xl font-extrabold tracking-tight text-transparent">
             StockFix Capturing Compliance
           </h1>
-          <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-20 w-auto shrink-0" data-testid="img-meridian-logo" />
+          <div className="flex items-center gap-3 shrink-0">
+            <Hint label="Download a CSV list of merchandisers who have had no tasks assigned">
+              <button
+                onClick={() => exportNoActivityCsv(data.merchandisers)}
+                data-testid="button-export-no-activity"
+                className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-400 transition-colors hover:bg-rose-500/20 hover:text-rose-300"
+              >
+                <Download className="h-3.5 w-3.5" /> No Activity List
+              </button>
+            </Hint>
+            <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-20 w-auto" data-testid="img-meridian-logo" />
+          </div>
         </div>
         <p className="mt-0.5 text-xs text-slate-500">
           Live StockFix task performance across {fmtNum(totalMerchandisers)} merchandisers in Shoprite &amp; Checkers stores
@@ -653,7 +688,7 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         <KpiTile icon={CheckCircle2} label="Completed" value={fmtNum(data.summary.stockFix.completed)} sub={`${data.summary.stockFix.captureRate}% rate`} accent="from-emerald-500 to-teal-600" delay={0.1} />
         <KpiTile icon={Gauge} label="Capture Rate" value={`${data.summary.stockFix.captureRate}%`} sub="overall completion" accent="from-amber-500 to-orange-600" delay={0.15} />
         <KpiTile icon={StoreIcon} label="Stores Covered" value={fmtNum(storesCovered)} sub="with logged tasks" accent="from-pink-500 to-rose-600" delay={0.2} />
-        <KpiTile icon={Trophy} label="Pilot Coverage" value={`${coverage}%`} sub={`of ${fmtNum(totalMerchandisers)} merchandisers`} accent="from-indigo-500 to-violet-600" delay={0.25} />
+        <KpiTile icon={Trophy} label="Reps With Tasks" value={`${coverage}%`} sub={`${fmtNum(repsWithTasks)} of ${fmtNum(totalMerchandisers)} assigned`} accent="from-indigo-500 to-violet-600" delay={0.25} />
       </div>
 
       {/* Manager / Region breakdown */}

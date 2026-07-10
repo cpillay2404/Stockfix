@@ -3331,14 +3331,14 @@ export async function registerRoutes(
         const completed = String(row.action_status || '').toLowerCase() === 'completed';
 
         if (!sfByRep.has(name)) sfByRep.set(name, {
-          lineManager: String(row.line_manager || '').trim(), region: String(row.region || '').trim(),
+          lineManager: String(row.line_manager || '').trim(), region: String(row.region || '').trim().toUpperCase(),
           tasks: 0, completed: 0, storeMap: new Map(),
         });
         const sfRep = sfByRep.get(name)!;
         sfRep.tasks++;
         if (completed) sfRep.completed++;
         if (row.line_manager) sfRep.lineManager = String(row.line_manager).trim();
-        if (row.region) sfRep.region = String(row.region).trim();
+        if (row.region) sfRep.region = String(row.region).trim().toUpperCase();
 
         if (!sfRep.storeMap.has(store)) sfRep.storeMap.set(store, { tasks: 0, completed: 0, clients: new Set() });
         const sfStore = sfRep.storeMap.get(store)!;
@@ -3433,7 +3433,7 @@ export async function registerRoutes(
       // --- Region breakdown (% captured by region) ---
       const regionMap = new Map<string, { total: number; completed: number }>();
       for (const row of filteredRows) {
-        const region = String(row.region || '').trim();
+        const region = String(row.region || '').trim().toUpperCase();
         if (!region) continue;
         const completed = String(row.action_status || '').toLowerCase() === 'completed';
         if (!regionMap.has(region)) regionMap.set(region, { total: 0, completed: 0 });
