@@ -635,8 +635,8 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
   const totalMerchandisers = data.merchandisers.length;
   const activeReps = data.summary.activeReps;
   const activeRate = totalMerchandisers > 0 ? Math.round((activeReps / totalMerchandisers) * 100) : 0;
-  const repsWithTasks = data.summary.repsWithTasks;
-  const coverage = totalMerchandisers > 0 ? Math.round((repsWithTasks / totalMerchandisers) * 100) : 0;
+  const repsWithCapture = data.merchandisers.filter(m => m.stockFix && m.stockFix.completed > 0).length;
+  const coverage = totalMerchandisers > 0 ? Math.round((repsWithCapture / totalMerchandisers) * 100) : 0;
   const storesCovered = new Set(data.taskDetail.map(t => t.storeName)).size;
   const breakdownPanelHeight = Math.min(
     Math.max(data.managerBreakdown.length, data.regionBreakdown.length, 1) * 34,
@@ -688,7 +688,7 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         <KpiTile icon={CheckCircle2} label="Completed" value={fmtNum(data.summary.stockFix.completed)} sub={`${data.summary.stockFix.captureRate}% rate`} accent="from-emerald-500 to-teal-600" delay={0.1} />
         <KpiTile icon={Gauge} label="Capture Rate" value={`${data.summary.stockFix.captureRate}%`} sub="overall completion" accent="from-amber-500 to-orange-600" delay={0.15} />
         <KpiTile icon={StoreIcon} label="Stores Covered" value={fmtNum(storesCovered)} sub="with logged tasks" accent="from-pink-500 to-rose-600" delay={0.2} />
-        <KpiTile icon={Trophy} label="Reps With Tasks" value={`${coverage}%`} sub={`${fmtNum(repsWithTasks)} of ${fmtNum(totalMerchandisers)} assigned`} accent="from-indigo-500 to-violet-600" delay={0.25} />
+        <KpiTile icon={Trophy} label="Pilot Coverage" value={`${coverage}%`} sub={`${fmtNum(repsWithCapture)} of ${fmtNum(totalMerchandisers)} captured feedback`} accent="from-indigo-500 to-violet-600" delay={0.25} />
       </div>
 
       {/* Manager / Region breakdown */}
