@@ -3390,15 +3390,15 @@ export async function registerRoutes(
 
         const stockFix = sf ? {
           tasks: sf.tasks, completed: sf.completed,
-          captureRate: sf.tasks > 0 ? Math.round((sf.completed / sf.tasks) * 100) : 0,
+          captureRate: sf.tasks > 0 ? parseFloat(((sf.completed / sf.tasks) * 100).toFixed(1)) : 0,
           stores: [...sf.storeMap.entries()].map(([sName, d]) => ({
             name: sName, tasks: d.tasks, completed: d.completed,
-            captureRate: d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0,
+            captureRate: d.tasks > 0 ? parseFloat(((d.completed / d.tasks) * 100).toFixed(1)) : 0,
             clients: [...d.clients],
           })).sort((a, b) => b.tasks - a.tasks),
         } : null;
 
-        const overallRate = sf && sf.tasks > 0 ? Math.round((sf.completed / sf.tasks) * 100) : 0;
+        const overallRate = sf && sf.tasks > 0 ? parseFloat(((sf.completed / sf.tasks) * 100).toFixed(1)) : 0;
         return { name, lineManager: sf?.lineManager || null, region: sf?.region || null, stockFix, overallRate };
       }).sort((a, b) => {
         const aHas = !!a.stockFix, bHas = !!b.stockFix;
@@ -3410,7 +3410,7 @@ export async function registerRoutes(
       const sfTotal = [...sfByRep.values()].reduce((s, r) => s + r.tasks, 0);
       const sfDone  = [...sfByRep.values()].reduce((s, r) => s + r.completed, 0);
       const summary = {
-        stockFix: { total: sfTotal, completed: sfDone, captureRate: sfTotal > 0 ? Math.round((sfDone / sfTotal) * 100) : 0 },
+        stockFix: { total: sfTotal, completed: sfDone, captureRate: sfTotal > 0 ? parseFloat(((sfDone / sfTotal) * 100).toFixed(1)) : 0 },
         activeReps: merchandisers.filter(m => m.stockFix).length,
         repsWithTasks: merchandisers.filter(m => m.stockFix).length,
       };
@@ -3429,7 +3429,7 @@ export async function registerRoutes(
       const sfClientSummary = [...clientMap.entries()]
         .map(([client, d]) => ({
           client, tasks: d.total, completed: d.completed,
-          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+          captureRate: d.total > 0 ? parseFloat(((d.completed / d.total) * 100).toFixed(1)) : 0,
         })).sort((a, b) => b.tasks - a.tasks);
 
       // --- Banner breakdown (StockFix) ---
@@ -3446,7 +3446,7 @@ export async function registerRoutes(
       const bannerBreakdown = [...bannerMap.entries()]
         .map(([banner, d]) => ({
           banner, total: d.total, completed: d.completed,
-          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+          captureRate: d.total > 0 ? parseFloat(((d.completed / d.total) * 100).toFixed(1)) : 0,
         })).sort((a, b) => b.total - a.total);
 
       // --- Manager breakdown (% captured by manager) ---
@@ -3463,7 +3463,7 @@ export async function registerRoutes(
       const managerBreakdown = [...managerMap.entries()]
         .map(([manager, d]) => ({
           manager, total: d.total, completed: d.completed,
-          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+          captureRate: d.total > 0 ? parseFloat(((d.completed / d.total) * 100).toFixed(1)) : 0,
         })).sort((a, b) => b.captureRate - a.captureRate);
 
       // --- Region breakdown (% captured by region) ---
@@ -3480,7 +3480,7 @@ export async function registerRoutes(
       const regionBreakdown = [...regionMap.entries()]
         .map(([region, d]) => ({
           region, total: d.total, completed: d.completed,
-          captureRate: d.total > 0 ? Math.round((d.completed / d.total) * 100) : 0,
+          captureRate: d.total > 0 ? parseFloat(((d.completed / d.total) * 100).toFixed(1)) : 0,
         })).sort((a, b) => b.captureRate - a.captureRate);
 
       // --- Top / Bottom 5 merchandisers by capture % (only merch with activity) ---

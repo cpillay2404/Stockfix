@@ -634,9 +634,9 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
 }) {
   const totalMerchandisers = data.merchandisers.length;
   const activeReps = data.summary.activeReps;
-  const activeRate = totalMerchandisers > 0 ? Math.round((activeReps / totalMerchandisers) * 100) : 0;
+  const activeRate = totalMerchandisers > 0 ? parseFloat(((activeReps / totalMerchandisers) * 100).toFixed(1)) : 0;
   const repsWithCapture = data.merchandisers.filter(m => m.stockFix && m.stockFix.completed > 0).length;
-  const coverage = totalMerchandisers > 0 ? Math.round((repsWithCapture / totalMerchandisers) * 100) : 0;
+  const coverage = totalMerchandisers > 0 ? parseFloat(((repsWithCapture / totalMerchandisers) * 100).toFixed(1)) : 0;
   const storesCovered = new Set(data.taskDetail.map(t => t.storeName)).size;
   const breakdownPanelHeight = Math.min(
     Math.max(data.managerBreakdown.length, data.regionBreakdown.length, 1) * 34,
@@ -890,7 +890,7 @@ export default function MerchandiserPilot() {
       }
     }
     return Array.from(map.values())
-      .map(s => ({ ...s, captureRate: s.tasks > 0 ? Math.round((s.completed / s.tasks) * 100) : 0 }))
+      .map(s => ({ ...s, captureRate: s.tasks > 0 ? parseFloat(((s.completed / s.tasks) * 100).toFixed(1)) : 0 }))
       .sort((a, b) => b.tasks - a.tasks);
   }, [data]);
 
