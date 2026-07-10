@@ -3310,6 +3310,7 @@ export async function registerRoutes(
       const filterRep     = (req.query.rep     as string | undefined)?.toUpperCase();
       const filterWeek    = (req.query.week    as string | undefined)?.trim();
       const filterClient  = (req.query.client  as string | undefined)?.toUpperCase();
+      const hasFilter = !!(filterManager || filterRegion || filterStore || filterBanner || filterRep || filterWeek || filterClient);
 
       // First pass: get weeks to know effectiveWeek before fetching task rows
       const weekProbe = await db.execute(sql`
