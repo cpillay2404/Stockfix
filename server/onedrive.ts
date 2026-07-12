@@ -108,31 +108,42 @@ export async function listWorksheets(fileId: string): Promise<string[]> {
   return (data.value || []).map((ws: any) => ws.name);
 }
 
-// Upload a file to a SharePoint site folder via the Graph API
-// siteRelativePath: path within the site's Shared Documents, e.g. "Stock Fix/Stock Fix App Output Data/This weeks feedback file"
+// Upload a file to a SharePoint site folder via the Graph API.
+// Resolves the real site ID from the hostname + site path automatically.
 export async function uploadToSharePoint(
-  siteId: string,
-  folderPath: string,
+  siteHostname: string,   // e.g. "meridiangroupza.sharepoint.com"
+  sitePath: string,       // e.g. "/sites/MeridianNexus"
+  folderPath: string,     // path inside Shared Documents, e.g. "Stock Fix/Output"
   filename: string,
   content: Buffer | string,
   contentType = 'text/csv'
 ): Promise<{ webUrl: string }> {
   const token = await getOneDriveToken();
-  const encoded = encodeURIComponent(filename).replace(/'/g, "''");
-  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${folderPath}/${encoded}:/content`;
+
+  // Step 1: resolve the real site ID
+  const siteResp = await fetch(
+    `https://graph.microsoft.com/v1.0/sites/${siteHostname}:${sitePath}`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!siteResp.ok) {
+    const text = await siteResp.text();
+    throw new Error(`Could not resolve SharePoint site: ${siteResp.status} ${text}`);
+  }
+  const siteData = await siteResp.json() as any;
+  const siteId: string = siteData.id;
+
+  // Step 2: upload the file
   const body = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
-  const resp = await fetch(url, {
+  const uploadUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${folderPath}/${encodeURIComponent(filename)}:/content`;
+  const uploadResp = await fetch(uploadUrl, {
     method: 'PUT',
-    headers: {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': contentType,
-    },
+    headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
     body,
   });
-  if (!resp.ok) {
-    const text = await resp.text();
-    throw new Error(`SharePoint upload failed ${resp.status}: ${text}`);
+  if (!uploadResp.ok) {
+    const text = await uploadResp.text();
+    throw new Error(`SharePoint upload failed ${uploadResp.status}: ${text}`);
   }
-  const data = await resp.json() as any;
+  const data = await uploadResp.json() as any;
   return { webUrl: data.webUrl || '' };
 }

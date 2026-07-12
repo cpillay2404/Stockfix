@@ -3659,11 +3659,11 @@ export async function registerRoutes(
       const suffix = filterStatus === 'completed' ? '-completed' : '-full';
       const filename = `pilot-capture-${effectiveWeek || 'latest'}${suffix}.csv`;
 
-      // SharePoint site: meridiangroupza.sharepoint.com/sites/MeridianNexus
-      const SITE_ID = 'meridiangroupza.sharepoint.com,/sites/MeridianNexus';
-      const FOLDER  = 'Stock Fix/Stock Fix App Output Data/This weeks feedback file';
+      const SP_HOST   = 'meridiangroupza.sharepoint.com';
+      const SP_SITE   = '/sites/MeridianNexus';
+      const SP_FOLDER = 'Stock Fix/Stock Fix App Output Data/This weeks feedback file';
 
-      const { webUrl } = await uploadToSharePoint(SITE_ID, FOLDER, filename, csv);
+      const { webUrl } = await uploadToSharePoint(SP_HOST, SP_SITE, SP_FOLDER, filename, csv);
 
       res.json({ ok: true, filename, rows: rows.length, week: effectiveWeek, webUrl });
     } catch (error: any) {
