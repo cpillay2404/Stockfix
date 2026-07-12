@@ -1,7 +1,23 @@
 // OneDrive integration via Replit Connectors proxy
 // Uses connection:conn_onedrive_01KNC3R3T1ZH6BX23D7NXP66T7
 
+import { ClientSecretCredential } from '@azure/identity';
+
 let cachedToken: { token: string; expiresAt: number } | null = null;
+let appCredential: ClientSecretCredential | null = null;
+
+// App-only token using StockFix Automation app registration (for writes)
+async function getAppOnlyToken(): Promise<string | null> {
+  const tenantId = process.env.GRAPH_TENANT_ID;
+  const clientId = process.env.GRAPH_CLIENT_ID;
+  const clientSecret = process.env.GRAPH_CLIENT_SECRET;
+  if (!tenantId || !clientId || !clientSecret) return null;
+  if (!appCredential) {
+    appCredential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+  }
+  const t = await appCredential.getToken('https://graph.microsoft.com/.default');
+  return t?.token || null;
+}
 
 export async function getOneDriveToken(): Promise<string> {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 60000) {
@@ -109,18 +125,23 @@ export async function listWorksheets(fileId: string): Promise<string[]> {
 }
 
 // Upload a file to a SharePoint site folder via the Graph API.
-// Resolves the real site ID from the hostname + site path automatically.
+// Uses app-only credentials (GRAPH_TENANT_ID/CLIENT_ID/CLIENT_SECRET) when available,
+// otherwise falls back to the Replit delegated connector token.
 export async function uploadToSharePoint(
-  siteHostname: string,   // e.g. "meridiangroupza.sharepoint.com"
-  sitePath: string,       // e.g. "/sites/MeridianNexus"
-  folderPath: string,     // path inside Shared Documents, e.g. "Stock Fix/Output"
+  siteHostname: string,
+  sitePath: string,
+  folderPath: string,
   filename: string,
   content: Buffer | string,
   contentType = 'text/csv'
 ): Promise<{ webUrl: string }> {
-  const token = await getOneDriveToken();
+  // Prefer app-only token (has write access); fall back to delegated connector token
+  const appToken = await getAppOnlyToken();
+  const token = appToken || await getOneDriveToken();
+  const authMode = appToken ? 'app-only' : 'delegated';
+  console.log(`[SharePoint Upload] Auth mode: ${authMode}`);
 
-  // Step 1: resolve the real site ID
+  // Step 1: resolve site ID
   const siteResp = await fetch(
     `https://graph.microsoft.com/v1.0/sites/${siteHostname}:${sitePath}`,
     { headers: { Authorization: `Bearer ${token}` } }
@@ -129,17 +150,14 @@ export async function uploadToSharePoint(
     const text = await siteResp.text();
     throw new Error(`Could not resolve SharePoint site: ${siteResp.status} ${text}`);
   }
-  const siteData = await siteResp.json() as any;
-  const siteId: string = siteData.id;
+  const siteId: string = (await siteResp.json() as any).id;
   console.log(`[SharePoint Upload] Resolved siteId: ${siteId}`);
 
-  // Step 2: encode path and upload using site's default drive (/drive singular = main Documents library)
-  const encodedFolder = folderPath.split('/').map(encodeURIComponent).join('/');
-  const encodedFile = encodeURIComponent(filename);
+  // Step 2: upload to site's default document library (/drive singular)
+  const encodedPath = [...folderPath.split('/'), filename].filter(Boolean).map(encodeURIComponent).join('/');
   const body = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
+  const uploadUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodedPath}:/content`;
 
-  // Try site default drive first
-  const uploadUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodedFolder}/${encodedFile}:/content`;
   const uploadResp = await fetch(uploadUrl, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
@@ -151,7 +169,9 @@ export async function uploadToSharePoint(
     const status = uploadResp.status;
     if (status === 403) {
       throw new Error(
-        `SharePoint upload blocked (403 Access Denied). The Microsoft account connected to Replit needs write permission (Files.ReadWrite or Sites.ReadWrite.All) granted by your M365 tenant admin.`
+        authMode === 'app-only'
+          ? `SharePoint upload blocked (403). Ensure the StockFix Automation app has admin consent for Sites.ReadWrite.All or Files.ReadWrite.All.`
+          : `SharePoint upload blocked (403). Set GRAPH_TENANT_ID, GRAPH_CLIENT_ID, GRAPH_CLIENT_SECRET secrets in Replit to use app-only auth with write access.`
       );
     }
     throw new Error(`SharePoint upload failed ${status}: ${text}`);
