@@ -132,9 +132,29 @@ export async function uploadToSharePoint(
   const siteData = await siteResp.json() as any;
   const siteId: string = siteData.id;
 
-  // Step 2: upload the file
+  // Step 2: find the "Documents" / "Shared Documents" drive
+  const drivesResp = await fetch(
+    `https://graph.microsoft.com/v1.0/sites/${siteId}/drives`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (!drivesResp.ok) {
+    const text = await drivesResp.text();
+    throw new Error(`Could not list site drives: ${drivesResp.status} ${text}`);
+  }
+  const drivesData = await drivesResp.json() as any;
+  const drives: any[] = drivesData.value || [];
+  // Prefer "Documents" or "Shared Documents"; fall back to first drive
+  const docDrive = drives.find((d: any) =>
+    /^(documents|shared documents)$/i.test(d.name)
+  ) || drives[0];
+  if (!docDrive) throw new Error('No drives found on SharePoint site');
+  const driveId: string = docDrive.id;
+
+  // Step 3: encode path segments and upload
+  const encodedFolder = folderPath.split('/').map(encodeURIComponent).join('/');
+  const encodedFile = encodeURIComponent(filename);
   const body = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
-  const uploadUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${folderPath}/${encodeURIComponent(filename)}:/content`;
+  const uploadUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodedFolder}/${encodedFile}:/content`;
   const uploadResp = await fetch(uploadUrl, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
