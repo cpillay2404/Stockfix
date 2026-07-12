@@ -132,37 +132,28 @@ export async function uploadToSharePoint(
   const siteData = await siteResp.json() as any;
   const siteId: string = siteData.id;
 
-  // Step 2: find the "Documents" / "Shared Documents" drive
-  const drivesResp = await fetch(
-    `https://graph.microsoft.com/v1.0/sites/${siteId}/drives`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  );
-  if (!drivesResp.ok) {
-    const text = await drivesResp.text();
-    throw new Error(`Could not list site drives: ${drivesResp.status} ${text}`);
-  }
-  const drivesData = await drivesResp.json() as any;
-  const drives: any[] = drivesData.value || [];
-  // Prefer "Documents" or "Shared Documents"; fall back to first drive
-  const docDrive = drives.find((d: any) =>
-    /^(documents|shared documents)$/i.test(d.name)
-  ) || drives[0];
-  if (!docDrive) throw new Error('No drives found on SharePoint site');
-  const driveId: string = docDrive.id;
-
-  // Step 3: encode path segments and upload
+  // Step 2: encode path and upload using site's default drive
   const encodedFolder = folderPath.split('/').map(encodeURIComponent).join('/');
   const encodedFile = encodeURIComponent(filename);
   const body = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
-  const uploadUrl = `https://graph.microsoft.com/v1.0/drives/${driveId}/root:/${encodedFolder}/${encodedFile}:/content`;
+
+  // Try site default drive first
+  const uploadUrl = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${encodedFolder}/${encodedFile}:/content`;
   const uploadResp = await fetch(uploadUrl, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': contentType },
     body,
   });
+
   if (!uploadResp.ok) {
     const text = await uploadResp.text();
-    throw new Error(`SharePoint upload failed ${uploadResp.status}: ${text}`);
+    const status = uploadResp.status;
+    if (status === 403) {
+      throw new Error(
+        `SharePoint upload blocked (403 Access Denied). The Microsoft account connected to Replit needs write permission (Files.ReadWrite or Sites.ReadWrite.All) granted by your M365 tenant admin.`
+      );
+    }
+    throw new Error(`SharePoint upload failed ${status}: ${text}`);
   }
   const data = await uploadResp.json() as any;
   return { webUrl: data.webUrl || '' };
