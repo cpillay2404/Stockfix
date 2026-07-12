@@ -3554,6 +3554,68 @@ export async function registerRoutes(
     }
   });
 
+  // ── Pilot report CSV export — hit this URL from any automation tool ──
+  // GET /api/pilot-report/export
+  // Optional query params: week, manager, region, store, banner, rep, client
+  // Defaults to latest week. Returns a CSV file attachment.
+  app.get('/api/pilot-report/export', async (req, res) => {
+    try {
+      const filterManager = (req.query.manager as string | undefined)?.toUpperCase() || undefined;
+      const filterRegion  = (req.query.region  as string | undefined) ? normalizeRegion(req.query.region as string) : undefined;
+      const filterStore   = (req.query.store   as string | undefined)?.toUpperCase() || undefined;
+      const filterBanner  = (req.query.banner  as string | undefined)?.toUpperCase() || undefined;
+      const filterRep     = (req.query.rep     as string | undefined)?.toUpperCase() || undefined;
+      const filterWeek    = (req.query.week    as string | undefined)?.trim() || undefined;
+      const filterClient  = (req.query.client  as string | undefined)?.toUpperCase() || undefined;
+
+      // Resolve effective week
+      const weekProbe = await db.execute(sql`
+        SELECT DISTINCT week_ending_date FROM (
+          SELECT week_ending_date FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+          UNION
+          SELECT week_ending_date FROM pilot_tasks_history WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+        ) w ORDER BY week_ending_date DESC LIMIT 1`);
+      const latestWeek = (weekProbe.rows as any[])[0]?.week_ending_date ? String((weekProbe.rows as any[])[0].week_ending_date) : null;
+      const effectiveWeek = filterWeek || latestWeek;
+
+      const base = await getPilotBaseData(effectiveWeek);
+      const { dataRows } = base;
+
+      // Apply filters
+      const rows = dataRows.filter(r => {
+        if (filterManager && String(r.line_manager || '').toUpperCase() !== filterManager) return false;
+        if (filterRegion  && normalizeRegion(String(r.region || '')) !== filterRegion)    return false;
+        if (filterStore   && String(r.store_name || '').toUpperCase() !== filterStore)    return false;
+        if (filterBanner  && String(r.banner || '').toUpperCase() !== filterBanner)       return false;
+        if (filterRep     && String(r.rep_name || '').toUpperCase() !== filterRep)        return false;
+        if (filterClient  && String(r.client || '').toUpperCase() !== filterClient)       return false;
+        return true;
+      });
+
+      const esc = (v: unknown) => {
+        const s = v === null || v === undefined ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+
+      const headers = ['Store','Merchandiser','Line Manager','Region','Banner','Client','Article','Barcode','SOH','WFC','Action','Status','Reason Code','Feedback','Image URL','Week Ending'];
+      const lines = rows.map(r => [
+        esc(r.store_name), esc(r.rep_name), esc(r.line_manager), esc(r.region), esc(r.banner), esc(r.client),
+        esc(r.article_description), esc(r.barcode), esc(r.store_soh), esc(r.store_wfc),
+        esc(r.action), esc(r.action_status), esc(r.reason_code), esc(r.feedback), esc(r.image1), esc(r.week_ending_date),
+      ].join(','));
+
+      const csv = [headers.join(','), ...lines].join('\n');
+      const filename = `pilot-capture-${effectiveWeek || 'latest'}.csv`;
+
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res.send(csv);
+    } catch (error: any) {
+      console.error('Pilot export error:', error);
+      res.status(500).json({ error: error.message });
+    }
+  });
+
   // Merchandiser Pilot — task detail for a specific rep + store (StockFix)
   app.get('/api/pilot-tasks', async (req, res) => {
     try {
