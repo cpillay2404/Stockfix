@@ -1339,6 +1339,76 @@ export async function registerRoutes(
     }
   });
 
+  // POST /api/tasks/save-to-sharepoint — build this week's CSV and upload to SharePoint
+  app.post("/api/tasks/save-to-sharepoint", async (req, res) => {
+    try {
+      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
+      if (!latestWeek) {
+        return res.status(404).json({ ok: false, error: "No tasks found" });
+      }
+      const totalCount = await storage.getTaskCountByWeek(latestWeek);
+      console.log(`SharePoint export: building CSV for week ${latestWeek} (${totalCount} rows)...`);
+
+      const escapeCSV = (val: string | number | null | undefined): string => {
+        if (val === null || val === undefined) return '';
+        const str = String(val).replace(/[\r\n]+/g, ' ').trim();
+        if (str.includes(',') || str.includes('"') || str.includes('\t')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const csvHeaders = [
+        'Unique Id', 'Key', 'client', 'BANNER.1', 'REGION.1', 'cleaned store name',
+        'REP NAME', 'LINE MANAGER', 'Category', 'barcode', 'article description',
+        'Supplying dc soh', 'Store SOH', 'Sell out p4 weeks', 'Missed Sales (This Week)',
+        'WFC', 'Stock Classification (This Week)', 'week ending', 'Action Column',
+        'Action Date', 'Action Status', 'physicalCount', 'variance', 'systemAdjusted',
+        'reasonCode', 'actionTakenComment', 'feedback', 'captureDate', 'image1', 'image2', 'image3', 'image4'
+      ];
+
+      const lines: string[] = ['\ufeff' + csvHeaders.join(',')];
+      const BATCH_SIZE = 2000;
+      let offset = 0;
+
+      while (offset < totalCount) {
+        const batch = await storage.getTasksBatchByWeek(latestWeek, offset, BATCH_SIZE);
+        if (batch.length === 0) break;
+        for (const task of batch) {
+          lines.push([
+            escapeCSV(task.uniqueId), escapeCSV(task.key), escapeCSV(task.client),
+            escapeCSV(task.banner), escapeCSV(task.region), escapeCSV(task.storeName),
+            escapeCSV(task.repName), escapeCSV(task.lineManager), escapeCSV(task.category),
+            escapeCSV(task.barcode), escapeCSV(task.articleDescription),
+            escapeCSV(task.dcSoh), escapeCSV(task.storeSoh), escapeCSV(task.p4WeekSales),
+            escapeCSV(task.missedSales), escapeCSV(task.storeWfc), escapeCSV(task.stockClassification),
+            escapeCSV(task.weekEndingDate), escapeCSV(task.action), escapeCSV(task.actionDate),
+            escapeCSV(task.actionStatus), escapeCSV(task.physicalCount), escapeCSV(task.variance),
+            escapeCSV(task.systemAdjusted), escapeCSV(task.reasonCode), escapeCSV(task.actionTakenComment),
+            escapeCSV(task.feedback), escapeCSV(task.captureDate),
+            escapeCSV(task.image1), escapeCSV(task.image2), escapeCSV(task.image3), escapeCSV(task.image4),
+          ].join(','));
+        }
+        offset += batch.length;
+      }
+
+      const csv = lines.join('\n');
+      const filename = `stockfix-weekly-export-${latestWeek}.csv`;
+
+      const SP_HOST   = 'meridiangroupza.sharepoint.com';
+      const SP_SITE   = '/sites/MeridianNexus';
+      const SP_FOLDER = 'Stock Fix/Stock Fix App Output Data/This weeks feedback file';
+
+      const { webUrl } = await uploadToSharePoint(SP_HOST, SP_SITE, SP_FOLDER, filename, csv);
+
+      console.log(`SharePoint export complete: ${offset} rows → ${filename}`);
+      res.json({ ok: true, filename, rows: offset, week: latestWeek, webUrl });
+    } catch (error: any) {
+      console.error('SharePoint weekly export error:', error);
+      res.status(500).json({ ok: false, error: error.message || 'Upload failed' });
+    }
+  });
+
   // GET export this week's tasks as Excel - limited to 50k tasks for stability
   app.get("/api/tasks/export", async (req, res) => {
     try {
