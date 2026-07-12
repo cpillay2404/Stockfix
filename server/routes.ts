@@ -1397,7 +1397,7 @@ export async function registerRoutes(
 
       const SP_HOST   = 'meridiangroupza.sharepoint.com';
       const SP_SITE   = '/sites/MeridianNexus';
-      const SP_FOLDER = 'Stock Fix/Stock Fix App Output Data/This weeks feedback file';
+      const SP_FOLDER = 'Stock Fix/Reporting/Historical feedback';
 
       const { webUrl } = await uploadToSharePoint(SP_HOST, SP_SITE, SP_FOLDER, filename, csv);
 
