@@ -22,28 +22,27 @@ export async function getOneDriveToken(): Promise<string> {
     throw new Error('Replit connector env vars missing (REPLIT_CONNECTORS_HOSTNAME / REPL_IDENTITY)');
   }
 
-  const resp = await fetch(
-    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=sharepoint`,
-    {
-      headers: {
-        Accept: 'application/json',
-        'X-Replit-Token': xReplitToken,
-      },
-    }
-  );
-
-  const data = await resp.json() as any;
-  const conn = data.items?.[0];
-  const token =
-    conn?.settings?.access_token ||
-    conn?.settings?.oauth?.credentials?.access_token;
-
-  if (!token) {
-    throw new Error('SharePoint token not found — make sure the SharePoint Online integration is connected in this project');
+  // Try sharepoint connector first, fall back to onedrive (same OAuth token)
+  let token: string | undefined;
+  let expiresAtRaw: string | undefined;
+  for (const connectorName of ['sharepoint', 'onedrive']) {
+    const resp = await fetch(
+      `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=${connectorName}`,
+      { headers: { Accept: 'application/json', 'X-Replit-Token': xReplitToken } }
+    );
+    const data = await resp.json() as any;
+    const conn = data.items?.[0];
+    token = conn?.settings?.access_token || conn?.settings?.oauth?.credentials?.access_token;
+    expiresAtRaw = conn?.settings?.expires_at;
+    if (token) break;
   }
 
-  const expiresAt = conn?.settings?.expires_at
-    ? new Date(conn.settings.expires_at).getTime()
+  if (!token) {
+    throw new Error('SharePoint token not found — make sure the SharePoint or OneDrive integration is connected in this project');
+  }
+
+  const expiresAt = expiresAtRaw
+    ? new Date(expiresAtRaw).getTime()
     : Date.now() + 3500000;
 
   cachedToken = { token, expiresAt };
@@ -107,4 +106,33 @@ export async function readWorksheetRows(fileId: string, sheetName: string): Prom
 export async function listWorksheets(fileId: string): Promise<string[]> {
   const data = await graphGet(`/me/drive/items/${fileId}/workbook/worksheets`);
   return (data.value || []).map((ws: any) => ws.name);
+}
+
+// Upload a file to a SharePoint site folder via the Graph API
+// siteRelativePath: path within the site's Shared Documents, e.g. "Stock Fix/Stock Fix App Output Data/This weeks feedback file"
+export async function uploadToSharePoint(
+  siteId: string,
+  folderPath: string,
+  filename: string,
+  content: Buffer | string,
+  contentType = 'text/csv'
+): Promise<{ webUrl: string }> {
+  const token = await getOneDriveToken();
+  const encoded = encodeURIComponent(filename).replace(/'/g, "''");
+  const url = `https://graph.microsoft.com/v1.0/sites/${siteId}/drive/root:/${folderPath}/${encoded}:/content`;
+  const body = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
+  const resp = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': contentType,
+    },
+    body,
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`SharePoint upload failed ${resp.status}: ${text}`);
+  }
+  const data = await resp.json() as any;
+  return { webUrl: data.webUrl || '' };
 }

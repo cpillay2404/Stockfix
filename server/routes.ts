@@ -13,6 +13,7 @@ import { sendTaskCompletedEmail } from "./email";
 import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
 import { sql, eq, and, desc, type SQL } from "drizzle-orm";
+import { uploadToSharePoint } from "./onedrive";
 import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 
@@ -3615,6 +3616,59 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error('Pilot export error:', error);
       res.status(500).json({ error: error.message });
+    }
+  });
+
+  // ── Save pilot CSV to SharePoint ──────────────────────────────────
+  // POST /api/pilot-report/save-to-sharepoint
+  // Optional query params: week, status=completed
+  // Saves to: Stock Fix/Stock Fix App Output Data/This weeks feedback file/
+  app.post('/api/pilot-report/save-to-sharepoint', async (req, res) => {
+    try {
+      const filterWeek   = (req.query.week   as string | undefined)?.trim() || undefined;
+      const filterStatus = (req.query.status as string | undefined)?.toLowerCase() || undefined;
+
+      // Resolve week
+      const weekProbe = await db.execute(sql`
+        SELECT DISTINCT week_ending_date FROM (
+          SELECT week_ending_date FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+          UNION
+          SELECT week_ending_date FROM pilot_tasks_history WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+        ) w ORDER BY week_ending_date DESC LIMIT 1`);
+      const latestWeek = (weekProbe.rows as any[])[0]?.week_ending_date ? String((weekProbe.rows as any[])[0].week_ending_date) : null;
+      const effectiveWeek = filterWeek || latestWeek;
+
+      const base = await getPilotBaseData(effectiveWeek);
+      let rows = base.dataRows;
+      if (filterStatus === 'completed') {
+        rows = rows.filter(r => String(r.action_status || '').toLowerCase() === 'completed');
+      }
+
+      const esc = (v: unknown) => {
+        const s = v === null || v === undefined ? '' : String(v);
+        return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+      };
+      const headers = ['Store','Merchandiser','Line Manager','Region','Banner','Client','Article','Barcode','SOH','WFC','Action','Status','Reason Code','Feedback','Image URL','Week Ending'];
+      const lines = rows.map(r => [
+        esc(r.store_name), esc(r.rep_name), esc(r.line_manager), esc(r.region), esc(r.banner), esc(r.client),
+        esc(r.article_description), esc(r.barcode), esc(r.store_soh), esc(r.store_wfc),
+        esc(r.action), esc(r.action_status), esc(r.reason_code), esc(r.feedback), esc(r.image1), esc(r.week_ending_date),
+      ].join(','));
+      const csv = [headers.join(','), ...lines].join('\n');
+
+      const suffix = filterStatus === 'completed' ? '-completed' : '-full';
+      const filename = `pilot-capture-${effectiveWeek || 'latest'}${suffix}.csv`;
+
+      // SharePoint site: meridiangroupza.sharepoint.com/sites/MeridianNexus
+      const SITE_ID = 'meridiangroupza.sharepoint.com,/sites/MeridianNexus';
+      const FOLDER  = 'Stock Fix/Stock Fix App Output Data/This weeks feedback file';
+
+      const { webUrl } = await uploadToSharePoint(SITE_ID, FOLDER, filename, csv);
+
+      res.json({ ok: true, filename, rows: rows.length, week: effectiveWeek, webUrl });
+    } catch (error: any) {
+      console.error('SharePoint save error:', error);
+      res.status(500).json({ ok: false, error: error.message });
     }
   });
 
