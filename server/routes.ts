@@ -3567,6 +3567,7 @@ export async function registerRoutes(
       const filterRep     = (req.query.rep     as string | undefined)?.toUpperCase() || undefined;
       const filterWeek    = (req.query.week    as string | undefined)?.trim() || undefined;
       const filterClient  = (req.query.client  as string | undefined)?.toUpperCase() || undefined;
+      const filterStatus  = (req.query.status  as string | undefined)?.toLowerCase() || undefined; // 'completed' to restrict
 
       // Resolve effective week
       const weekProbe = await db.execute(sql`
@@ -3589,6 +3590,7 @@ export async function registerRoutes(
         if (filterBanner  && String(r.banner || '').toUpperCase() !== filterBanner)       return false;
         if (filterRep     && String(r.rep_name || '').toUpperCase() !== filterRep)        return false;
         if (filterClient  && String(r.client || '').toUpperCase() !== filterClient)       return false;
+        if (filterStatus === 'completed' && String(r.action_status || '').toLowerCase() !== 'completed') return false;
         return true;
       });
 
