@@ -13,7 +13,7 @@ import { sendTaskCompletedEmail } from "./email";
 import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
 import { sql, eq, and, desc, type SQL } from "drizzle-orm";
-import { uploadToSharePoint } from "./onedrive";
+import { uploadToSharePoint } from "./sharepoint-appauth";
 import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 
@@ -1395,11 +1395,7 @@ export async function registerRoutes(
       const csv = lines.join('\n');
       const filename = `stockfix-weekly-export-${latestWeek}.csv`;
 
-      const SP_HOST   = 'meridiangroupza.sharepoint.com';
-      const SP_SITE   = '/sites/MeridianNexus';
-      const SP_FOLDER = 'Stock Fix/Reporting/Historical feedback';
-
-      const { webUrl } = await uploadToSharePoint(SP_HOST, SP_SITE, SP_FOLDER, filename, csv);
+      const { webUrl } = await uploadToSharePoint('Stock Fix/Reporting/Historical feedback', filename, csv);
 
       console.log(`SharePoint export complete: ${offset} rows → ${filename}`);
       res.json({ ok: true, filename, rows: offset, week: latestWeek, webUrl });
@@ -1467,11 +1463,7 @@ export async function registerRoutes(
       const csv = lines.join('\n');
       const filename = `stockfix-completed-${latestWeek}.csv`;
 
-      const SP_HOST   = 'meridiangroupza.sharepoint.com';
-      const SP_SITE   = '/sites/MeridianNexus';
-      const SP_FOLDER = 'Stock Fix/Stock Fix App Output Data/This weeks feedback file';
-
-      const { webUrl } = await uploadToSharePoint(SP_HOST, SP_SITE, SP_FOLDER, filename, csv);
+      const { webUrl } = await uploadToSharePoint('Stock Fix/Stock Fix App Output Data/This weeks feedback file', filename, csv);
 
       console.log(`SharePoint completed export: ${completedRows} rows → ${filename}`);
       res.json({ ok: true, filename, rows: completedRows, week: latestWeek, webUrl });
@@ -3801,11 +3793,7 @@ export async function registerRoutes(
       const suffix = filterStatus === 'completed' ? '-completed' : '-full';
       const filename = `pilot-capture-${effectiveWeek || 'latest'}${suffix}.csv`;
 
-      const SP_HOST   = 'meridiangroupza.sharepoint.com';
-      const SP_SITE   = '/sites/MeridianNexus';
-      const SP_FOLDER = 'Stock Fix/Stock Fix App Output Data/This weeks feedback file';
-
-      const { webUrl } = await uploadToSharePoint(SP_HOST, SP_SITE, SP_FOLDER, filename, csv);
+      const { webUrl } = await uploadToSharePoint('Stock Fix/Stock Fix App Output Data/This weeks feedback file', filename, csv);
 
       res.json({ ok: true, filename, rows: rows.length, week: effectiveWeek, webUrl });
     } catch (error: any) {
