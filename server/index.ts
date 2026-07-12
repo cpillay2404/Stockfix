@@ -9,12 +9,9 @@ import cors from "cors";
 
 const app = express();
 
-// Allow PerfectStorePro and StockFix itself to call this API
+// Allow any origin to call this API (external HTML tools, automation portals, etc.)
 app.use(cors({
-  origin: [
-    'https://perfectstorepro.replit.app',
-    'https://stockfixapp.online',
-  ],
+  origin: true,
   methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
