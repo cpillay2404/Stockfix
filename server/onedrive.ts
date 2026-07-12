@@ -131,8 +131,9 @@ export async function uploadToSharePoint(
   }
   const siteData = await siteResp.json() as any;
   const siteId: string = siteData.id;
+  console.log(`[SharePoint Upload] Resolved siteId: ${siteId}`);
 
-  // Step 2: encode path and upload using site's default drive
+  // Step 2: encode path and upload using site's default drive (/drive singular = main Documents library)
   const encodedFolder = folderPath.split('/').map(encodeURIComponent).join('/');
   const encodedFile = encodeURIComponent(filename);
   const body = typeof content === 'string' ? Buffer.from(content, 'utf8') : content;
