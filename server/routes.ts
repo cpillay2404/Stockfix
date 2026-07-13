@@ -708,6 +708,18 @@ export async function registerRoutes(
           }
         }
       }
+
+      // Final fallback — fill any remaining slots with all pending tasks by score
+      if (topSkus.length < 5) {
+        const remaining = [...scoredTasks].sort((a, b) => b.attentionScore - a.attentionScore);
+        for (const task of remaining) {
+          if (!seenBarcodes.has(task.barcode)) {
+            seenBarcodes.add(task.barcode);
+            topSkus.push(task);
+            if (topSkus.length >= 5) break;
+          }
+        }
+      }
       
       const response = { skus: topSkus };
       dashboardStatsCache.set(cacheKey, { data: response, timestamp: Date.now(), key: cacheKey });
