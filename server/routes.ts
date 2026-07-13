@@ -1405,7 +1405,7 @@ export async function registerRoutes(
       }
 
       const csv = lines.join('\n');
-      const filename = `stockfix_all_tasks (5).csv`;
+      const filename = `stockfix-weekly-export-${latestWeek}.csv`;
 
       const { webUrl } = await uploadToSharePoint('Stock Fix/Reporting/Historical feedback', filename, csv);
 
@@ -3802,7 +3802,8 @@ export async function registerRoutes(
       ].join(','));
       const csv = [headers.join(','), ...lines].join('\n');
 
-      const filename = `stockfix_all_tasks (5).csv`;
+      const suffix = filterStatus === 'completed' ? '-completed' : '-full';
+      const filename = `pilot-capture-${effectiveWeek || 'latest'}${suffix}.csv`;
 
       const { webUrl } = await uploadToSharePoint('Stock Fix/Stock Fix App Output Data/This weeks feedback file', filename, csv);
 
