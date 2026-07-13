@@ -273,7 +273,6 @@ export default function StoreOverview() {
   const [selectedClient, setSelectedClient] = useState(initialClient);
   const [selectedArticle, setSelectedArticle] = useState(initialArticle);
   const [showAttentionModal, setShowAttentionModal] = useState(false);
-  const [modalSkus, setModalSkus] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const queryClient = useQueryClient();
 
@@ -557,7 +556,7 @@ export default function StoreOverview() {
           {/* Critical SKUs Tile */}
           <div
             data-testid="visit-tile-critical"
-            onClick={() => { setModalSkus(attentionData?.skus || []); setShowAttentionModal(true); }}
+            onClick={() => setShowAttentionModal(true)}
             style={{
               backgroundColor: '#FFFFFF',
               borderRadius: '10px',
@@ -640,10 +639,10 @@ export default function StoreOverview() {
       <TopAttentionModal
         open={showAttentionModal}
         onOpenChange={setShowAttentionModal}
-        skus={modalSkus}
         rep={rep}
         store={store}
         client={selectedClient}
+        article={selectedArticle}
       />
 
       {/* Bottom Navigation */}
