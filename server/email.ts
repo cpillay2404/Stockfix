@@ -159,8 +159,8 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       recipients = [...alwaysNotify];
     }
 
-    recipients = [...new Set(recipients)];
-    const ccRecipients = alwaysNotify.filter(email => !recipients.includes(email));
+    recipients = [...new Set(recipients.map(e => e.toLowerCase()))];
+    const ccRecipients = alwaysNotify.filter(email => !recipients.includes(email.toLowerCase()));
 
     const clientCcMap: Record<string, string[]> = {
       'AQUELLE': ['cperumal@meridiangroup.co.za', 'SuzelleS@aquelle.co.za', 'EstelleP@aquelle.co.za'],
@@ -190,7 +190,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       for (const [clientName, emails] of Object.entries(clientCcMap)) {
         if (clientUpper.includes(clientName)) {
           for (const email of emails) {
-            if (!ccRecipients.includes(email)) {
+            if (!ccRecipients.map(e => e.toLowerCase()).includes(email.toLowerCase()) && !recipients.includes(email.toLowerCase())) {
               ccRecipients.push(email);
               console.log('[Email] Adding client-specific CC for', clientName, ':', email);
             }
@@ -205,7 +205,7 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
 
       // Western Cape — specific manager
       if (regionUpper.includes('WESTERN CAPE')) {
-        if (!ccRecipients.includes('glwigington@meridiangroup.co.za')) {
+        if (!ccRecipients.map(e => e.toLowerCase()).includes('glwigington@meridiangroup.co.za') && !recipients.includes('glwigington@meridiangroup.co.za')) {
           ccRecipients.push('glwigington@meridiangroup.co.za');
           console.log('[Email] Adding region CC (Western Cape): glwigington@meridiangroup.co.za');
         }
@@ -216,12 +216,12 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       const jversterRegions = ['FREE STATE', 'NORTH WEST'];
 
       if (fsenekhalRegions.some(r => regionUpper.includes(r))) {
-        if (!ccRecipients.includes('fsenekal@meridiangroup.co.za')) {
+        if (!ccRecipients.map(e => e.toLowerCase()).includes('fsenekal@meridiangroup.co.za') && !recipients.includes('fsenekal@meridiangroup.co.za')) {
           ccRecipients.push('fsenekal@meridiangroup.co.za');
           console.log('[Email] Adding region CC (Gauteng/Mpu/Lim):', 'fsenekal@meridiangroup.co.za');
         }
       } else if (jversterRegions.some(r => regionUpper.includes(r))) {
-        if (!ccRecipients.includes('jverster@meridiangroup.co.za')) {
+        if (!ccRecipients.map(e => e.toLowerCase()).includes('jverster@meridiangroup.co.za') && !recipients.includes('jverster@meridiangroup.co.za')) {
           ccRecipients.push('jverster@meridiangroup.co.za');
           console.log('[Email] Adding region CC (FS/NW):', 'jverster@meridiangroup.co.za');
         }
