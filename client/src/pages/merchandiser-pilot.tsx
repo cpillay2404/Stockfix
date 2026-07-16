@@ -585,41 +585,41 @@ function BreakdownBarChart({ title, icon: Icon, accent, rows, height }: {
   );
 }
 
+function weekRateColor(r: number) {
+  if (r >= 80) return "#10b981";
+  if (r >= 60) return "#06b6d4";
+  if (r >= 40) return "#f59e0b";
+  if (r > 0)  return "#f43f5e";
+  return "#475569";
+}
+
 function WeeklyTrendChart({ history }: { history: WeekSnapshot[] }) {
   const data = useMemo(() => {
     return [...history]
       .sort((a, b) => a.weekEndingDate.localeCompare(b.weekEndingDate))
       .map(w => ({
         week: fmtDate(w.weekEndingDate),
-        tasks: w.totalTasks,
-        completed: w.totalCompleted,
         rate: w.captureRate,
+        completed: w.totalCompleted,
+        tasks: w.totalTasks,
         reps: w.repCount,
       }));
   }, [history]);
 
   if (data.length === 0) return null;
 
-  const maxTasks = Math.max(...data.map(d => d.tasks), 1);
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       className="mb-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 backdrop-blur-xl"
     >
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <TrendingUp className="h-4 w-4 text-cyan-400" />
-          <h3 className="text-sm font-bold text-white">Week-by-Week Capture Trend</h3>
-        </div>
-        <div className="flex items-center gap-4 text-[10px] text-slate-500">
-          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-cyan-600/70" />Tasks</span>
-          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/80" />Completed</span>
-          <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-amber-400" />Capture %</span>
-        </div>
+      <div className="mb-3 flex items-center gap-2">
+        <TrendingUp className="h-4 w-4 text-cyan-400" />
+        <h3 className="text-sm font-bold text-white">Week-by-Week Capture Rate</h3>
+        <span className="text-[10px] text-slate-500 ml-1">% of tasks completed per week</span>
       </div>
-      <ResponsiveContainer width="100%" height={160}>
-        <ComposedChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={180}>
+        <BarChart data={data} margin={{ top: 18, right: 10, left: -10, bottom: 0 }} barCategoryGap="28%">
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
           <XAxis
             dataKey="week"
@@ -627,40 +627,27 @@ function WeeklyTrendChart({ history }: { history: WeekSnapshot[] }) {
             axisLine={false} tickLine={false}
           />
           <YAxis
-            yAxisId="tasks"
-            domain={[0, Math.ceil(maxTasks * 1.15)]}
-            tick={{ fill: "#64748b", fontSize: 9 }}
-            axisLine={false} tickLine={false}
-            width={36}
-          />
-          <YAxis
-            yAxisId="rate"
-            orientation="right"
             domain={[0, 100]}
             tick={{ fill: "#64748b", fontSize: 9 }}
             axisLine={false} tickLine={false}
             tickFormatter={(v) => `${v}%`}
-            width={30}
+            width={32}
           />
           <Tooltip
             cursor={{ fill: "rgba(255,255,255,0.03)" }}
             contentStyle={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }}
             labelStyle={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}
-            formatter={(value: number, name: string) => {
-              if (name === "rate") return [`${value}%`, "Capture Rate"];
-              if (name === "tasks") return [value.toLocaleString("en-ZA"), "Total Tasks"];
-              if (name === "completed") return [value.toLocaleString("en-ZA"), "Completed"];
-              return [value, name];
-            }}
+            formatter={(value: number, name: string, item: any) => [
+              `${value}% (${item.payload.completed.toLocaleString("en-ZA")} / ${item.payload.tasks.toLocaleString("en-ZA")} tasks, ${item.payload.reps} reps)`,
+              "Capture Rate",
+            ]}
           />
-          <Bar yAxisId="tasks" dataKey="tasks" radius={[3, 3, 0, 0]} maxBarSize={32} fill="rgba(6,182,212,0.35)" />
-          <Bar yAxisId="tasks" dataKey="completed" radius={[3, 3, 0, 0]} maxBarSize={32} fill="rgba(16,185,129,0.7)" />
-          <Line
-            yAxisId="rate" dataKey="rate" type="monotone"
-            stroke="#fbbf24" strokeWidth={2} dot={{ r: 3, fill: "#fbbf24", strokeWidth: 0 }}
-            activeDot={{ r: 5, fill: "#fbbf24" }}
-          />
-        </ComposedChart>
+          <Bar dataKey="rate" radius={[4, 4, 0, 0]} minPointSize={3}
+            label={{ position: "top", fill: "#94a3b8", fontSize: 10, formatter: (v: number) => v > 0 ? `${v}%` : "" }}
+          >
+            {data.map((d, i) => <Cell key={i} fill={weekRateColor(d.rate)} />)}
+          </Bar>
+        </BarChart>
       </ResponsiveContainer>
     </motion.div>
   );
