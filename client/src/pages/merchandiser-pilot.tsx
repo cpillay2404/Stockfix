@@ -29,7 +29,7 @@ interface Merchandiser {
   overallRate: number;
   stockFix: { tasks: number; completed: number; captureRate: number; stores: SFStore[] } | null;
 }
-interface WeekSnapshot { weekEndingDate: string; repCount: number; totalTasks: number; totalCompleted: number; captureRate: number }
+interface WeekSnapshot { weekEndingDate: string; repCount: number; repsWithCapture: number; totalTasks: number; totalCompleted: number; captureRate: number }
 interface BreakdownStat { total: number; completed: number; captureRate: number }
 interface MerchRank { name: string; lineManager: string | null; region: string | null; pctStoresActioned: number; pctItemsActioned: number }
 interface TaskDetailRow {
@@ -593,6 +593,56 @@ function weekRateColor(r: number) {
   return "#475569";
 }
 
+function WeekStrip({ history }: { history: WeekSnapshot[] }) {
+  const weeks = useMemo(() =>
+    [...history].sort((a, b) => b.weekEndingDate.localeCompare(a.weekEndingDate)),
+    [history]
+  );
+  if (weeks.length === 0) return null;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
+      className="mb-3 flex gap-2.5 overflow-x-auto pb-1"
+    >
+      {weeks.map((w, i) => {
+        const color = weekRateColor(w.captureRate);
+        const repPct = w.repCount > 0 ? Math.round((w.repsWithCapture / w.repCount) * 100) : 0;
+        return (
+          <div
+            key={w.weekEndingDate}
+            className="shrink-0 min-w-[160px] rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 backdrop-blur-xl"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500">
+                {i === 0 ? "Latest week" : `Week ${weeks.length - i}`}
+              </span>
+              <span className="text-[9px] text-slate-600">{fmtDate(w.weekEndingDate)}</span>
+            </div>
+            <div className="text-3xl font-extrabold tabular-nums" style={{ color }}>
+              {w.captureRate}%
+            </div>
+            <div className="mt-0.5 text-[10px] text-slate-500">capture rate</div>
+            <div className="mt-2.5 space-y-1">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-slate-500">Reps captured</span>
+                <span className="font-semibold text-slate-300">{w.repsWithCapture} <span className="text-slate-600">/ {w.repCount}</span></span>
+              </div>
+              <div className="h-1 w-full rounded-full bg-white/[0.04] overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${repPct}%`, backgroundColor: color, opacity: 0.7 }} />
+              </div>
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-slate-500">Tasks done</span>
+                <span className="font-semibold text-slate-300">{w.totalCompleted.toLocaleString("en-ZA")} <span className="text-slate-600">/ {w.totalTasks.toLocaleString("en-ZA")}</span></span>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </motion.div>
+  );
+}
+
 function WeeklyTrendChart({ history }: { history: WeekSnapshot[] }) {
   const data = useMemo(() => {
     return [...history]
@@ -792,6 +842,11 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         <KpiTile icon={StoreIcon} label="Stores Covered" value={fmtNum(storesCovered)} sub="with logged tasks" accent="from-pink-500 to-rose-600" delay={0.2} />
         <KpiTile icon={Trophy} label="Pilot Coverage" value={`${coverage}%`} sub={`${fmtNum(repsWithCapture)} of ${fmtNum(totalMerchandisers)} captured feedback`} accent="from-indigo-500 to-violet-600" delay={0.25} />
       </div>
+
+      {/* Week-by-week strip */}
+      {data.history && data.history.length > 0 && (
+        <WeekStrip history={data.history} />
+      )}
 
       {/* Manager / Region breakdown */}
       <div className="mb-3 grid grid-cols-1 gap-2.5 lg:grid-cols-2">
