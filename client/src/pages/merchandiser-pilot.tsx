@@ -29,7 +29,7 @@ interface Merchandiser {
   overallRate: number;
   stockFix: { tasks: number; completed: number; captureRate: number; stores: SFStore[] } | null;
 }
-interface WeekSnapshot { weekEndingDate: string; repCount: number; repsWithCapture: number; totalTasks: number; totalCompleted: number; captureRate: number }
+interface WeekSnapshot { weekEndingDate: string; repCount: number; totalTasks: number; totalCompleted: number; captureRate: number }
 interface BreakdownStat { total: number; completed: number; captureRate: number }
 interface MerchRank { name: string; lineManager: string | null; region: string | null; pctStoresActioned: number; pctItemsActioned: number }
 interface TaskDetailRow {
@@ -585,91 +585,41 @@ function BreakdownBarChart({ title, icon: Icon, accent, rows, height }: {
   );
 }
 
-function weekRateColor(r: number) {
-  if (r >= 80) return "#10b981";
-  if (r >= 60) return "#06b6d4";
-  if (r >= 40) return "#f59e0b";
-  if (r > 0)  return "#f43f5e";
-  return "#475569";
-}
-
-function WeekStrip({ history }: { history: WeekSnapshot[] }) {
-  const weeks = useMemo(() =>
-    [...history].sort((a, b) => b.weekEndingDate.localeCompare(a.weekEndingDate)),
-    [history]
-  );
-  if (weeks.length === 0) return null;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}
-      className="mb-3 flex gap-2.5 overflow-x-auto pb-1"
-    >
-      {weeks.map((w, i) => {
-        const color = weekRateColor(w.captureRate);
-        const repPct = w.repCount > 0 ? Math.round((w.repsWithCapture / w.repCount) * 100) : 0;
-        return (
-          <div
-            key={w.weekEndingDate}
-            className="shrink-0 min-w-[160px] rounded-xl border border-white/[0.06] bg-white/[0.02] p-3 backdrop-blur-xl"
-          >
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-500">
-                {i === 0 ? "Latest week" : `Week ${weeks.length - i}`}
-              </span>
-              <span className="text-[9px] text-slate-600">{fmtDate(w.weekEndingDate)}</span>
-            </div>
-            <div className="text-3xl font-extrabold tabular-nums" style={{ color }}>
-              {w.captureRate}%
-            </div>
-            <div className="mt-0.5 text-[10px] text-slate-500">capture rate</div>
-            <div className="mt-2.5 space-y-1">
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-slate-500">Merch captured</span>
-                <span className="font-semibold text-slate-300">{w.repsWithCapture} <span className="text-slate-600">/ {w.repCount}</span></span>
-              </div>
-              <div className="h-1 w-full rounded-full bg-white/[0.04] overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: `${repPct}%`, backgroundColor: color, opacity: 0.7 }} />
-              </div>
-              <div className="flex items-center justify-between text-[10px]">
-                <span className="text-slate-500">Tasks done</span>
-                <span className="font-semibold text-slate-300">{w.totalCompleted.toLocaleString("en-ZA")} <span className="text-slate-600">/ {w.totalTasks.toLocaleString("en-ZA")}</span></span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </motion.div>
-  );
-}
-
 function WeeklyTrendChart({ history }: { history: WeekSnapshot[] }) {
   const data = useMemo(() => {
     return [...history]
       .sort((a, b) => a.weekEndingDate.localeCompare(b.weekEndingDate))
       .map(w => ({
         week: fmtDate(w.weekEndingDate),
-        rate: w.captureRate,
-        completed: w.totalCompleted,
         tasks: w.totalTasks,
+        completed: w.totalCompleted,
+        rate: w.captureRate,
         reps: w.repCount,
       }));
   }, [history]);
 
   if (data.length === 0) return null;
 
+  const maxTasks = Math.max(...data.map(d => d.tasks), 1);
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
       className="mb-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 backdrop-blur-xl"
     >
-      <div className="mb-3 flex items-center gap-2">
-        <TrendingUp className="h-4 w-4 text-cyan-400" />
-        <h3 className="text-sm font-bold text-white">Week-by-Week Capture Rate</h3>
-        <span className="text-[10px] text-slate-500 ml-1">% of tasks completed per week</span>
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-cyan-400" />
+          <h3 className="text-sm font-bold text-white">Week-by-Week Capture Trend</h3>
+        </div>
+        <div className="flex items-center gap-4 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-cyan-600/70" />Tasks</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/80" />Completed</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-amber-400" />Capture %</span>
+        </div>
       </div>
-      <ResponsiveContainer width="100%" height={180}>
-        <BarChart data={data} margin={{ top: 18, right: 10, left: -10, bottom: 0 }} barCategoryGap="28%">
+      <ResponsiveContainer width="100%" height={160}>
+        <ComposedChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
           <XAxis
             dataKey="week"
@@ -677,27 +627,40 @@ function WeeklyTrendChart({ history }: { history: WeekSnapshot[] }) {
             axisLine={false} tickLine={false}
           />
           <YAxis
+            yAxisId="tasks"
+            domain={[0, Math.ceil(maxTasks * 1.15)]}
+            tick={{ fill: "#64748b", fontSize: 9 }}
+            axisLine={false} tickLine={false}
+            width={36}
+          />
+          <YAxis
+            yAxisId="rate"
+            orientation="right"
             domain={[0, 100]}
             tick={{ fill: "#64748b", fontSize: 9 }}
             axisLine={false} tickLine={false}
             tickFormatter={(v) => `${v}%`}
-            width={32}
+            width={30}
           />
           <Tooltip
             cursor={{ fill: "rgba(255,255,255,0.03)" }}
             contentStyle={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }}
             labelStyle={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}
-            formatter={(value: number, name: string, item: any) => [
-              `${value}% (${item.payload.completed.toLocaleString("en-ZA")} / ${item.payload.tasks.toLocaleString("en-ZA")} tasks, ${item.payload.reps} reps)`,
-              "Capture Rate",
-            ]}
+            formatter={(value: number, name: string) => {
+              if (name === "rate") return [`${value}%`, "Capture Rate"];
+              if (name === "tasks") return [value.toLocaleString("en-ZA"), "Total Tasks"];
+              if (name === "completed") return [value.toLocaleString("en-ZA"), "Completed"];
+              return [value, name];
+            }}
           />
-          <Bar dataKey="rate" radius={[4, 4, 0, 0]} minPointSize={3}
-            label={{ position: "top", fill: "#94a3b8", fontSize: 10, formatter: (v: number) => v > 0 ? `${v}%` : "" }}
-          >
-            {data.map((d, i) => <Cell key={i} fill={weekRateColor(d.rate)} />)}
-          </Bar>
-        </BarChart>
+          <Bar yAxisId="tasks" dataKey="tasks" radius={[3, 3, 0, 0]} maxBarSize={32} fill="rgba(6,182,212,0.35)" />
+          <Bar yAxisId="tasks" dataKey="completed" radius={[3, 3, 0, 0]} maxBarSize={32} fill="rgba(16,185,129,0.7)" />
+          <Line
+            yAxisId="rate" dataKey="rate" type="monotone"
+            stroke="#fbbf24" strokeWidth={2} dot={{ r: 3, fill: "#fbbf24", strokeWidth: 0 }}
+            activeDot={{ r: 5, fill: "#fbbf24" }}
+          />
+        </ComposedChart>
       </ResponsiveContainer>
     </motion.div>
   );
@@ -822,6 +785,47 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
                 <Download className="h-3.5 w-3.5" /> No Activity List
               </button>
             </Hint>
+            <Hint label="Save full capture data (all statuses) to SharePoint">
+              <button
+                onClick={() => handleSpSave("full")}
+                disabled={spFull === "saving"}
+                data-testid="button-sp-save-full"
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  spFull === "done" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" :
+                  spFull === "error" ? "border-red-500/40 bg-red-500/10 text-red-400" :
+                  "border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300"
+                }`}
+              >
+                {spFull === "saving" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
+                 spFull === "done"   ? <CheckCircle className="h-3.5 w-3.5" /> :
+                 spFull === "error"  ? <AlertCircle className="h-3.5 w-3.5" /> :
+                 <Upload className="h-3.5 w-3.5" />}
+                {spFull === "saving" ? "Saving…" : spFull === "done" ? "Saved!" : spFull === "error" ? "Failed" : "Save Full to SP"}
+              </button>
+            </Hint>
+            <Hint label="Save completed captures only to SharePoint">
+              <button
+                onClick={() => handleSpSave("completed")}
+                disabled={spDone === "saving"}
+                data-testid="button-sp-save-completed"
+                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                  spDone === "done" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" :
+                  spDone === "error" ? "border-red-500/40 bg-red-500/10 text-red-400" :
+                  "border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 hover:text-violet-300"
+                }`}
+              >
+                {spDone === "saving" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
+                 spDone === "done"   ? <CheckCircle className="h-3.5 w-3.5" /> :
+                 spDone === "error"  ? <AlertCircle className="h-3.5 w-3.5" /> :
+                 <Upload className="h-3.5 w-3.5" />}
+                {spDone === "saving" ? "Saving…" : spDone === "done" ? "Saved!" : spDone === "error" ? "Failed" : "Save Completed to SP"}
+              </button>
+            </Hint>
+            {spMsg && (
+              <span className={`text-[10px] font-medium ${spMsg.startsWith("Saved") ? "text-emerald-400" : "text-red-400"}`}>
+                {spMsg}
+              </span>
+            )}
             <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-20 w-auto" data-testid="img-meridian-logo" />
           </div>
         </div>
@@ -843,9 +847,9 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         <KpiTile icon={Trophy} label="Pilot Coverage" value={`${coverage}%`} sub={`${fmtNum(repsWithCapture)} of ${fmtNum(totalMerchandisers)} captured feedback`} accent="from-indigo-500 to-violet-600" delay={0.25} />
       </div>
 
-      {/* Week-by-week strip */}
+      {/* Week-by-week trend */}
       {data.history && data.history.length > 0 && (
-        <WeekStrip history={data.history} />
+        <WeeklyTrendChart history={data.history} />
       )}
 
       {/* Manager / Region breakdown */}

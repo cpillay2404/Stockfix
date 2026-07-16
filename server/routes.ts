@@ -3674,7 +3674,6 @@ export async function registerRoutes(
       const historyResult = await db.execute(sql`
         SELECT week_ending_date,
                COUNT(DISTINCT rep_name) as rep_count,
-               COUNT(DISTINCT CASE WHEN completed::int > 0 THEN rep_name END) as reps_with_capture,
                SUM(total_tasks::int) as total_tasks,
                SUM(completed::int) as total_completed,
                CASE WHEN SUM(total_tasks::int) > 0 THEN ROUND(SUM(completed::int)*100.0/SUM(total_tasks::int)) ELSE 0 END as capture_rate
@@ -3684,7 +3683,6 @@ export async function registerRoutes(
       `);
       const history = (historyResult.rows as any[]).map(r => ({
         weekEndingDate: r.week_ending_date, repCount: Number(r.rep_count),
-        repsWithCapture: Number(r.reps_with_capture),
         totalTasks: Number(r.total_tasks), totalCompleted: Number(r.total_completed), captureRate: Number(r.capture_rate),
       }));
 
