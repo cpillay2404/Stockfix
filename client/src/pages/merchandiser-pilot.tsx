@@ -847,11 +847,6 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         <KpiTile icon={Trophy} label="Pilot Coverage" value={`${coverage}%`} sub={`${fmtNum(repsWithCapture)} of ${fmtNum(totalMerchandisers)} captured feedback`} accent="from-indigo-500 to-violet-600" delay={0.25} />
       </div>
 
-      {/* Week-by-week trend */}
-      {data.history && data.history.length > 0 && (
-        <WeeklyTrendChart history={data.history} />
-      )}
-
       {/* Manager / Region breakdown */}
       <div className="mb-3 grid grid-cols-1 gap-2.5 lg:grid-cols-2">
         <BreakdownTable

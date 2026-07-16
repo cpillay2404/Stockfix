@@ -3650,24 +3650,19 @@ export async function registerRoutes(
       // and always do it as a single bulk statement (never a per-rep loop) to avoid
       // hundreds of sequential round-trips on every dashboard load.
       if (latestWeek && !hasFilter && sfByRep.size > 0) {
-        const existingSnapshot = await db.execute(sql`
-          SELECT 1 FROM pilot_snapshots WHERE week_ending_date = ${latestWeek} LIMIT 1
+        const values = [...sfByRep.entries()].map(([name, d]) => {
+          const rate = d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0;
+          return sql`(${latestWeek}, ${name}, ${d.lineManager || null}, ${d.region || null},
+                  ${String(d.tasks)}, ${String(d.completed)}, ${String(d.tasks - d.completed)}, ${String(rate)}, NOW())`;
+        });
+        await db.execute(sql`
+          INSERT INTO pilot_snapshots (week_ending_date, rep_name, line_manager, region, total_tasks, completed, pending, capture_rate, saved_at)
+          VALUES ${sql.join(values, sql`, `)}
+          ON CONFLICT (week_ending_date, rep_name)
+          DO UPDATE SET line_manager=EXCLUDED.line_manager, region=EXCLUDED.region,
+            total_tasks=EXCLUDED.total_tasks, completed=EXCLUDED.completed,
+            pending=EXCLUDED.pending, capture_rate=EXCLUDED.capture_rate, saved_at=NOW()
         `);
-        if (existingSnapshot.rows.length === 0) {
-          const values = [...sfByRep.entries()].map(([name, d]) => {
-            const rate = d.tasks > 0 ? Math.round((d.completed / d.tasks) * 100) : 0;
-            return sql`(${latestWeek}, ${name}, ${d.lineManager || null}, ${d.region || null},
-                    ${String(d.tasks)}, ${String(d.completed)}, ${String(d.tasks - d.completed)}, ${String(rate)}, NOW())`;
-          });
-          await db.execute(sql`
-            INSERT INTO pilot_snapshots (week_ending_date, rep_name, line_manager, region, total_tasks, completed, pending, capture_rate, saved_at)
-            VALUES ${sql.join(values, sql`, `)}
-            ON CONFLICT (week_ending_date, rep_name)
-            DO UPDATE SET line_manager=EXCLUDED.line_manager, region=EXCLUDED.region,
-              total_tasks=EXCLUDED.total_tasks, completed=EXCLUDED.completed,
-              pending=EXCLUDED.pending, capture_rate=EXCLUDED.capture_rate, saved_at=NOW()
-          `);
-        }
       }
 
       // --- Rolling history (pilot weeks only, from pilot start date onward) ---
