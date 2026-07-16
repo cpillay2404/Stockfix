@@ -625,7 +625,7 @@ function WeekStrip({ history }: { history: WeekSnapshot[] }) {
             <div className="mt-0.5 text-[10px] text-slate-500">capture rate</div>
             <div className="mt-2.5 space-y-1">
               <div className="flex items-center justify-between text-[10px]">
-                <span className="text-slate-500">Reps captured</span>
+                <span className="text-slate-500">Merch captured</span>
                 <span className="font-semibold text-slate-300">{w.repsWithCapture} <span className="text-slate-600">/ {w.repCount}</span></span>
               </div>
               <div className="h-1 w-full rounded-full bg-white/[0.04] overflow-hidden">
