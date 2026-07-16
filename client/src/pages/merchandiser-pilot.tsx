@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, ComposedChart, Line } from "recharts";
 import {
   Users, ClipboardCheck, CheckCircle2, Gauge, Store as StoreIcon, Trophy,
   ArrowLeft, Search, ChevronRight, TrendingUp, TrendingDown,
@@ -585,6 +585,87 @@ function BreakdownBarChart({ title, icon: Icon, accent, rows, height }: {
   );
 }
 
+function WeeklyTrendChart({ history }: { history: WeekSnapshot[] }) {
+  const data = useMemo(() => {
+    return [...history]
+      .sort((a, b) => a.weekEndingDate.localeCompare(b.weekEndingDate))
+      .map(w => ({
+        week: fmtDate(w.weekEndingDate),
+        tasks: w.totalTasks,
+        completed: w.totalCompleted,
+        rate: w.captureRate,
+        reps: w.repCount,
+      }));
+  }, [history]);
+
+  if (data.length === 0) return null;
+
+  const maxTasks = Math.max(...data.map(d => d.tasks), 1);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}
+      className="mb-3 rounded-2xl border border-white/[0.06] bg-white/[0.02] p-4 backdrop-blur-xl"
+    >
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <TrendingUp className="h-4 w-4 text-cyan-400" />
+          <h3 className="text-sm font-bold text-white">Week-by-Week Capture Trend</h3>
+        </div>
+        <div className="flex items-center gap-4 text-[10px] text-slate-500">
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-cyan-600/70" />Tasks</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-sm bg-emerald-500/80" />Completed</span>
+          <span className="flex items-center gap-1"><span className="inline-block h-0.5 w-4 bg-amber-400" />Capture %</span>
+        </div>
+      </div>
+      <ResponsiveContainer width="100%" height={160}>
+        <ComposedChart data={data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.04)" vertical={false} />
+          <XAxis
+            dataKey="week"
+            tick={{ fill: "#94a3b8", fontSize: 10 }}
+            axisLine={false} tickLine={false}
+          />
+          <YAxis
+            yAxisId="tasks"
+            domain={[0, Math.ceil(maxTasks * 1.15)]}
+            tick={{ fill: "#64748b", fontSize: 9 }}
+            axisLine={false} tickLine={false}
+            width={36}
+          />
+          <YAxis
+            yAxisId="rate"
+            orientation="right"
+            domain={[0, 100]}
+            tick={{ fill: "#64748b", fontSize: 9 }}
+            axisLine={false} tickLine={false}
+            tickFormatter={(v) => `${v}%`}
+            width={30}
+          />
+          <Tooltip
+            cursor={{ fill: "rgba(255,255,255,0.03)" }}
+            contentStyle={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 8, fontSize: 11 }}
+            labelStyle={{ color: "#fff", fontWeight: 600, marginBottom: 4 }}
+            formatter={(value: number, name: string) => {
+              if (name === "rate") return [`${value}%`, "Capture Rate"];
+              if (name === "tasks") return [value.toLocaleString("en-ZA"), "Total Tasks"];
+              if (name === "completed") return [value.toLocaleString("en-ZA"), "Completed"];
+              return [value, name];
+            }}
+          />
+          <Bar yAxisId="tasks" dataKey="tasks" radius={[3, 3, 0, 0]} maxBarSize={32} fill="rgba(6,182,212,0.35)" />
+          <Bar yAxisId="tasks" dataKey="completed" radius={[3, 3, 0, 0]} maxBarSize={32} fill="rgba(16,185,129,0.7)" />
+          <Line
+            yAxisId="rate" dataKey="rate" type="monotone"
+            stroke="#fbbf24" strokeWidth={2} dot={{ r: 3, fill: "#fbbf24", strokeWidth: 0 }}
+            activeDot={{ r: 5, fill: "#fbbf24" }}
+          />
+        </ComposedChart>
+      </ResponsiveContainer>
+    </motion.div>
+  );
+}
+
 function MerchRankTable({ title, icon: Icon, accent, rows }: { title: string; icon: any; accent: string; rows: MerchRank[] }) {
   return (
     <motion.div
@@ -765,6 +846,11 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         <KpiTile icon={StoreIcon} label="Stores Covered" value={fmtNum(storesCovered)} sub="with logged tasks" accent="from-pink-500 to-rose-600" delay={0.2} />
         <KpiTile icon={Trophy} label="Pilot Coverage" value={`${coverage}%`} sub={`${fmtNum(repsWithCapture)} of ${fmtNum(totalMerchandisers)} captured feedback`} accent="from-indigo-500 to-violet-600" delay={0.25} />
       </div>
+
+      {/* Week-by-week trend */}
+      {data.history && data.history.length > 0 && (
+        <WeeklyTrendChart history={data.history} />
+      )}
 
       {/* Manager / Region breakdown */}
       <div className="mb-3 grid grid-cols-1 gap-2.5 lg:grid-cols-2">
