@@ -772,47 +772,6 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
                 <Download className="h-3.5 w-3.5" /> No Activity List
               </button>
             </Hint>
-            <Hint label="Save full capture data (all statuses) to SharePoint">
-              <button
-                onClick={() => handleSpSave("full")}
-                disabled={spFull === "saving"}
-                data-testid="button-sp-save-full"
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                  spFull === "done" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" :
-                  spFull === "error" ? "border-red-500/40 bg-red-500/10 text-red-400" :
-                  "border-cyan-500/30 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 hover:text-cyan-300"
-                }`}
-              >
-                {spFull === "saving" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
-                 spFull === "done"   ? <CheckCircle className="h-3.5 w-3.5" /> :
-                 spFull === "error"  ? <AlertCircle className="h-3.5 w-3.5" /> :
-                 <Upload className="h-3.5 w-3.5" />}
-                {spFull === "saving" ? "Saving…" : spFull === "done" ? "Saved!" : spFull === "error" ? "Failed" : "Save Full to SP"}
-              </button>
-            </Hint>
-            <Hint label="Save completed captures only to SharePoint">
-              <button
-                onClick={() => handleSpSave("completed")}
-                disabled={spDone === "saving"}
-                data-testid="button-sp-save-completed"
-                className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
-                  spDone === "done" ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" :
-                  spDone === "error" ? "border-red-500/40 bg-red-500/10 text-red-400" :
-                  "border-violet-500/30 bg-violet-500/10 text-violet-400 hover:bg-violet-500/20 hover:text-violet-300"
-                }`}
-              >
-                {spDone === "saving" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> :
-                 spDone === "done"   ? <CheckCircle className="h-3.5 w-3.5" /> :
-                 spDone === "error"  ? <AlertCircle className="h-3.5 w-3.5" /> :
-                 <Upload className="h-3.5 w-3.5" />}
-                {spDone === "saving" ? "Saving…" : spDone === "done" ? "Saved!" : spDone === "error" ? "Failed" : "Save Completed to SP"}
-              </button>
-            </Hint>
-            {spMsg && (
-              <span className={`text-[10px] font-medium ${spMsg.startsWith("Saved") ? "text-emerald-400" : "text-red-400"}`}>
-                {spMsg}
-              </span>
-            )}
             <img src={meridianLogo} alt="Meridian Sales & Merchandising Experts" className="h-20 w-auto" data-testid="img-meridian-logo" />
           </div>
         </div>
