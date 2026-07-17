@@ -206,8 +206,8 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
       } catch (snapErr) {
         console.error(`Async import [${jobId}] - Pilot snapshot error (non-fatal):`, snapErr);
       }
-      console.log(`Async import [${jobId}] - Clearing existing tasks...`);
-      await storage.deleteAllTasks();
+      console.log(`Async import [${jobId}] - Clearing pending tasks (preserving completed captures)...`);
+      await storage.deletePendingTasks();
     }
 
     const fileStats = fs.statSync(filePath);
@@ -1919,6 +1919,61 @@ export async function registerRoutes(
       }
       console.error("Error updating task:", error);
       res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  // POST /api/external/capture — called by Perfect Store Pro when a rep submits
+  // Requires X-API-Key header matching EXTERNAL_API_KEY env var
+  app.post("/api/external/capture", async (req, res) => {
+    const apiKey = req.headers['x-api-key'];
+    const expectedKey = process.env.EXTERNAL_API_KEY;
+    if (!expectedKey || apiKey !== expectedKey) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const captureSchema = z.object({
+        uniqueId: z.string(),
+        actionStatus: z.string().optional(),
+        reasonCode: z.string().nullable().optional(),
+        actionTakenComment: z.string().nullable().optional(),
+        feedback: z.string().nullable().optional(),
+        captureDate: z.string().optional(),
+        physicalCount: z.string().nullable().optional(),
+        variance: z.string().nullable().optional(),
+        systemAdjusted: z.string().nullable().optional(),
+        image1: z.string().nullable().optional(),
+        image2: z.string().nullable().optional(),
+        image3: z.string().nullable().optional(),
+        image4: z.string().nullable().optional(),
+      });
+
+      const validated = captureSchema.parse(req.body);
+      const { uniqueId, ...updates } = validated;
+
+      const task = await storage.getTaskByUniqueId(uniqueId);
+      if (!task) {
+        return res.status(404).json({ error: `Task not found: ${uniqueId}` });
+      }
+
+      const updatePayload: any = { ...updates };
+      if ((updates.actionStatus && updates.actionStatus !== 'Pending') || updates.feedback || updates.reasonCode) {
+        if (!task.actionDate) {
+          updatePayload.actionDate = new Date().toISOString().split('T')[0];
+        }
+      }
+
+      const updated = await storage.updateTask(task.id, updatePayload);
+      invalidateGamificationCache();
+
+      console.log(`[External Capture] Task ${uniqueId} updated by Perfect Store Pro`);
+      res.json({ success: true, task: updated });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("[External Capture] Error:", error);
+      res.status(500).json({ error: "Failed to record capture" });
     }
   });
 

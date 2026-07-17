@@ -40,6 +40,7 @@ export interface IStorage {
   updateTask(id: number, updates: Partial<Omit<Task, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Task | undefined>;
   deleteTask(id: number): Promise<boolean>;
   deleteAllTasks(): Promise<void>;
+  deletePendingTasks(): Promise<void>;
   getLatestWeekEndingDate(): Promise<string | null>;
   getLatestWeekEndingDateForStore(store: string, repName?: string): Promise<string | null>;
   getMostPopulatedWeekEndingDate(): Promise<string | null>;
@@ -233,6 +234,12 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAllTasks(): Promise<void> {
     await db.delete(tasks);
+  }
+
+  async deletePendingTasks(): Promise<void> {
+    await db.delete(tasks).where(
+      sql`action_status IS NULL OR action_status = 'Pending'`
+    );
   }
 
   async getLatestWeekEndingDate(): Promise<string | null> {
