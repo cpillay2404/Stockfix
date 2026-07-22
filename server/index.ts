@@ -146,6 +146,24 @@ app.use((req, res, next) => {
       } catch (err) {
         console.error('[STARTUP SCRIPT] Date fix error:', err);
       }
+
+      // ONE-TIME STARTUP SCRIPT: Fix Shameer Williams rep assignments (RENE MAROULIS → SHAMEER WILLIAMS)
+      // Remove this block after one successful production deploy
+      try {
+        const { db: db2 } = await import("./db");
+        const { sql: sql2 } = await import("drizzle-orm");
+        const fixResult = await db2.execute(sql2`
+          UPDATE tasks SET line_manager = 'SHAMEER WILLIAMS'
+          WHERE UPPER(TRIM(line_manager)) = 'RENE MAROULIS'
+          AND UPPER(TRIM(rep_name)) IN (
+            'ANATHI MARTINS','APHIWE KAINGANA','BAMANYE SIFUMBA',
+            'JAMES DE WITT','NTLAHLA NANINI','YEKISWA MAKANDA','LUCA HARTSENBERG'
+          )
+        `);
+        console.log('[STARTUP SCRIPT] Fixed Shameer rep assignments:', fixResult.rowCount, 'rows updated');
+      } catch (err) {
+        console.error('[STARTUP SCRIPT] Shameer fix error:', err);
+      }
     },
   );
 })();

@@ -3240,22 +3240,6 @@ export async function registerRoutes(
     }
   });
 
-  // Admin endpoint to clean up tasks with invalid dates
-  app.post("/api/admin/fix-shameer-manager", async (req, res) => {
-    try {
-      const result = await db.execute(
-        sql`UPDATE tasks SET line_manager = 'SHAMEER WILLIAMS'
-            WHERE UPPER(TRIM(line_manager)) = 'RENE MAROULIS'
-            AND UPPER(TRIM(rep_name)) IN (
-              'ANATHI MARTINS','APHIWE KAINGANA','BAMANYE SIFUMBA',
-              'JAMES DE WITT','NTLAHLA NANINI','YEKISWA MAKANDA','LUCA HARTSENBERG'
-            )`
-      );
-      res.json({ success: true, updated: result.rowCount });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  });
 
   app.post("/api/admin/cleanup-bad-dates", async (req, res) => {
     try {
