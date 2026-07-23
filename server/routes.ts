@@ -3754,7 +3754,8 @@ export async function registerRoutes(
         `);
       }
 
-      // --- Rolling history — computed directly from task data so no week is ever missing ---
+      // --- Rolling history — merge pilot_tasks_history + tasks, dedup by unique_id so partial
+      //     snapshots (like 15 Jul) are supplemented by whatever is still in the tasks table ---
       const historyResult = await db.execute(sql`
         SELECT week_ending_date,
                COUNT(DISTINCT CASE WHEN LOWER(action_status) = 'completed' THEN UPPER(TRIM(rep_name)) END) AS rep_count,
@@ -3764,21 +3765,24 @@ export async function registerRoutes(
                  THEN ROUND(COUNT(*) FILTER (WHERE LOWER(action_status) = 'completed') * 100.0 / COUNT(*), 1)
                  ELSE 0 END                                                         AS capture_rate
         FROM (
-          SELECT h.rep_name, h.week_ending_date, h.action_status
-          FROM pilot_tasks_history h
-          JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(h.rep_name))
-          WHERE h.week_ending_date >= ${PILOT_START_DATE}
-            AND h.week_ending_date >= pr.joined_date
+          SELECT DISTINCT ON (unique_id) unique_id, rep_name, week_ending_date, action_status
+          FROM (
+            SELECT h.unique_id, h.rep_name, h.week_ending_date, h.action_status, 1 AS src_priority
+            FROM pilot_tasks_history h
+            JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(h.rep_name))
+            WHERE h.week_ending_date >= ${PILOT_START_DATE}
+              AND h.week_ending_date >= pr.joined_date
 
-          UNION ALL
+            UNION ALL
 
-          SELECT t.rep_name, t.week_ending_date, t.action_status
-          FROM tasks t
-          JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name))
-          WHERE t.week_ending_date >= ${PILOT_START_DATE}
-            AND t.week_ending_date >= pr.joined_date
-            AND t.week_ending_date NOT IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
-        ) combined
+            SELECT t.unique_id, t.rep_name, t.week_ending_date, t.action_status, 2 AS src_priority
+            FROM tasks t
+            JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name))
+            WHERE t.week_ending_date >= ${PILOT_START_DATE}
+              AND t.week_ending_date >= pr.joined_date
+          ) both_sources
+          ORDER BY unique_id, src_priority
+        ) deduped
         GROUP BY week_ending_date
         ORDER BY week_ending_date DESC
         LIMIT 12
