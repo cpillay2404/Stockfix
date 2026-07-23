@@ -3442,6 +3442,8 @@ export async function registerRoutes(
     allReps: string[];
     allClients: string[];
     dataRows: any[];
+    repRegionMap: Map<string, string>;
+    repManagerMap: Map<string, string>;
   }
   const pilotBaseCache = new Map<string, PilotBaseCache>();
   const PILOT_CACHE_TTL_MS = 60_000; // 60 seconds
@@ -3454,7 +3456,7 @@ export async function registerRoutes(
     const pilotRepsResult = await db.execute(sql`SELECT rep_name, joined_date, active FROM pilot_reps`);
     const allPilotNames = (pilotRepsResult.rows as any[]).map(r => String(r.rep_name).trim().toUpperCase());
 
-    const [weeksResult, managersResult, regionsResult, storesResult, bannersResult, repsResult, clientsResult, taskRows] = await Promise.all([
+    const [weeksResult, managersResult, regionsResult, storesResult, bannersResult, repsResult, clientsResult, taskRows, repLookupRows] = await Promise.all([
       db.execute(sql`
         SELECT DISTINCT week_ending_date FROM (
           SELECT t.week_ending_date FROM tasks t
@@ -3492,7 +3494,29 @@ export async function registerRoutes(
           AND t.week_ending_date NOT IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
           ${effectiveWeek ? sql`AND t.week_ending_date = ${effectiveWeek}` : sql``}
       `),
+      db.execute(sql`
+        SELECT UPPER(TRIM(rep_name)) AS rep_name, region, line_manager
+        FROM (
+          SELECT rep_name, region, line_manager, week_ending_date,
+                 ROW_NUMBER() OVER (PARTITION BY UPPER(TRIM(rep_name)) ORDER BY week_ending_date DESC) AS rn
+          FROM (
+            SELECT rep_name, region, line_manager, week_ending_date FROM tasks
+              WHERE region IS NOT NULL AND region != ''
+            UNION ALL
+            SELECT rep_name, region, line_manager, week_ending_date FROM pilot_tasks_history
+              WHERE region IS NOT NULL AND region != ''
+          ) all_rows
+        ) ranked WHERE rn = 1
+      `),
     ]);
+
+    const repRegionMap  = new Map<string, string>();
+    const repManagerMap = new Map<string, string>();
+    for (const r of (repLookupRows.rows as any[])) {
+      const key = String(r.rep_name).trim().toUpperCase();
+      if (r.region)       repRegionMap.set(key,  normalizeRegion(String(r.region)));
+      if (r.line_manager) repManagerMap.set(key, String(r.line_manager).trim().toUpperCase());
+    }
 
     const allWeeks    = (weeksResult.rows as any[]).map(r => String(r.week_ending_date)).filter(d => d.match(/\d{4}-\d{2}-\d{2}/)).sort().reverse();
     const result: PilotBaseCache = {
@@ -3506,6 +3530,8 @@ export async function registerRoutes(
       allReps:     (repsResult.rows     as any[]).map(r => String(r.val)).filter(Boolean).sort(),
       allClients:  (clientsResult.rows  as any[]).map(r => String(r.val)).filter(Boolean).sort(),
       dataRows:    (taskRows.rows as any[]).filter(r => r.rep_name),
+      repRegionMap,
+      repManagerMap,
     };
     pilotBaseCache.set(cacheKey, result);
     return result;
@@ -3607,7 +3633,9 @@ export async function registerRoutes(
         } : null;
 
         const overallRate = sf && sf.tasks > 0 ? parseFloat(((sf.completed / sf.tasks) * 100).toFixed(1)) : 0;
-        return { name, lineManager: sf?.lineManager || null, region: sf?.region || null, stockFix, overallRate };
+        const region      = sf?.region      || base.repRegionMap.get(name)  || null;
+        const lineManager = sf?.lineManager || base.repManagerMap.get(name) || null;
+        return { name, lineManager, region, stockFix, overallRate };
       }).sort((a, b) => {
         const aHas = !!a.stockFix, bHas = !!b.stockFix;
         if (aHas && !bHas) return -1; if (!aHas && bHas) return 1;
