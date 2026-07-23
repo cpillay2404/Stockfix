@@ -372,16 +372,14 @@ app.use((req, res, next) => {
         const toDeactivateUp = currentRowsUp.filter(r => !newSetUp.has(String(r.rep_name).trim().toUpperCase()) && r.active).map(r => r.rep_name);
         const toAddUp = [...newSetUp].filter(n => !currentSetUp.has(n));
         const toReactivateUp = currentRowsUp.filter(r => newSetUp.has(String(r.rep_name).trim().toUpperCase()) && !r.active).map(r => r.rep_name);
-        if (toDeactivateUp.length > 0) {
-          await db3.execute(sql3`UPDATE pilot_reps SET active = false, left_date = '2026-07-22' WHERE UPPER(TRIM(rep_name)) = ANY(${toDeactivateUp.map(n => n.trim().toUpperCase())}::text[])`);
+        for (const name of toDeactivateUp) {
+          await db3.execute(sql3`UPDATE pilot_reps SET active = false, left_date = '2026-07-22' WHERE UPPER(TRIM(rep_name)) = ${name.trim().toUpperCase()}`);
         }
-        if (toAddUp.length > 0) {
-          for (const name of NEW_LIST.filter(n => toAddUp.includes(n.trim().toUpperCase()))) {
-            await db3.execute(sql3`INSERT INTO pilot_reps (rep_name, joined_date, active) VALUES (${name.trim()}, '2026-07-22', true) ON CONFLICT (rep_name) DO NOTHING`);
-          }
+        for (const name of NEW_LIST.filter(n => toAddUp.includes(n.trim().toUpperCase()))) {
+          await db3.execute(sql3`INSERT INTO pilot_reps (rep_name, joined_date, active) VALUES (${name.trim()}, '2026-07-22', true) ON CONFLICT (rep_name) DO NOTHING`);
         }
-        if (toReactivateUp.length > 0) {
-          await db3.execute(sql3`UPDATE pilot_reps SET active = true, left_date = NULL WHERE UPPER(TRIM(rep_name)) = ANY(${toReactivateUp.map(n => n.trim().toUpperCase())}::text[])`);
+        for (const name of toReactivateUp) {
+          await db3.execute(sql3`UPDATE pilot_reps SET active = true, left_date = NULL WHERE UPPER(TRIM(rep_name)) = ${name.trim().toUpperCase()}`);
         }
         console.log(`[STARTUP SCRIPT] Pilot rep sync complete — deactivated: ${toDeactivateUp.length}, added: ${toAddUp.length}, reactivated: ${toReactivateUp.length}`);
       } catch (err) {
