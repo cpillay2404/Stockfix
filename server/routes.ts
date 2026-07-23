@@ -3726,16 +3726,34 @@ export async function registerRoutes(
         `);
       }
 
-      // --- Rolling history (pilot weeks only, from pilot start date onward) ---
+      // --- Rolling history — computed directly from task data so no week is ever missing ---
       const historyResult = await db.execute(sql`
         SELECT week_ending_date,
-               COUNT(DISTINCT rep_name) as rep_count,
-               SUM(total_tasks::int) as total_tasks,
-               SUM(completed::int) as total_completed,
-               CASE WHEN SUM(total_tasks::int) > 0 THEN ROUND(SUM(completed::int)*100.0/SUM(total_tasks::int)) ELSE 0 END as capture_rate
-        FROM pilot_snapshots
-        WHERE week_ending_date >= ${PILOT_START_DATE}
-        GROUP BY week_ending_date ORDER BY week_ending_date DESC LIMIT 12
+               COUNT(DISTINCT rep_name)                                             AS rep_count,
+               COUNT(*)                                                             AS total_tasks,
+               COUNT(*) FILTER (WHERE LOWER(action_status) = 'completed')          AS total_completed,
+               CASE WHEN COUNT(*) > 0
+                 THEN ROUND(COUNT(*) FILTER (WHERE LOWER(action_status) = 'completed') * 100.0 / COUNT(*), 1)
+                 ELSE 0 END                                                         AS capture_rate
+        FROM (
+          SELECT h.rep_name, h.week_ending_date, h.action_status
+          FROM pilot_tasks_history h
+          JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(h.rep_name))
+          WHERE h.week_ending_date >= ${PILOT_START_DATE}
+            AND h.week_ending_date >= pr.joined_date
+
+          UNION ALL
+
+          SELECT t.rep_name, t.week_ending_date, t.action_status
+          FROM tasks t
+          JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name))
+          WHERE t.week_ending_date >= ${PILOT_START_DATE}
+            AND t.week_ending_date >= pr.joined_date
+            AND t.week_ending_date NOT IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
+        ) combined
+        GROUP BY week_ending_date
+        ORDER BY week_ending_date DESC
+        LIMIT 12
       `);
       const history = (historyResult.rows as any[]).map(r => ({
         weekEndingDate: r.week_ending_date, repCount: Number(r.rep_count),
