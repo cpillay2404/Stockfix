@@ -97,6 +97,95 @@ function fmtDate(d: string) {
 }
 function fmtNum(n: number) { return n.toLocaleString("en-ZA"); }
 
+// ─── Weekly Progress Table ───────────────────────────────────────────
+function WeeklyProgressTable({ history, totalReps }: { history: WeekSnapshot[]; totalReps: number }) {
+  const weeks = [...history].reverse(); // oldest first
+  if (weeks.length < 1) return null;
+
+  const fmt = (d: string) => {
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return d;
+    return dt.toLocaleDateString("en-ZA", { day: "numeric", month: "short" });
+  };
+
+  const delta = (curr: number, prev: number, isRate = false) => {
+    const diff = curr - prev;
+    const sign = diff > 0 ? "+" : "";
+    const suffix = isRate ? " pts" : "";
+    const cls = diff > 0 ? "text-emerald-400" : diff < 0 ? "text-rose-400" : "text-slate-500";
+    return <span className={`${cls} text-[11px] font-semibold`}>{sign}{isRate ? diff.toFixed(1) : fmtNum(Math.round(diff))}{suffix}</span>;
+  };
+
+  const rows: { label: string; vals: (w: WeekSnapshot) => string; change: (a: WeekSnapshot, b: WeekSnapshot) => React.ReactNode }[] = [
+    {
+      label: "Tasks Completed",
+      vals: w => fmtNum(w.totalCompleted),
+      change: (a, b) => delta(b.totalCompleted, a.totalCompleted),
+    },
+    {
+      label: "Capture Rate",
+      vals: w => `${w.captureRate.toFixed(1)}%`,
+      change: (a, b) => delta(b.captureRate, a.captureRate, true),
+    },
+    {
+      label: "Users Logged In",
+      vals: w => fmtNum(w.repCount),
+      change: (a, b) => delta(b.repCount, a.repCount),
+    },
+    {
+      label: "% Users Logged In",
+      vals: w => `${totalReps > 0 ? ((w.repCount / totalReps) * 100).toFixed(0) : 0}%`,
+      change: (a, b) => delta(
+        totalReps > 0 ? (b.repCount / totalReps) * 100 : 0,
+        totalReps > 0 ? (a.repCount / totalReps) * 100 : 0,
+        true,
+      ),
+    },
+  ];
+
+  const lastTwo = weeks.length >= 2 ? [weeks[weeks.length - 2], weeks[weeks.length - 1]] as const : null;
+
+  return (
+    <div className="mb-3 overflow-hidden rounded-xl border border-white/[0.06] bg-slate-900/60 backdrop-blur-sm">
+      <div className="border-b border-white/[0.06] px-4 py-2.5">
+        <span className="text-xs font-semibold uppercase tracking-widest text-cyan-400">Week-on-Week Progress</span>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-white/[0.06]">
+              <th className="px-4 py-2 text-left text-[11px] font-semibold uppercase tracking-wider text-slate-500 min-w-[160px]">Metric</th>
+              {weeks.map(w => (
+                <th key={w.weekEndingDate} className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-400 whitespace-nowrap">
+                  Week ending {fmt(w.weekEndingDate)}
+                </th>
+              ))}
+              {lastTwo && (
+                <th className="px-4 py-2 text-right text-[11px] font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">Change</th>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row, ri) => (
+              <tr key={row.label} className={`border-b border-white/[0.04] ${ri % 2 === 0 ? "bg-white/[0.01]" : ""}`}>
+                <td className="px-4 py-2.5 text-[13px] font-medium text-slate-300">{row.label}</td>
+                {weeks.map(w => (
+                  <td key={w.weekEndingDate} className="px-4 py-2.5 text-right text-[13px] font-semibold tabular-nums text-white">
+                    {row.vals(w)}
+                  </td>
+                ))}
+                {lastTwo && (
+                  <td className="px-4 py-2.5 text-right tabular-nums">{row.change(lastTwo[0], lastTwo[1])}</td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 // ─── Reusable bits ──────────────────────────────────────────────────
 function GlowBar({ rate }: { rate: number }) {
   return (
@@ -690,6 +779,9 @@ function OverviewPage({ data, onSelectStore, filters, onFilterChange, onFilterRe
         <KpiTile icon={StoreIcon} label="Stores Covered" value={fmtNum(storesCovered)} sub="with logged tasks" accent="from-pink-500 to-rose-600" delay={0.2} />
         <KpiTile icon={Trophy} label="Pilot Coverage" value={`${coverage}%`} sub={`${fmtNum(repsWithCapture)} of ${fmtNum(totalMerchandisers)} captured feedback`} accent="from-indigo-500 to-violet-600" delay={0.25} />
       </div>
+
+      {/* Week-on-week progress table */}
+      <WeeklyProgressTable history={data.history} totalReps={totalMerchandisers} />
 
       {/* Manager / Region breakdown */}
       <div className="mb-3 grid grid-cols-1 gap-2.5 lg:grid-cols-2">
