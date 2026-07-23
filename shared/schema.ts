@@ -145,6 +145,9 @@ export const pilotTasksHistory = pgTable("pilot_tasks_history", {
 export const pilotReps = pgTable("pilot_reps", {
   id: serial("id").primaryKey(),
   repName: text("rep_name").notNull().unique(),
+  joinedDate: text("joined_date").notNull().default('2026-07-01'),
+  active: boolean("active").notNull().default(true),
+  leftDate: text("left_date"),
 });
 
 export const pilotSnapshots = pgTable("pilot_snapshots", {

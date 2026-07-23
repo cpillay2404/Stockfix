@@ -3451,42 +3451,46 @@ export async function registerRoutes(
     const cached = pilotBaseCache.get(cacheKey);
     if (cached && Date.now() - cached.ts < PILOT_CACHE_TTL_MS) return cached;
 
-    const pilotRepsResult = await db.execute(sql`SELECT rep_name FROM pilot_reps`);
+    const pilotRepsResult = await db.execute(sql`SELECT rep_name, joined_date, active FROM pilot_reps`);
     const allPilotNames = (pilotRepsResult.rows as any[]).map(r => String(r.rep_name).trim().toUpperCase());
 
     const [weeksResult, managersResult, regionsResult, storesResult, bannersResult, repsResult, clientsResult, taskRows] = await Promise.all([
       db.execute(sql`
         SELECT DISTINCT week_ending_date FROM (
-          SELECT week_ending_date FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+          SELECT t.week_ending_date FROM tasks t
+          JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name))
+          WHERE t.week_ending_date >= pr.joined_date
           UNION
-          SELECT week_ending_date FROM pilot_tasks_history WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}
+          SELECT h.week_ending_date FROM pilot_tasks_history h
+          JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(h.rep_name))
+          WHERE h.week_ending_date >= pr.joined_date
         ) w ORDER BY week_ending_date DESC`),
-      db.execute(sql`SELECT DISTINCT UPPER(TRIM(line_manager)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND line_manager IS NOT NULL AND line_manager != ''`),
-      db.execute(sql`SELECT DISTINCT UPPER(TRIM(region)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND region IS NOT NULL AND region != ''`),
-      db.execute(sql`SELECT DISTINCT UPPER(TRIM(store_name)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND store_name IS NOT NULL AND store_name != ''`),
-      db.execute(sql`SELECT DISTINCT UPPER(TRIM(banner)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND banner IS NOT NULL AND banner != ''`),
-      db.execute(sql`SELECT DISTINCT UPPER(TRIM(rep_name)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE}`),
-      db.execute(sql`SELECT DISTINCT UPPER(TRIM(client)) as val FROM tasks WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps) AND week_ending_date >= ${PILOT_START_DATE} AND client IS NOT NULL AND client != ''`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(t.line_manager)) as val FROM tasks t JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name)) WHERE t.week_ending_date >= pr.joined_date AND t.line_manager IS NOT NULL AND t.line_manager != ''`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(t.region)) as val FROM tasks t JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name)) WHERE t.week_ending_date >= pr.joined_date AND t.region IS NOT NULL AND t.region != ''`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(t.store_name)) as val FROM tasks t JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name)) WHERE t.week_ending_date >= pr.joined_date AND t.store_name IS NOT NULL AND t.store_name != ''`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(t.banner)) as val FROM tasks t JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name)) WHERE t.week_ending_date >= pr.joined_date AND t.banner IS NOT NULL AND t.banner != ''`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(t.rep_name)) as val FROM tasks t JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name)) WHERE t.week_ending_date >= pr.joined_date`),
+      db.execute(sql`SELECT DISTINCT UPPER(TRIM(t.client)) as val FROM tasks t JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name)) WHERE t.week_ending_date >= pr.joined_date AND t.client IS NOT NULL AND t.client != ''`),
       db.execute(sql`
-        SELECT rep_name, store_name, client, line_manager, region, banner,
-               action_status, week_ending_date, unique_id, article_description,
-               barcode, store_soh, store_wfc, action, reason_code, feedback, image1
-        FROM pilot_tasks_history
-        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
-          AND week_ending_date >= ${PILOT_START_DATE}
-          AND week_ending_date IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
-          ${effectiveWeek ? sql`AND week_ending_date = ${effectiveWeek}` : sql``}
+        SELECT h.rep_name, h.store_name, h.client, h.line_manager, h.region, h.banner,
+               h.action_status, h.week_ending_date, h.unique_id, h.article_description,
+               h.barcode, h.store_soh, h.store_wfc, h.action, h.reason_code, h.feedback, h.image1
+        FROM pilot_tasks_history h
+        JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(h.rep_name))
+        WHERE h.week_ending_date >= pr.joined_date
+          AND h.week_ending_date IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
+          ${effectiveWeek ? sql`AND h.week_ending_date = ${effectiveWeek}` : sql``}
 
         UNION ALL
 
-        SELECT rep_name, store_name, client, line_manager, region, banner,
-               action_status, week_ending_date, unique_id, article_description,
-               barcode, store_soh, store_wfc, action, reason_code, feedback, image1
-        FROM tasks
-        WHERE UPPER(TRIM(rep_name)) IN (SELECT UPPER(TRIM(rep_name)) FROM pilot_reps)
-          AND week_ending_date >= ${PILOT_START_DATE}
-          AND week_ending_date NOT IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
-          ${effectiveWeek ? sql`AND week_ending_date = ${effectiveWeek}` : sql``}
+        SELECT t.rep_name, t.store_name, t.client, t.line_manager, t.region, t.banner,
+               t.action_status, t.week_ending_date, t.unique_id, t.article_description,
+               t.barcode, t.store_soh, t.store_wfc, t.action, t.reason_code, t.feedback, t.image1
+        FROM tasks t
+        JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name))
+        WHERE t.week_ending_date >= pr.joined_date
+          AND t.week_ending_date NOT IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
+          ${effectiveWeek ? sql`AND t.week_ending_date = ${effectiveWeek}` : sql``}
       `),
     ]);
 
@@ -3913,6 +3917,76 @@ export async function registerRoutes(
       res.json({ created: true });
     } catch (err: any) {
       console.error('[PerfIndexes] error:', err.message);
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // Merchandiser Pilot — update rep list (handles joins, departures, new starters)
+  app.post('/api/pilot-reps-update', async (req, res) => {
+    try {
+      const { names } = req.body;
+      if (!Array.isArray(names) || names.length === 0) {
+        return res.status(400).json({ error: 'Provide a names array in the request body' });
+      }
+      const today = new Date().toISOString().split('T')[0];
+      const newSet = new Set(names.map((n: string) => n.trim().toUpperCase()).filter(Boolean));
+
+      // Get current list
+      const current = await db.execute(sql`SELECT rep_name, active FROM pilot_reps`);
+      const currentRows = current.rows as any[];
+      const currentSet = new Set(currentRows.map(r => String(r.rep_name).trim().toUpperCase()));
+
+      // 1. Deactivate reps no longer on the list
+      const toDeactivate = currentRows
+        .filter(r => !newSet.has(String(r.rep_name).trim().toUpperCase()) && r.active)
+        .map(r => r.rep_name);
+
+      // 2. New reps not yet in the table
+      const toAdd = [...newSet].filter(n => !currentSet.has(n));
+
+      // 3. Reactivate reps that were inactive but are back
+      const toReactivate = currentRows
+        .filter(r => newSet.has(String(r.rep_name).trim().toUpperCase()) && !r.active)
+        .map(r => r.rep_name);
+
+      if (toDeactivate.length > 0) {
+        await db.execute(sql`
+          UPDATE pilot_reps SET active = false, left_date = ${today}
+          WHERE UPPER(TRIM(rep_name)) = ANY(${toDeactivate.map(n => n.trim().toUpperCase())}::text[])
+        `);
+      }
+
+      if (toAdd.length > 0) {
+        const values = sql.join(toAdd.map(n => sql`(${n}, ${today}, true)`), sql`, `);
+        await db.execute(sql`
+          INSERT INTO pilot_reps (rep_name, joined_date, active)
+          VALUES ${values}
+          ON CONFLICT (rep_name) DO NOTHING
+        `);
+      }
+
+      if (toReactivate.length > 0) {
+        await db.execute(sql`
+          UPDATE pilot_reps SET active = true, left_date = NULL
+          WHERE UPPER(TRIM(rep_name)) = ANY(${toReactivate.map(n => n.trim().toUpperCase())}::text[])
+        `);
+      }
+
+      // Clear pilot cache
+      pilotBaseCache.clear();
+
+      const finalCount = await db.execute(sql`SELECT COUNT(*) as c, COUNT(CASE WHEN active THEN 1 END) as active_c FROM pilot_reps`);
+      const row = (finalCount.rows[0] as any);
+      res.json({
+        success: true,
+        deactivated: toDeactivate.length,
+        added: toAdd.length,
+        reactivated: toReactivate.length,
+        totalReps: Number(row.c),
+        activeReps: Number(row.active_c),
+      });
+    } catch (err: any) {
+      console.error('[PilotRepsUpdate] error:', err.message);
       res.status(500).json({ error: err.message });
     }
   });
