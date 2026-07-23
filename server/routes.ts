@@ -3474,25 +3474,32 @@ export async function registerRoutes(
       db.execute(sql`SELECT DISTINCT UPPER(TRIM(t.rep_name)) as val FROM tasks t JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name)) WHERE t.week_ending_date >= pr.joined_date`),
       db.execute(sql`SELECT DISTINCT UPPER(TRIM(t.client)) as val FROM tasks t JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name)) WHERE t.week_ending_date >= pr.joined_date AND t.client IS NOT NULL AND t.client != ''`),
       db.execute(sql`
-        SELECT h.rep_name, h.store_name, h.client, h.line_manager, h.region, h.banner,
-               h.action_status, h.week_ending_date, h.unique_id, h.article_description,
-               h.barcode, h.store_soh, h.store_wfc, h.action, h.reason_code, h.feedback, h.image1
-        FROM pilot_tasks_history h
-        JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(h.rep_name))
-        WHERE h.week_ending_date >= pr.joined_date
-          AND h.week_ending_date IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
-          ${effectiveWeek ? sql`AND h.week_ending_date = ${effectiveWeek}` : sql``}
+        SELECT DISTINCT ON (unique_id)
+               rep_name, store_name, client, line_manager, region, banner,
+               action_status, week_ending_date, unique_id, article_description,
+               barcode, store_soh, store_wfc, action, reason_code, feedback, image1
+        FROM (
+          SELECT h.rep_name, h.store_name, h.client, h.line_manager, h.region, h.banner,
+                 h.action_status, h.week_ending_date, h.unique_id, h.article_description,
+                 h.barcode, h.store_soh, h.store_wfc, h.action, h.reason_code, h.feedback, h.image1,
+                 1 AS src_priority
+          FROM pilot_tasks_history h
+          JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(h.rep_name))
+          WHERE h.week_ending_date >= pr.joined_date
+            ${effectiveWeek ? sql`AND h.week_ending_date = ${effectiveWeek}` : sql``}
 
-        UNION ALL
+          UNION ALL
 
-        SELECT t.rep_name, t.store_name, t.client, t.line_manager, t.region, t.banner,
-               t.action_status, t.week_ending_date, t.unique_id, t.article_description,
-               t.barcode, t.store_soh, t.store_wfc, t.action, t.reason_code, t.feedback, t.image1
-        FROM tasks t
-        JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name))
-        WHERE t.week_ending_date >= pr.joined_date
-          AND t.week_ending_date NOT IN (SELECT DISTINCT week_ending_date FROM pilot_tasks_history)
-          ${effectiveWeek ? sql`AND t.week_ending_date = ${effectiveWeek}` : sql``}
+          SELECT t.rep_name, t.store_name, t.client, t.line_manager, t.region, t.banner,
+                 t.action_status, t.week_ending_date, t.unique_id, t.article_description,
+                 t.barcode, t.store_soh, t.store_wfc, t.action, t.reason_code, t.feedback, t.image1,
+                 2 AS src_priority
+          FROM tasks t
+          JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name))
+          WHERE t.week_ending_date >= pr.joined_date
+            ${effectiveWeek ? sql`AND t.week_ending_date = ${effectiveWeek}` : sql``}
+        ) both_sources
+        ORDER BY unique_id, src_priority
       `),
       db.execute(sql`
         SELECT UPPER(TRIM(rep_name)) AS rep_name, region, line_manager
