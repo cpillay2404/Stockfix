@@ -3757,7 +3757,7 @@ export async function registerRoutes(
       // --- Rolling history — computed directly from task data so no week is ever missing ---
       const historyResult = await db.execute(sql`
         SELECT week_ending_date,
-               COUNT(DISTINCT rep_name)                                             AS rep_count,
+               COUNT(DISTINCT CASE WHEN LOWER(action_status) = 'completed' THEN UPPER(TRIM(rep_name)) END) AS rep_count,
                COUNT(*)                                                             AS total_tasks,
                COUNT(*) FILTER (WHERE LOWER(action_status) = 'completed')          AS total_completed,
                CASE WHEN COUNT(*) > 0
