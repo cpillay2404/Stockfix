@@ -382,6 +382,18 @@ app.use((req, res, next) => {
           await db3.execute(sql3`UPDATE pilot_reps SET active = true, left_date = NULL WHERE UPPER(TRIM(rep_name)) = ${name.trim().toUpperCase()}`);
         }
         console.log(`[STARTUP SCRIPT] Pilot rep sync complete — deactivated: ${toDeactivateUp.length}, added: ${toAddUp.length}, reactivated: ${toReactivateUp.length}`);
+
+        // Deduplicate pilot_reps by case-insensitive name — keep earliest joined_date entry
+        const dedupResult = await db3.execute(sql3`
+          DELETE FROM pilot_reps a
+          WHERE a.id != (
+            SELECT b.id FROM pilot_reps b
+            WHERE UPPER(TRIM(b.rep_name)) = UPPER(TRIM(a.rep_name))
+            ORDER BY b.joined_date ASC, b.active DESC, b.id ASC
+            LIMIT 1
+          )
+        `);
+        console.log(`[STARTUP SCRIPT] Pilot rep dedup complete — removed: ${dedupResult.rowCount} duplicate rows`);
       } catch (err) {
         console.error('[STARTUP SCRIPT] Pilot rep sync error:', err);
       }
