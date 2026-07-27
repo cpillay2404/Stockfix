@@ -1863,12 +1863,12 @@ export async function registerRoutes(
       
       // Send email notification only when task transitions from Pending to completed for the first time.
       // Check previous status to avoid duplicate emails on subsequent edits (e.g. adding photos/comments).
+      // Only an explicit actionStatus change (Pending → non-Pending) triggers an email — not feedback or
+      // reasonCode alone, which can arrive in follow-up PATCHes (photo uploads, comment edits) and would
+      // otherwise cause duplicates if two requests race on a still-Pending task.
       const wasAlreadyActioned = task.actionStatus && task.actionStatus !== 'Pending';
-      const isTaskCompletion = !wasAlreadyActioned && (
-        (validated.actionStatus && validated.actionStatus !== 'Pending') ||
-        validated.feedback ||
-        validated.reasonCode
-      );
+      const isTaskCompletion = !wasAlreadyActioned &&
+        !!(validated.actionStatus && validated.actionStatus !== 'Pending');
       
       console.log('[Task Update] isTaskCompletion:', isTaskCompletion, 'validated:', JSON.stringify(validated));
       
