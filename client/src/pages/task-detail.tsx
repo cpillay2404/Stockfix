@@ -1193,10 +1193,11 @@ export default function TaskDetail() {
                   doSubmit();
                 }}
                 data-testid="button-submit-anyway"
+                disabled={updateMutation.isPending}
                 variant="outline"
                 style={{ width: '100%', height: '44px', fontSize: '14px', fontWeight: 600, borderRadius: '10px', borderColor: '#D1D5DB', color: '#6B7280' }}
               >
-                Submit Anyway
+                {updateMutation.isPending ? 'Submitting...' : 'Submit Anyway'}
               </Button>
             </div>
           </div>
