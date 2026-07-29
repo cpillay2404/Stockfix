@@ -147,6 +147,22 @@ app.use((req, res, next) => {
         console.error('[STARTUP SCRIPT] Date fix error:', err);
       }
 
+      // ONE-TIME STARTUP SCRIPT: Normalise rep_name and line_manager to UPPER TRIM across all tasks
+      try {
+        const { db: dbUpper } = await import("./db");
+        const { sql: sqlUpper } = await import("drizzle-orm");
+        const upperResult = await dbUpper.execute(sqlUpper`
+          UPDATE tasks
+          SET rep_name    = UPPER(TRIM(rep_name)),
+              line_manager = UPPER(TRIM(line_manager))
+          WHERE rep_name    IS DISTINCT FROM UPPER(TRIM(rep_name))
+             OR line_manager IS DISTINCT FROM UPPER(TRIM(line_manager))
+        `);
+        console.log('[STARTUP SCRIPT] Normalised rep/manager names:', upperResult.rowCount, 'rows updated');
+      } catch (err) {
+        console.error('[STARTUP SCRIPT] Name normalisation error:', err);
+      }
+
       // ONE-TIME STARTUP SCRIPT: Fix Shameer Williams rep assignments (RENE MAROULIS → SHAMEER WILLIAMS)
       // Remove this block after one successful production deploy
       try {
