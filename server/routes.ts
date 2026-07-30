@@ -3772,19 +3772,19 @@ export async function registerRoutes(
         FROM (
           SELECT DISTINCT ON (unique_id) unique_id, rep_name, week_ending_date, action_status
           FROM (
-            SELECT t.unique_id, t.rep_name, t.week_ending_date, t.action_status, 1 AS src_priority
-            FROM tasks t
-            JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name))
-            WHERE t.week_ending_date >= ${PILOT_START_DATE}
-              AND t.week_ending_date >= pr.joined_date
-
-            UNION ALL
-
-            SELECT h.unique_id, h.rep_name, h.week_ending_date, h.action_status, 2 AS src_priority
+            SELECT h.unique_id, h.rep_name, h.week_ending_date, h.action_status, 1 AS src_priority
             FROM pilot_tasks_history h
             JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(h.rep_name))
             WHERE h.week_ending_date >= ${PILOT_START_DATE}
               AND h.week_ending_date >= pr.joined_date
+
+            UNION ALL
+
+            SELECT t.unique_id, t.rep_name, t.week_ending_date, t.action_status, 2 AS src_priority
+            FROM tasks t
+            JOIN pilot_reps pr ON UPPER(TRIM(pr.rep_name)) = UPPER(TRIM(t.rep_name))
+            WHERE t.week_ending_date >= ${PILOT_START_DATE}
+              AND t.week_ending_date >= pr.joined_date
           ) both_sources
           ORDER BY unique_id, src_priority
         ) deduped
