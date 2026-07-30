@@ -206,8 +206,6 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
       } catch (snapErr) {
         console.error(`Async import [${jobId}] - Pilot snapshot error (non-fatal):`, snapErr);
       }
-      console.log(`Async import [${jobId}] - Clearing pending tasks (preserving completed captures)...`);
-      await storage.deletePendingTasks();
     }
 
     const fileStats = fs.statSync(filePath);
@@ -221,6 +219,24 @@ async function processImportAsync(filePath: string, clearExisting: boolean, jobI
     
     job.totalRows = data.length;
     console.log(`Async import [${jobId}] - Total rows: ${data.length}, parsing and inserting...`);
+
+    // Determine which week(s) are in this file so we only clear pending tasks
+    // for those specific dates — never touch other weeks (capture rate depends on them).
+    if (clearExisting) {
+      const weekDatesInFile = new Set<string>();
+      for (const row of data as any[]) {
+        const mapped = mapRowToTask(row, 0, getValueHelper, sanitizeBarcodeHelper, sanitizeNumericHelper, parseToISODateHelper);
+        if (mapped.weekEndingDate) weekDatesInFile.add(mapped.weekEndingDate);
+      }
+      for (const weekDate of weekDatesInFile) {
+        await db.execute(sql`
+          DELETE FROM tasks
+          WHERE week_ending_date = ${weekDate}
+            AND (action_status IS NULL OR action_status = 'Pending')
+        `);
+        console.log(`Async import [${jobId}] - Cleared pending tasks for week ${weekDate}`);
+      }
+    }
 
     const BATCH_SIZE = 500;
     let batchTasks: any[] = [];
