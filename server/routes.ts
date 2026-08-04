@@ -14,6 +14,7 @@ import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamS
 import { db } from "./db";
 import { sql, eq, and, desc, type SQL } from "drizzle-orm";
 import { uploadToSharePoint } from "./sharepoint-appauth";
+import { fetchNexusJson, fetchNexusLatestWeek, nexusClientSlug } from "./nexus";
 import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 
@@ -876,6 +877,205 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching store overview:", error);
       res.status(500).json({ error: "Failed to fetch store overview" });
+    }
+  });
+
+  // ═══ Nexus Inventory Dashboard insights (read-only, additive - see server/nexus.ts) ═══
+  // A distinct namespace/cache/error domain from the routes above: those are
+  // StockFix's own SQL-aggregated task stats, these are a slower external
+  // call to a separate product (Meridian Nexus), scoped per real store via
+  // &store=/&banner= the same way Nexus's own frontend drill-down does it.
+
+  app.get("/api/nexus/store-overview", async (req, res) => {
+    try {
+      const store = req.query.store as string;
+      const banner = req.query.banner as string | undefined;
+      const rep = req.query.rep as string | undefined;
+      const client = req.query.client as string | undefined;
+      if (!store || !client) {
+        return res.status(400).json({ error: "store and client are required" });
+      }
+      const clientSlug = nexusClientSlug(client);
+      const week = await fetchNexusLatestWeek();
+      const storeParams = { store, banner, rep };
+      const [storeRow, oosSummary] = await Promise.all([
+        fetchNexusJson(week, clientSlug, "store_current", storeParams).then(d => (d.rows || [])[0] || null),
+        fetchNexusJson(week, clientSlug, "oos_detail", storeParams).then(d => d.summary || null),
+      ]);
+      if (!storeRow) {
+        return res.json({ found: false, storeName: store });
+      }
+      res.json({
+        found: true,
+        storeName: storeRow.storeName,
+        banner: storeRow.banner,
+        region: storeRow.region,
+        healthScore: storeRow.healthScore ?? null,
+        // Nexus doesn't expose a per-store weekly health history today - no
+        // 9-week slope is fabricated here; the frontend should hide that
+        // part of the card when this is null rather than invent one.
+        healthSlope9wk: null,
+        availabilityPct: storeRow.totalSkus ? Math.round(100 * (storeRow.totalSkus - (storeRow.oosCount || 0)) / storeRow.totalSkus) : null,
+        totalSkus: storeRow.totalSkus ?? null,
+        storeSOH: storeRow.storeSOH ?? null,
+        salesP4: storeRow.salesP4 ?? null,
+        oosCount: storeRow.oosCount ?? null,
+        lowStockCount: storeRow.lowStockCount ?? null,
+        noSalesCount: storeRow.noSalesCount ?? null,
+        overstockCount: storeRow.overstockCount ?? null,
+        // Fix queue: replenishable-now (DC has stock) vs escalate (DC
+        // constrained), from oos_detail's whole-store summary.
+        fixReplenishNow: oosSummary?.replenishmentOpps ?? null,
+        fixEscalate: oosSummary?.dcConstrained ?? null,
+        fixTotal: oosSummary?.totalOos ?? null,
+        // Ranking (national/banner position) has no source today - not
+        // faked, surfaced as null so the frontend shows "not available yet".
+        rankingAvailable: false,
+      });
+    } catch (error) {
+      console.error("Error fetching Nexus store overview:", error);
+      res.status(500).json({ error: "Failed to fetch Nexus store overview" });
+    }
+  });
+
+  app.get("/api/nexus/availability", async (req, res) => {
+    try {
+      const store = req.query.store as string;
+      const banner = req.query.banner as string | undefined;
+      const rep = req.query.rep as string | undefined;
+      const client = req.query.client as string | undefined;
+      if (!store || !client) {
+        return res.status(400).json({ error: "store and client are required" });
+      }
+      const clientSlug = nexusClientSlug(client);
+      const week = await fetchNexusLatestWeek();
+      const p = { store, banner, rep };
+      const [storeRow, oosDetail, overstockDetail] = await Promise.all([
+        fetchNexusJson(week, clientSlug, "store_current", p).then(d => (d.rows || [])[0] || null),
+        fetchNexusJson(week, clientSlug, "oos_detail", p),
+        fetchNexusJson(week, clientSlug, "overstock_detail", p),
+      ]);
+      if (!storeRow) {
+        return res.json({ found: false, storeName: store });
+      }
+      const ovSummary = overstockDetail.summary || {};
+      res.json({
+        found: true,
+        storeName: storeRow.storeName,
+        totalSkus: storeRow.totalSkus ?? null,
+        availabilityPct: storeRow.totalSkus ? Math.round(100 * (storeRow.totalSkus - (storeRow.oosCount || 0)) / storeRow.totalSkus) : null,
+        // 13-week in-stock trend + peer comparison: not available from any
+        // per-store endpoint today - omitted (null) rather than fabricated.
+        trend13wk: null,
+        peerAvailabilityPct: null,
+        classification: {
+          outOfStock: storeRow.oosCount ?? 0,
+          lowStock: storeRow.lowStockCount ?? 0,
+          noSalesStockPresent: ovSummary.noSalesCount ?? 0,
+          overstocked: ovSummary.overstockCount ?? 0,
+          optimal: storeRow.totalSkus != null
+            ? Math.max(0, storeRow.totalSkus - (storeRow.oosCount || 0) - (storeRow.lowStockCount || 0) - (ovSummary.noSalesCount || 0) - (ovSummary.overstockCount || 0))
+            : null,
+        },
+        // Per-category (not per-banner - a single store belongs to one
+        // banner, so a per-banner split doesn't make sense on this screen)
+        // requires a category-grouped whole-store aggregate Nexus doesn't
+        // expose today - omitted, same honesty rule as above.
+        byCategory: null,
+      });
+    } catch (error) {
+      console.error("Error fetching Nexus availability:", error);
+      res.status(500).json({ error: "Failed to fetch Nexus availability" });
+    }
+  });
+
+  app.get("/api/nexus/line-list", async (req, res) => {
+    try {
+      const store = req.query.store as string;
+      const banner = req.query.banner as string | undefined;
+      const rep = req.query.rep as string | undefined;
+      const client = req.query.client as string | undefined;
+      const classification = req.query.classification as string; // oos | low | nosales | overstock
+      if (!store || !client || !classification) {
+        return res.status(400).json({ error: "store, client and classification are required" });
+      }
+      const stemFor: Record<string, string> = {
+        oos: "oos_detail",
+        low: "low_stock_detail",
+        nosales: "overstock_detail",
+        overstock: "overstock_detail",
+      };
+      const stem = stemFor[classification];
+      if (!stem) {
+        return res.status(400).json({ error: "classification must be one of oos, low, nosales, overstock" });
+      }
+      const clientSlug = nexusClientSlug(client);
+      const week = await fetchNexusLatestWeek();
+      const data = await fetchNexusJson(week, clientSlug, stem, { store, banner, rep });
+      let rows = data.rows || [];
+      // overstock_detail carries both classifications in one stem - split
+      // client-side (mirrors Nexus's own store-drill-down convention).
+      if (classification === "overstock") rows = rows.filter((r: any) => r.stockClassification === "Possible Overstock");
+      if (classification === "nosales") rows = rows.filter((r: any) => r.stockClassification === "No Sales / Idle Stock");
+      res.json({
+        classification,
+        total: rows.length,
+        rows: rows.map((r: any) => ({
+          barcode: r.barcode,
+          articleDescription: r.articleDescription,
+          brand: r.brand,
+          category: r.category,
+          estimatedMissedUnits: r.estimatedMissedUnits ?? null,
+          dcSOH: r.dcSOH ?? null,
+          consecutiveWeeksOOS: r.consecutiveWeeksOOS ?? null,
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching Nexus line list:", error);
+      res.status(500).json({ error: "Failed to fetch Nexus line list" });
+    }
+  });
+
+  app.get("/api/nexus/sku-record", async (req, res) => {
+    try {
+      const barcode = req.query.barcode as string;
+      const client = req.query.client as string | undefined;
+      const store = req.query.store as string | undefined;
+      const rep = req.query.rep as string | undefined;
+      const scope = (req.query.scope as string) || "this-store"; // "this-store" | "all-mine"
+      if (!barcode || !client) {
+        return res.status(400).json({ error: "barcode and client are required" });
+      }
+      const clientSlug = nexusClientSlug(client);
+      const week = await fetchNexusLatestWeek();
+      // store_sku_current's &q= is a free-text ILIKE match (barcode/desc/
+      // brand/category), not an exact-barcode filter - safe here since a
+      // real barcode string is specific enough not to collide in practice,
+      // but not a guaranteed unique match the way an exact param would be.
+      const params = scope === "this-store" ? { q: barcode, store, rep } : { q: barcode, rep };
+      const data = await fetchNexusJson(week, clientSlug, "store_sku_current", params);
+      const rows = data.rows || [];
+      res.json({
+        barcode,
+        scope,
+        storeCount: rows.length,
+        rows: rows.map((r: any) => ({
+          storeName: r.storeName,
+          banner: r.banner,
+          storeSOH: r.storeSOH ?? null,
+          dcSOH: r.dcSOH ?? null,
+          sellOutP4Weeks: r.sellOutP4Weeks ?? null,
+          classification: r.classification,
+          consecutiveWeeksOOS: r.consecutiveWeeksOOS ?? null,
+        })),
+        // 13-week SOH/units-sold history per line isn't exposed by any
+        // Nexus endpoint today (only the current week's snapshot) - omitted
+        // rather than fabricated.
+        history13wk: null,
+      });
+    } catch (error) {
+      console.error("Error fetching Nexus SKU record:", error);
+      res.status(500).json({ error: "Failed to fetch Nexus SKU record" });
     }
   });
 

@@ -25,6 +25,10 @@ import AdminLeaderboard from "@/pages/admin-leaderboard";
 import QRPage from "@/pages/qr";
 import MerchandiserPilot from "@/pages/merchandiser-pilot";
 import InventoryDashboard from "@/pages/inventory-dashboard";
+import StoreInsightsOverview from "@/pages/store-insights-overview";
+import StoreInsightsAvailability from "@/pages/store-insights-availability";
+import StoreInsightsLineList from "@/pages/store-insights-line-list";
+import StoreInsightsSku from "@/pages/store-insights-sku";
 
 function Router() {
   return (
@@ -35,6 +39,10 @@ function Router() {
       <Route path="/select-client-store" component={SelectClientStore} />
       <Route path="/select-manager">{() => <ClientGuard><SelectManager /></ClientGuard>}</Route>
       <Route path="/store-overview" component={StoreOverview} />
+      <Route path="/store-overview/insights" component={StoreInsightsOverview} />
+      <Route path="/store-overview/insights/availability" component={StoreInsightsAvailability} />
+      <Route path="/store-overview/insights/line-list/:classification" component={StoreInsightsLineList} />
+      <Route path="/store-overview/insights/sku/:barcode" component={StoreInsightsSku} />
       <Route path="/dashboard">{() => <ClientGuard><Home /></ClientGuard>}</Route>
       <Route path="/tasks" component={TaskList} />
       <Route path="/import">{() => <ClientGuard><ImportData /></ClientGuard>}</Route>

@@ -635,6 +635,37 @@ export default function StoreOverview() {
         <ChartCard title="WFC" data={charts.wfc} testId="chart-wfc" isWFC={true} />
       </div>
 
+      {/* Nexus Insights entry point - additive only, doesn't touch anything above */}
+      <div style={{ padding: '0 16px 12px' }}>
+        <div
+          data-testid="link-nexus-insights"
+          onClick={() => {
+            const p = new URLSearchParams();
+            if (rep) p.set('rep', rep);
+            if (store) p.set('store', store);
+            if (selectedClient && selectedClient !== 'All Clients') p.set('client', selectedClient);
+            setLocation(`/store-overview/insights?${p.toString()}`);
+          }}
+          style={{
+            backgroundColor: '#FFFFFF',
+            borderRadius: '10px',
+            padding: '14px 16px',
+            borderLeft: '3px solid #F36C21',
+            cursor: 'pointer',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <div>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: '#1e3a5f' }}>Nexus Insights</div>
+            <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>Health, availability &amp; stock drill-down for this store</div>
+          </div>
+          <ChevronRight style={{ width: '18px', height: '18px', color: '#F36C21' }} />
+        </div>
+      </div>
+
       {/* Top Attention SKUs Modal */}
       <TopAttentionModal
         open={showAttentionModal}
