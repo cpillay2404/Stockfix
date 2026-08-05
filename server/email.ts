@@ -183,6 +183,8 @@ Image 2: ${task.image2 ? formatImageUrl(task.image2, task.baseUrl) : 'N/A'}
       'SIR JUICE': ['MorvinM@sirfruit.co.za', 'AnnelizeV@sirfruit.co.za', 'Karmenv@sirfruit.co.za'],
       'CAPE COOKIES': ['chris.calitz@capecookies.com', 'sureshin.aroonslam@capecookies.com'],
       'SWEET NOTHINGS': ['craig@timeworks-kzn.co.za'],
+      'PICK N PAY': ['erna@penflex.co.za'],
+      'PNP': ['erna@penflex.co.za'],
     };
 
     if (task.client) {
