@@ -376,12 +376,16 @@ function exportNoActivityCsv(merchandisers: Merchandiser[]) {
     const s = val === null || val === undefined ? "" : String(val);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
-  const header = ["Merchandiser", "Line Manager", "Region"].join(",");
-  const lines = inactive.map(m => [
-    escapeCsv(tc(m.name)),
-    escapeCsv(m.lineManager ? tc(m.lineManager) : ""),
-    escapeCsv(m.region ? tc(m.region) : ""),
-  ].join(","));
+  const header = ["Merchandiser", "Line Manager", "Region", "Stores"].join(",");
+  const lines = inactive.map(m => {
+    const stores = m.stockFix?.stores.map(s => tc(s.name)).join(" | ") ?? "";
+    return [
+      escapeCsv(tc(m.name)),
+      escapeCsv(m.lineManager ? tc(m.lineManager) : ""),
+      escapeCsv(m.region ? tc(m.region) : ""),
+      escapeCsv(stores),
+    ].join(",");
+  });
   const csv = [header, ...lines].join("\n");
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
