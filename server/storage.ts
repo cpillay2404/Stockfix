@@ -268,7 +268,7 @@ export class DatabaseStorage implements IStorage {
       SELECT week_ending_date, COUNT(DISTINCT client) as client_count, COUNT(*) as task_count
       FROM tasks
       GROUP BY week_ending_date
-      ORDER BY week_ending_date DESC, client_count DESC
+      ORDER BY client_count DESC, week_ending_date DESC
       LIMIT 1
     `);
     const rows = result.rows as any[];
