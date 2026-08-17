@@ -2,8 +2,15 @@
 // tasks being populated manually. Added 2026-08-16 as part of the automatic
 // weekly cycle (see nexus-weekly-scheduler.ts): export outgoing week -> sync
 // new week -> generate new tasks (this file) -> wipe outgoing week.
+//
+// Writes to `nexus_tasks`, a SEPARATE table from the real, live-production
+// `tasks` table (Carin, 2026-08-17: "create a brand new table ... and not
+// touch the current table where the tasks are saved" - this whole feature
+// is being tested against the same real Neon database the live app already
+// serves the classic Tasks screen from, so isolating it here means testing/
+// generated rows can never mix into that table's completion reporting).
 import { db } from "./db";
-import { storeSkuWeekly, storeAssignments, resourceRoster, tasks, distributionGaps, type InsertTask } from "@shared/schema";
+import { storeSkuWeekly, storeAssignments, resourceRoster, nexusTasks, nexusTaskAssignees, distributionGaps, type InsertNexusTask } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import { AT_RISK_WFC_THRESHOLD_WEEKS } from "./nexus";
 
@@ -42,11 +49,16 @@ import { AT_RISK_WFC_THRESHOLD_WEEKS } from "./nexus";
 //     syndicated rep on the same store). Rather than creating one task per
 //     assigned person (which would inflate every open-task count), this
 //     creates ONE task, leaves repName = "Unassigned" until someone actually
-//     captures it, and lists everyone eligible in eligibleAssignees so the
-//     app can show it to all of them. Whoever captures it first gets
-//     credited via a separate completion endpoint (see routes.ts) - the
-//     existing rep-facing PATCH /api/tasks/:uniqueId is NOT touched, since
-//     the live app depends on it as-is.
+//     captures it, and lists everyone eligible as one row each in the
+//     separate nexus_task_assignees table (not a comma-separated cell -
+//     Carin, 2026-08-17: "that's a problem for me" for reporting/joins).
+//     IMPORTANT for reporting: joining nexus_tasks to nexus_task_assignees
+//     multiplies rows for any store with 2+ eligible people - always
+//     COUNT(DISTINCT unique_id), never COUNT(*), after that join (Carin's
+//     own catch, 2026-08-17). Whoever captures it first gets credited via a
+//     separate completion endpoint (see routes.ts) - the existing rep-
+//     facing PATCH /api/tasks/:uniqueId is NOT touched, since the live app
+//     depends on it as-is.
 //   - P&G has its own dedicated coverage (clientScope='P&G' in
 //     storeAssignments) that overrides the general SYNDICATED coverage for
 //     P&G's own stock specifically. Every other client uses SYNDICATED.
@@ -151,7 +163,8 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
   const flaggedGaps = await db.select().from(distributionGaps).where(eq(distributionGaps.weekEnding, week));
 
   const coverage = await buildStoreCoverageMap();
-  const insertRows: InsertTask[] = [];
+  const insertRows: InsertNexusTask[] = [];
+  const assigneeRows: { taskUniqueId: string; resourceEmpId: string; resourceName: string }[] = [];
   const noAssignmentStores = new Set<string>();
 
   function pushRow(sourceStem: string, opts: {
@@ -168,6 +181,10 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
 
     const uniqueId = `NEXUS_${week}_${opts.client}_${opts.storeName}_${sourceStem}_${opts.barcode}`.replace(/\s+/g, "_");
 
+    for (const a of assignees) {
+      assigneeRows.push({ taskUniqueId: uniqueId, resourceEmpId: a.empId, resourceName: a.resourceName });
+    }
+
     insertRows.push({
       uniqueId,
       key: uniqueId,
@@ -177,7 +194,6 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
       storeName: opts.storeName,
       repName: "Unassigned", // set for real by the completion endpoint once someone captures it
       lineManager: "",
-      eligibleAssignees: assignees.map((a) => a.resourceName).join(", "),
       category: opts.category || "",
       barcode: opts.barcode,
       articleDescription: opts.articleDescription || "",
@@ -248,8 +264,11 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
   const BATCH = 500;
   let tasksCreated = 0;
   for (let i = 0; i < insertRows.length; i += BATCH) {
-    const created = await db.insert(tasks).values(insertRows.slice(i, i + BATCH)).onConflictDoNothing().returning();
+    const created = await db.insert(nexusTasks).values(insertRows.slice(i, i + BATCH)).onConflictDoNothing().returning();
     tasksCreated += created.length;
+  }
+  for (let i = 0; i < assigneeRows.length; i += BATCH) {
+    await db.insert(nexusTaskAssignees).values(assigneeRows.slice(i, i + BATCH)).onConflictDoNothing();
   }
 
   return { tasksCreated, storesWithNoAssignment: noAssignmentStores.size };
@@ -265,15 +284,19 @@ export async function claimTask(uniqueId: string, capturedByEmpId: string): Prom
     return { ok: false, error: "Unknown resourceEmpId - not found in roster" };
   }
   await db.execute(sql`
-    update tasks set rep_name = ${resource.resourceName}, line_manager = ${resource.manager || ""}
+    update nexus_tasks set rep_name = ${resource.resourceName}, line_manager = ${resource.manager || ""},
+      resource_type = ${resource.resourceType || ""}
     where unique_id = ${uniqueId} and rep_name = 'Unassigned'
   `);
   return { ok: true };
 }
 
-// Deletes all tasks for a given week - only call this AFTER that week has
-// been successfully exported to SharePoint (see nexus-weekly-scheduler.ts).
+// Deletes all Nexus-generated tasks for a given week - only call this AFTER
+// that week has been successfully exported to SharePoint (see
+// nexus-weekly-scheduler.ts). Only ever touches nexus_tasks - the real
+// `tasks` table (legacy Excel-imported, live production) is never wiped by
+// this function.
 export async function wipeTasksForWeek(week: string): Promise<number> {
-  const result = await db.execute(sql`delete from tasks where week_ending_date = ${week}`);
+  const result = await db.execute(sql`delete from nexus_tasks where week_ending_date = ${week}`);
   return (result as any).rowCount ?? 0;
 }

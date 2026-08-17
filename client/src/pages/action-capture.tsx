@@ -113,7 +113,22 @@ export default function ActionCapture() {
         await fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}/claim`, { method: "POST" }).catch(() => {});
       }
 
-      const patchRes = await fetch(`/api/tasks/${encodeURIComponent(uniqueId)}`, {
+      const capturedPhotos = photos.filter((p): p is { file: File; previewUrl: string } => p !== null);
+      const uploadedPaths: string[] = [];
+      for (const p of capturedPhotos) {
+        const requestRes = await fetch("/api/uploads/request-url", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: p.file.name, size: p.file.size, contentType: p.file.type }),
+        });
+        if (!requestRes.ok) throw new Error("Couldn't prepare photo upload");
+        const { uploadURL, objectPath } = await requestRes.json();
+        const putRes = await fetch(uploadURL, { method: "PUT", headers: { "Content-Type": p.file.type }, body: p.file });
+        if (!putRes.ok) throw new Error("Photo upload failed");
+        uploadedPaths.push(objectPath);
+      }
+
+      const patchRes = await fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -124,6 +139,10 @@ export default function ActionCapture() {
           physicalCount: String(physicalCount),
           variance: String(variance),
           systemAdjusted: hasVariance ? (stockAdjusted === "yes" ? "Yes" : "No") : undefined,
+          image1: uploadedPaths[0] || undefined,
+          image2: uploadedPaths[1] || undefined,
+          image3: uploadedPaths[2] || undefined,
+          image4: uploadedPaths[3] || undefined,
         }),
       });
       if (!patchRes.ok) {

@@ -38,7 +38,7 @@ import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync } from "./nexus-sync";
 import { claimTask, generateTasksForWeek } from "./nexus-task-generation";
-import { storeWeeklySummary, storeSkuWeekly } from "@shared/schema";
+import { storeWeeklySummary, storeSkuWeekly, nexusTasks } from "@shared/schema";
 
 function safeParseFloat(val: string | number | null | undefined): number {
   if (val === null || val === undefined) return 0;
@@ -3074,7 +3074,7 @@ export async function registerRoutes(
 
       const result = await db.execute(sql`
         select unique_id, rep_name, action_status
-        from tasks
+        from nexus_tasks
         where barcode = ${barcode}
           and upper(trim(store_name)) = upper(trim(${store}))
           and unique_id like ${'%\\_' + sourceStem + '\\_' + barcode}
@@ -3112,6 +3112,55 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error claiming Nexus task:", error);
       res.status(500).json({ error: "Failed to claim task" });
+    }
+  });
+
+  // PATCH /api/nexus-tasks/:uniqueId — action-capture.tsx's completion
+  // endpoint, mirroring PATCH /api/tasks/:uniqueId's field set exactly but
+  // writing to nexus_tasks instead - keeps the real `tasks` table's existing
+  // rep-facing PATCH (and everything that depends on it: gamification,
+  // completion emails, dashboardStatsCache invalidation) completely
+  // untouched by this newer, still-being-tested capture flow.
+  app.patch("/api/nexus-tasks/:uniqueId", async (req, res) => {
+    try {
+      const updateSchema = z.object({
+        actionStatus: z.string().optional(),
+        reasonCode: z.string().nullable().optional(),
+        actionTakenComment: z.string().nullable().optional(),
+        feedback: z.string().nullable().optional(),
+        physicalCount: z.string().nullable().optional(),
+        variance: z.string().nullable().optional(),
+        systemAdjusted: z.string().nullable().optional(),
+        image1: z.string().nullable().optional(),
+        image2: z.string().nullable().optional(),
+        image3: z.string().nullable().optional(),
+        image4: z.string().nullable().optional(),
+      });
+      const validated = updateSchema.parse(req.body);
+
+      const [existing] = await db.select().from(nexusTasks).where(eq(nexusTasks.uniqueId, req.params.uniqueId)).limit(1);
+      if (!existing) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      const updates: any = { ...validated, updatedAt: new Date() };
+      if ((validated.actionStatus && validated.actionStatus !== "Pending") || validated.feedback || validated.reasonCode) {
+        if (!existing.actionDate) {
+          updates.actionDate = new Date().toISOString().split("T")[0];
+        }
+        if (!existing.captureDate) {
+          updates.captureDate = new Date().toISOString().split("T")[0];
+        }
+      }
+
+      const [updated] = await db.update(nexusTasks).set(updates).where(eq(nexusTasks.uniqueId, req.params.uniqueId)).returning();
+      res.json(updated);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error updating Nexus task:", error);
+      res.status(500).json({ error: "Failed to update task" });
     }
   });
 

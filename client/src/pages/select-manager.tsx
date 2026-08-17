@@ -4,7 +4,18 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Wrench, Users, ChevronRight } from "lucide-react";
 import { useAccess } from "@/context/AccessContext";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
-import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
+import { COLORS, DOT_MATRIX_BG, HEX_OUTLINE_PATTERN_BG } from "@/lib/design-tokens";
+
+// Matches the choose-access.tsx dark navy/orange theme (Carin, 2026-08-17:
+// "we need to work on the manager login" - this page was still on the old
+// white-card/blue-gradient layout while choose-access had already moved to
+// the StockFix Midnight Navy system). select-rep/select-client are the same
+// old style too but out of scope for this pass per Carin's call.
+const NAVY_ELEVATED = COLORS.navyElevated;
+const NAVY_DEEP = COLORS.bgPrimary;
+const NAVY_CARD = COLORS.navyElevated;
+const ORANGE = COLORS.orange;
+const TEXT_MUTED = COLORS.textMuted;
 
 export default function SelectManager() {
   const [, setLocation] = useLocation();
@@ -37,120 +48,126 @@ export default function SelectManager() {
   };
 
   return (
-    <div 
-      className="h-screen flex flex-col items-center overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #003B71 0%, #002F5A 100%)' }}
+    <div
+      className="relative min-h-screen flex flex-col items-center overflow-hidden"
+      style={{
+        background: `radial-gradient(circle at 50% 30%, ${NAVY_ELEVATED} 0%, ${NAVY_DEEP} 60%)`,
+        paddingTop: "max(2.5rem, env(safe-area-inset-top, 0px) + 1.5rem)",
+        paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px) + 1rem)",
+        paddingLeft: "max(24px, env(safe-area-inset-left, 0px))",
+        paddingRight: "max(24px, env(safe-area-inset-right, 0px))",
+      }}
     >
-      <div style={{ paddingTop: '32px', paddingBottom: '20px' }}>
-        <img 
-          src={meridianGroupLogo} 
-          alt="Meridian Group" 
-          style={{ height: '48px' }}
-        />
-      </div>
-
-      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <Wrench style={{ width: '28px', height: '28px', color: '#F36C21' }} />
-          <span style={{ fontSize: '30px', fontWeight: 700, color: '#FFFFFF' }}>
-            StockFix
-          </span>
-        </div>
-        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginTop: '6px' }}>
-          Manager Login
-        </p>
-      </div>
-
-      <div 
+      <div
+        className="absolute top-0 left-0 w-1/2 h-1/2 pointer-events-none"
         style={{
-          width: '420px',
-          maxWidth: 'calc(100% - 32px)',
-          backgroundColor: '#FFFFFF',
-          borderRadius: '16px',
-          padding: '28px',
-          boxShadow: '0px 16px 40px rgba(0,0,0,0.25)',
-          maxHeight: 'calc(100vh - 280px)',
-          display: 'flex',
-          flexDirection: 'column',
+          backgroundImage: `url("${DOT_MATRIX_BG}")`,
+          backgroundSize: "18px 18px",
+          maskImage: "radial-gradient(circle at 0% 0%, black 0%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(circle at 0% 0%, black 0%, transparent 75%)",
         }}
-      >
+      />
+      <div
+        className="absolute top-0 right-0 w-1/2 h-1/2 pointer-events-none"
+        style={{
+          backgroundImage: `url("${HEX_OUTLINE_PATTERN_BG}")`,
+          backgroundSize: "40px 46px",
+          maskImage: "radial-gradient(circle at 100% 0%, black 0%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(circle at 100% 0%, black 0%, transparent 75%)",
+        }}
+      />
+
+      <div style={{ width: "100%", maxWidth: 420, position: "relative" }}>
         <button
           onClick={handleBack}
           data-testid="button-back"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#003B71',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            color: TEXT_MUTED,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
             padding: 0,
-            marginBottom: '16px',
-            fontSize: '14px',
+            marginBottom: 20,
+            fontSize: 14,
           }}
         >
-          <ArrowLeft style={{ width: '18px', height: '18px' }} />
+          <ArrowLeft style={{ width: 18, height: 18 }} />
           Back
         </button>
 
-        <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '12px', display: 'block', fontWeight: 500 }}>
+        <img
+          src={meridianGroupLogo}
+          alt="Meridian Group"
+          style={{ height: 40, opacity: 0.95, display: "block", margin: "0 auto 20px" }}
+        />
+
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <Wrench style={{ width: 26, height: 26, color: ORANGE }} />
+            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.5px", lineHeight: 1 }}>
+              <span style={{ color: "#F7F9FC" }}>Stock</span>
+              <span style={{ color: ORANGE }}>Fix</span>
+            </h1>
+          </div>
+          <p style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 6 }}>Manager Login</p>
+        </div>
+
+        <label style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>
           Select Your Name
         </label>
 
         {isLoading && (
-          <p style={{ fontSize: '14px', color: '#9CA3AF', textAlign: 'center', padding: '20px' }}>
+          <p style={{ fontSize: 13, color: TEXT_MUTED, textAlign: "center", padding: 24 }}>
             Loading managers...
           </p>
         )}
 
         {!isLoading && managers.length === 0 && (
-          <p style={{ fontSize: '14px', color: '#9CA3AF', textAlign: 'center', padding: '20px' }}>
+          <p style={{ fontSize: 13, color: TEXT_MUTED, textAlign: "center", padding: 24 }}>
             No managers found. Please ensure LINE MANAGER column is in your imported data.
           </p>
         )}
 
         {!isLoading && managers.length > 0 && (
-          <div style={{ 
-            overflowY: 'auto', 
-            flex: 1,
-            WebkitOverflowScrolling: 'touch',
-          }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, maxHeight: "60vh", overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             {managers.map((manager) => (
               <button
                 key={manager}
                 onClick={() => handleManagerSelect(manager)}
                 data-testid={`manager-${manager}`}
                 style={{
-                  width: '100%',
-                  padding: '16px',
-                  backgroundColor: '#F8FAFC',
-                  color: '#003B71',
-                  borderRadius: '10px',
-                  border: '1px solid #E2E8F0',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  fontSize: '16px',
-                  fontWeight: 500,
-                  marginBottom: '8px',
-                  transition: 'all 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#003B71';
-                  e.currentTarget.style.color = '#FFFFFF';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
-                  e.currentTarget.style.color = '#003B71';
+                  width: "100%",
+                  textAlign: "left",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "14px 16px",
+                  borderRadius: 12,
+                  border: "1px solid rgba(23,68,111,0.6)",
+                  background: NAVY_CARD,
+                  cursor: "pointer",
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <Users style={{ width: '20px', height: '20px' }} />
-                  {manager}
+                <div
+                  style={{
+                    width: 34,
+                    height: 34,
+                    flexShrink: 0,
+                    borderRadius: 9,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    background: "rgba(23,68,111,0.35)",
+                    color: TEXT_MUTED,
+                  }}
+                >
+                  <Users style={{ width: 18, height: 18 }} />
                 </div>
-                <ChevronRight style={{ width: '18px', height: '18px', opacity: 0.5 }} />
+                <div style={{ flex: 1, color: "#F7F9FC", fontSize: 14.5, fontWeight: 600 }}>{manager}</div>
+                <ChevronRight style={{ width: 18, height: 18, color: TEXT_MUTED, flexShrink: 0 }} />
               </button>
             ))}
           </div>
@@ -158,19 +175,6 @@ export default function SelectManager() {
       </div>
 
       <div style={{ flex: 1 }} />
-
-      <div style={{ paddingBottom: '20px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: 0, textAlign: 'center' }}>
-            Powered by
-          </p>
-          <img 
-            src={meridianNexusLogo} 
-            alt="Meridian Nexus" 
-            style={{ height: '80px', display: 'block' }}
-          />
-        </div>
-      </div>
     </div>
   );
 }

@@ -95,6 +95,83 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasks.$inferSelect;
 
+// Separate table for the new Insights/Fix auto-generated task flow (Carin,
+// 2026-08-17: "i think we need to create a brand new table ... and not
+// touch the current table where the tasks are saved" - this is the same
+// real production database the live app already serves the classic Tasks
+// screen from, so this new capture flow gets its own table entirely rather
+// than risking test/generated rows mixing into the live `tasks` table and
+// its existing completion reporting/denominator). Same shape as `tasks` -
+// not a redesign, just a different destination.
+export const nexusTasks = pgTable("nexus_tasks", {
+  id: serial("id").primaryKey(),
+  uniqueId: text("unique_id").notNull().unique(),
+  key: text("key").notNull(),
+  client: text("client").notNull(),
+  banner: text("banner").notNull(),
+  region: text("region").notNull(),
+  storeName: text("store_name").notNull(),
+  repName: text("rep_name").notNull(),
+  // Real field from resourceRoster.resourceType (Rep/Merchandiser/Manager) -
+  // set at claim time from whoever actually captured it (Carin, 2026-08-17:
+  // needed for reporting split by resource type, not just by name). Null
+  // until claimed, same as repName stays "Unassigned" until then.
+  resourceType: text("resource_type"),
+  lineManager: text("line_manager").notNull(),
+  category: text("category").notNull(),
+  barcode: text("barcode").notNull(),
+  articleDescription: text("article_description").notNull(),
+  dcSoh: text("dc_soh").notNull(),
+  storeSoh: text("store_soh").notNull(),
+  p4WeekSales: text("p4_week_sales").notNull(),
+  missedSales: text("missed_sales").notNull(),
+  storeWfc: text("store_wfc").notNull(),
+  stockClassification: text("stock_classification").notNull(),
+  weekEnding: text("week_ending"),
+  weekEndingDate: text("week_ending_date"),
+  action: text("action").notNull(),
+  actionDate: text("action_date"),
+  feedback: text("feedback"),
+  captureDate: text("capture_date"),
+  actionStatus: text("action_status").notNull().default("Pending"),
+  reasonCode: text("reason_code"),
+  actionTakenComment: text("action_taken_comment"),
+  physicalCount: text("physical_count"),
+  variance: text("variance"),
+  systemAdjusted: text("system_adjusted"),
+  image1: text("image1"),
+  image2: text("image2"),
+  image3: text("image3"),
+  image4: text("image4"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertNexusTaskSchema = createInsertSchema(nexusTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertNexusTask = z.infer<typeof insertNexusTaskSchema>;
+export type NexusTask = typeof nexusTasks.$inferSelect;
+
+// One row per (task, eligible assignee) - replaces a comma-separated
+// eligibleAssignees text column (Carin, 2026-08-17: "that's a problem for
+// me" - can't filter/join/export a multi-value cell cleanly). A store
+// covered by 3 people means 3 rows here, not 1 cell with 3 names in it.
+export const nexusTaskAssignees = pgTable("nexus_task_assignees", {
+  id: serial("id").primaryKey(),
+  taskUniqueId: text("task_unique_id").notNull(),
+  resourceEmpId: text("resource_emp_id").notNull(),
+  resourceName: text("resource_name").notNull(),
+}, (table) => ({
+  taskIdx: index("idx_nexus_task_assignees_task").on(table.taskUniqueId),
+  uniquePair: unique().on(table.taskUniqueId, table.resourceEmpId),
+}));
+
+export type NexusTaskAssignee = typeof nexusTaskAssignees.$inferSelect;
+
 export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),
   repName: text("rep_name").notNull(),
