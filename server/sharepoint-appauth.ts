@@ -4,16 +4,22 @@ const GRAPH = 'https://graph.microsoft.com/v1.0';
 const SP_HOSTNAME = process.env.SP_HOSTNAME || 'meridiangroupza.sharepoint.com';
 const SP_SITE_PATH = process.env.SP_SITE_PATH || '/sites/MeridianNexus';
 
-const cred = new ClientSecretCredential(
-  process.env.GRAPH_TENANT_ID!,
-  process.env.GRAPH_CLIENT_ID!,
-  process.env.GRAPH_CLIENT_SECRET!
-);
+let _cred: ClientSecretCredential | null = null;
+function getCred(): ClientSecretCredential {
+  if (!_cred) {
+    _cred = new ClientSecretCredential(
+      process.env.GRAPH_TENANT_ID!,
+      process.env.GRAPH_CLIENT_ID!,
+      process.env.GRAPH_CLIENT_SECRET!
+    );
+  }
+  return _cred;
+}
 
 let _siteId: string | null = null;
 
 async function getToken(): Promise<string> {
-  const t = await cred.getToken('https://graph.microsoft.com/.default');
+  const t = await getCred().getToken('https://graph.microsoft.com/.default');
   return t!.token;
 }
 

@@ -14,8 +14,31 @@ import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamS
 import { db } from "./db";
 import { sql, eq, and, desc, type SQL } from "drizzle-orm";
 import { uploadToSharePoint } from "./sharepoint-appauth";
-import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures } from "@shared/schema";
+import {
+  fetchNexusJson,
+  nexusClientSlug,
+  fetchNexusLatestWeek,
+  fetchLiveIssueCounts,
+  fetchStoreOverviewFast,
+  fetchIssueDetailList,
+  fetchStoreSkuListFast,
+  computeAtRiskRows,
+  fetchDistributionGapsForStoreFast,
+  fetchSkuHistory,
+  fetchSkuHistoryFast,
+  TARGET_COVER_WEEKS,
+  type NexusStoreCurrentRecord,
+  type NexusOosDetailRecord,
+  type NexusLowStockDetailRecord,
+  type NexusOverstockDetailRecord,
+  type NexusStoreSkuCurrentRecord,
+} from "./nexus";
+import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRoster, storeAssignments } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
+import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
+import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync } from "./nexus-sync";
+import { claimTask } from "./nexus-task-generation";
+import { storeWeeklySummary } from "@shared/schema";
 
 function safeParseFloat(val: string | number | null | undefined): number {
   if (val === null || val === undefined) return 0;
@@ -449,6 +472,287 @@ if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 if (!fs.existsSync('public')) fs.mkdirSync('public');
 if (!fs.existsSync('public/images')) fs.mkdirSync('public/images', { recursive: true });
 
+// Real combined view across every client a syndicated rep covers at this
+// store - the dropdown's default state (Carin, 2026-08-13: "it must say
+// all and then the filter must drop down to the client" - stop
+// auto-picking one arbitrary "loudest" client as the default).
+// Counts are summed across clients (genuinely additive - real numbers, not
+// invented). dcAvailabilityPct/avgWeeksOfCover are percentages/averages, so
+// a plain sum would be wrong - weighted by the same denominator each was
+// originally computed over (oosCount / lowStockCount) so the combined
+// figure stays a real weighted average, not a fabricated blend.
+async function buildAllClientsOverview(store: string, summaryRows: any[]) {
+  const latestWeek = summaryRows[0]?.weekEnding;
+  const latestRows = summaryRows.filter((r) => r.weekEnding === latestWeek);
+  const realClients = Array.from(new Set(latestRows.map((r) => r.client)));
+
+  const sumBy = (rows: any[], field: string) => rows.reduce((s, r) => s + (r[field] || 0), 0);
+  const weightedAvg = (rows: any[], valueField: string, weightField: string, fallback: number) => {
+    let num = 0;
+    let den = 0;
+    for (const r of rows) {
+      if (r[valueField] == null || !r[weightField]) continue;
+      num += r[valueField] * r[weightField];
+      den += r[weightField];
+    }
+    return den > 0 ? num / den : fallback;
+  };
+
+  const totalSkus = sumBy(latestRows, "totalSkus");
+  const oosCount = sumBy(latestRows, "oosCount");
+  const lowStockCount = sumBy(latestRows, "lowStockCount");
+  const overstockCount = sumBy(latestRows, "overstockCount");
+  const salesAtRiskSkuCount = sumBy(latestRows, "salesAtRiskSkuCount");
+  const dcAvailabilityPct = weightedAvg(latestRows, "dcAvailabilityPct", "oosCount", 100);
+  const avgWeeksOfCover = weightedAvg(latestRows, "avgWeeksOfCover", "lowStockCount", 0);
+  const inStockPct = totalSkus > 0 ? ((totalSkus - oosCount) / totalSkus) * 100 : 100;
+
+  // Real per-week aggregate across every client, for the trend charts.
+  const weeks = Array.from(new Set(summaryRows.map((r) => r.weekEnding))).sort();
+  const trend = weeks.map((w) => {
+    const rows = summaryRows.filter((r) => r.weekEnding === w);
+    return {
+      weekEnding: w,
+      oosCount: sumBy(rows, "oosCount"),
+      lowStockCount: sumBy(rows, "lowStockCount"),
+      atRiskCount: sumBy(rows, "atRiskCount"),
+      storeSoh: sumBy(rows, "storeSoh"),
+    };
+  });
+  const salesTrend = weeks.map((w) => ({
+    weekEnding: w,
+    salesP4: sumBy(summaryRows.filter((r) => r.weekEnding === w), "salesP4"),
+  }));
+
+  let deltas: Record<string, number> | null = null;
+  const previousWeek = weeks.length > 1 ? weeks[weeks.length - 2] : undefined;
+  if (previousWeek) {
+    const prevRows = summaryRows.filter((r) => r.weekEnding === previousWeek);
+    const prevTotalSkus = sumBy(prevRows, "totalSkus");
+    const prevOos = sumBy(prevRows, "oosCount");
+    const prevInStockPct = prevTotalSkus > 0 ? ((prevTotalSkus - prevOos) / prevTotalSkus) * 100 : null;
+    const currInStockPct = totalSkus > 0 ? ((totalSkus - oosCount) / totalSkus) * 100 : null;
+    deltas = {
+      oosCount: oosCount - prevOos,
+      lowStockCount: lowStockCount - sumBy(prevRows, "lowStockCount"),
+      overstockCount: overstockCount - sumBy(prevRows, "overstockCount"),
+      atRiskCount: sumBy(latestRows, "atRiskCount") - sumBy(prevRows, "atRiskCount"),
+      distributionGapsCount: sumBy(latestRows, "distributionGapsCount") - sumBy(prevRows, "distributionGapsCount"),
+      ...(prevInStockPct !== null && currInStockPct !== null
+        ? { inStockPct: Math.round((currInStockPct - prevInStockPct) * 10) / 10 }
+        : {}),
+      ...(prevRows.some((r) => r.dcAvailabilityPct != null) && latestRows.some((r) => r.dcAvailabilityPct != null)
+        ? { dcAvailabilityPct: Math.round((dcAvailabilityPct - weightedAvg(prevRows, "dcAvailabilityPct", "oosCount", 100)) * 10) / 10 }
+        : {}),
+      ...(prevRows.some((r) => r.avgWeeksOfCover != null) && latestRows.some((r) => r.avgWeeksOfCover != null)
+        ? { avgWeeksOfCover: Math.round((avgWeeksOfCover - weightedAvg(prevRows, "avgWeeksOfCover", "lowStockCount", 0)) * 10) / 10 }
+        : {}),
+      salesAtRiskSkuCount: salesAtRiskSkuCount - sumBy(prevRows, "salesAtRiskSkuCount"),
+      ...(prevRows.some((r) => r.negSohCount != null) && latestRows.some((r) => r.negSohCount != null)
+        ? { negSOHCount: sumBy(latestRows, "negSohCount") - sumBy(prevRows, "negSohCount") }
+        : {}),
+    };
+  }
+
+  // Live-only fields (not persisted per-week) need a real per-client fetch,
+  // summed across exactly the clients that operate at this store - not a
+  // full 25-client scan, since realClients already came from our own
+  // synced data for this store.
+  const perClient = await Promise.all(
+    realClients.map(async (client) => {
+      try {
+        const [overview, gaps] = await Promise.all([
+          fetchStoreOverviewFast(client, store, client),
+          fetchDistributionGapsForStoreFast(client, store, client),
+        ]);
+        if (!overview) return null;
+        return { overview, atRisk: overview.atRiskCount, gaps: gaps.missingSkus };
+      } catch {
+        return null;
+      }
+    })
+  );
+  const ok = perClient.filter((c): c is NonNullable<typeof c> => c !== null);
+
+  const sumOk = (fn: (o: any) => number) => ok.reduce((s, c) => s + fn(c.overview), 0);
+  const first = ok[0]?.overview;
+
+  return {
+    storeName: store,
+    resolvedClient: "All Clients",
+    siteCode: first?.siteCode || "—",
+    banner: first?.banner || "",
+    totalSkus,
+    oosCount,
+    lowStockCount,
+    overstockCount,
+    negSOHCount: sumOk((o) => o.negSOHCount || 0),
+    optimalCount: sumOk((o) => o.optimalCount || 0),
+    chronicUnderstockCount: sumOk((o) => o.chronicUnderstockCount || 0),
+    inStockPct,
+    missedUnits: sumOk((o) => o.missedUnits || 0),
+    dcAvailabilityPct,
+    avgWeeksOfCover,
+    dcAvailableCount: sumOk((o) => o.dcAvailableCount || 0),
+    noDcStockCount: sumOk((o) => o.noDcStockCount || 0),
+    suggestedOrderSkuCount: sumOk((o) => o.suggestedOrderSkuCount || 0),
+    suggestedOrderUnitsTotal: sumOk((o) => o.suggestedOrderUnitsTotal || 0),
+    suggestedOrderDcSupportedCount: sumOk((o) => o.suggestedOrderDcSupportedCount || 0),
+    immediateActionCount: sumOk((o) => o.immediateActionCount || 0),
+    salesAtRiskSkuCount,
+    topIssues: ok
+      .flatMap((c) => c.overview.topIssues || [])
+      .sort((a: any, b: any) => (b.estimatedMissedUnits || 0) - (a.estimatedMissedUnits || 0))
+      .slice(0, 20),
+    trend,
+    salesTrend,
+    deltas,
+    atRiskCount: ok.length > 0 ? ok.reduce((s, c) => s + c.atRisk, 0) : sumBy(latestRows, "atRiskCount"),
+    distributionGapsCount: ok.length > 0 ? ok.reduce((s, c) => s + c.gaps, 0) : sumBy(latestRows, "distributionGapsCount"),
+  };
+}
+
+// Real merged SKU list across every client at this store - the "All
+// Clients" dropdown mode has no single client to scope a SKU list to, so
+// each real client's own list (same logic as the single-client path) is
+// fetched and concatenated, tagged with which client each row belongs to.
+// Not a fabricated blend - every row is a real row from a real client's
+// real Nexus data, just shown together (Carin, 2026-08-13: "wire this up
+// and fix it" - SKU drill-in was silently falling back to a single
+// arbitrary client while in All mode).
+async function fetchSkuListForClient(client: string, store: string, classification: string) {
+  if (classification === "risk") {
+    const skuList = await fetchStoreSkuListFast(client, store, client);
+    const rows = computeAtRiskRows(skuList.rows).map((r) => ({
+      barcode: r.barcode,
+      articleDescription: r.articleDescription,
+      storeSoh: r.storeSoh,
+      dcSoh: r.dcSoh,
+      sellOutP4: r.sellOutP4,
+      cover: r.cover,
+      estimatedMissedUnits: r.estimatedMissedUnits,
+      action: "Monitor cover — replenish before it becomes Out of Stock",
+      classification: "At Risk",
+      issueDriver: null as string | null,
+      suggestedOrderUnits: typeof r.avgWeeklySales === "number"
+        ? Math.max(0, Math.round(TARGET_COVER_WEEKS * r.avgWeeklySales - r.storeSoh))
+        : null,
+      dcFulfillableUnits: null as number | null,
+      client,
+    }));
+    return { resolvedClient: client, rows, missingSkus: undefined, rangedSkus: skuList.rows.length, avgCoveragePct: undefined };
+  }
+
+  if (classification === "cover") {
+    const skuList = await fetchStoreSkuListFast(client, store, client);
+    const rows = skuList.rows
+      .filter((r) => r.storeSoh > 0 && r.cover !== null)
+      .map((r) => ({
+        barcode: r.barcode,
+        articleDescription: r.articleDescription,
+        storeSoh: r.storeSoh,
+        dcSoh: r.dcSoh,
+        sellOutP4: r.sellOutP4,
+        cover: r.cover,
+        estimatedMissedUnits: r.estimatedMissedUnits,
+        action: "Review cover levels",
+        classification: r.classification,
+        issueDriver: null as string | null,
+        suggestedOrderUnits: null as number | null,
+        dcFulfillableUnits: null as number | null,
+        client,
+      }));
+    return { resolvedClient: client, rows, missingSkus: undefined, rangedSkus: skuList.rows.length, avgCoveragePct: undefined };
+  }
+
+  if (classification === "negsoh") {
+    const skuList = await fetchStoreSkuListFast(client, store, client);
+    const rows = skuList.rows
+      .filter((r) => r.storeSoh < 0)
+      .map((r) => ({
+        barcode: r.barcode,
+        articleDescription: r.articleDescription,
+        storeSoh: r.storeSoh,
+        dcSoh: r.dcSoh,
+        sellOutP4: r.sellOutP4,
+        cover: r.cover,
+        estimatedMissedUnits: r.estimatedMissedUnits,
+        action: "Investigate stock count discrepancy",
+        classification: "Negative SOH",
+        issueDriver: null as string | null,
+        suggestedOrderUnits: null as number | null,
+        dcFulfillableUnits: null as number | null,
+        client,
+      }));
+    return { resolvedClient: client, rows, missingSkus: undefined, rangedSkus: skuList.rows.length, avgCoveragePct: undefined };
+  }
+
+  if (classification === "distribution") {
+    const [gaps, skuList] = await Promise.all([
+      fetchDistributionGapsForStoreFast(client, store, client),
+      fetchStoreSkuListFast(client, store, client),
+    ]);
+    const rows = gaps.rows.map((r) => ({
+      barcode: r.barcode,
+      articleDescription: r.articleDescription,
+      storeSoh: 0,
+      dcSoh: null as number | null,
+      sellOutP4: null as number | null,
+      cover: null as number | null,
+      estimatedMissedUnits: 0,
+      action: r.suggestedAction,
+      classification: r.gapType || "Distribution Gap",
+      issueDriver: null as string | null,
+      suggestedOrderUnits: null as number | null,
+      dcFulfillableUnits: null as number | null,
+      client,
+    }));
+    return { resolvedClient: client, rows, missingSkus: gaps.missingSkus, rangedSkus: skuList.rows.length, avgCoveragePct: gaps.avgCoverage };
+  }
+
+  const result = await fetchIssueDetailList(client, store, classification as "oos" | "low" | "overstock", client);
+  return {
+    resolvedClient: client,
+    rows: result.rows.map((r: any) => ({ ...r, client })),
+    missingSkus: undefined,
+    rangedSkus: undefined,
+    avgCoveragePct: undefined,
+  };
+}
+
+async function buildAllClientsSkuList(store: string, classification: string, realClients: string[]) {
+  const perClient = await Promise.all(
+    realClients.map(async (client) => {
+      try {
+        return await fetchSkuListForClient(client, store, classification);
+      } catch {
+        return null;
+      }
+    })
+  );
+  const ok = perClient.filter((c): c is NonNullable<typeof c> => c !== null);
+  const rows = ok.flatMap((c) => c.rows);
+
+  if (classification === "distribution") {
+    const totalRanged = ok.reduce((s, c) => s + (c.rangedSkus || 0), 0);
+    const weightedCoverage = ok.reduce((s, c) => s + (c.avgCoveragePct != null ? c.avgCoveragePct * (c.rangedSkus || 0) : 0), 0);
+    return {
+      storeName: store,
+      resolvedClient: "All Clients",
+      rows,
+      missingSkus: ok.reduce((s, c) => s + (c.missingSkus || 0), 0),
+      rangedSkus: totalRanged,
+      avgCoveragePct: totalRanged > 0 ? weightedCoverage / totalRanged : null,
+    };
+  }
+
+  const sorted = classification === "cover"
+    ? rows.sort((a: any, b: any) => (a.cover ?? 0) - (b.cover ?? 0))
+    : rows.sort((a: any, b: any) => (b.estimatedMissedUnits || 0) - (a.estimatedMissedUnits || 0));
+
+  return { storeName: store, resolvedClient: "All Clients", rows: sorted };
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
@@ -464,7 +768,812 @@ export async function registerRoutes(
     });
     next();
   });
-  
+
+  // Read a verified identity token if present (does not block unauthenticated
+  // requests - the existing Rep/Manager/Client access screens keep working
+  // exactly as before). See server/identity.ts for the full explanation.
+  app.use('/api', requireIdentity);
+
+  // POST identify - "who are you" via Name + Employee ID against this week's
+  // Call Cycle Master roster. No password, no lockouts: if the combination
+  // isn't on this week's list, the fix is getting added to the roster.
+  app.post("/api/auth/identify", async (req, res) => {
+    try {
+      const resourceEmpId = String(req.body?.resourceEmpId ?? "").trim();
+      const resourceName = String(req.body?.resourceName ?? "").trim();
+      if (!resourceEmpId || !resourceName) {
+        return res.status(400).json({ error: "Please provide both your name and employee ID." });
+      }
+
+      const match = await findRosterMatch(resourceEmpId, resourceName);
+      if (!match) {
+        return res.status(401).json({
+          error: "We couldn't find that name and ID on this week's list - check with your manager that you're on the roster.",
+        });
+      }
+
+      const token = issueIdentityToken(match);
+      res.cookie(IDENTITY_COOKIE_NAME, token, {
+        httpOnly: true,
+        sameSite: 'lax',
+        maxAge: IDENTITY_TOKEN_TTL_MS,
+      });
+      res.json({
+        resourceEmpId: match.resourceEmpId,
+        resourceName: match.resourceName,
+        resourceType: match.resourceType,
+        clientScope: match.clientScope,
+        token,
+      });
+    } catch (error) {
+      console.error("Error identifying user:", error);
+      res.status(500).json({ error: "Something went wrong checking the roster. Please try again." });
+    }
+  });
+
+  // POST admin roster import - accepts the same JSON array shape
+  // store_coverage.json already produces (Call Cycle Master + P&G tabs,
+  // dedicated-overrides-syndicated resolved). Upserts by resourceEmpId, so a
+  // weekly re-run just refreshes everyone's current scope. Excel parsing
+  // itself stays in the separate Python pipeline - this is just the consumer.
+  app.post("/api/admin/roster/import", async (req, res) => {
+    try {
+      const rows = Array.isArray(req.body) ? req.body : req.body?.rows;
+      if (!Array.isArray(rows)) {
+        return res.status(400).json({ error: "Expected a JSON array of roster rows (or { rows: [...] })." });
+      }
+      const result = await importRosterRows(rows);
+      res.json(result);
+    } catch (error) {
+      console.error("Error importing roster:", error);
+      res.status(500).json({ error: "Failed to import roster" });
+    }
+  });
+
+  // Real Rep vs Merchandiser split, sourced from resource_roster's actual
+  // RESOURCE TYPE (Call Cycle Master) - "REP" -> anyone whose type contains
+  // "REP" but not "MERCHANDISER" (e.g. SYNDICATED REP, P&G DEDICATED REP);
+  // "MERCHANDISER" -> the inverse. Confirmed 2026-08-08 against real data:
+  // 135 SYNDICATED REP + 34 P&G DEDICATED REP + 6 SEMI DEDICATED REP + 5
+  // SODASTREAM DEDICATED REP + 3 DURACELL DEDICATED REP = reps; the
+  // MERCHANDISER-labeled types are the mirror set.
+  app.get("/api/roster/names", async (req, res) => {
+    try {
+      const role = String(req.query.role || "").toUpperCase();
+      if (role !== "REP" && role !== "MERCHANDISER") {
+        return res.status(400).json({ error: "role query param must be 'rep' or 'merchandiser'" });
+      }
+      const condition = role === "MERCHANDISER"
+        ? sql`upper(${resourceRoster.resourceType}) like '%MERCHANDISER%'`
+        : sql`upper(${resourceRoster.resourceType}) like '%REP%' and upper(${resourceRoster.resourceType}) not like '%MERCHANDISER%'`;
+      const rows = await db
+        .select({ resourceName: resourceRoster.resourceName })
+        .from(resourceRoster)
+        .where(condition)
+        .orderBy(resourceRoster.resourceName);
+      const names = Array.from(new Set(rows.map((r) => r.resourceName)));
+      res.json({ names });
+    } catch (error) {
+      console.error("Error fetching roster names:", error);
+      res.status(500).json({ error: "Failed to fetch roster names" });
+    }
+  });
+
+  app.post("/api/admin/store-assignments/import", async (req, res) => {
+    try {
+      const rows = Array.isArray(req.body) ? req.body : req.body?.rows;
+      if (!Array.isArray(rows)) {
+        return res.status(400).json({ error: "Expected a JSON array of rows (or { rows: [...] })." });
+      }
+      const result = await importStoreAssignments(rows);
+      res.json(result);
+    } catch (error) {
+      console.error("Error importing store assignments:", error);
+      res.status(500).json({ error: "Failed to import store assignments" });
+    }
+  });
+
+  // Real "which stores does this person cover" - sourced from Call Cycle
+  // Master coverage, not from task history (confirmed broken 2026-08-08:
+  // a real merchandiser with no task history showed zero stores here).
+  app.get("/api/roster/stores-for-name", async (req, res) => {
+    try {
+      const name = String(req.query.name || "").trim();
+      if (!name) {
+        return res.status(400).json({ error: "name query param is required" });
+      }
+      const rows = await db
+        .select({ cleanedStoreName: storeAssignments.cleanedStoreName, banner: storeAssignments.banner })
+        .from(storeAssignments)
+        .where(sql`upper(trim(${storeAssignments.resourceName})) = ${name.toUpperCase().trim()}`)
+        .orderBy(storeAssignments.cleanedStoreName);
+      const seen = new Set<string>();
+      const stores: string[] = [];
+      const bannerByStore: Record<string, string> = {};
+      for (const r of rows) {
+        if (!seen.has(r.cleanedStoreName)) {
+          seen.add(r.cleanedStoreName);
+          stores.push(r.cleanedStoreName);
+        }
+        if (r.banner) bannerByStore[r.cleanedStoreName] = r.banner;
+      }
+      res.json({ stores, bannerByStore });
+    } catch (error) {
+      console.error("Error fetching stores for name:", error);
+      res.status(500).json({ error: "Failed to fetch stores for name" });
+    }
+  });
+
+  // Store-first flow: search real stores by name (for "select store first,
+  // then see who's linked to it" per direct request 2026-08-12).
+  // Real list of clients that actually have synced Nexus data for a given
+  // store - powers the Client filter dropdown on Store Overview (a
+  // syndicated rep's store can have real data for several clients at once).
+  app.get("/api/roster/clients-for-store", async (req, res) => {
+    try {
+      const store = String(req.query.store || "").trim();
+      const repName = String(req.query.rep || "").trim();
+      if (!store) {
+        return res.status(400).json({ error: "store query param is required" });
+      }
+
+      // Scope to what this rep is actually assigned to - a dedicated rep
+      // only ever sees their one real client (no dropdown needed); a
+      // syndicated rep sees every real client with data at this store.
+      let clientScope = "SYNDICATED";
+      if (repName) {
+        const [rosterRow] = await db
+          .select({ clientScope: resourceRoster.clientScope })
+          .from(resourceRoster)
+          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
+          .limit(1);
+        if (rosterRow?.clientScope) clientScope = rosterRow.clientScope;
+      }
+
+      if (clientScope !== "SYNDICATED") {
+        return res.json({ clients: [clientScope] });
+      }
+
+      const rows = await db
+        .selectDistinct({ client: storeWeeklySummary.client })
+        .from(storeWeeklySummary)
+        .where(sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = ${store.toUpperCase().trim()}`)
+        .orderBy(storeWeeklySummary.client);
+      res.json({ clients: rows.map((r) => r.client) });
+    } catch (error) {
+      console.error("Error fetching clients for store:", error);
+      res.status(500).json({ error: "Failed to fetch clients for store" });
+    }
+  });
+
+  // In-memory cache for the full deduped store list - added 2026-08-16.
+  // This join has to touch nearly all of store_assignments (18k rows) and
+  // store_weekly_summary (140k+ rows) to compute, so no index helps (a
+  // selective-lookup index doesn't speed up a "give me almost everything"
+  // query) - confirmed via EXPLAIN, still 1.8s of real seq scan + sort work.
+  // The underlying data only changes on a roster import or a weekly sync,
+  // not per-request, so caching it is the right fix, same pattern as
+  // dashboardStatsCache elsewhere in this file.
+  let storeSearchCache: { stores: Array<{ name: string; banner: string | null }>; expiresAt: number } | null = null;
+  const STORE_SEARCH_CACHE_MS = 10 * 60 * 1000;
+
+  app.get("/api/roster/store-search", async (req, res) => {
+    try {
+      const q = String(req.query.q || "").trim();
+
+      if (!storeSearchCache || storeSearchCache.expiresAt < Date.now()) {
+        // Only return stores that actually have real synced Nexus inventory
+        // data (storeWeeklySummary) - a store can be in the Call Cycle Master
+        // roster but genuinely have zero Nexus data for any client (confirmed
+        // real gap, e.g. Checkers Constantia for P&G), so listing it here
+        // would just lead to a dead-end "no live data" screen.
+        const rows = await db
+          .selectDistinct({ cleanedStoreName: storeAssignments.cleanedStoreName, banner: storeAssignments.banner })
+          .from(storeAssignments)
+          .innerJoin(
+            storeWeeklySummary,
+            sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = upper(trim(${storeAssignments.cleanedStoreName}))`
+          )
+          .orderBy(storeAssignments.cleanedStoreName)
+          .limit(10000);
+        // The same physical store can appear multiple times with a
+        // differently-cased banner (e.g. "Checkers" vs "CHECKERS" on separate
+        // roster rows) - dedupe by store name only, keeping the first banner
+        // seen, so the picker doesn't show the same store twice.
+        const seen = new Set<string>();
+        const deduped: Array<{ name: string; banner: string | null }> = [];
+        for (const r of rows) {
+          const key = r.cleanedStoreName.toUpperCase().trim();
+          if (!seen.has(key)) {
+            seen.add(key);
+            deduped.push({ name: r.cleanedStoreName, banner: r.banner });
+          }
+        }
+        storeSearchCache = { stores: deduped, expiresAt: Date.now() + STORE_SEARCH_CACHE_MS };
+      }
+
+      const stores = q
+        ? storeSearchCache.stores.filter((s) => s.name.toUpperCase().includes(q.toUpperCase()))
+        : storeSearchCache.stores;
+      res.json({ stores });
+    } catch (error) {
+      console.error("Error searching stores:", error);
+      res.status(500).json({ error: "Failed to search stores" });
+    }
+  });
+
+  // Reverse lookup: given a store, who's actually assigned to it. Prefers a
+  // dedicated (non-SYNDICATED) assignment over a syndicated one, matching
+  // the same dedicated-over-syndicated rule used everywhere else.
+  app.get("/api/roster/rep-for-store", async (req, res) => {
+    try {
+      const store = String(req.query.store || "").trim();
+      const role = String(req.query.role || "").trim();
+      if (!store) {
+        return res.status(400).json({ error: "store query param is required" });
+      }
+
+      // store_assignments has no resourceType of its own - look it up from
+      // resource_roster (which does) so a Merchandiser never shows up in
+      // the Rep flow or vice versa (real bug found 2026-08-12: a
+      // SYNDICATED MERCHANDISER was being suggested under "Rep").
+      //
+      // Deliberately filter store_assignments by store name FIRST, then
+      // resolve roster info only for those few resourceEmpIds - joining
+      // store_assignments+resource_roster directly with the role LIKE
+      // filter in the same WHERE let Postgres pick resource_roster (2596
+      // MERCHANDISER matches) as the driving table and re-scan all 18k
+      // store_assignments rows per match (~48M upper/trim evals, 30s+
+      // hang) - confirmed via EXPLAIN ANALYZE 2026-08-12.
+      const assignmentRows = await db
+        .select({ resourceEmpId: storeAssignments.resourceEmpId, resourceName: storeAssignments.resourceName, clientScope: storeAssignments.clientScope })
+        .from(storeAssignments)
+        .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${store.toUpperCase().trim()}`);
+
+      const empIds = Array.from(new Set(assignmentRows.map((r) => r.resourceEmpId).filter((id): id is string => !!id)));
+      const rosterRows = empIds.length
+        ? await db
+            .select({ resourceEmpId: resourceRoster.resourceEmpId, resourceType: resourceRoster.resourceType })
+            .from(resourceRoster)
+            .where(sql`${resourceRoster.resourceEmpId} in ${empIds}`)
+        : [];
+      const roleByEmpId = new Map(rosterRows.map((r) => [r.resourceEmpId, (r.resourceType || "").toUpperCase()]));
+
+      const matchesRole = (empId: string | null) => {
+        const rt = roleByEmpId.get(empId || "") || "";
+        if (role.toUpperCase() === "MERCHANDISER") return rt.includes("MERCHANDISER");
+        if (role.toUpperCase() === "REP") return rt.includes("REP") && !rt.includes("MERCHANDISER");
+        return true;
+      };
+
+      const rows = assignmentRows.filter((r) => matchesRole(r.resourceEmpId));
+      const dedicated = rows.find((r) => r.clientScope !== "SYNDICATED");
+      const chosen = dedicated || rows[0];
+      const allNames = Array.from(new Set(rows.map((r) => r.resourceName)));
+      res.json({ rep: chosen?.resourceName || null, allReps: allNames });
+    } catch (error) {
+      console.error("Error resolving rep for store:", error);
+      res.status(500).json({ error: "Failed to resolve rep for store" });
+    }
+  });
+
+  // Real, LIVE issue counts straight from Nexus's own classified data - no
+  // generated task rows involved. Confirmed 2026-08-08: this is the correct
+  // source for "how many issues does this store have," since Nexus already
+  // computes that; StockFix's own tasks table is only needed at the point
+  // someone actually captures/completes something.
+  app.get("/api/roster/live-issue-counts", async (req, res) => {
+    try {
+      const name = String(req.query.name || "").trim();
+      if (!name) {
+        return res.status(400).json({ error: "name query param is required" });
+      }
+      const [rosterRow] = await db
+        .select({ clientScope: resourceRoster.clientScope })
+        .from(resourceRoster)
+        .where(sql`upper(trim(${resourceRoster.resourceName})) = ${name.toUpperCase().trim()}`)
+        .limit(1);
+      const clientScope = rosterRow?.clientScope || "SYNDICATED";
+
+      const storeRows = await db
+        .select({ cleanedStoreName: storeAssignments.cleanedStoreName })
+        .from(storeAssignments)
+        .where(sql`upper(trim(${storeAssignments.resourceName})) = ${name.toUpperCase().trim()}`);
+      const stores = Array.from(new Set(storeRows.map((r) => r.cleanedStoreName)));
+
+      const week = await fetchNexusLatestWeek();
+      const counts = await fetchLiveIssueCounts(week, clientScope, stores);
+      res.json({ week, clientScope, counts });
+    } catch (error) {
+      console.error("Error fetching live issue counts:", error);
+      res.status(500).json({ error: "Failed to fetch live issue counts" });
+    }
+  });
+
+  // Manual trigger for the weekly summary sync - on the real app this runs
+  // automatically on the same scheduler pattern as the existing weekly
+  // email, not via a manually-called endpoint. Exposed here for testing.
+  app.post("/api/admin/nexus-summary-sync", async (req, res) => {
+    try {
+      const week = req.query.week ? String(req.query.week) : undefined;
+      const onlyClients = req.query.clients ? String(req.query.clients).split(",").map((c) => c.trim().toUpperCase()) : undefined;
+      const result = await runWeeklySummarySync(week, onlyClients);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error running weekly summary sync:", error);
+      res.status(500).json({ error: error?.message || "Failed to run summary sync" });
+    }
+  });
+
+  // Plain-text tail of the sync heartbeat log, viewable straight in a
+  // browser - added 2026-08-14 so a stall is visible without a terminal.
+  // Optional ?week=2026-07-29 and/or ?client=TACOMA narrow the tail to just
+  // the lines mentioning that week/client (case-insensitive substring match).
+  app.get("/api/admin/sync-log", async (req, res) => {
+    try {
+      const logPath = path.join(process.cwd(), "sync-progress.log");
+      if (!fs.existsSync(logPath)) {
+        res.type("text/plain").send("(no sync log yet - nothing has run since this feature was added)");
+        return;
+      }
+      let lines = fs.readFileSync(logPath, "utf-8").split("\n").filter(Boolean);
+      const week = req.query.week ? String(req.query.week).toLowerCase() : undefined;
+      const client = req.query.client ? String(req.query.client).toLowerCase() : undefined;
+      if (week) lines = lines.filter((l) => l.toLowerCase().includes(week));
+      if (client) lines = lines.filter((l) => l.toLowerCase().includes(client));
+      const tail = lines.slice(-150).join("\n");
+      res.type("text/plain").send(tail || "(no matching log lines)");
+    } catch (error: any) {
+      res.status(500).type("text/plain").send(`Error reading sync log: ${error?.message || error}`);
+    }
+  });
+
+  // One-time backfill so trend charts/deltas have real history immediately,
+  // instead of waiting for real weeks to pass one at a time.
+  app.post("/api/admin/nexus-summary-backfill", async (req, res) => {
+    try {
+      const weeksBack = parseInt(String(req.query.weeks || "4"), 10);
+      const allWeeks = await fetchNexusWeeks();
+      const targetWeeks = allWeeks.slice(0, weeksBack);
+      const results = [];
+      // One week's failure (e.g. a transient DB/network blip) must never
+      // abandon the rest of a multi-week backfill - added 2026-08-14 after
+      // exactly that happened (a DNS blip during retention pruning killed
+      // the whole 13-week request after only the first week ran).
+      for (const week of targetWeeks) {
+        try {
+          const result = await runWeeklySummarySync(week);
+          results.push(result);
+        } catch (err: any) {
+          console.error(`Backfill: week ${week} failed, continuing to next week:`, err);
+          results.push({ week, clientsSynced: 0, rowsWritten: 0, weeksPruned: 0, errors: [String(err?.message || err)] });
+        }
+      }
+      res.json({ weeksBackfilled: results.length, results });
+    } catch (error: any) {
+      console.error("Error running summary backfill:", error);
+      res.status(500).json({ error: error?.message || "Failed to run backfill" });
+    }
+  });
+
+  // Lightweight, gaps-only backfill - added 2026-08-17 after a real mistake
+  // (see runDistributionGapsOnlySync's own comment): re-running the full
+  // backfill just to pick up new Distribution Gaps support wastefully
+  // re-fetched the entire already-synced SKU dataset too. This fetches only
+  // the small Distribution Gaps file per client per week - minutes, not hours.
+  app.post("/api/admin/nexus-distribution-gaps-backfill", async (req, res) => {
+    try {
+      const weeksBack = parseInt(String(req.query.weeks || "13"), 10);
+      const allWeeks = await fetchNexusWeeks();
+      const targetWeeks = allWeeks.slice(0, weeksBack);
+      const result = await runDistributionGapsOnlySync(targetWeeks);
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error running distribution gaps backfill:", error);
+      res.status(500).json({ error: error?.message || "Failed to run distribution gaps backfill" });
+    }
+  });
+
+  // Real store-level detail view, no fabricated categories/rand values.
+  // Client scope is looked up from the roster by the person's real name -
+  // confirmed bug 2026-08-08: an empty/never-populated ?client= param
+  // silently defaulted to "check every client," so a dedicated P&G rep's
+  // store page could show another client's (Butterfly's) data winning as
+  // the "loudest" match. Always resolve the person's real scope instead.
+  app.get("/api/roster/store-overview", async (req, res) => {
+    try {
+      const store = String(req.query.store || "").trim();
+      const repName = String(req.query.rep || "").trim();
+      if (!store) {
+        return res.status(400).json({ error: "store query param is required" });
+      }
+      let clientScope = "SYNDICATED";
+      if (repName) {
+        const [rosterRow] = await db
+          .select({ clientScope: resourceRoster.clientScope })
+          .from(resourceRoster)
+          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
+          .limit(1);
+        if (rosterRow?.clientScope) clientScope = rosterRow.clientScope;
+      }
+
+      // Explicit client override from the Client filter on Store Overview -
+      // lets a syndicated rep switch which real client's data they're
+      // viewing for this store, instead of always auto-picking whichever
+      // client has the most issues. Reuses the exact same filtering path
+      // already used for dedicated reps below. "ALL" is a distinct sentinel
+      // (not just "no override") - the dropdown's default state, meaning
+      // "show every real client's data combined," per Carin's 2026-08-13
+      // instruction: default to All, only filter down once a client is
+      // explicitly picked.
+      const explicitClient = String(req.query.client || "").trim();
+      if (explicitClient && explicitClient !== "ALL") clientScope = explicitClient;
+
+      // Fast path: resolve the real client and pull trend/deltas from our
+      // own synced summary table first (local, instant) - only fall back to
+      // the slow multi-client live scan if this store was never synced.
+      const summaryRows = await db
+        .select()
+        .from(storeWeeklySummary)
+        .where(sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = ${store.toUpperCase().trim()}`)
+        .orderBy(sql`${storeWeeklySummary.weekEnding} DESC`);
+
+      if (explicitClient === "ALL" && clientScope === "SYNDICATED" && summaryRows.length > 0) {
+        return res.json(await buildAllClientsOverview(store, summaryRows));
+      }
+
+      let knownClient: string | undefined;
+      let trend: Array<{ weekEnding: string; oosCount: number; lowStockCount: number; atRiskCount: number; storeSoh: number }> = [];
+      let salesTrend: Array<{ weekEnding: string; salesP4: number }> = [];
+      let deltas: Record<string, number> | null = null;
+      let atRiskCount = 0;
+      let distributionGapsCount = 0;
+
+      if (summaryRows.length > 0) {
+        const relevantRows = clientScope === "SYNDICATED"
+          ? summaryRows
+          : summaryRows.filter((r) => r.client === clientScope);
+        const rowsToUse = relevantRows.length > 0 ? relevantRows : summaryRows;
+
+        const latestWeek = rowsToUse[0]?.weekEnding;
+        const latestForEachClient = rowsToUse.filter((r) => r.weekEnding === latestWeek);
+        const bestRow = latestForEachClient.sort((a, b) => (b.oosCount + b.lowStockCount) - (a.oosCount + a.lowStockCount))[0];
+
+        if (bestRow) {
+          knownClient = bestRow.client;
+          atRiskCount = bestRow.atRiskCount || 0;
+          distributionGapsCount = bestRow.distributionGapsCount || 0;
+          // Full retained history (up to 13 real weeks, matching the
+          // storage design's retention window) - not hardcoded to 4.
+          const thisClientHistory = rowsToUse.filter((r) => r.client === bestRow.client).reverse();
+          trend = thisClientHistory.map((r) => ({ weekEnding: r.weekEnding, oosCount: r.oosCount, lowStockCount: r.lowStockCount, atRiskCount: r.atRiskCount || 0, storeSoh: r.storeSoh || 0 }));
+          salesTrend = thisClientHistory.map((r) => ({ weekEnding: r.weekEnding, salesP4: r.salesP4 || 0 }));
+
+          const previousWeekRow = rowsToUse.find((r) => r.client === bestRow.client && r.weekEnding !== latestWeek);
+          if (previousWeekRow) {
+            // inStockPct delta is real - totalSkus/oosCount are both stored
+            // per week in store_weekly_summary, so this is a genuine WoW
+            // comparison, same formula fetchStoreOverview uses (nexus.ts:192).
+            // dcAvailabilityPct / avgWeeksOfCover / salesAtRiskSkuCount have
+            // no persisted weekly history in this table, so no delta is
+            // computed for them - showing one would be fabricated.
+            const prevInStockPct = previousWeekRow.totalSkus > 0
+              ? ((previousWeekRow.totalSkus - previousWeekRow.oosCount) / previousWeekRow.totalSkus) * 100
+              : null;
+            const currInStockPct = bestRow.totalSkus > 0
+              ? ((bestRow.totalSkus - bestRow.oosCount) / bestRow.totalSkus) * 100
+              : null;
+            deltas = {
+              oosCount: bestRow.oosCount - previousWeekRow.oosCount,
+              lowStockCount: bestRow.lowStockCount - previousWeekRow.lowStockCount,
+              overstockCount: bestRow.overstockCount - previousWeekRow.overstockCount,
+              atRiskCount: atRiskCount - (previousWeekRow.atRiskCount || 0),
+              distributionGapsCount: distributionGapsCount - (previousWeekRow.distributionGapsCount || 0),
+              ...(prevInStockPct !== null && currInStockPct !== null
+                ? { inStockPct: Math.round((currInStockPct - prevInStockPct) * 10) / 10 }
+                : {}),
+              // Real - only present once both weeks were synced after
+              // 2026-08-12 (when these columns were added). Absent
+              // entirely on weeks before that, never fabricated as 0.
+              ...(bestRow.dcAvailabilityPct != null && previousWeekRow.dcAvailabilityPct != null
+                ? { dcAvailabilityPct: Math.round((bestRow.dcAvailabilityPct - previousWeekRow.dcAvailabilityPct) * 10) / 10 }
+                : {}),
+              ...(bestRow.avgWeeksOfCover != null && previousWeekRow.avgWeeksOfCover != null
+                ? { avgWeeksOfCover: Math.round((bestRow.avgWeeksOfCover - previousWeekRow.avgWeeksOfCover) * 10) / 10 }
+                : {}),
+              ...(bestRow.salesAtRiskSkuCount != null && previousWeekRow.salesAtRiskSkuCount != null
+                ? { salesAtRiskSkuCount: bestRow.salesAtRiskSkuCount - previousWeekRow.salesAtRiskSkuCount }
+                : {}),
+              ...(bestRow.negSohCount != null && previousWeekRow.negSohCount != null
+                ? { negSOHCount: bestRow.negSohCount - previousWeekRow.negSohCount }
+                : {}),
+            };
+          }
+        }
+      }
+
+      const overview = await fetchStoreOverviewFast(clientScope, store, knownClient);
+      if (!overview) {
+        return res.status(404).json({ error: "No live Nexus data found for this store" });
+      }
+
+      // At Risk now comes straight off overview (computed there from the
+      // same skuRows already loaded - no second DB round-trip). Distribution
+      // Gaps still needs its own call (that data isn't synced yet, per the
+      // 2026-08-13 audit's item #3), but distributionGapsFileCache makes
+      // every call after the first one on this server process near-instant
+      // (real bug found 2026-08-14: two separate SKU-list fetches for the
+      // same data, not the live call itself, was most of the remaining
+      // latency once fetchStoreOverviewFast landed).
+      atRiskCount = overview.atRiskCount;
+      try {
+        const gaps = await fetchDistributionGapsForStoreFast(clientScope, store, overview.resolvedClient);
+        distributionGapsCount = gaps.missingSkus;
+      } catch (err) {
+        console.error("Live Distribution Gaps calc failed, using synced placeholder:", err);
+      }
+
+      res.json({ ...overview, trend, salesTrend, deltas, atRiskCount, distributionGapsCount });
+    } catch (error) {
+      console.error("Error fetching store overview:", error);
+      res.status(500).json({ error: "Failed to fetch store overview" });
+    }
+  });
+
+  // Real SKU-level drill-down list for one store's OOS or Low Stock tile -
+  // shares the same client-resolution fast path (storeWeeklySummary lookup
+  // first) as /api/roster/store-overview, so it's just as fast on repeat
+  // views of a store the rep already opened.
+  app.get("/api/roster/sku-list", async (req, res) => {
+    try {
+      const store = String(req.query.store || "").trim();
+      const repName = String(req.query.rep || "").trim();
+      const classification = String(req.query.classification || "oos").trim();
+      if (!store) {
+        return res.status(400).json({ error: "store query param is required" });
+      }
+      if (!["oos", "low", "overstock", "risk", "distribution", "cover", "negsoh"].includes(classification)) {
+        return res.status(400).json({ error: "classification must be 'oos', 'low', 'overstock', 'risk', 'distribution', 'cover', or 'negsoh'" });
+      }
+
+      let clientScope = "SYNDICATED";
+      if (repName) {
+        const [rosterRow] = await db
+          .select({ clientScope: resourceRoster.clientScope })
+          .from(resourceRoster)
+          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
+          .limit(1);
+        if (rosterRow?.clientScope) clientScope = rosterRow.clientScope;
+      }
+
+      // Explicit client override from the Client filter on Store Overview -
+      // without this, a syndicated rep who switches client on the overview
+      // page had that choice silently dropped on drill-in: this endpoint
+      // picked whichever client's row happened to sort first out of
+      // storeWeeklySummary, with no relation to the overview's own pick or
+      // the user's selection (real bug found 2026-08-13: overview showed
+      // 11 OOS for one client, drilling in showed 0 for a different one).
+      const explicitClient = String(req.query.client || "").trim();
+      if (explicitClient && explicitClient !== "ALL") clientScope = explicitClient;
+
+      // Security fix 2026-08-16: "All Clients" must only fan out across
+      // every client for a SYNDICATED (non-dedicated) rep. Without the
+      // clientScope check, a P&G-dedicated rep selecting "All Clients"
+      // would see every other client's data too (confirmed real - a P&G
+      // dedicated rep saw Aquelle's SKU here). Matches the same guard
+      // already correctly used in /api/roster/store-overview above.
+      if (explicitClient === "ALL" && clientScope === "SYNDICATED") {
+        const allSummaryRows = await db
+          .select({ client: storeWeeklySummary.client, weekEnding: storeWeeklySummary.weekEnding })
+          .from(storeWeeklySummary)
+          .where(sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = ${store.toUpperCase().trim()}`)
+          .orderBy(sql`${storeWeeklySummary.weekEnding} DESC`);
+        const latestWeek = allSummaryRows[0]?.weekEnding;
+        const realClients = Array.from(new Set(allSummaryRows.filter((r) => r.weekEnding === latestWeek).map((r) => r.client)));
+        if (realClients.length > 0) {
+          return res.json(await buildAllClientsSkuList(store, classification, realClients));
+        }
+      }
+
+      const summaryRows = await db
+        .select()
+        .from(storeWeeklySummary)
+        .where(sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = ${store.toUpperCase().trim()}`)
+        .orderBy(sql`${storeWeeklySummary.weekEnding} DESC`)
+        .limit(1);
+      const knownClient = clientScope === "SYNDICATED" ? summaryRows[0]?.client : undefined;
+
+      if (classification === "risk") {
+        const skuList = await fetchStoreSkuListFast(clientScope, store, knownClient);
+        const atRiskRows = computeAtRiskRows(skuList.rows).map((r) => ({
+          barcode: r.barcode,
+          articleDescription: r.articleDescription,
+          storeSoh: r.storeSoh,
+          dcSoh: r.dcSoh,
+          sellOutP4: r.sellOutP4,
+          cover: r.cover,
+          estimatedMissedUnits: r.estimatedMissedUnits,
+          action: "Monitor cover — replenish before it becomes Out of Stock",
+          classification: "At Risk",
+          issueDriver: null,
+          // Same real 4-week target-cover formula as Low Stock/OOS
+          // (confirmed 2026-08-13: At Risk stays on the one confirmed
+          // target - no separate 3-week/pack-rounding rule was verified).
+          suggestedOrderUnits: typeof r.avgWeeklySales === "number"
+            ? Math.max(0, Math.round(TARGET_COVER_WEEKS * r.avgWeeklySales - r.storeSoh))
+            : null,
+          dcFulfillableUnits: null,
+        }));
+        return res.json({ storeName: store, resolvedClient: skuList.resolvedClient, rows: atRiskRows });
+      }
+
+      if (classification === "cover") {
+        const skuList = await fetchStoreSkuListFast(clientScope, store, knownClient);
+        // Cover Analysis needs every in-stock SKU's WFC, not just the
+        // at-risk-threshold subset - real Nexus classification tiers
+        // (confirmed in aggregate_duckdb.py) are reused as band labels:
+        // <1 Critical, 1-2 Low, 2-6 Optimal, >6 Overstock.
+        const coverRows = skuList.rows
+          .filter((r) => r.storeSoh > 0 && r.cover !== null)
+          .sort((a, b) => (a.cover ?? 0) - (b.cover ?? 0))
+          .map((r) => ({
+            barcode: r.barcode,
+            articleDescription: r.articleDescription,
+            storeSoh: r.storeSoh,
+            dcSoh: r.dcSoh,
+            sellOutP4: r.sellOutP4,
+            cover: r.cover,
+            estimatedMissedUnits: r.estimatedMissedUnits,
+            action: "Review cover levels",
+            classification: r.classification,
+            issueDriver: null,
+            suggestedOrderUnits: null,
+            dcFulfillableUnits: null,
+          }));
+        return res.json({ storeName: store, resolvedClient: skuList.resolvedClient, rows: coverRows });
+      }
+
+      if (classification === "negsoh") {
+        const skuList = await fetchStoreSkuListFast(clientScope, store, knownClient);
+        // Real Nexus field (negSOHCount on store_current) - a store shrinkage/
+        // data-integrity signal, not a normal stock-level classification.
+        const negRows = skuList.rows
+          .filter((r) => r.storeSoh < 0)
+          .sort((a, b) => a.storeSoh - b.storeSoh)
+          .map((r) => ({
+            barcode: r.barcode,
+            articleDescription: r.articleDescription,
+            storeSoh: r.storeSoh,
+            dcSoh: r.dcSoh,
+            sellOutP4: r.sellOutP4,
+            cover: r.cover,
+            estimatedMissedUnits: r.estimatedMissedUnits,
+            action: "Investigate stock count discrepancy",
+            classification: "Negative SOH",
+            issueDriver: null,
+            suggestedOrderUnits: null,
+            dcFulfillableUnits: null,
+          }));
+        return res.json({ storeName: store, resolvedClient: skuList.resolvedClient, rows: negRows });
+      }
+
+      if (classification === "distribution") {
+        const [gaps, skuList] = await Promise.all([
+          fetchDistributionGapsForStoreFast(clientScope, store, knownClient),
+          fetchStoreSkuListFast(clientScope, store, knownClient),
+        ]);
+        const gapRows = gaps.rows.map((r) => ({
+          barcode: r.barcode,
+          articleDescription: r.articleDescription,
+          storeSoh: 0,
+          dcSoh: null,
+          sellOutP4: null,
+          cover: null,
+          estimatedMissedUnits: 0,
+          action: r.suggestedAction,
+          classification: r.gapType || "Distribution Gap",
+          issueDriver: null,
+          suggestedOrderUnits: null,
+          dcFulfillableUnits: null,
+        }));
+        // Info-only stats (Carin, 2026-08-13: distribution gaps are a
+        // ranging/supply-chain decision, not something a rep/merchandiser
+        // can action in-store) - rangedSkus is the store's own real ranged
+        // count from store_sku_current; avgCoveragePct is Nexus's own real
+        // per-store coverage figure, not something we compute ourselves.
+        return res.json({
+          storeName: store,
+          resolvedClient: knownClient || clientScope,
+          rows: gapRows,
+          missingSkus: gaps.missingSkus,
+          rangedSkus: skuList.rows.length,
+          avgCoveragePct: gaps.avgCoverage,
+        });
+      }
+
+      // Fast local path 2026-08-16 for the main OOS/Low/Overstock lists -
+      // was still calling live Nexus (fetchIssueDetailList) on every
+      // request, the one classification list that hadn't been migrated yet.
+      // Optional ?priority=P1 filters to just that priority tier (e.g. the
+      // Fix screen's "Out of Stock - Critical" / "Low Stock - Critical"
+      // buckets, split out 2026-08-16 instead of one combined P1 count).
+      const sourceStemFilter = classification === "oos" ? "oos" : classification === "low" ? "low" : "overstock";
+      const priorityFilter = String(req.query.priority || "").trim();
+      const skuList = await fetchStoreSkuListFast(clientScope, store, knownClient);
+      let filteredRows = skuList.rows.filter((r) => r.sourceStem === sourceStemFilter);
+      if (priorityFilter) {
+        filteredRows = filteredRows.filter((r) => String(r.priority || "").startsWith(priorityFilter));
+      }
+      const listRows = filteredRows.map((r) => ({
+        barcode: r.barcode,
+        articleDescription: r.articleDescription,
+        client: r.client,
+        storeSoh: r.storeSoh,
+        dcSoh: r.dcSoh,
+        sellOutP4: r.sellOutP4,
+        cover: r.cover,
+        estimatedMissedUnits: r.estimatedMissedUnits,
+        action: r.issueDriver === "DC Constraint"
+          ? "DC has no stock (supply constraint) - escalate the order, not fixable on-shelf"
+          : "Review stock levels",
+        classification: r.classification,
+        issueDriver: r.issueDriver ?? null,
+        suggestedOrderUnits: r.suggestedOrderUnits ?? null,
+        dcFulfillableUnits: r.dcFulfillableUnits ?? null,
+      }));
+      res.json({ storeName: store, resolvedClient: skuList.resolvedClient, rows: listRows });
+    } catch (error) {
+      console.error("Error fetching SKU list:", error);
+      res.status(500).json({ error: "Failed to fetch SKU list" });
+    }
+  });
+
+  // Real per-SKU history across the real weeks Nexus has ranged this SKU
+  // at this store - see fetchSkuHistory's comment for why this is slower
+  // (13 live calls) than everything else and only called on-demand.
+  app.get("/api/roster/sku-history", scopeToClient, async (req, res) => {
+    try {
+      const store = String(req.query.store || "").trim();
+      const repName = String(req.query.rep || "").trim();
+      const barcode = String(req.query.barcode || "").trim();
+      if (!store || !barcode) {
+        return res.status(400).json({ error: "store and barcode query params are required" });
+      }
+
+      let clientScope = "SYNDICATED";
+      if (repName) {
+        const [rosterRow] = await db
+          .select({ clientScope: resourceRoster.clientScope })
+          .from(resourceRoster)
+          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
+          .limit(1);
+        if (rosterRow?.clientScope) clientScope = rosterRow.clientScope;
+      }
+
+      // Same explicit override as sku-list/store-overview - see comment there.
+      // Bug fixed 2026-08-16: missing the "!== ALL" guard meant a SKU opened
+      // from the "All Clients" merged list got clientScope literally set to
+      // the string "ALL" - not a real client, so the history query matched
+      // zero rows and the trend stayed stuck on "Building history..." forever.
+      const explicitClient = String(req.query.client || "").trim();
+      if (explicitClient && explicitClient !== "ALL") clientScope = explicitClient;
+
+      const summaryRows = await db
+        .select()
+        .from(storeWeeklySummary)
+        .where(sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = ${store.toUpperCase().trim()}`)
+        .orderBy(sql`${storeWeeklySummary.weekEnding} DESC`)
+        .limit(1);
+      const knownClient = clientScope === "SYNDICATED" ? summaryRows[0]?.client : undefined;
+
+      const result = await fetchSkuHistoryFast(clientScope, store, barcode, knownClient);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching SKU history:", error);
+      res.status(500).json({ error: "Failed to fetch SKU history" });
+    }
+  });
+
   const STOCKFIX_QR_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 33" shape-rendering="crispEdges"><path fill="#FFFFFF" d="M0 0h33v33H0z"/><path stroke="#003B71" d="M2 2.5h7m2 0h1m1 0h1m2 0h1m4 0h1m2 0h7M2 3.5h1m5 0h1m1 0h1m3 0h2m3 0h4m1 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m4 0h2m2 0h1m2 0h1m1 0h1m1 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m3 0h1m1 0h2m2 0h1m5 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m1 0h1m1 0h4m2 0h4m2 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m2 0h1m4 0h3m1 0h2m2 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 9.5h2m3 0h1m1 0h1m1 0h2M2 10.5h1m1 0h1m1 0h1m1 0h1m5 0h1m3 0h2m1 0h2m3 0h1m2 0h1M3 11.5h5m4 0h2m1 0h1m1 0h3m2 0h3m2 0h1m2 0h1M2 12.5h1m2 0h1m2 0h1m5 0h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3M2 13.5h4m5 0h1m3 0h2m1 0h4m2 0h2m3 0h1M4 14.5h1m1 0h3m2 0h2m3 0h2m1 0h1m3 0h2m2 0h1m1 0h2M2 15.5h2m3 0h1m5 0h1m2 0h2m1 0h2m1 0h3m2 0h1m2 0h1M8 16.5h1m2 0h1m1 0h1m1 0h1m4 0h1m2 0h3m1 0h1m1 0h2M2 17.5h2m1 0h1m3 0h1m4 0h1m2 0h1m1 0h1m1 0h4m1 0h2m1 0h1M3 18.5h1m1 0h1m1 0h2m4 0h2m3 0h2m2 0h3m2 0h1m1 0h2M3 19.5h1m3 0h1m1 0h1m5 0h1m1 0h4m1 0h3m2 0h2m1 0h1M2 20.5h1m2 0h1m1 0h3m2 0h1m1 0h1m1 0h3m1 0h1m1 0h1m3 0h1m2 0h2M3 21.5h1m2 0h2m2 0h1m2 0h1m1 0h2m1 0h2m7 0h1m1 0h1M2 22.5h1m1 0h7m1 0h1m1 0h1m1 0h2m2 0h1m1 0h5M10 23.5h2m4 0h2m4 0h1m3 0h1m1 0h3M2 24.5h7m3 0h1m2 0h1m3 0h1m1 0h2m1 0h1m1 0h2m1 0h2M2 25.5h1m5 0h1m3 0h2m3 0h1m4 0h1m3 0h2m2 0h1M2 26.5h1m1 0h3m1 0h1m1 0h3m1 0h1m3 0h1m3 0h5M2 27.5h1m1 0h3m1 0h1m2 0h1m2 0h2m1 0h3m1 0h2m3 0h1m1 0h1M2 28.5h1m1 0h3m1 0h1m1 0h1m3 0h1m1 0h3m1 0h2m1 0h1m1 0h3m2 0h1M2 29.5h1m5 0h1m2 0h1m3 0h1m2 0h7m1 0h1m2 0h1M2 30.5h7m1 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m1 0h2m1 0h2"/></svg>`;
 
   app.get('/api/qrcode', (_req, res) => {
@@ -487,7 +1596,7 @@ export async function registerRoutes(
   });
   
   // GET dashboard stats
-  app.get("/api/dashboard/stats", async (req, res) => {
+  app.get("/api/dashboard/stats", scopeToClient, async (req, res) => {
     try {
       const regionFilter = req.query.region as string | undefined;
       const clientFilter = req.query.client as string | undefined;
@@ -564,7 +1673,7 @@ export async function registerRoutes(
   });
 
   // GET top attention SKUs for store overview
-  app.get("/api/top-attention-skus", async (req, res) => {
+  app.get("/api/top-attention-skus", scopeToClient, async (req, res) => {
     try {
       const store = req.query.store as string;
       const rep = req.query.rep as string | undefined;
@@ -757,7 +1866,7 @@ export async function registerRoutes(
   });
 
   // GET store overview (scoped to rep+store for Store Overview page)
-  app.get("/api/store-overview", async (req, res) => {
+  app.get("/api/store-overview", scopeToClient, async (req, res) => {
     try {
       const rep = req.query.rep as string;
       const store = req.query.store as string;
@@ -1156,7 +2265,7 @@ export async function registerRoutes(
   });
 
   // GET all tasks with pagination (defaults to latest week only)
-  app.get("/api/tasks", async (req, res) => {
+  app.get("/api/tasks", scopeToClient, async (req, res) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
@@ -1919,6 +3028,29 @@ export async function registerRoutes(
       }
       console.error("Error updating task:", error);
       res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  // POST /api/nexus-tasks/:uniqueId/claim — added 2026-08-16, separate from
+  // the PATCH above on purpose (that one is the existing rep-facing endpoint
+  // the live app already depends on - not touched). Auto-generated Nexus
+  // tasks start with repName="Unassigned" when more than one person covers
+  // a store; whoever captures it first calls this to claim credit. Identity
+  // comes from the authenticated session (req.identity), never trusted from
+  // the request body, so credit can't be spoofed.
+  app.post("/api/nexus-tasks/:uniqueId/claim", requireIdentity, async (req, res) => {
+    try {
+      if (!req.identity?.resourceEmpId) {
+        return res.status(401).json({ error: "Not identified - please log in again" });
+      }
+      const result = await claimTask(req.params.uniqueId, req.identity.resourceEmpId);
+      if (!result.ok) {
+        return res.status(400).json({ error: result.error });
+      }
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error claiming Nexus task:", error);
+      res.status(500).json({ error: "Failed to claim task" });
     }
   });
 
@@ -5163,6 +6295,127 @@ export async function registerRoutes(
       res.json(result.rows);
     } catch (err: any) {
       res.status(500).json({ error: err.message });
+    }
+  });
+
+  // ---------------------------------------------------------------------
+  // Nexus Inventory Insights routes
+  //
+  // These call the separate Nexus Azure Function backend (server/nexus.ts)
+  // rather than the StockFix Postgres DB. NEXUS_API_KEY is not set in most
+  // sandboxes, so these will legitimately fail at runtime with a clean JSON
+  // error until that secret is provisioned — that's expected; the goal here
+  // is correct plumbing/typing, not a working live call.
+  //
+  // "Current week" resolution: Nexus publishes its own weekly snapshots and
+  // we don't yet have a confirmed way to ask it "what's the latest week".
+  // As a best-effort default we reuse the same latest-week lookup already
+  // used for the /api/inventory/* routes (getLatestWeek against
+  // inv_store_summary) since that's the only "current week" convention that
+  // exists elsewhere in this file. Callers can override with ?week=YYYY-MM-DD.
+  // UNVERIFIED — confirm this matches Nexus's own week-folder naming once
+  // NEXUS_API_KEY is provisioned.
+  async function resolveNexusWeek(weekParam?: string): Promise<string> {
+    if (weekParam) return weekParam;
+    const latest = await getLatestWeek('inv_store_summary');
+    return latest || new Date().toISOString().split('T')[0];
+  }
+
+  app.get('/api/nexus/store-overview', async (req, res) => {
+    try {
+      const { rep, store, client, week } = req.query as Record<string, string>;
+      const weekEnding = await resolveNexusWeek(week);
+      const clientSlug = nexusClientSlug(client || '');
+      const data = await fetchNexusJson<NexusStoreCurrentRecord[]>(
+        weekEnding,
+        clientSlug,
+        'store_current',
+        { ...(rep ? { rep } : {}), ...(store ? { store } : {}) }
+      );
+      res.json({ weekEnding, clientSlug, records: data });
+    } catch (err: any) {
+      res.status(502).json({ error: `Nexus store-overview fetch failed: ${err.message}` });
+    }
+  });
+
+  app.get('/api/nexus/availability', async (req, res) => {
+    try {
+      const { rep, store, client, week } = req.query as Record<string, string>;
+      const weekEnding = await resolveNexusWeek(week);
+      const clientSlug = nexusClientSlug(client || '');
+      const data = await fetchNexusJson<NexusOosDetailRecord[]>(
+        weekEnding,
+        clientSlug,
+        'oos_detail',
+        { ...(rep ? { rep } : {}), ...(store ? { store } : {}) }
+      );
+      res.json({ weekEnding, clientSlug, records: data });
+    } catch (err: any) {
+      res.status(502).json({ error: `Nexus availability fetch failed: ${err.message}` });
+    }
+  });
+
+  app.get('/api/nexus/line-list', async (req, res) => {
+    try {
+      const { rep, store, client, classification, week } = req.query as Record<string, string>;
+      const weekEnding = await resolveNexusWeek(week);
+      const clientSlug = nexusClientSlug(client || '');
+
+      // Route the stem by classification since Nexus publishes separate
+      // detail files per bucket (oos/low-stock/overstock). "No sales stock
+      // present" and "Optimal" don't have a dedicated detail stem in the
+      // spec, so they fall back to oos_detail as a best-effort placeholder.
+      // UNVERIFIED — confirm the correct stem per classification once
+      // NEXUS_API_KEY is provisioned.
+      let stem: string;
+      switch (classification) {
+        case 'Low stock':
+          stem = 'low_stock_detail';
+          break;
+        case 'Overstocked':
+          stem = 'overstock_detail';
+          break;
+        case 'Out of stock':
+        default:
+          stem = 'oos_detail';
+          break;
+      }
+
+      const data = await fetchNexusJson<
+        NexusOosDetailRecord[] | NexusLowStockDetailRecord[] | NexusOverstockDetailRecord[]
+      >(weekEnding, clientSlug, stem, {
+        ...(rep ? { rep } : {}),
+        ...(store ? { store } : {}),
+        ...(classification ? { classification } : {}),
+      });
+      res.json({ weekEnding, clientSlug, classification: classification || null, records: data });
+    } catch (err: any) {
+      res.status(502).json({ error: `Nexus line-list fetch failed: ${err.message}` });
+    }
+  });
+
+  app.get('/api/nexus/sku-record', async (req, res) => {
+    try {
+      const { barcode, store, client, scope, week } = req.query as Record<string, string>;
+      if (!barcode) {
+        return res.status(400).json({ error: 'barcode is required' });
+      }
+      const weekEnding = await resolveNexusWeek(week);
+      const clientSlug = nexusClientSlug(client || '');
+      const resolvedScope = scope === 'all-mine' ? 'all-mine' : 'this-store';
+      const data = await fetchNexusJson<NexusStoreSkuCurrentRecord[]>(
+        weekEnding,
+        clientSlug,
+        'store_sku_current',
+        {
+          barcode,
+          scope: resolvedScope,
+          ...(resolvedScope === 'this-store' && store ? { store } : {}),
+        }
+      );
+      res.json({ weekEnding, clientSlug, scope: resolvedScope, records: data });
+    } catch (err: any) {
+      res.status(502).json({ error: `Nexus sku-record fetch failed: ${err.message}` });
     }
   });
 

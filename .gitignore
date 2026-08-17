@@ -4,3 +4,9 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+.env
+scratch-*.mjs
+scratch-*.py
+scratch-*.json
+scratch-*.log
+*.log

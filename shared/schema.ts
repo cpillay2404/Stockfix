@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, timestamp, integer, doublePrecision, boolean, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, timestamp, integer, doublePrecision, boolean, unique, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -59,6 +59,15 @@ export const tasks = pgTable("tasks", {
   actionStatus: text("action_status").notNull().default("Pending"),
   reasonCode: text("reason_code"),
   actionTakenComment: text("action_taken_comment"),
+
+  // Added 2026-08-16 for auto-generated Nexus tasks: when a store has more
+  // than one person covering it (real, common case per the Call Cycle
+  // Master), repName stays "Unassigned" until someone actually captures the
+  // task - whoever does gets the credit, written via a separate completion
+  // endpoint (not the existing rep-facing PATCH, which stays untouched).
+  // eligibleAssignees holds the comma-separated pool of everyone who could
+  // claim it, so the app can show it to all of them until one does.
+  eligibleAssignees: text("eligible_assignees"),
   
   // Physical Count Fields (rep captured)
   physicalCount: text("physical_count"),
@@ -265,3 +274,230 @@ export const invSyncLog = pgTable("inv_sync_log", {
   status: text("status"),
   error: text("error"),
 });
+
+// ─── Identity / Roster (Call Cycle Master derived) ─────────────────────────────
+// Server-side source of truth for "who is this person and what are they allowed
+// to see". Populated from the Call Cycle Master via /api/admin/roster/import
+// (fed by the Python store_coverage.json pipeline). Not a login system with
+// secrets - a person proves identity by matching Name + Employee ID against
+// this week's roster.
+export const resourceRoster = pgTable("resource_roster", {
+  id: serial("id").primaryKey(),
+  resourceEmpId: text("resource_emp_id").notNull().unique(),
+  resourceName: text("resource_name").notNull(),
+  resourceType: text("resource_type"),
+  cleanedStoreName: text("cleaned_store_name"),
+  banner: text("banner"),
+  manager: text("manager"),
+  clientScope: text("client_scope").notNull().default("SYNDICATED"),
+  importedAt: timestamp("imported_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertResourceRosterSchema = createInsertSchema(resourceRoster).omit({
+  id: true,
+  importedAt: true,
+  updatedAt: true,
+});
+
+export type InsertResourceRoster = z.infer<typeof insertResourceRosterSchema>;
+export type ResourceRoster = typeof resourceRoster.$inferSelect;
+
+// One row per (person, store) - resource_roster collapses to one row per
+// person (their type/manager), which necessarily drops the fact that one
+// person covers many stores. This table is the real "who covers which
+// store" source, straight from store_coverage.json's un-deduped rows -
+// used to answer "what stores does this rep/merchandiser actually have,"
+// instead of inferring it from whichever stores happened to have a task
+// imported for them (confirmed broken 2026-08-08: a real merchandiser with
+// no task history showed zero stores, when they're actually assigned many).
+export const storeAssignments = pgTable("store_assignments", {
+  id: serial("id").primaryKey(),
+  resourceEmpId: text("resource_emp_id").notNull(),
+  resourceName: text("resource_name").notNull(),
+  cleanedStoreName: text("cleaned_store_name").notNull(),
+  banner: text("banner"),
+  clientScope: text("client_scope").notNull().default("SYNDICATED"),
+  importedAt: timestamp("imported_at").defaultNow().notNull(),
+}, (table) => ({
+  // Other half of the store-search join fix (see store_weekly_summary's
+  // matching index) - both sides of that join need the expression indexed.
+  lookupIdx: index("idx_store_assignments_lookup").on(sql`upper(trim(${table.cleanedStoreName}))`),
+}));
+
+export const insertStoreAssignmentSchema = createInsertSchema(storeAssignments).omit({
+  id: true,
+  importedAt: true,
+});
+
+export type InsertStoreAssignment = z.infer<typeof insertStoreAssignmentSchema>;
+export type StoreAssignment = typeof storeAssignments.$inferSelect;
+
+// Small, cheap, per-store-per-client-per-week summary counts - sourced
+// live from Nexus, synced weekly. Deliberately NOT full SKU-level detail
+// (that stays live-fetched on demand, per store+barcode, only when someone
+// actually taps a specific SKU - confirmed 2026-08-08 that pre-storing
+// full SKU detail for every store/client/week is unaffordable, but this
+// summary layer is cheap: real math confirmed ~340MB steady-state for a
+// rolling 13-week window across all 25 clients).
+export const storeWeeklySummary = pgTable("store_weekly_summary", {
+  id: serial("id").primaryKey(),
+  weekEnding: text("week_ending").notNull(),
+  client: text("client").notNull(),
+  cleanedStoreName: text("cleaned_store_name").notNull(),
+  banner: text("banner"),
+  region: text("region"),
+  siteCode: text("site_code"),
+  totalSkus: integer("total_skus").default(0),
+  storeSoh: integer("store_soh").default(0),
+  salesP4: integer("sales_p4").default(0),
+  oosCount: integer("oos_count").default(0),
+  lowStockCount: integer("low_stock_count").default(0),
+  overstockCount: integer("overstock_count").default(0),
+  noSalesCount: integer("no_sales_count").default(0),
+  dormantCount: integer("dormant_count").default(0),
+  atRiskCount: integer("at_risk_count").default(0),
+  distributionGapsCount: integer("distribution_gaps_count").default(0),
+  healthScore: integer("health_score").default(0),
+  // Added 2026-08-12 so "vs LW" deltas for these 3 KPI cards can be real
+  // instead of omitted - computed from oos_detail/low_stock_detail bulk
+  // pages during the weekly sync (nexus-sync.ts), same formulas
+  // fetchStoreOverview already uses live. Null on any week synced before
+  // this column existed - the delta calc in routes.ts must treat null as
+  // "no real history," never fabricate a comparison against it.
+  dcAvailabilityPct: doublePrecision("dc_availability_pct"),
+  avgWeeksOfCover: doublePrecision("avg_weeks_of_cover"),
+  salesAtRiskSkuCount: integer("sales_at_risk_sku_count"),
+  // Added 2026-08-13 (Carin: "we have the historical data, we can check if
+  // there were negative SOHs last week no?") - real per-week negSOHCount
+  // already exists on Nexus's own store_current rows, just never synced
+  // here before. Null on weeks synced before this column existed.
+  negSohCount: integer("neg_soh_count"),
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+}, (table) => ({
+  // One row per store+client+week - the natural key this table is built
+  // around, and what the sync job upserts against.
+  uniqueKey: unique("store_weekly_summary_unique").on(table.weekEnding, table.client, table.cleanedStoreName),
+  // Added 2026-08-16 - /api/roster/store-search joins this table against
+  // store_assignments on upper(trim(cleaned_store_name)) with no supporting
+  // index on either side, forcing a full scan + sort of both tables on
+  // every request (confirmed real: 5.7s). This index lets that join use an
+  // index scan instead.
+  lookupIdx: index("idx_store_weekly_summary_lookup").on(sql`upper(trim(${table.cleanedStoreName}))`),
+}));
+
+export const insertStoreWeeklySummarySchema = createInsertSchema(storeWeeklySummary).omit({
+  id: true,
+  syncedAt: true,
+});
+
+// Full per-SKU line list, one row per barcode+store+client+week - the real
+// fix for the "waiting for inventory data" problem (Carin, 2026-08-13):
+// At Risk, Cover Analysis, Negative SOH, Cover Distribution, and the SKU
+// dropdown all currently derive from a live store_sku_current call every
+// time a rep opens the app. Once this table is populated, those become
+// plain local reads instead - Nexus only gets called during the weekly
+// sync, never while a rep is standing in a store.
+export const storeSkuWeekly = pgTable("store_sku_weekly", {
+  id: serial("id").primaryKey(),
+  weekEnding: text("week_ending").notNull(),
+  client: text("client").notNull(),
+  cleanedStoreName: text("cleaned_store_name").notNull(),
+  barcode: text("barcode").notNull(),
+  articleDescription: text("article_description"),
+  banner: text("banner"),
+  region: text("region"),
+  siteCode: text("site_code"),
+  storeSoh: doublePrecision("store_soh"),
+  dcSoh: doublePrecision("dc_soh"),
+  sellOutP4: doublePrecision("sell_out_p4"),
+  avgWeeklySales: doublePrecision("avg_weekly_sales"),
+  cover: doublePrecision("cover"),
+  classification: text("classification"),
+  // Added 2026-08-16: needed so auto-generated tasks match the columns the
+  // existing stockfix-weekly-export CSV already has - missed on the initial
+  // 2026-08-13 schema even though Nexus's raw store_sku_current rows always
+  // include both.
+  brand: text("brand"),
+  category: text("category"),
+  // Only real on oos_detail/low_stock_detail rows - null for everything else,
+  // never fabricated (same convention as the live fetchStoreSkuList/
+  // fetchIssueDetailList code this table replaces).
+  estimatedMissedUnits: doublePrecision("estimated_missed_units"),
+  suggestedOrderUnits: doublePrecision("suggested_order_units"),
+  dcFulfillableUnits: doublePrecision("dc_fulfillable_units"),
+  issueDriver: text("issue_driver"),
+  priority: text("priority"),
+  consecutiveWeeksOOS: integer("consecutive_weeks_oos"),
+  // Added 2026-08-13 for fetchStoreOverviewFast - which real Nexus stem
+  // this row came from ('oos'/'low'/'overstock'/null for plain
+  // store_sku_current rows with no detail match). Inferring this from the
+  // classification text alone was fragile; this makes the overview's
+  // oosRows/lowStockRows split exactly match what the live fetchStoreOverview
+  // computes from oos_detail/low_stock_detail directly.
+  sourceStem: text("source_stem"),
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+}, (table) => ({
+  uniqueKey: unique("store_sku_weekly_unique").on(table.weekEnding, table.client, table.cleanedStoreName, table.barcode),
+  // CRITICAL for fetchStoreOverviewFast/fetchStoreSkuListFast performance -
+  // without this, Postgres falls back to the unique index above and scans
+  // every row for the client+week (250k+ rows), taking 5+ seconds instead of
+  // under 1ms. This was originally added via raw SQL on 2026-08-14 and got
+  // silently DROPPED by a later `drizzle-kit push` because it wasn't
+  // declared here - found and fixed 2026-08-16 when the live app started
+  // timing out. Must stay declared in the schema, not just created ad-hoc.
+  lookupIdx: index("idx_store_sku_weekly_lookup").on(table.weekEnding, table.client, sql`upper(trim(${table.cleanedStoreName}))`),
+  // Added 2026-08-16 for fetchSkuHistoryFast - that query searches across
+  // ALL weeks for one client+store+barcode (no week_ending filter), so the
+  // index above (which leads with week_ending) doesn't help at all here.
+  // Confirmed real: 433ms, removing 4,517 rows via a barcode post-filter on
+  // a big client like P&G. This index leads with the fields that query
+  // actually filters on.
+  historyIdx: index("idx_store_sku_weekly_history").on(table.client, sql`upper(trim(${table.cleanedStoreName}))`, table.barcode),
+}));
+
+export const insertStoreSkuWeeklySchema = createInsertSchema(storeSkuWeekly).omit({
+  id: true,
+  syncedAt: true,
+});
+
+export type InsertStoreWeeklySummary = z.infer<typeof insertStoreWeeklySummarySchema>;
+export type StoreWeeklySummary = typeof storeWeeklySummary.$inferSelect;
+
+// Added 2026-08-16 - the one remaining piece from the original speed audit
+// that still called Nexus live (fetchDistributionGapsForStore). The real
+// Nexus stem is small and bounded (max 1000 rows network-wide per client,
+// confirmed via its own comment in server/nexus.ts) so unlike store_sku_
+// weekly this doesn't need per-store pagination - one bulk file per client
+// per week, synced the same way as everything else.
+export const distributionGaps = pgTable("distribution_gaps", {
+  id: serial("id").primaryKey(),
+  weekEnding: text("week_ending").notNull(),
+  client: text("client").notNull(),
+  cleanedStoreName: text("cleaned_store_name").notNull(),
+  banner: text("banner"),
+  barcode: text("barcode").notNull(),
+  articleDescription: text("article_description"),
+  brand: text("brand"),
+  category: text("category"),
+  gapType: text("gap_type"),
+  missingStores: integer("missing_stores"),
+  coveragePct: doublePrecision("coverage_pct"),
+  suggestedAction: text("suggested_action"),
+  // Denormalized from Nexus's storeView (store-level aggregate) onto every
+  // detail row for this store - same convention as everything else in this
+  // schema, avoids a second table/join just to get the store total.
+  missingSkusForStore: integer("missing_skus_for_store"),
+  avgCoverageForStore: doublePrecision("avg_coverage_for_store"),
+  syncedAt: timestamp("synced_at").defaultNow().notNull(),
+}, (table) => ({
+  lookupIdx: index("idx_distribution_gaps_lookup").on(table.weekEnding, table.client, sql`upper(trim(${table.cleanedStoreName}))`),
+}));
+
+export const insertDistributionGapsSchema = createInsertSchema(distributionGaps).omit({
+  id: true,
+  syncedAt: true,
+});
+
+export type InsertDistributionGaps = z.infer<typeof insertDistributionGapsSchema>;
+export type DistributionGaps = typeof distributionGaps.$inferSelect;

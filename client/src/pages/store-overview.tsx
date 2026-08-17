@@ -626,6 +626,45 @@ export default function StoreOverview() {
           </div>
 
         </div>
+
+        {/* Nexus Inventory Insights entry card — additive, does not touch existing tiles */}
+        <div
+          data-testid="visit-tile-insights"
+          onClick={() => {
+            const insightsParams = new URLSearchParams();
+            if (rep) insightsParams.set('rep', rep);
+            if (store) insightsParams.set('store', store);
+            if (selectedClient && selectedClient !== 'All Clients') {
+              insightsParams.set('client', selectedClient);
+            }
+            setLocation(`/store-overview/insights?${insightsParams.toString()}`);
+          }}
+          style={{
+            backgroundColor: '#071A2D',
+            borderRadius: '10px',
+            padding: '10px 12px',
+            marginTop: '8px',
+            cursor: 'pointer',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.08)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span style={{ fontSize: '13px', fontWeight: 600, color: '#FFFFFF' }}>
+            Nexus Inventory Insights
+          </span>
+          <span style={{
+            fontSize: '10px',
+            fontWeight: 600,
+            color: '#071A2D',
+            backgroundColor: '#F58220',
+            borderRadius: '10px',
+            padding: '2px 10px',
+          }}>
+            Open
+          </span>
+        </div>
       </div>
 
       {/* Charts Section */}

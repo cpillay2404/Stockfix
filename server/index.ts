@@ -5,7 +5,18 @@ import { createServer } from "http";
 import path from "path";
 import { startWeeklyEmailScheduler } from "./scheduled-emails";
 import { startPilotBackupScheduler } from "./pilot-backup";
+import { startNexusWeeklyScheduler } from "./nexus-weekly-scheduler";
 import cors from "cors";
+
+// Log-and-continue instead of crashing the whole server - added 2026-08-14
+// after the multi-hour Nexus backfill kept silently taking the entire
+// process down on one bad client/response, with no error visible anywhere.
+process.on("unhandledRejection", (reason) => {
+  console.error("[unhandledRejection] (server kept running):", reason);
+});
+process.on("uncaughtException", (err) => {
+  console.error("[uncaughtException] (server kept running):", err);
+});
 
 const app = express();
 
@@ -114,13 +125,14 @@ app.use((req, res, next) => {
   httpServer.listen(
     {
       port,
-      host: "0.0.0.0",
-      reusePort: true,
+      host: "127.0.0.1",
+      reusePort: false,
     },
     async () => {
       log(`serving on port ${port}`);
       startWeeklyEmailScheduler();
       startPilotBackupScheduler();
+      startNexusWeeklyScheduler();
 
       // ONE-TIME STARTUP SCRIPT: Fix mis-parsed week ending dates (2026-03-12 → 2026-03-11)
       // Excel serial numbers were off by one day during import

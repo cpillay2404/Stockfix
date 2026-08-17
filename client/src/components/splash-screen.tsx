@@ -1,55 +1,100 @@
-import { useState, useEffect } from "react";
-import { Wrench } from "lucide-react";
+import { useEffect, useState } from "react";
+import splashArtwork from "@/assets/stockfix-splash-bg.png";
 
 interface SplashScreenProps {
   onComplete: () => void;
   minDisplayTime?: number;
 }
 
-export function SplashScreen({ onComplete, minDisplayTime = 2000 }: SplashScreenProps) {
-  const [fadeOut, setFadeOut] = useState(false);
+// Single approved artwork, full-screen, nothing else rendered with it.
+// Architecture fixed 2026-08-08: this component owns its own entrance/hold/
+// exit lifecycle and only calls onComplete once fully faded out - App.tsx
+// unmounts this and mounts the role-selection UI only at that point, never
+// both at once.
+export function SplashScreen({ onComplete, minDisplayTime = 1100 }: SplashScreenProps) {
+  const [phase, setPhase] = useState<"in" | "hold" | "out">("in");
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setFadeOut(true);
-      setTimeout(onComplete, 500);
-    }, minDisplayTime);
-
-    return () => clearTimeout(timer);
+    const toHold = setTimeout(() => setPhase("hold"), 500); // entrance: 500ms
+    const toOut = setTimeout(() => setPhase("out"), minDisplayTime);
+    const toComplete = setTimeout(onComplete, minDisplayTime + 250); // exit: 250ms
+    return () => {
+      clearTimeout(toHold);
+      clearTimeout(toOut);
+      clearTimeout(toComplete);
+    };
   }, [onComplete, minDisplayTime]);
 
   return (
-    <div 
-      className={`fixed inset-0 z-[100] flex flex-col items-center justify-center bg-[#003B71] transition-opacity duration-500 ${fadeOut ? 'opacity-0' : 'opacity-100'}`}
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        width: "100vw",
+        height: "100dvh",
+        zIndex: 9999,
+        overflow: "hidden",
+        background: "#020D1D",
+      }}
     >
-      <div className="flex flex-col items-center space-y-6">
-        <div className="relative">
-          <div className="w-24 h-24 bg-white/10 rounded-2xl flex items-center justify-center">
-            <Wrench className="h-12 w-12 text-white" />
-          </div>
-          <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-orange-500 rounded-full flex items-center justify-center">
-            <div className="w-3 h-3 bg-white rounded-full animate-pulse" />
-          </div>
-        </div>
-        
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white tracking-tight">StockFix</h1>
-          <p className="text-blue-200 text-sm mt-1">Inventory Action & Feedback</p>
-        </div>
+      <img
+        src={splashArtwork}
+        alt=""
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "cover",
+          objectPosition: "center center",
+          display: "block",
+          opacity: phase === "out" ? 0 : 1,
+          transform: phase === "in" ? "scale(0.985)" : "scale(1)",
+          transition:
+            phase === "out"
+              ? "opacity 250ms ease-out"
+              : "opacity 500ms ease-out, transform 500ms ease-out",
+        }}
+      />
 
-        <div className="flex flex-col items-center space-y-3 mt-8">
-          <div className="flex space-x-1">
-            <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-            <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-            <div className="w-2 h-2 bg-orange-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
-          </div>
-          <p className="text-blue-200 text-sm">Syncing data...</p>
+      {/* Live syncing indicator, overlaid on the artwork - a static image
+          alone gives no sense that anything is actually happening. */}
+      <div
+        style={{
+          position: "absolute",
+          left: "50%",
+          bottom: "max(18%, env(safe-area-inset-bottom, 0px) + 14%)",
+          transform: "translateX(-50%)",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: 10,
+          opacity: phase === "in" ? 0 : phase === "out" ? 0 : 1,
+          transition: "opacity 300ms ease-out",
+        }}
+      >
+        <div style={{ display: "flex", gap: 4 }}>
+          {[0, 150, 300].map((delay) => (
+            <div
+              key={delay}
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: "50%",
+                background: "#FF7900",
+                animation: "splashDotBounce 1s ease-in-out infinite",
+                animationDelay: `${delay}ms`,
+              }}
+            />
+          ))}
         </div>
+        <p style={{ color: "#91A7C9", fontSize: 13, margin: 0 }}>Syncing data...</p>
       </div>
 
-      <div className="absolute bottom-8 text-blue-300/50 text-xs">
-        Powered by Meridian Nexus
-      </div>
+      <style>{`
+        @keyframes splashDotBounce {
+          0%, 80%, 100% { transform: translateY(0); opacity: 0.5; }
+          40% { transform: translateY(-4px); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
