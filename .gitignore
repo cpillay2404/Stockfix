@@ -10,3 +10,5 @@ scratch-*.py
 scratch-*.json
 scratch-*.log
 *.log
+roster_import.json
+assignments_import.json

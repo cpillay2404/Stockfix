@@ -7,7 +7,19 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { cn } from "@/lib/utils";
 import { useAccess } from "@/context/AccessContext";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
-import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
+import { COLORS, DOT_MATRIX_BG, HEX_OUTLINE_PATTERN_BG } from "@/lib/design-tokens";
+
+// Matches the choose-access.tsx / select-manager.tsx / select-rep.tsx /
+// select-client.tsx dark navy/orange theme (Carin, 2026-08-17: "work on all
+// screens that don't have this new navy blue design" + "start hooking up
+// ... im a client pages" - this is the actual "I'm a Client" destination:
+// client + store + password gate + Start Visit).
+const NAVY_ELEVATED = COLORS.navyElevated;
+const NAVY_DEEP = COLORS.bgPrimary;
+const ORANGE = COLORS.orange;
+const TEXT_MUTED = COLORS.textMuted;
+const RED = "#F87171";
+const GREEN = "#34D399";
 
 interface SearchableSelectProps {
   value: string;
@@ -21,7 +33,7 @@ interface SearchableSelectProps {
 function SearchableSelect({ value, onValueChange, options, placeholder, testId, disabled }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  
+
   const filteredOptions = useMemo(() => {
     if (!search) return options.slice(0, 100);
     const searchLower = search.toLowerCase();
@@ -36,33 +48,33 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId, 
           data-testid={testId}
           disabled={disabled}
           style={{
-            width: '100%',
-            height: '48px',
-            borderRadius: '8px',
-            border: '1px solid #D1D5DB',
-            fontSize: '16px',
-            color: value ? '#003B71' : '#9CA3AF',
-            backgroundColor: disabled ? '#F3F4F6' : '#FFFFFF',
-            padding: '0 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: disabled ? 'not-allowed' : 'pointer',
+            width: "100%",
+            height: 48,
+            borderRadius: 10,
+            border: "1px solid rgba(23,68,111,0.6)",
+            fontSize: 15,
+            color: value ? "#F7F9FC" : TEXT_MUTED,
+            backgroundColor: disabled ? "rgba(6,23,43,0.5)" : NAVY_ELEVATED,
+            padding: "0 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            cursor: disabled ? "not-allowed" : "pointer",
             opacity: disabled ? 0.6 : 1,
           }}
         >
           <span>{value || placeholder}</span>
-          <ChevronDown style={{ width: '18px', height: '18px', opacity: 0.5 }} />
+          <ChevronDown style={{ width: 18, height: 18, opacity: 0.6, color: TEXT_MUTED }} />
         </button>
       </PopoverTrigger>
-      <PopoverContent 
-        className="p-0" 
-        style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '300px' }}
+      <PopoverContent
+        className="p-0"
+        style={{ width: "var(--radix-popover-trigger-width)", maxHeight: 300 }}
         align="start"
       >
         <Command shouldFilter={false}>
           <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} value={search} onValueChange={setSearch} />
-          <CommandList style={{ maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <CommandList style={{ maxHeight: 250, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (
@@ -75,12 +87,7 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId, 
                     setSearch("");
                   }}
                 >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === option ? "opacity-100" : "opacity-0"
-                    )}
-                  />
+                  <Check className={cn("mr-2 h-4 w-4", value === option ? "opacity-100" : "opacity-0")} />
                   {option}
                 </CommandItem>
               ))}
@@ -191,11 +198,11 @@ export default function SelectClientStore() {
       setSelectedClient(clientValue);
       setContextStore(storeValue);
       sessionStorage.setItem('visitStartTime', new Date().toISOString());
-      
+
       const params = new URLSearchParams();
       params.set('store', storeValue);
       params.set('client', clientValue);
-      
+
       setLocation(`/store-overview?${params.toString()}`);
     }
   };
@@ -203,83 +210,87 @@ export default function SelectClientStore() {
   const canStart = clientValue && storeValue && (isAuthenticated || !requiresPassword);
 
   return (
-    <div 
-      className="h-screen flex flex-col items-center overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #003B71 0%, #002F5A 100%)' }}
+    <div
+      className="relative min-h-screen flex flex-col items-center overflow-hidden"
+      style={{
+        background: `radial-gradient(circle at 50% 30%, ${NAVY_ELEVATED} 0%, ${NAVY_DEEP} 60%)`,
+        paddingTop: "max(2.5rem, env(safe-area-inset-top, 0px) + 1.5rem)",
+        paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px) + 1rem)",
+        paddingLeft: "max(24px, env(safe-area-inset-left, 0px))",
+        paddingRight: "max(24px, env(safe-area-inset-right, 0px))",
+      }}
     >
-      <div style={{ paddingTop: '32px', paddingBottom: '20px' }}>
-        <img 
-          src={meridianGroupLogo} 
-          alt="Meridian Group" 
-          style={{ height: '48px' }}
+      <div
+        className="absolute top-0 left-0 w-1/2 h-1/2 pointer-events-none"
+        style={{
+          backgroundImage: `url("${DOT_MATRIX_BG}")`,
+          backgroundSize: "18px 18px",
+          maskImage: "radial-gradient(circle at 0% 0%, black 0%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(circle at 0% 0%, black 0%, transparent 75%)",
+        }}
+      />
+      <div
+        className="absolute top-0 right-0 w-1/2 h-1/2 pointer-events-none"
+        style={{
+          backgroundImage: `url("${HEX_OUTLINE_PATTERN_BG}")`,
+          backgroundSize: "40px 46px",
+          maskImage: "radial-gradient(circle at 100% 0%, black 0%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(circle at 100% 0%, black 0%, transparent 75%)",
+        }}
+      />
+
+      <div style={{ width: "100%", maxWidth: 420, position: "relative" }}>
+        <button
+          type="button"
+          onClick={() => {
+            setAccessMode(null);
+            setClientLocked(false);
+            setSelectedClient(null);
+            setContextStore(null);
+            setLocation("/");
+          }}
+          data-testid="button-back"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            color: TEXT_MUTED,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            padding: 0,
+            marginBottom: 20,
+            fontSize: 14,
+          }}
+        >
+          <ArrowLeft style={{ width: 18, height: 18 }} />
+          Back
+        </button>
+
+        <img
+          src={meridianGroupLogo}
+          alt="Meridian Group"
+          style={{ height: 40, opacity: 0.95, display: "block", margin: "0 auto 20px" }}
         />
-      </div>
 
-      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <Wrench style={{ width: '28px', height: '28px', color: '#F36C21' }} />
-          <span style={{ fontSize: '30px', fontWeight: 700, color: '#FFFFFF' }}>
-            StockFix
-          </span>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <Wrench style={{ width: 26, height: 26, color: ORANGE }} />
+            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.5px", lineHeight: 1 }}>
+              <span style={{ color: "#F7F9FC" }}>Stock</span>
+              <span style={{ color: ORANGE }}>Fix</span>
+            </h1>
+          </div>
+          <p style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 6 }}>Client Visit Setup</p>
         </div>
-        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginTop: '6px' }}>
-          Client Visit Setup
+
+        <p style={{ fontSize: 13, color: TEXT_MUTED, textAlign: "center", marginBottom: 20 }}>
+          Please select your company and store to continue
         </p>
-      </div>
 
-      <button
-        type="button"
-        onClick={() => { 
-          setAccessMode(null);
-          setClientLocked(false);
-          setSelectedClient(null);
-          setContextStore(null);
-          setLocation("/"); 
-        }}
-        data-testid="button-back"
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          padding: '10px 16px',
-          backgroundColor: 'rgba(255,255,255,0.15)',
-          border: 'none',
-          borderRadius: '8px',
-          color: '#FFFFFF',
-          fontSize: '14px',
-          fontWeight: 500,
-          cursor: 'pointer',
-          marginBottom: '16px',
-        }}
-      >
-        <ArrowLeft style={{ width: '18px', height: '18px' }} />
-        Back
-      </button>
-
-      <div 
-        style={{
-          width: '420px',
-          maxWidth: 'calc(100% - 32px)',
-          backgroundColor: '#FFFFFF',
-          borderRadius: '16px',
-          padding: '28px',
-          boxShadow: '0px 16px 40px rgba(0,0,0,0.25)',
-        }}
-      >
-        <div style={{ marginBottom: '20px' }}>
-          <p style={{ 
-            fontSize: '14px', 
-            color: '#6B7280', 
-            textAlign: 'center',
-            margin: 0,
-          }}>
-            Please select your company and store to continue
-          </p>
-        </div>
-
-        <div style={{ marginBottom: '16px' }}>
-          <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
-            Select Client <span style={{ color: '#F36C21' }}>*</span>
+        <div style={{ marginBottom: 16 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>
+            Select Client <span style={{ color: ORANGE }}>*</span>
           </label>
           <SearchableSelect
             value={clientValue}
@@ -291,12 +302,12 @@ export default function SelectClientStore() {
         </div>
 
         {clientValue && requiresPassword && !isAuthenticated && (
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
-              <Lock style={{ width: '14px', height: '14px', display: 'inline', marginRight: '6px', verticalAlign: 'middle' }} />
-              Enter Access Code <span style={{ color: '#F36C21' }}>*</span>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>
+              <Lock style={{ width: 13, height: 13, display: "inline", marginRight: 6, verticalAlign: "middle" }} />
+              Enter Access Code <span style={{ color: ORANGE }}>*</span>
             </label>
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: "flex", gap: 8 }}>
               <input
                 type="password"
                 value={password}
@@ -306,13 +317,13 @@ export default function SelectClientStore() {
                 data-testid="input-client-password"
                 style={{
                   flex: 1,
-                  height: '48px',
-                  borderRadius: '8px',
-                  border: passwordError ? '1px solid #EF4444' : '1px solid #D1D5DB',
-                  fontSize: '16px',
-                  color: '#003B71',
-                  backgroundColor: '#FFFFFF',
-                  padding: '0 16px',
+                  height: 48,
+                  borderRadius: 10,
+                  border: passwordError ? `1px solid ${RED}` : "1px solid rgba(23,68,111,0.6)",
+                  fontSize: 15,
+                  color: "#F7F9FC",
+                  backgroundColor: NAVY_ELEVATED,
+                  padding: "0 16px",
                 }}
               />
               <button
@@ -320,23 +331,23 @@ export default function SelectClientStore() {
                 disabled={!password || verifyMutation.isPending}
                 data-testid="button-verify-password"
                 style={{
-                  padding: '0 20px',
-                  height: '48px',
-                  backgroundColor: password ? '#003B71' : '#D1D5DB',
-                  color: '#FFFFFF',
-                  fontSize: '14px',
-                  fontWeight: 600,
-                  borderRadius: '8px',
-                  border: 'none',
-                  cursor: password ? 'pointer' : 'not-allowed',
+                  padding: "0 20px",
+                  height: 48,
+                  backgroundColor: password ? ORANGE : "rgba(23,68,111,0.4)",
+                  color: password ? "#FFFFFF" : TEXT_MUTED,
+                  fontSize: 14,
+                  fontWeight: 700,
+                  borderRadius: 10,
+                  border: "none",
+                  cursor: password ? "pointer" : "not-allowed",
                 }}
               >
-                {verifyMutation.isPending ? <Loader2 style={{ width: '18px', height: '18px', animation: 'spin 1s linear infinite' }} /> : 'Verify'}
+                {verifyMutation.isPending ? <Loader2 style={{ width: 18, height: 18, animation: "spin 1s linear infinite" }} /> : "Verify"}
               </button>
             </div>
             {passwordError && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px', color: '#EF4444', fontSize: '13px' }}>
-                <AlertCircle style={{ width: '14px', height: '14px' }} />
+              <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 8, color: RED, fontSize: 13 }}>
+                <AlertCircle style={{ width: 14, height: 14 }} />
                 {passwordError}
               </div>
             )}
@@ -344,15 +355,15 @@ export default function SelectClientStore() {
         )}
 
         {clientValue && requiresPassword && isAuthenticated && (
-          <div style={{ marginBottom: '16px', backgroundColor: '#D1FAE5', borderRadius: '8px', padding: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Check style={{ width: '18px', height: '18px', color: '#059669' }} />
-            <span style={{ color: '#059669', fontSize: '14px', fontWeight: 500 }}>Access verified</span>
+          <div style={{ marginBottom: 16, backgroundColor: "rgba(52,211,153,0.12)", border: `1px solid rgba(52,211,153,0.4)`, borderRadius: 10, padding: 12, display: "flex", alignItems: "center", gap: 8 }}>
+            <Check style={{ width: 18, height: 18, color: GREEN }} />
+            <span style={{ color: GREEN, fontSize: 14, fontWeight: 600 }}>Access verified</span>
           </div>
         )}
 
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
-            Select Store <span style={{ color: '#F36C21' }}>*</span>
+        <div style={{ marginBottom: 20 }}>
+          <label style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>
+            Select Store <span style={{ color: ORANGE }}>*</span>
           </label>
           <SearchableSelect
             value={storeValue}
@@ -363,12 +374,12 @@ export default function SelectClientStore() {
             disabled={!clientValue || (requiresPassword && !isAuthenticated)}
           />
           {clientValue && (isAuthenticated || !requiresPassword) && stores.length === 0 && !storesLoading && (
-            <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
+            <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 8 }}>
               No stores found for this client
             </p>
           )}
           {storesLoading && (
-            <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
+            <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 8 }}>
               Loading stores...
             </p>
           )}
@@ -379,15 +390,15 @@ export default function SelectClientStore() {
           disabled={!canStart}
           data-testid="button-start-visit"
           style={{
-            width: '100%',
-            height: '48px',
-            backgroundColor: canStart ? '#F36C21' : '#D1D5DB',
-            color: '#FFFFFF',
-            fontSize: '16px',
-            fontWeight: 600,
-            borderRadius: '10px',
-            border: 'none',
-            cursor: canStart ? 'pointer' : 'not-allowed',
+            width: "100%",
+            height: 48,
+            backgroundColor: canStart ? ORANGE : "rgba(23,68,111,0.4)",
+            color: canStart ? "#FFFFFF" : TEXT_MUTED,
+            fontSize: 15,
+            fontWeight: 700,
+            borderRadius: 10,
+            border: "none",
+            cursor: canStart ? "pointer" : "not-allowed",
           }}
         >
           START VISIT
@@ -395,19 +406,6 @@ export default function SelectClientStore() {
       </div>
 
       <div style={{ flex: 1 }} />
-
-      <div style={{ paddingBottom: '20px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: 0, textAlign: 'center' }}>
-            Powered by
-          </p>
-          <img 
-            src={meridianNexusLogo} 
-            alt="Meridian Nexus" 
-            style={{ height: '80px', display: 'block' }}
-          />
-        </div>
-      </div>
     </div>
   );
 }

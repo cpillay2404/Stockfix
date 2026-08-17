@@ -5,6 +5,22 @@ import { ArrowLeft, TrendingUp, CheckCircle, AlertCircle, AlertTriangle, Users, 
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import BottomNav from "@/components/BottomNav";
 import Leaderboard from "@/components/Leaderboard";
+import { COLORS } from "@/lib/design-tokens";
+
+// Matches the dark navy/orange theme used across the rest of the app
+// (Carin, 2026-08-17: "work on all screens that don't have this new navy
+// blue design" - this dashboard was still on the old light/white-card
+// layout while the login funnel around it had already moved to dark).
+const NAVY_ELEVATED = COLORS.navyElevated;
+const NAVY_DEEP = COLORS.bgPrimary;
+const NAVY_CARD = COLORS.navyElevated;
+const ORANGE = COLORS.orange;
+const TEXT_MUTED = COLORS.textMuted;
+const LINE_BLUE = COLORS.lineBlue;
+const RED = "#F87171";
+const GREEN = "#34D399";
+const BLUE = "#60A5FA";
+const AMBER = "#FBBF24";
 
 interface KpiTileProps {
   label: string;
@@ -19,9 +35,9 @@ function KpiTile({ label, value, icon, accentColor, testId }: KpiTileProps) {
     <div
       data-testid={testId}
       style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '8px',
-        padding: '12px',
+        backgroundColor: NAVY_CARD,
+        borderRadius: 10,
+        padding: 12,
         borderTop: `3px solid ${accentColor}`,
         display: 'flex',
         flexDirection: 'column',
@@ -31,15 +47,15 @@ function KpiTile({ label, value, icon, accentColor, testId }: KpiTileProps) {
         minWidth: 0,
       }}
     >
-      <div style={{ color: accentColor, marginBottom: '4px' }}>{icon}</div>
-      <span style={{ fontSize: '24px', fontWeight: 800, color: '#003B71', fontFamily: 'monospace', lineHeight: 1 }}>
+      <div style={{ color: accentColor, marginBottom: 4 }}>{icon}</div>
+      <span style={{ fontSize: 24, fontWeight: 800, color: "#F7F9FC", fontFamily: 'monospace', lineHeight: 1 }}>
         {value}
       </span>
-      <span style={{ 
-        fontSize: '10px', 
-        color: '#6B7280', 
-        textAlign: 'center', 
-        marginTop: '4px',
+      <span style={{
+        fontSize: 10,
+        color: TEXT_MUTED,
+        textAlign: 'center',
+        marginTop: 4,
         lineHeight: 1.2,
       }}>
         {label}
@@ -64,43 +80,43 @@ interface RepRowProps {
 
 function RepRow({ rep, onClick }: RepRowProps) {
   const isAtRisk = rep.open >= 10 || rep.oldestOpenDays >= 14;
-  
+
   return (
     <div
       data-testid={`rep-row-${rep.repName}`}
       onClick={onClick}
       style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '8px',
-        padding: '12px',
-        marginBottom: '8px',
+        backgroundColor: NAVY_CARD,
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 8,
         cursor: 'pointer',
-        borderLeft: isAtRisk ? '4px solid #DC2626' : '4px solid #10B981',
+        borderLeft: isAtRisk ? `4px solid ${RED}` : `4px solid ${GREEN}`,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ 
-            fontSize: '14px', 
-            fontWeight: 600, 
-            color: '#003B71',
+          <div style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: "#F7F9FC",
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}>
             {rep.repName}
           </div>
-          <div style={{ 
-            display: 'flex', 
-            gap: '12px', 
-            marginTop: '4px',
-            fontSize: '12px',
-            color: '#6B7280',
+          <div style={{
+            display: 'flex',
+            gap: 12,
+            marginTop: 4,
+            fontSize: 12,
+            color: TEXT_MUTED,
           }}>
-            <span style={{ color: '#F36C21', fontWeight: 600 }}>
+            <span style={{ color: ORANGE, fontWeight: 600 }}>
               {rep.priorityOpen ?? 0} priority
             </span>
-            <span style={{ color: '#10B981' }}>
+            <span style={{ color: GREEN }}>
               {rep.priorityCompletionRate ?? 0}% priority rate
             </span>
             <span>
@@ -108,11 +124,11 @@ function RepRow({ rep, onClick }: RepRowProps) {
             </span>
           </div>
         </div>
-        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '8px' }}>
-          <div style={{ 
-            fontSize: '12px', 
-            fontWeight: 600, 
-            color: rep.oldestOpenDays > 14 ? '#DC2626' : rep.oldestOpenDays > 7 ? '#F59E0B' : '#6B7280' 
+        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
+          <div style={{
+            fontSize: 12,
+            fontWeight: 600,
+            color: rep.oldestOpenDays > 14 ? RED : rep.oldestOpenDays > 7 ? AMBER : TEXT_MUTED
           }}>
             {rep.oldestOpenDays} days oldest
           </div>
@@ -131,42 +147,42 @@ interface RiskCardProps {
 
 function RiskCard({ title, icon, items, testId }: RiskCardProps) {
   if (items.length === 0) return null;
-  
+
   return (
     <div
       data-testid={testId}
       style={{
-        backgroundColor: '#FEF2F2',
-        borderRadius: '8px',
-        padding: '12px',
-        marginBottom: '12px',
-        border: '1px solid #FECACA',
+        backgroundColor: "rgba(248,113,113,0.08)",
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 12,
+        border: `1px solid rgba(248,113,113,0.35)`,
       }}
     >
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: '8px',
-        marginBottom: '8px',
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
       }}>
-        <div style={{ color: '#DC2626' }}>{icon}</div>
-        <span style={{ fontSize: '14px', fontWeight: 600, color: '#DC2626' }}>
+        <div style={{ color: RED }}>{icon}</div>
+        <span style={{ fontSize: 14, fontWeight: 600, color: RED }}>
           {title}
         </span>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
         {items.slice(0, 5).map((item, index) => (
           <div
             key={index}
             style={{
-              backgroundColor: '#FFFFFF',
-              borderRadius: '4px',
+              backgroundColor: NAVY_CARD,
+              borderRadius: 6,
               padding: '6px 10px',
-              fontSize: '12px',
+              fontSize: 12,
             }}
           >
-            <span style={{ color: '#374151' }}>{item.name}</span>
-            <span style={{ color: '#DC2626', fontWeight: 600, marginLeft: '6px' }}>
+            <span style={{ color: "#DCE7F7" }}>{item.name}</span>
+            <span style={{ color: RED, fontWeight: 600, marginLeft: 6 }}>
               {item.value}
             </span>
           </div>
@@ -245,49 +261,50 @@ export default function ManagerProgress() {
   const storesAtRisk = data?.riskAttention?.storesAtRisk || [];
 
   const repLeaderboard = data?.repLeaderboard || [];
-  const topPerformer = repLeaderboard.length > 0 
-    ? [...repLeaderboard].sort((a: any, b: any) => (b.priorityCompletionRate ?? 0) - (a.priorityCompletionRate ?? 0))[0] 
+  const topPerformer = repLeaderboard.length > 0
+    ? [...repLeaderboard].sort((a: any, b: any) => (b.priorityCompletionRate ?? 0) - (a.priorityCompletionRate ?? 0))[0]
     : null;
-  const mostPriorityOpenRep = repLeaderboard.length > 0 
-    ? [...repLeaderboard].sort((a: any, b: any) => (b.priorityOpen ?? 0) - (a.priorityOpen ?? 0))[0] 
+  const mostPriorityOpenRep = repLeaderboard.length > 0
+    ? [...repLeaderboard].sort((a: any, b: any) => (b.priorityOpen ?? 0) - (a.priorityOpen ?? 0))[0]
     : null;
-  const teamAvgPriorityRate = repLeaderboard.length > 0 
-    ? Math.round(repLeaderboard.reduce((sum: number, r: any) => sum + (r.priorityCompletionRate ?? 0), 0) / repLeaderboard.length) 
+  const teamAvgPriorityRate = repLeaderboard.length > 0
+    ? Math.round(repLeaderboard.reduce((sum: number, r: any) => sum + (r.priorityCompletionRate ?? 0), 0) / repLeaderboard.length)
     : 0;
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      backgroundColor: '#F3F4F6',
-      paddingBottom: '80px',
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: NAVY_DEEP,
+      paddingBottom: 80,
     }}>
       <div style={{
-        background: 'linear-gradient(135deg, #003B71 0%, #005a9e 100%)',
-        padding: '16px',
-        paddingTop: '20px',
+        background: `linear-gradient(135deg, ${NAVY_ELEVATED} 0%, ${NAVY_DEEP} 100%)`,
+        borderBottom: `1px solid ${LINE_BLUE}`,
+        padding: 16,
+        paddingTop: 20,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <button
             data-testid="back-button"
             onClick={handleBack}
             style={{
-              background: 'rgba(255,255,255,0.2)',
+              background: 'rgba(23,68,111,0.35)',
               border: 'none',
-              borderRadius: '8px',
-              padding: '8px',
+              borderRadius: 8,
+              padding: 8,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <ArrowLeft style={{ width: '20px', height: '20px', color: '#FFFFFF' }} />
+            <ArrowLeft style={{ width: 20, height: 20, color: "#F7F9FC" }} />
           </button>
           <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: "#F7F9FC", margin: 0 }}>
               Team Task Progress
             </h1>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', margin: 0 }}>
+            <p style={{ fontSize: 13, color: TEXT_MUTED, margin: 0 }}>
               Manager Overview
             </p>
           </div>
@@ -296,10 +313,10 @@ export default function ManagerProgress() {
             disabled={refreshing}
             data-testid="button-refresh"
             style={{
-              background: 'rgba(255,255,255,0.2)',
+              background: 'rgba(23,68,111,0.35)',
               border: 'none',
-              borderRadius: '8px',
-              padding: '8px',
+              borderRadius: 8,
+              padding: 8,
               cursor: refreshing ? 'wait' : 'pointer',
               display: 'flex',
               alignItems: 'center',
@@ -307,19 +324,20 @@ export default function ManagerProgress() {
               opacity: refreshing ? 0.6 : 1,
             }}
           >
-            <RefreshCw style={{ width: '18px', height: '18px', color: '#FFFFFF', animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+            <RefreshCw style={{ width: 18, height: 18, color: "#F7F9FC", animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
           </button>
         </div>
 
         {selectedManager && (
-          <div style={{ 
-            marginTop: '8px', 
-            padding: '8px 12px', 
-            backgroundColor: 'rgba(255,255,255,0.15)', 
-            borderRadius: '8px',
-            fontSize: '14px',
-            color: '#FFFFFF',
-            fontWeight: 500,
+          <div style={{
+            marginTop: 8,
+            padding: '8px 12px',
+            backgroundColor: 'rgba(255,121,0,0.12)',
+            border: `1px solid rgba(255,121,0,0.3)`,
+            borderRadius: 8,
+            fontSize: 14,
+            color: ORANGE,
+            fontWeight: 600,
           }}>
             {selectedManager}'s Team
           </div>
@@ -327,9 +345,9 @@ export default function ManagerProgress() {
 
       </div>
 
-      <div style={{ padding: '16px' }}>
+      <div style={{ padding: 16 }}>
         {/* Leaderboard with badges - at the very top */}
-        <Leaderboard 
+        <Leaderboard
           manager={selectedManager}
           client={selectedClient}
           limit={15}
@@ -340,71 +358,71 @@ export default function ManagerProgress() {
         {/* Team Achievements Insights */}
         {(data?.repLeaderboard?.length > 0) && (
           <div style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: '8px',
-            padding: '12px',
-            marginBottom: '16px',
+            backgroundColor: NAVY_CARD,
+            borderRadius: 10,
+            padding: 12,
+            marginBottom: 16,
           }}>
-            <h3 style={{ 
-              fontSize: '14px', 
-              fontWeight: 600, 
-              color: '#003B71', 
-              marginBottom: '12px',
+            <h3 style={{
+              fontSize: 14,
+              fontWeight: 600,
+              color: "#F7F9FC",
+              marginBottom: 12,
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: 8,
             }}>
-              <Trophy size={16} style={{ color: '#F59E0B' }} />
+              <Trophy size={16} style={{ color: AMBER }} />
               Team Achievements
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-              <div style={{ 
-                backgroundColor: '#F0FDF4', 
-                borderRadius: '6px', 
-                padding: '10px',
-                borderLeft: '3px solid #10B981',
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <div style={{
+                backgroundColor: "rgba(52,211,153,0.1)",
+                borderRadius: 6,
+                padding: 10,
+                borderLeft: `3px solid ${GREEN}`,
               }}>
-                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Top Priority Performer</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#003B71' }}>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Top Priority Performer</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#F7F9FC" }}>
                   {topPerformer?.repName || '-'}
                 </div>
-                <div style={{ fontSize: '11px', color: '#10B981' }}>
+                <div style={{ fontSize: 11, color: GREEN }}>
                   {topPerformer?.priorityCompletionRate ?? topPerformer?.completionRate ?? 0}% priority
                 </div>
               </div>
-              <div style={{ 
-                backgroundColor: '#FEF2F2', 
-                borderRadius: '6px', 
-                padding: '10px',
-                borderLeft: '3px solid #DC2626',
+              <div style={{
+                backgroundColor: "rgba(248,113,113,0.08)",
+                borderRadius: 6,
+                padding: 10,
+                borderLeft: `3px solid ${RED}`,
               }}>
-                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Most Priority Open</div>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: '#003B71' }}>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Most Priority Open</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#F7F9FC" }}>
                   {mostPriorityOpenRep?.repName || '-'}
                 </div>
-                <div style={{ fontSize: '11px', color: '#DC2626' }}>
+                <div style={{ fontSize: 11, color: RED }}>
                   {mostPriorityOpenRep?.priorityOpen ?? 0} priority open
                 </div>
               </div>
-              <div style={{ 
-                backgroundColor: '#FFF7ED', 
-                borderRadius: '6px', 
-                padding: '10px',
-                borderLeft: '3px solid #F59E0B',
+              <div style={{
+                backgroundColor: "rgba(251,191,36,0.1)",
+                borderRadius: 6,
+                padding: 10,
+                borderLeft: `3px solid ${AMBER}`,
               }}>
-                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Team Priority Avg</div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#F59E0B', fontFamily: 'monospace' }}>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Team Priority Avg</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: AMBER, fontFamily: 'monospace' }}>
                   {teamAvgPriorityRate}%
                 </div>
               </div>
-              <div style={{ 
-                backgroundColor: '#EFF6FF', 
-                borderRadius: '6px', 
-                padding: '10px',
-                borderLeft: '3px solid #3B82F6',
+              <div style={{
+                backgroundColor: "rgba(96,165,250,0.1)",
+                borderRadius: 6,
+                padding: 10,
+                borderLeft: `3px solid ${BLUE}`,
               }}>
-                <div style={{ fontSize: '11px', color: '#6B7280', marginBottom: '4px' }}>Active Reps</div>
-                <div style={{ fontSize: '16px', fontWeight: 700, color: '#3B82F6', fontFamily: 'monospace' }}>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Active Reps</div>
+                <div style={{ fontSize: 16, fontWeight: 700, color: BLUE, fontFamily: 'monospace' }}>
                   {repLeaderboard.length}
                 </div>
               </div>
@@ -414,15 +432,15 @@ export default function ManagerProgress() {
 
         {/* Filters */}
         <div style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '8px',
-          padding: '12px',
-          marginBottom: '12px',
+          backgroundColor: NAVY_CARD,
+          borderRadius: 10,
+          padding: 12,
+          marginBottom: 12,
           display: 'flex',
-          gap: '8px',
+          gap: 8,
         }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '6px', display: 'block' }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: TEXT_MUTED, marginBottom: 6, display: 'block' }}>
               Client
             </label>
             <select
@@ -432,11 +450,11 @@ export default function ManagerProgress() {
               style={{
                 width: '100%',
                 padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1px solid #D1D5DB',
-                fontSize: '14px',
-                color: '#003B71',
-                backgroundColor: '#F9FAFB',
+                borderRadius: 8,
+                border: `1px solid ${LINE_BLUE}`,
+                fontSize: 14,
+                color: "#F7F9FC",
+                backgroundColor: NAVY_DEEP,
                 fontWeight: 500,
                 cursor: 'pointer',
                 appearance: 'auto' as any,
@@ -449,7 +467,7 @@ export default function ManagerProgress() {
             </select>
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#003B71', marginBottom: '6px', display: 'block' }}>
+            <label style={{ fontSize: 12, fontWeight: 600, color: TEXT_MUTED, marginBottom: 6, display: 'block' }}>
               Store
             </label>
             <select
@@ -459,11 +477,11 @@ export default function ManagerProgress() {
               style={{
                 width: '100%',
                 padding: '10px 12px',
-                borderRadius: '8px',
-                border: '1px solid #D1D5DB',
-                fontSize: '14px',
-                color: '#003B71',
-                backgroundColor: '#F9FAFB',
+                borderRadius: 8,
+                border: `1px solid ${LINE_BLUE}`,
+                fontSize: 14,
+                color: "#F7F9FC",
+                backgroundColor: NAVY_DEEP,
                 fontWeight: 500,
                 cursor: 'pointer',
                 appearance: 'auto' as any,
@@ -479,23 +497,23 @@ export default function ManagerProgress() {
 
         {/* Team Task Status - moved below achievements */}
         <div style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '8px',
-          padding: '12px',
-          marginBottom: '16px',
+          backgroundColor: NAVY_CARD,
+          borderRadius: 10,
+          padding: 12,
+          marginBottom: 16,
         }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: "#F7F9FC", marginBottom: 12 }}>
             Team Task Status
           </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '120px', height: '120px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ width: 120, height: 120 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={[
-                      { name: 'Priority Open', value: data?.kpis?.priorityOpenCount || 0, fill: '#DC2626' },
-                      { name: 'Non-Priority Open', value: (data?.kpis?.totalOpen || 0) - (data?.kpis?.priorityOpenCount || 0), fill: '#F36C21' },
-                      { name: 'Completed', value: data?.kpis?.totalCompleted || 0, fill: '#10B981' },
+                      { name: 'Priority Open', value: data?.kpis?.priorityOpenCount || 0, fill: RED },
+                      { name: 'Non-Priority Open', value: (data?.kpis?.totalOpen || 0) - (data?.kpis?.priorityOpenCount || 0), fill: ORANGE },
+                      { name: 'Completed', value: data?.kpis?.totalCompleted || 0, fill: GREEN },
                     ]}
                     cx="50%"
                     cy="50%"
@@ -504,32 +522,32 @@ export default function ManagerProgress() {
                     paddingAngle={2}
                     dataKey="value"
                   >
-                    <Cell fill="#DC2626" />
-                    <Cell fill="#F36C21" />
-                    <Cell fill="#10B981" />
+                    <Cell fill={RED} />
+                    <Cell fill={ORANGE} />
+                    <Cell fill={GREEN} />
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ width: '12px', height: '12px', backgroundColor: '#DC2626', borderRadius: '2px' }} />
-                <span style={{ fontSize: '13px', color: '#374151' }}>Priority Open</span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#DC2626', marginLeft: 'auto', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 12, height: 12, backgroundColor: RED, borderRadius: 2 }} />
+                <span style={{ fontSize: 13, color: TEXT_MUTED }}>Priority Open</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: RED, marginLeft: 'auto', fontFamily: 'monospace' }}>
                   {data?.kpis?.priorityOpenCount?.toLocaleString() || 0}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ width: '12px', height: '12px', backgroundColor: '#F36C21', borderRadius: '2px' }} />
-                <span style={{ fontSize: '13px', color: '#374151' }}>Non-Priority Open</span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#F36C21', marginLeft: 'auto', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 12, height: 12, backgroundColor: ORANGE, borderRadius: 2 }} />
+                <span style={{ fontSize: 13, color: TEXT_MUTED }}>Non-Priority Open</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: ORANGE, marginLeft: 'auto', fontFamily: 'monospace' }}>
                   {((data?.kpis?.totalOpen || 0) - (data?.kpis?.priorityOpenCount || 0)).toLocaleString()}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '2px' }} />
-                <span style={{ fontSize: '13px', color: '#374151' }}>Completed</span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#10B981', marginLeft: 'auto', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 12, height: 12, backgroundColor: GREEN, borderRadius: 2 }} />
+                <span style={{ fontSize: 13, color: TEXT_MUTED }}>Completed</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: GREEN, marginLeft: 'auto', fontFamily: 'monospace' }}>
                   {data?.kpis?.totalCompleted?.toLocaleString() || 0}
                 </span>
               </div>
@@ -538,15 +556,15 @@ export default function ManagerProgress() {
         </div>
 
         {(repsAtRisk.length > 0 || storesAtRisk.length > 0) && (
-          <div style={{ marginBottom: '16px' }}>
-            <h3 style={{ 
-              fontSize: '16px', 
-              fontWeight: 700, 
-              color: '#DC2626', 
-              marginBottom: '12px',
+          <div style={{ marginBottom: 16 }}>
+            <h3 style={{
+              fontSize: 16,
+              fontWeight: 700,
+              color: RED,
+              marginBottom: 12,
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: 8,
             }}>
               <AlertTriangle size={20} />
               Attention Required
@@ -555,9 +573,9 @@ export default function ManagerProgress() {
             <RiskCard
               title="Reps with High Open Count or Old Tasks"
               icon={<Users size={16} />}
-              items={repsAtRisk.map((r: any) => ({ 
-                name: r.repName, 
-                value: `${r.open} open, ${r.oldestOpenDays}d old` 
+              items={repsAtRisk.map((r: any) => ({
+                name: r.repName,
+                value: `${r.open} open, ${r.oldestOpenDays}d old`
               }))}
               testId="risk-reps"
             />
@@ -565,9 +583,9 @@ export default function ManagerProgress() {
             <RiskCard
               title="Stores with Most Open Tasks"
               icon={<Store size={16} />}
-              items={storesAtRisk.map((s: any) => ({ 
-                name: s.store.length > 20 ? s.store.substring(0, 20) + '...' : s.store, 
-                value: `${s.openCount} open` 
+              items={storesAtRisk.map((s: any) => ({
+                name: s.store.length > 20 ? s.store.substring(0, 20) + '...' : s.store,
+                value: `${s.openCount} open`
               }))}
               testId="risk-stores"
             />

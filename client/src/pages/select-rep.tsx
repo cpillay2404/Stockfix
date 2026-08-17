@@ -7,7 +7,16 @@ import { Command, CommandInput, CommandList, CommandEmpty, CommandGroup, Command
 import { cn } from "@/lib/utils";
 import { useAccess } from "@/context/AccessContext";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
-import meridianNexusLogo from "@/assets/meridian-nexus-logo.png";
+import { COLORS, DOT_MATRIX_BG, HEX_OUTLINE_PATTERN_BG } from "@/lib/design-tokens";
+
+// Matches the choose-access.tsx / select-manager.tsx dark navy/orange theme
+// (Carin, 2026-08-17: "work on all screens that don't have this new navy
+// blue design" - this page was still on the old white-card/blue-gradient
+// layout).
+const NAVY_ELEVATED = COLORS.navyElevated;
+const NAVY_DEEP = COLORS.bgPrimary;
+const ORANGE = COLORS.orange;
+const TEXT_MUTED = COLORS.textMuted;
 
 interface SearchableSelectProps {
   value: string;
@@ -20,7 +29,7 @@ interface SearchableSelectProps {
 function SearchableSelect({ value, onValueChange, options, placeholder, testId }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  
+
   const filteredOptions = useMemo(() => {
     if (!search) return options.slice(0, 100);
     const searchLower = search.toLowerCase();
@@ -34,32 +43,32 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId }
           type="button"
           data-testid={testId}
           style={{
-            width: '100%',
-            height: '48px',
-            borderRadius: '8px',
-            border: '1px solid #D1D5DB',
-            fontSize: '16px',
-            color: value ? '#003B71' : '#9CA3AF',
-            backgroundColor: '#FFFFFF',
-            padding: '0 16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            cursor: 'pointer',
+            width: "100%",
+            height: 48,
+            borderRadius: 10,
+            border: "1px solid rgba(23,68,111,0.6)",
+            fontSize: 15,
+            color: value ? "#F7F9FC" : TEXT_MUTED,
+            backgroundColor: NAVY_ELEVATED,
+            padding: "0 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            cursor: "pointer",
           }}
         >
           <span>{value || placeholder}</span>
-          <ChevronDown style={{ width: '18px', height: '18px', opacity: 0.5 }} />
+          <ChevronDown style={{ width: 18, height: 18, opacity: 0.6, color: TEXT_MUTED }} />
         </button>
       </PopoverTrigger>
-      <PopoverContent 
-        className="p-0" 
-        style={{ width: 'var(--radix-popover-trigger-width)', maxHeight: '300px' }}
+      <PopoverContent
+        className="p-0"
+        style={{ width: "var(--radix-popover-trigger-width)", maxHeight: 300 }}
         align="start"
       >
         <Command shouldFilter={false}>
           <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} value={search} onValueChange={setSearch} />
-          <CommandList style={{ maxHeight: '250px', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
+          <CommandList style={{ maxHeight: 250, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (
@@ -72,12 +81,7 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId }
                     setSearch("");
                   }}
                 >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value === option ? "opacity-100" : "opacity-0"
-                    )}
-                  />
+                  <Check className={cn("mr-2 h-4 w-4", value === option ? "opacity-100" : "opacity-0")} />
                   {option}
                 </CommandItem>
               ))}
@@ -128,87 +132,99 @@ export default function SelectRep() {
   };
 
   return (
-    <div 
-      className="h-screen flex flex-col items-center overflow-hidden"
-      style={{ background: 'linear-gradient(180deg, #003B71 0%, #002F5A 100%)' }}
+    <div
+      className="relative min-h-screen flex flex-col items-center overflow-hidden"
+      style={{
+        background: `radial-gradient(circle at 50% 30%, ${NAVY_ELEVATED} 0%, ${NAVY_DEEP} 60%)`,
+        paddingTop: "max(2.5rem, env(safe-area-inset-top, 0px) + 1.5rem)",
+        paddingBottom: "max(1.5rem, env(safe-area-inset-bottom, 0px) + 1rem)",
+        paddingLeft: "max(24px, env(safe-area-inset-left, 0px))",
+        paddingRight: "max(24px, env(safe-area-inset-right, 0px))",
+      }}
     >
-      <div style={{ paddingTop: '32px', paddingBottom: '20px' }}>
-        <img 
-          src={meridianGroupLogo} 
-          alt="Meridian Group" 
-          style={{ height: '48px' }}
-        />
-      </div>
-
-      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-          <Wrench style={{ width: '28px', height: '28px', color: '#F36C21' }} />
-          <span style={{ fontSize: '30px', fontWeight: 700, color: '#FFFFFF' }}>
-            StockFix
-          </span>
-        </div>
-        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.7)', marginTop: '6px' }}>
-          Rep Access
-        </p>
-      </div>
-
-      <div 
+      <div
+        className="absolute top-0 left-0 w-1/2 h-1/2 pointer-events-none"
         style={{
-          width: '420px',
-          maxWidth: 'calc(100% - 32px)',
-          backgroundColor: '#FFFFFF',
-          borderRadius: '16px',
-          padding: '28px',
-          boxShadow: '0px 16px 40px rgba(0,0,0,0.25)',
+          backgroundImage: `url("${DOT_MATRIX_BG}")`,
+          backgroundSize: "18px 18px",
+          maskImage: "radial-gradient(circle at 0% 0%, black 0%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(circle at 0% 0%, black 0%, transparent 75%)",
         }}
-      >
+      />
+      <div
+        className="absolute top-0 right-0 w-1/2 h-1/2 pointer-events-none"
+        style={{
+          backgroundImage: `url("${HEX_OUTLINE_PATTERN_BG}")`,
+          backgroundSize: "40px 46px",
+          maskImage: "radial-gradient(circle at 100% 0%, black 0%, transparent 75%)",
+          WebkitMaskImage: "radial-gradient(circle at 100% 0%, black 0%, transparent 75%)",
+        }}
+      />
+
+      <div style={{ width: "100%", maxWidth: 420, position: "relative" }}>
         <button
           onClick={handleBack}
           data-testid="button-back"
           style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            color: '#003B71',
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            color: TEXT_MUTED,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
             padding: 0,
-            marginBottom: '20px',
-            fontSize: '14px',
+            marginBottom: 20,
+            fontSize: 14,
           }}
         >
-          <ArrowLeft style={{ width: '18px', height: '18px' }} />
+          <ArrowLeft style={{ width: 18, height: 18 }} />
           Back
         </button>
 
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontSize: '14px', color: '#003B71', marginBottom: '8px', display: 'block', fontWeight: 500 }}>
-            Select Rep <span style={{ color: '#F36C21' }}>*</span>
-          </label>
-          <SearchableSelect
-            value={repValue}
-            onValueChange={setRepValue}
-            options={reps}
-            placeholder="Select Rep"
-            testId="select-rep"
-          />
+        <img
+          src={meridianGroupLogo}
+          alt="Meridian Group"
+          style={{ height: 40, opacity: 0.95, display: "block", margin: "0 auto 20px" }}
+        />
+
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            <Wrench style={{ width: 26, height: 26, color: ORANGE }} />
+            <h1 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.5px", lineHeight: 1 }}>
+              <span style={{ color: "#F7F9FC" }}>Stock</span>
+              <span style={{ color: ORANGE }}>Fix</span>
+            </h1>
+          </div>
+          <p style={{ fontSize: 13.5, color: TEXT_MUTED, marginTop: 6 }}>Rep Access</p>
         </div>
+
+        <label style={{ fontSize: 12, fontWeight: 700, color: TEXT_MUTED, letterSpacing: "0.04em", textTransform: "uppercase", marginBottom: 10, display: "block" }}>
+          Select Rep <span style={{ color: ORANGE }}>*</span>
+        </label>
+        <SearchableSelect
+          value={repValue}
+          onValueChange={setRepValue}
+          options={reps}
+          placeholder="Select Rep"
+          testId="select-rep"
+        />
 
         <button
           onClick={handleContinue}
           disabled={!repValue}
           data-testid="button-continue"
           style={{
-            width: '100%',
-            height: '48px',
-            backgroundColor: repValue ? '#F36C21' : '#D1D5DB',
-            color: '#FFFFFF',
-            fontSize: '16px',
-            fontWeight: 600,
-            borderRadius: '10px',
-            border: 'none',
-            cursor: repValue ? 'pointer' : 'not-allowed',
+            width: "100%",
+            height: 48,
+            marginTop: 20,
+            backgroundColor: repValue ? ORANGE : "rgba(23,68,111,0.4)",
+            color: repValue ? "#FFFFFF" : TEXT_MUTED,
+            fontSize: 15,
+            fontWeight: 700,
+            borderRadius: 10,
+            border: "none",
+            cursor: repValue ? "pointer" : "not-allowed",
           }}
         >
           CONTINUE
@@ -216,19 +232,6 @@ export default function SelectRep() {
       </div>
 
       <div style={{ flex: 1 }} />
-
-      <div style={{ paddingBottom: '20px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-          <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.6)', margin: 0, textAlign: 'center' }}>
-            Powered by
-          </p>
-          <img 
-            src={meridianNexusLogo} 
-            alt="Meridian Nexus" 
-            style={{ height: '80px', display: 'block' }}
-          />
-        </div>
-      </div>
     </div>
   );
 }

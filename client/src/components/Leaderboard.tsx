@@ -1,5 +1,16 @@
 import { useQuery } from "@tanstack/react-query";
 import { Trophy, Flame, Award, TrendingUp, Star } from "lucide-react";
+import { COLORS } from "@/lib/design-tokens";
+
+// Matches the dark navy/orange theme (Carin, 2026-08-17) - only ever used
+// inside manager-progress.tsx, so safe to convert without affecting any
+// other still-light screen.
+const NAVY_CARD = COLORS.navyElevated;
+const ORANGE = COLORS.orange;
+const TEXT_MUTED = COLORS.textMuted;
+const RED = "#F87171";
+const GREEN = "#34D399";
+const AMBER = "#FBBF24";
 
 interface RepStats {
   repName: string;
@@ -53,10 +64,10 @@ interface LeaderboardProps {
 
 function BadgeIcon({ badge }: { badge: RepStats['badge'] }) {
   if (badge.type === 'none') return null;
-  
+
   return (
-    <span 
-      style={{ 
+    <span
+      style={{
         fontSize: '18px',
         filter: badge.type === 'gold' ? 'drop-shadow(0 0 4px gold)' : undefined,
       }}
@@ -73,9 +84,9 @@ function RankBadge({ rank }: { rank: number }) {
     2: { bg: 'linear-gradient(135deg, #C0C0C0 0%, #A0A0A0 100%)', text: '#000', border: '#C0C0C0' },
     3: { bg: 'linear-gradient(135deg, #CD7F32 0%, #A0522D 100%)', text: '#FFF', border: '#CD7F32' },
   };
-  
-  const style = styles[rank] || { bg: '#F3F4F6', text: '#6B7280', border: '#E5E7EB' };
-  
+
+  const style = styles[rank] || { bg: 'rgba(23,68,111,0.35)', text: TEXT_MUTED, border: 'rgba(23,68,111,0.6)' };
+
   return (
     <div
       style={{
@@ -90,7 +101,7 @@ function RankBadge({ rank }: { rank: number }) {
         fontSize: '12px',
         fontWeight: 700,
         border: `2px solid ${style.border}`,
-        boxShadow: rank <= 3 ? '0 2px 8px rgba(0,0,0,0.2)' : 'none',
+        boxShadow: rank <= 3 ? '0 2px 8px rgba(0,0,0,0.3)' : 'none',
       }}
     >
       {rank}
@@ -100,14 +111,14 @@ function RankBadge({ rank }: { rank: number }) {
 
 function StreakIndicator({ streak }: { streak: number }) {
   if (streak === 0) return null;
-  
+
   return (
     <div
       style={{
         display: 'flex',
         alignItems: 'center',
         gap: '2px',
-        color: streak >= 7 ? '#DC2626' : streak >= 3 ? '#F59E0B' : '#6B7280',
+        color: streak >= 7 ? RED : streak >= 3 ? AMBER : TEXT_MUTED,
         fontSize: '12px',
         fontWeight: 600,
       }}
@@ -121,17 +132,17 @@ function StreakIndicator({ streak }: { streak: number }) {
 
 function CompletionBar({ rate }: { rate: number }) {
   const getColor = () => {
-    if (rate >= 90) return '#10B981';
-    if (rate >= 70) return '#F59E0B';
-    return '#F36C21';
+    if (rate >= 90) return GREEN;
+    if (rate >= 70) return AMBER;
+    return ORANGE;
   };
-  
+
   return (
     <div style={{ flex: 1, maxWidth: '100px' }}>
       <div
         style={{
           height: '6px',
-          backgroundColor: '#E5E7EB',
+          backgroundColor: 'rgba(23,68,111,0.4)',
           borderRadius: '3px',
           overflow: 'hidden',
         }}
@@ -166,7 +177,7 @@ export default function Leaderboard({ manager, client, limit = 10, showTeamStats
 
   if (isLoading) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center', color: '#6B7280' }}>
+      <div style={{ padding: '20px', textAlign: 'center', color: TEXT_MUTED }}>
         Loading leaderboard...
       </div>
     );
@@ -174,7 +185,7 @@ export default function Leaderboard({ manager, client, limit = 10, showTeamStats
 
   if (!data || data.leaderboard.length === 0) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center', color: '#6B7280' }}>
+      <div style={{ padding: '20px', textAlign: 'center', color: TEXT_MUTED }}>
         No data available
       </div>
     );
@@ -185,54 +196,53 @@ export default function Leaderboard({ manager, client, limit = 10, showTeamStats
       {showTeamStats && data.teamStats && (
         <div
           style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: NAVY_CARD,
             borderRadius: '12px',
             padding: '16px',
             marginBottom: '16px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-            <Trophy size={20} style={{ color: '#F36C21' }} />
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#003B71', margin: 0 }}>
+            <Trophy size={20} style={{ color: ORANGE }} />
+            <h3 style={{ fontSize: '16px', fontWeight: 600, color: "#F7F9FC", margin: 0 }}>
               Team Achievements
             </h3>
           </div>
-          
+
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '24px' }}>🥇</span>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71' }}>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: "#F7F9FC" }}>
                   {data.teamStats.badgeCounts.gold}
                 </div>
-                <div style={{ fontSize: '11px', color: '#6B7280' }}>Gold</div>
+                <div style={{ fontSize: '11px', color: TEXT_MUTED }}>Gold</div>
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '24px' }}>🥈</span>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71' }}>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: "#F7F9FC" }}>
                   {data.teamStats.badgeCounts.silver}
                 </div>
-                <div style={{ fontSize: '11px', color: '#6B7280' }}>Silver</div>
+                <div style={{ fontSize: '11px', color: TEXT_MUTED }}>Silver</div>
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '24px' }}>🥉</span>
               <div>
-                <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71' }}>
+                <div style={{ fontSize: '20px', fontWeight: 700, color: "#F7F9FC" }}>
                   {data.teamStats.badgeCounts.bronze}
                 </div>
-                <div style={{ fontSize: '11px', color: '#6B7280' }}>Bronze</div>
+                <div style={{ fontSize: '11px', color: TEXT_MUTED }}>Bronze</div>
               </div>
             </div>
-            
+
             <div style={{ marginLeft: 'auto', textAlign: 'right' }}>
-              <div style={{ fontSize: '11px', color: '#6B7280' }}>Priority Avg</div>
-              <div style={{ fontSize: '20px', fontWeight: 700, color: '#003B71' }}>
+              <div style={{ fontSize: '11px', color: TEXT_MUTED }}>Priority Avg</div>
+              <div style={{ fontSize: '20px', fontWeight: 700, color: "#F7F9FC" }}>
                 {data.teamStats.avgPriorityCompletionRate ?? data.teamStats.avgCompletionRate}%
               </div>
             </div>
@@ -242,18 +252,17 @@ export default function Leaderboard({ manager, client, limit = 10, showTeamStats
 
       <div
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: NAVY_CARD,
           borderRadius: '12px',
           padding: '16px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-          <TrendingUp size={20} style={{ color: '#003B71' }} />
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#003B71', margin: 0 }}>
+          <TrendingUp size={20} style={{ color: "#F7F9FC" }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: "#F7F9FC", margin: 0 }}>
             Leaderboard
           </h3>
-          <span style={{ fontSize: '12px', color: '#6B7280', marginLeft: 'auto' }}>
+          <span style={{ fontSize: '12px', color: TEXT_MUTED, marginLeft: 'auto' }}>
             Top {Math.min(limit, data.leaderboard.length)} of {data.totalReps}
           </span>
         </div>
@@ -269,16 +278,16 @@ export default function Leaderboard({ manager, client, limit = 10, showTeamStats
                 alignItems: 'center',
                 gap: '12px',
                 padding: '12px',
-                backgroundColor: rep.isTopPerformer ? '#FEF3C7' : '#F9FAFB',
+                backgroundColor: rep.isTopPerformer ? 'rgba(251,191,36,0.12)' : 'rgba(23,68,111,0.25)',
                 borderRadius: '8px',
                 cursor: onRepClick ? 'pointer' : 'default',
-                border: rep.rank === 1 ? '2px solid #FFD700' : '1px solid #E5E7EB',
+                border: rep.rank === 1 ? '2px solid #FFD700' : '1px solid rgba(23,68,111,0.5)',
                 transition: 'transform 0.2s, box-shadow 0.2s',
               }}
               onMouseEnter={(e) => {
                 if (onRepClick) {
                   e.currentTarget.style.transform = 'translateY(-2px)';
-                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
                 }
               }}
               onMouseLeave={(e) => {
@@ -287,14 +296,14 @@ export default function Leaderboard({ manager, client, limit = 10, showTeamStats
               }}
             >
               <RankBadge rank={rep.rank} />
-              
+
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <span
                     style={{
                       fontSize: '14px',
                       fontWeight: 600,
-                      color: '#003B71',
+                      color: "#F7F9FC",
                       overflow: 'hidden',
                       textOverflow: 'ellipsis',
                       whiteSpace: 'nowrap',
@@ -305,24 +314,24 @@ export default function Leaderboard({ manager, client, limit = 10, showTeamStats
                   <BadgeIcon badge={rep.badge} />
                   <StreakIndicator streak={rep.streak} />
                 </div>
-                <div style={{ fontSize: '11px', color: '#6B7280', marginTop: '2px' }}>
+                <div style={{ fontSize: '11px', color: TEXT_MUTED, marginTop: '2px' }}>
                   {rep.region} | {rep.completedTasks}/{rep.totalTasks} tasks
                   {rep.storesMastered > 0 && (
-                    <span style={{ marginLeft: '8px', color: '#10B981' }}>
+                    <span style={{ marginLeft: '8px', color: GREEN }}>
                       <Star size={10} style={{ display: 'inline', marginRight: '2px' }} />
                       {rep.storesMastered} stores mastered
                     </span>
                   )}
                 </div>
               </div>
-              
+
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <CompletionBar rate={rep.priorityCompletionRate ?? rep.completionRate} />
                 <span
                   style={{
                     fontSize: '14px',
                     fontWeight: 700,
-                    color: (rep.priorityCompletionRate ?? rep.completionRate) >= 90 ? '#10B981' : (rep.priorityCompletionRate ?? rep.completionRate) >= 70 ? '#F59E0B' : '#F36C21',
+                    color: (rep.priorityCompletionRate ?? rep.completionRate) >= 90 ? GREEN : (rep.priorityCompletionRate ?? rep.completionRate) >= 70 ? AMBER : ORANGE,
                     minWidth: '40px',
                     textAlign: 'right',
                   }}

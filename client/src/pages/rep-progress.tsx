@@ -6,6 +6,19 @@ import { Bar, XAxis, YAxis, ResponsiveContainer, LabelList, BarChart, Cell, PieC
 import BottomNav from "@/components/BottomNav";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { safeParseFloat } from "@/lib/utils";
+import { COLORS } from "@/lib/design-tokens";
+
+// Matches the dark navy/orange theme (Carin, 2026-08-17: "work on all
+// screens that don't have this new navy blue design") - reachable from
+// manager-progress.tsx (already redesigned) via a rep-row tap, so leaving
+// this light would be a jarring mismatch mid-flow.
+const NAVY_ELEVATED = COLORS.navyElevated;
+const NAVY_DEEP = COLORS.bgPrimary;
+const NAVY_CARD = COLORS.navyElevated;
+const ORANGE = COLORS.orange;
+const TEXT_MUTED = COLORS.textMuted;
+const RED = "#F87171";
+const GREEN = "#34D399";
 
 interface RepGamificationStats {
   found: boolean;
@@ -41,9 +54,9 @@ function KpiTile({ label, value, icon, accentColor, testId }: KpiTileProps) {
     <div
       data-testid={testId}
       style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '8px',
-        padding: '12px',
+        backgroundColor: NAVY_CARD,
+        borderRadius: 10,
+        padding: 12,
         borderTop: `3px solid ${accentColor}`,
         display: 'flex',
         flexDirection: 'column',
@@ -53,15 +66,15 @@ function KpiTile({ label, value, icon, accentColor, testId }: KpiTileProps) {
         minWidth: 0,
       }}
     >
-      <div style={{ color: accentColor, marginBottom: '4px' }}>{icon}</div>
-      <span style={{ fontSize: '24px', fontWeight: 800, color: '#003B71', fontFamily: 'monospace', lineHeight: 1 }}>
+      <div style={{ color: accentColor, marginBottom: 4 }}>{icon}</div>
+      <span style={{ fontSize: 24, fontWeight: 800, color: "#F7F9FC", fontFamily: 'monospace', lineHeight: 1 }}>
         {value}
       </span>
-      <span style={{ 
-        fontSize: '10px', 
-        color: '#6B7280', 
-        textAlign: 'center', 
-        marginTop: '4px',
+      <span style={{
+        fontSize: 10,
+        color: TEXT_MUTED,
+        textAlign: 'center',
+        marginTop: 4,
         lineHeight: 1.2,
       }}>
         {label}
@@ -90,36 +103,36 @@ function TaskRow({ task, onClick }: TaskRowProps) {
       data-testid={`task-row-${task.uniqueId}`}
       onClick={onClick}
       style={{
-        backgroundColor: '#FFFFFF',
-        borderRadius: '8px',
-        padding: '12px',
-        marginBottom: '8px',
+        backgroundColor: NAVY_CARD,
+        borderRadius: 10,
+        padding: 12,
+        marginBottom: 8,
         cursor: 'pointer',
-        borderLeft: `4px solid ${task.actionStatus === 'Completed' ? '#10B981' : '#F36C21'}`,
+        borderLeft: `4px solid ${task.actionStatus === 'Completed' ? GREEN : ORANGE}`,
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ 
-            fontSize: '14px', 
-            fontWeight: 600, 
-            color: '#003B71',
+          <div style={{
+            fontSize: 14,
+            fontWeight: 600,
+            color: "#F7F9FC",
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
           }}>
             {task.articleDescription}
           </div>
-          <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '2px' }}>
+          <div style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 2 }}>
             {task.storeName}
           </div>
-          <div style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '2px' }}>
+          <div style={{ fontSize: 11, color: TEXT_MUTED, marginTop: 2, opacity: 0.8 }}>
             {task.client} • WFC: {safeParseFloat(task.storeWfc || '0').toFixed(1)}
           </div>
         </div>
-        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: '8px' }}>
+        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
           {task.captureDate && (
-            <div style={{ fontSize: '11px', color: '#6B7280' }}>
+            <div style={{ fontSize: 11, color: TEXT_MUTED }}>
               {new Date(task.captureDate).toLocaleDateString()}
             </div>
           )}
@@ -133,7 +146,7 @@ export default function RepProgress() {
   const [, setLocation] = useLocation();
   const searchString = useSearch();
   const params = new URLSearchParams(searchString);
-  
+
   const repName = params.get('rep') || '';
   const storeParam = params.get('store') || '';
   const fromManager = params.get('from') === 'manager';
@@ -223,20 +236,20 @@ export default function RepProgress() {
     ...(data?.tasks?.completed || []),
     ...loadedCompletedTasks
   ];
-  
+
   const allTasks = activeTab === 'open' ? openTasksList : completedTasksList;
-  const displayTasks = allTasks.filter((task: any) => 
-    !searchQuery || 
+  const displayTasks = allTasks.filter((task: any) =>
+    !searchQuery ||
     task.articleDescription.toLowerCase().includes(searchQuery.toLowerCase()) ||
     task.storeName.toLowerCase().includes(searchQuery.toLowerCase()) ||
     task.client.toLowerCase().includes(searchQuery.toLowerCase())
   );
-  
+
   // Check if there are more pages to load
   const hasMoreOpen = data?.tasks?.openTotalPages && openPage < data.tasks.openTotalPages;
   const hasMoreCompleted = data?.tasks?.completedTotalPages && completedPage < data.tasks.completedTotalPages;
   const hasMore = activeTab === 'open' ? hasMoreOpen : hasMoreCompleted;
-  
+
   const loadMore = () => {
     if (activeTab === 'open') {
       setOpenPage(prev => prev + 1);
@@ -246,87 +259,89 @@ export default function RepProgress() {
   };
 
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      backgroundColor: '#F3F4F6',
-      paddingBottom: '80px',
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: NAVY_DEEP,
+      paddingBottom: 80,
     }}>
       <div style={{
-        background: 'linear-gradient(135deg, #003B71 0%, #005a9e 100%)',
-        padding: '16px',
-        paddingTop: '20px',
+        background: `linear-gradient(135deg, ${NAVY_ELEVATED} 0%, ${NAVY_DEEP} 100%)`,
+        borderBottom: `1px solid ${COLORS.lineBlue}`,
+        padding: 16,
+        paddingTop: 20,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
           <button
             data-testid="back-button"
             onClick={handleBack}
             style={{
-              background: 'rgba(255,255,255,0.2)',
+              background: 'rgba(23,68,111,0.35)',
               border: 'none',
-              borderRadius: '8px',
-              padding: '8px',
+              borderRadius: 8,
+              padding: 8,
               cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <ArrowLeft style={{ width: '20px', height: '20px', color: '#FFFFFF' }} />
+            <ArrowLeft style={{ width: 20, height: 20, color: "#F7F9FC" }} />
           </button>
           <div>
-            <h1 style={{ fontSize: '20px', fontWeight: 700, color: '#FFFFFF', margin: 0 }}>
+            <h1 style={{ fontSize: 20, fontWeight: 700, color: "#F7F9FC", margin: 0 }}>
               My Task Progress
             </h1>
-            <p style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', margin: 0 }}>
+            <p style={{ fontSize: 13, color: TEXT_MUTED, margin: 0 }}>
               {repName}
             </p>
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+        <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
           <KpiTile
             label="Priority Open"
             value={data?.kpis?.priorityOpenCount || 0}
             icon={<AlertCircle size={18} />}
-            accentColor="#F36C21"
+            accentColor={ORANGE}
             testId="kpi-priority-open"
           />
           <KpiTile
             label="Priority Done"
             value={data?.kpis?.priorityCompletedCount || 0}
             icon={<CheckCircle size={18} />}
-            accentColor="#10B981"
+            accentColor={GREEN}
             testId="kpi-priority-completed"
           />
           <KpiTile
             label="Priority Rate"
             value={`${data?.kpis?.priorityCompletionRate || 0}%`}
             icon={<TrendingUp size={18} />}
-            accentColor="#003B71"
+            accentColor="#60A5FA"
             testId="kpi-priority-rate"
           />
         </div>
 
         {/* Gamification Stats */}
         {gamification?.found && gamification.stats && (
-          <div 
+          <div
             data-testid="gamification-card"
             style={{
-              backgroundColor: 'rgba(255,255,255,0.15)',
-              borderRadius: '12px',
+              backgroundColor: 'rgba(255,121,0,0.1)',
+              border: '1px solid rgba(255,121,0,0.25)',
+              borderRadius: 12,
               padding: '12px 16px',
-              marginTop: '12px',
+              marginTop: 12,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {/* Badge */}
               {gamification.stats.badge.type !== 'none' && (
-                <div 
-                  style={{ 
-                    fontSize: '28px',
+                <div
+                  style={{
+                    fontSize: 28,
                     filter: gamification.stats.badge.type === 'gold' ? 'drop-shadow(0 0 6px gold)' : undefined,
                   }}
                   title={`${gamification.stats.badge.label} Badge`}
@@ -335,49 +350,49 @@ export default function RepProgress() {
                 </div>
               )}
               <div>
-                <div style={{ color: '#FFFFFF', fontWeight: 600, fontSize: '14px' }}>
-                  {gamification.stats.badge.type !== 'none' 
+                <div style={{ color: "#F7F9FC", fontWeight: 600, fontSize: 14 }}>
+                  {gamification.stats.badge.type !== 'none'
                     ? gamification.stats.badge.label + ' Badge'
                     : 'Keep going!'}
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: '11px' }}>
-                  {gamification.stats.aheadOfTeamBy >= 0 
+                <div style={{ color: TEXT_MUTED, fontSize: 11 }}>
+                  {gamification.stats.aheadOfTeamBy >= 0
                     ? `${gamification.stats.aheadOfTeamBy}% above team avg`
                     : `${Math.abs(gamification.stats.aheadOfTeamBy)}% below team avg`}
                 </div>
               </div>
             </div>
-            
-            <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
               {/* Rank */}
               <div style={{ textAlign: 'center' }}>
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px',
-                  color: gamification.stats.rank <= 3 ? '#FFD700' : '#FFFFFF',
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  color: gamification.stats.rank <= 3 ? '#FFD700' : "#F7F9FC",
                 }}>
                   <Trophy size={14} />
-                  <span style={{ fontWeight: 700, fontSize: '16px' }}>#{gamification.stats.rank}</span>
+                  <span style={{ fontWeight: 700, fontSize: 16 }}>#{gamification.stats.rank}</span>
                 </div>
-                <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '10px' }}>
+                <div style={{ color: TEXT_MUTED, fontSize: 10 }}>
                   of {gamification.stats.totalReps}
                 </div>
               </div>
-              
+
               {/* Streak */}
               {gamification.stats.streak > 0 && (
                 <div style={{ textAlign: 'center' }}>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '4px',
-                    color: gamification.stats.streak >= 7 ? '#FF6B6B' : gamification.stats.streak >= 3 ? '#FFB347' : '#FFFFFF',
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    color: gamification.stats.streak >= 7 ? RED : gamification.stats.streak >= 3 ? "#FBBF24" : "#F7F9FC",
                   }}>
                     <Flame size={14} />
-                    <span style={{ fontWeight: 700, fontSize: '16px' }}>{gamification.stats.streak}</span>
+                    <span style={{ fontWeight: 700, fontSize: 16 }}>{gamification.stats.streak}</span>
                   </div>
-                  <div style={{ color: 'rgba(255,255,255,0.6)', fontSize: '10px' }}>
+                  <div style={{ color: TEXT_MUTED, fontSize: 10 }}>
                     day streak
                   </div>
                 </div>
@@ -387,25 +402,25 @@ export default function RepProgress() {
         )}
       </div>
 
-      <div style={{ padding: '16px' }}>
+      <div style={{ padding: 16 }}>
         <div style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '8px',
-          padding: '12px',
-          marginBottom: '16px',
+          backgroundColor: NAVY_CARD,
+          borderRadius: 10,
+          padding: 12,
+          marginBottom: 16,
         }}>
-          <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
+          <h3 style={{ fontSize: 14, fontWeight: 600, color: "#F7F9FC", marginBottom: 12 }}>
             Task Status Breakdown
           </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ width: '120px', height: '120px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+            <div style={{ width: 120, height: 120 }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                   <Pie
                     data={[
-                      { name: 'Priority Open', value: data?.kpis?.priorityOpenCount || 0, fill: '#DC2626' },
-                      { name: 'Non-Priority Open', value: (data?.kpis?.openCount || 0) - (data?.kpis?.priorityOpenCount || 0), fill: '#F36C21' },
-                      { name: 'Completed', value: data?.kpis?.completedCount || 0, fill: '#10B981' },
+                      { name: 'Priority Open', value: data?.kpis?.priorityOpenCount || 0, fill: RED },
+                      { name: 'Non-Priority Open', value: (data?.kpis?.openCount || 0) - (data?.kpis?.priorityOpenCount || 0), fill: ORANGE },
+                      { name: 'Completed', value: data?.kpis?.completedCount || 0, fill: GREEN },
                     ]}
                     cx="50%"
                     cy="50%"
@@ -414,32 +429,32 @@ export default function RepProgress() {
                     paddingAngle={2}
                     dataKey="value"
                   >
-                    <Cell fill="#DC2626" />
-                    <Cell fill="#F36C21" />
-                    <Cell fill="#10B981" />
+                    <Cell fill={RED} />
+                    <Cell fill={ORANGE} />
+                    <Cell fill={GREEN} />
                   </Pie>
                 </PieChart>
               </ResponsiveContainer>
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ width: '12px', height: '12px', backgroundColor: '#DC2626', borderRadius: '2px' }} />
-                <span style={{ fontSize: '13px', color: '#374151' }}>Priority Open</span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#DC2626', marginLeft: 'auto', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 12, height: 12, backgroundColor: RED, borderRadius: 2 }} />
+                <span style={{ fontSize: 13, color: TEXT_MUTED }}>Priority Open</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: RED, marginLeft: 'auto', fontFamily: 'monospace' }}>
                   {data?.kpis?.priorityOpenCount || 0}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ width: '12px', height: '12px', backgroundColor: '#F36C21', borderRadius: '2px' }} />
-                <span style={{ fontSize: '13px', color: '#374151' }}>Non-Priority Open</span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#F36C21', marginLeft: 'auto', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                <div style={{ width: 12, height: 12, backgroundColor: ORANGE, borderRadius: 2 }} />
+                <span style={{ fontSize: 13, color: TEXT_MUTED }}>Non-Priority Open</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: ORANGE, marginLeft: 'auto', fontFamily: 'monospace' }}>
                   {(data?.kpis?.openCount || 0) - (data?.kpis?.priorityOpenCount || 0)}
                 </span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ width: '12px', height: '12px', backgroundColor: '#10B981', borderRadius: '2px' }} />
-                <span style={{ fontSize: '13px', color: '#374151' }}>Completed</span>
-                <span style={{ fontSize: '16px', fontWeight: 700, color: '#10B981', marginLeft: 'auto', fontFamily: 'monospace' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                <div style={{ width: 12, height: 12, backgroundColor: GREEN, borderRadius: 2 }} />
+                <span style={{ fontSize: 13, color: TEXT_MUTED }}>Completed</span>
+                <span style={{ fontSize: 16, fontWeight: 700, color: GREEN, marginLeft: 'auto', fontFamily: 'monospace' }}>
                   {data?.kpis?.completedCount || 0}
                 </span>
               </div>
@@ -449,50 +464,50 @@ export default function RepProgress() {
 
         {data?.charts?.openByStore?.length > 0 && (
           <div style={{
-            backgroundColor: '#FFFFFF',
-            borderRadius: '8px',
-            padding: '12px',
-            marginBottom: '16px',
+            backgroundColor: NAVY_CARD,
+            borderRadius: 10,
+            padding: 12,
+            marginBottom: 16,
           }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#003B71', marginBottom: '12px' }}>
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: "#F7F9FC", marginBottom: 12 }}>
               Open Tasks by Store (Top 5)
             </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
               {data.charts.openByStore.map((item: { store: string; count: number }, index: number) => {
                 const maxCount = Math.max(...data.charts.openByStore.map((s: { count: number }) => s.count));
                 const barWidth = maxCount > 0 ? (item.count / maxCount) * 100 : 0;
                 return (
-                  <div key={item.store} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <div key={item.store} style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ 
-                        fontSize: '12px', 
-                        color: '#003B71', 
+                      <span style={{
+                        fontSize: 12,
+                        color: "#F7F9FC",
                         fontWeight: 500,
                         flex: 1,
-                        paddingRight: '8px',
+                        paddingRight: 8,
                       }}>
                         {index + 1}. {item.store}
                       </span>
-                      <span style={{ 
-                        fontSize: '14px', 
-                        fontWeight: 700, 
-                        color: '#003B71',
+                      <span style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: "#F7F9FC",
                         fontFamily: 'monospace',
                       }}>
                         {item.count}
                       </span>
                     </div>
-                    <div style={{ 
-                      height: '6px', 
-                      backgroundColor: '#E5E7EB', 
-                      borderRadius: '3px',
+                    <div style={{
+                      height: 6,
+                      backgroundColor: 'rgba(23,68,111,0.4)',
+                      borderRadius: 3,
                       overflow: 'hidden',
                     }}>
-                      <div style={{ 
-                        height: '100%', 
-                        width: `${barWidth}%`, 
-                        backgroundColor: '#003B71',
-                        borderRadius: '3px',
+                      <div style={{
+                        height: '100%',
+                        width: `${barWidth}%`,
+                        backgroundColor: ORANGE,
+                        borderRadius: 3,
                         transition: 'width 0.3s ease',
                       }} />
                     </div>
@@ -504,9 +519,9 @@ export default function RepProgress() {
         )}
 
         <div style={{
-          backgroundColor: '#FFFFFF',
-          borderRadius: '8px',
-          padding: '12px',
+          backgroundColor: NAVY_CARD,
+          borderRadius: 10,
+          padding: 12,
         }}>
           <Tabs value={activeTab} onValueChange={(v) => {
             const newTab = v as 'open' | 'completed';
@@ -520,7 +535,7 @@ export default function RepProgress() {
               setLoadedCompletedTasks([]);
             }
           }}>
-            <TabsList style={{ width: '100%', marginBottom: '12px' }}>
+            <TabsList style={{ width: '100%', marginBottom: 12 }}>
               <TabsTrigger value="open" style={{ flex: 1 }} data-testid="tab-open">
                 Open ({data?.kpis?.openCount || 0})
               </TabsTrigger>
@@ -530,18 +545,18 @@ export default function RepProgress() {
             </TabsList>
           </Tabs>
 
-          <div style={{ 
+          <div style={{
             position: 'relative',
-            marginBottom: '12px',
+            marginBottom: 12,
           }}>
-            <Search style={{ 
-              position: 'absolute', 
-              left: '12px', 
-              top: '50%', 
+            <Search style={{
+              position: 'absolute',
+              left: 12,
+              top: '50%',
               transform: 'translateY(-50%)',
-              width: '16px',
-              height: '16px',
-              color: '#9CA3AF',
+              width: 16,
+              height: 16,
+              color: TEXT_MUTED,
             }} />
             <input
               data-testid="search-tasks"
@@ -552,21 +567,23 @@ export default function RepProgress() {
               style={{
                 width: '100%',
                 padding: '10px 12px 10px 36px',
-                borderRadius: '8px',
-                border: '1px solid #E5E7EB',
-                fontSize: '14px',
+                borderRadius: 8,
+                border: `1px solid ${COLORS.lineBlue}`,
+                fontSize: 14,
+                color: "#F7F9FC",
+                backgroundColor: NAVY_DEEP,
                 outline: 'none',
               }}
             />
           </div>
 
-          <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
             {isLoading ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>
+              <div style={{ textAlign: 'center', padding: 20, color: TEXT_MUTED }}>
                 Loading...
               </div>
             ) : displayTasks.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>
+              <div style={{ textAlign: 'center', padding: 20, color: TEXT_MUTED }}>
                 No {activeTab} tasks found
               </div>
             ) : (
@@ -584,13 +601,13 @@ export default function RepProgress() {
                     disabled={isLoading}
                     style={{
                       width: '100%',
-                      padding: '12px',
-                      marginTop: '8px',
-                      backgroundColor: '#003B71',
+                      padding: 12,
+                      marginTop: 8,
+                      backgroundColor: ORANGE,
                       color: '#FFFFFF',
                       border: 'none',
-                      borderRadius: '8px',
-                      fontSize: '14px',
+                      borderRadius: 8,
+                      fontSize: 14,
                       fontWeight: 600,
                       cursor: 'pointer',
                       opacity: isLoading ? 0.7 : 1,
