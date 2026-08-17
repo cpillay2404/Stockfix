@@ -11,6 +11,7 @@ interface SkuRow {
   cover: number | null;
   classification: string;
   client?: string;
+  sourceStem?: string | null;
 }
 interface SkuListResponse {
   resolvedClient: string;
@@ -145,11 +146,24 @@ export default function Sf2SkuInlineCard({ store, rep, barcode, client, onClear 
       </div>
 
       {/* No fix needed for an Optimal SKU - there's nothing to action
-          (Carin, 2026-08-16: "cant have fix when the sku is optimal"). */}
+          (Carin, 2026-08-16: "cant have fix when the sku is optimal").
+          classification param uses the SKU's real sourceStem (oos/low/
+          overstock) so action-capture resolves the right task - falls back
+          to "risk" only when sourceStem is absent, since a non-Optimal SKU
+          with no oos/low/overstock flag showing here is by definition the
+          At Risk cover-threshold case (Carin, 2026-08-17: fixed a bug where
+          this always sent "cover", which resolved to the wrong task type).
+          Overstock volume is capped at task-GENERATION time only (top 5
+          worst per store, 3x over threshold) - every SKU stays fully
+          visible and tappable here regardless; Carin, 2026-08-17: "dont
+          grey it out but only cap these under the fix menu." If a rep taps
+          Fix on an overstock SKU that didn't make this week's top 5, the
+          resolve call below just won't find a task and shows that as a
+          normal error, not a disabled button. */}
       {row.classification.toUpperCase() !== "OPTIMAL" && (
         <button
           className="sf2-fixbutton"
-          onClick={() => setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=cover&barcode=${encodeURIComponent(barcode)}${clientQS}`)}
+          onClick={() => setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${row.sourceStem || "risk"}&barcode=${encodeURIComponent(barcode)}${clientQS}`)}
         >
           <Wrench size={16} />
           FIX

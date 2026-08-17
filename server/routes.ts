@@ -37,8 +37,8 @@ import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRost
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync } from "./nexus-sync";
-import { claimTask } from "./nexus-task-generation";
-import { storeWeeklySummary } from "@shared/schema";
+import { claimTask, generateTasksForWeek } from "./nexus-task-generation";
+import { storeWeeklySummary, storeSkuWeekly } from "@shared/schema";
 
 function safeParseFloat(val: string | number | null | undefined): number {
   if (val === null || val === undefined) return 0;
@@ -660,6 +660,7 @@ async function fetchSkuListForClient(client: string, store: string, classificati
         issueDriver: null as string | null,
         suggestedOrderUnits: null as number | null,
         dcFulfillableUnits: null as number | null,
+        sourceStem: r.sourceStem ?? null,
         client,
       }));
     return { resolvedClient: client, rows, missingSkus: undefined, rangedSkus: skuList.rows.length, avgCoveragePct: undefined };
@@ -1174,6 +1175,26 @@ export async function registerRoutes(
     }
   });
 
+  // Manual trigger for generateTasksForWeek - normally runs automatically
+  // as part of the weekly cycle (nexus-weekly-scheduler.ts), added here so
+  // it can be run on-demand against a week that's already synced without
+  // waiting for the next real weekly cutover.
+  app.post("/api/admin/nexus-generate-tasks", async (req, res) => {
+    try {
+      const week = req.query.week
+        ? String(req.query.week)
+        : (await db.selectDistinct({ weekEnding: storeSkuWeekly.weekEnding }).from(storeSkuWeekly).orderBy(sql`week_ending DESC`).limit(1))[0]?.weekEnding;
+      if (!week) {
+        return res.status(400).json({ error: "No synced week found - pass ?week= explicitly" });
+      }
+      const result = await generateTasksForWeek(week);
+      res.json({ week, ...result });
+    } catch (error: any) {
+      console.error("Error generating Nexus tasks:", error);
+      res.status(500).json({ error: error?.message || "Failed to generate tasks" });
+    }
+  });
+
   // Real store-level detail view, no fabricated categories/rand values.
   // Client scope is looked up from the roster by the person's real name -
   // confirmed bug 2026-08-08: an empty/never-populated ?client= param
@@ -1429,6 +1450,7 @@ export async function registerRoutes(
             issueDriver: null,
             suggestedOrderUnits: null,
             dcFulfillableUnits: null,
+            sourceStem: r.sourceStem ?? null,
           }));
         return res.json({ storeName: store, resolvedClient: skuList.resolvedClient, rows: coverRows });
       }

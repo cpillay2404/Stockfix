@@ -17,13 +17,22 @@ import { AT_RISK_WFC_THRESHOLD_WEEKS } from "./nexus";
 //     was a wrong assumption that didn't match the established model and
 //     has been corrected (confirmed it never ran against real data: zero
 //     NEXUS_-prefixed rows existed in the live tasks table).
-//   - Covers all 6 issue types the Insights/Fix screens show: oos, low,
-//     overstock (existing source_stem-flagged rows), risk (same
+//   - Covers all 6 issue types the Insights/Fix screens show: oos, low
+//     (real flagged rows, estimated_missed_units>0), risk (same
 //     storeSoh>0 && cover<=AT_RISK_WFC_THRESHOLD_WEEKS threshold as
 //     nexus.ts's computeAtRiskRows), negsoh (storeSoh<0, matching routes.ts's
 //     "negsoh" classification exactly), and distribution (every synced
 //     distribution_gaps row for the week - matches what routes.ts already
 //     shows unfiltered on the Fix/Insights distribution-gap list).
+//   - Overstock is the one exception to "one task per flagged SKU": real
+//     network-wide volume (619,932 flagged rows one week) made per-SKU
+//     tasks unfair to ask a rep to work through (Carin, 2026-08-17). Only
+//     SKUs at least 3x the real 6-week overstock threshold (cover >= 18)
+//     qualify, capped to the worst 5 per store by cover. Every overstocked
+//     SKU still shows normally on the Overstock screen regardless - only
+//     task generation is capped, not visibility or the ability to tap Fix
+//     on any of them (a tap on one that didn't make the cut just won't
+//     resolve to a task, same as any SKU with no active issue this week).
 //   - repName/lineManager assignment comes from the real Call Cycle Master
 //     data (imported 2026-08-16 into storeAssignments/resourceRoster from
 //     "Call Cycle master - Stock Fix.xlsx"), NOT from guessing off old task
@@ -84,9 +93,40 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
       store_soh, dc_soh, sell_out_p4, cover, estimated_missed_units, issue_driver
     from store_sku_weekly
     where week_ending = ${week}
-      and source_stem in ('oos', 'low', 'overstock')
+      and source_stem in ('oos', 'low')
       and estimated_missed_units > 0
   `);
+
+  // Overstock is capped, not flagged wholesale (Carin, 2026-08-17: "unfair
+  // to ask a rep to action all of them" - confirmed 619,932 rows flagged
+  // network-wide the week this was built, a 2-week chronic filter only cut
+  // that to 495,088 - duration wasn't the right lever). Only SKUs at least
+  // 3x the real overstock threshold (6 weeks cover, confirmed against the
+  // existing "configured maximum of 6 weeks" subtitle text elsewhere in
+  // this app - so cover >= 18) even qualify, and only the worst 5 per store
+  // become tasks - the rest stay fully visible on the Overstock screen,
+  // just without a generated task (Carin: "dont grey it out but only cap
+  // these under the fix menu").
+  const OVERSTOCK_SEVERITY_THRESHOLD_WEEKS = 18;
+  const OVERSTOCK_CAP_PER_STORE = 5;
+  const flaggedOverstockRaw = await db.execute(sql`
+    select client, cleaned_store_name, banner, region, barcode,
+      article_description, category, classification,
+      store_soh, dc_soh, sell_out_p4, cover
+    from store_sku_weekly
+    where week_ending = ${week}
+      and source_stem = 'overstock'
+      and cover >= ${OVERSTOCK_SEVERITY_THRESHOLD_WEEKS}
+  `);
+  const overstockByStore = new Map<string, any[]>();
+  for (const r of (flaggedOverstockRaw.rows || flaggedOverstockRaw) as any[]) {
+    const key = `${r.client}_${r.cleaned_store_name}`;
+    const list = overstockByStore.get(key) || [];
+    list.push(r);
+    overstockByStore.set(key, list);
+  }
+  const flaggedOverstock = Array.from(overstockByStore.values())
+    .flatMap((rows) => rows.sort((a, b) => (b.cover ?? 0) - (a.cover ?? 0)).slice(0, OVERSTOCK_CAP_PER_STORE));
 
   const flaggedAtRisk = await db.execute(sql`
     select client, cleaned_store_name, banner, region, barcode,
@@ -163,6 +203,16 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
       barcode: r.barcode, articleDescription: r.article_description, category: r.category,
       dcSoh: r.dc_soh, storeSoh: r.store_soh, sellOutP4: r.sell_out_p4, cover: r.cover,
       classification: r.classification, missedUnits: r.estimated_missed_units,
+    }, actionText);
+  }
+
+  for (const r of flaggedOverstock) {
+    const actionText = `${r.classification || "Possible Overstock"} - ${Number(r.cover).toFixed(1)} weeks cover, well over the 6-week threshold. Review for markdown / transfer.`;
+    pushRow("overstock", {
+      client: r.client, storeName: r.cleaned_store_name, banner: r.banner, region: r.region,
+      barcode: r.barcode, articleDescription: r.article_description, category: r.category,
+      dcSoh: r.dc_soh, storeSoh: r.store_soh, sellOutP4: r.sell_out_p4, cover: r.cover,
+      classification: r.classification || "Possible Overstock",
     }, actionText);
   }
 
