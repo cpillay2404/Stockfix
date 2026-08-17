@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Menu, Bell, RefreshCw, ChevronRight, Store as StoreIcon, Search, Filter } from "lucide-react";
+import { Menu, Bell, RefreshCw, ChevronRight, Store as StoreIcon, Search, Filter, Home, ClipboardList } from "lucide-react";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import { COLORS, DOT_MATRIX_BG, HEX_OUTLINE_PATTERN_BG } from "@/lib/design-tokens";
 
@@ -269,9 +269,9 @@ export function BottomNav({ active, rep, role }: { active: string; rep: string; 
   const [, setLocation] = useLocation();
   const qs = `?rep=${encodeURIComponent(rep)}&role=${role}`;
   const items = [
-    { key: "home", label: "Home", icon: "🏠", path: `/home${qs}` },
-    { key: "tasks", label: "Tasks", icon: "📋", path: `/tasks${qs}` },
-    { key: "stores", label: "Stores", icon: "🏬", path: `/stores${qs}` },
+    { key: "home", label: "Home", icon: Home, path: `/home${qs}` },
+    { key: "tasks", label: "Tasks", icon: ClipboardList, path: `/tasks${qs}` },
+    { key: "stores", label: "Stores", icon: StoreIcon, path: `/stores${qs}` },
   ];
   return (
     <div
@@ -304,7 +304,7 @@ export function BottomNav({ active, rep, role }: { active: string; rep: string; 
             fontSize: 12,
           }}
         >
-          <span style={{ fontSize: 18 }}>{item.icon}</span>
+          <item.icon size={20} />
           {item.label}
         </button>
       ))}

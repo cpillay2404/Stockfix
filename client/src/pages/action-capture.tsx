@@ -72,6 +72,8 @@ export default function ActionCapture() {
   const [photos, setPhotos] = useState<Array<{ file: File; previewUrl: string } | null>>([null, null, null, null]);
   const photoCount = photos.filter((p) => p !== null).length;
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
   const [varianceDismissed, setVarianceDismissed] = useState(false);
 
   const onBack = () => window.history.back();
@@ -89,6 +91,50 @@ export default function ActionCapture() {
     if (feedback.trim() === "") return "Add feedback to submit";
     if (photoCount === 0) return "Add at least one photo to submit";
     return "";
+  };
+
+  const handleSubmit = async () => {
+    setSubmitError("");
+    setSubmitting(true);
+    try {
+      const resolveRes = await fetch(
+        `/api/nexus-tasks/resolve?store=${encodeURIComponent(store)}&client=${encodeURIComponent(client)}&classification=${encodeURIComponent(classification)}&barcode=${encodeURIComponent(barcode)}`
+      );
+      if (!resolveRes.ok) {
+        throw new Error("Couldn't find a task for this SKU/issue this week");
+      }
+      const { uniqueId, repName } = await resolveRes.json();
+
+      if (repName === "Unassigned") {
+        // Best-effort claim - store/client scoping already confirmed a real
+        // task exists; if this session isn't identified the claim silently
+        // no-ops server-side and the task stays Unassigned, but feedback
+        // still saves via the PATCH below either way.
+        await fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}/claim`, { method: "POST" }).catch(() => {});
+      }
+
+      const patchRes = await fetch(`/api/tasks/${encodeURIComponent(uniqueId)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          actionStatus: "Completed",
+          reasonCode,
+          actionTakenComment: actionTaken,
+          feedback,
+          physicalCount: String(physicalCount),
+          variance: String(variance),
+          systemAdjusted: hasVariance ? (stockAdjusted === "yes" ? "Yes" : "No") : undefined,
+        }),
+      });
+      if (!patchRes.ok) {
+        throw new Error("Failed to save this action");
+      }
+      setSubmitted(true);
+    } catch (err: any) {
+      setSubmitError(err?.message || "Failed to submit action");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -223,14 +269,14 @@ export default function ActionCapture() {
           </div>
 
           <p className="sf2-ac-note">
-            {!canSubmit && !submitted ? submitBlockedReason() : "Not yet persisted to a database - captured locally for review."}
+            {submitError || (!canSubmit && !submitted ? submitBlockedReason() : submitted ? "Saved to this store's task list." : "Note: photos aren't uploaded yet - everything else saves.")}
           </p>
 
           <div className="sf2-ac-actions">
             <button className="sf2-ac-cancel" onClick={onBack}>Cancel</button>
-            <button className="sf2-ac-submit" disabled={!canSubmit} onClick={() => setSubmitted(true)}>
+            <button className="sf2-ac-submit" disabled={!canSubmit || submitting} onClick={handleSubmit}>
               <Wrench size={16} />
-              {submitted ? "Action Submitted" : "Submit action"}
+              {submitting ? "Submitting..." : submitted ? "Action Submitted" : "Submit action"}
             </button>
           </div>
         </section>

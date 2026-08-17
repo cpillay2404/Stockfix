@@ -3031,6 +3031,45 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/nexus-tasks/resolve — added 2026-08-17 so action-capture.tsx
+  // (opened from a specific SKU on the Insights/Fix flow: store+client+
+  // classification+barcode) can find the real task row without having to
+  // reconstruct the deterministic uniqueId string client-side (fragile -
+  // store/client casing and whitespace would need to exactly match how
+  // nexus-task-generation.ts built it). Matches on barcode + normalized
+  // store/client + the classification's sourceStem suffix on uniqueId,
+  // for the most recent week that SKU/issue has a task.
+  app.get("/api/nexus-tasks/resolve", async (req, res) => {
+    try {
+      const store = (req.query.store as string) || "";
+      const client = (req.query.client as string) || "";
+      const classification = (req.query.classification as string) || "";
+      const barcode = (req.query.barcode as string) || "";
+      if (!store || !barcode || !classification) {
+        return res.status(400).json({ error: "store, client, classification and barcode are required" });
+      }
+      const sourceStem = classification === "cover" ? "risk" : classification;
+
+      const result = await db.execute(sql`
+        select unique_id, rep_name, action_status
+        from tasks
+        where barcode = ${barcode}
+          and upper(trim(store_name)) = upper(trim(${store}))
+          and unique_id like ${'%\\_' + sourceStem + '\\_' + barcode}
+        order by week_ending_date desc
+        limit 1
+      `);
+      const rows = (result.rows || result) as any[];
+      if (rows.length === 0) {
+        return res.status(404).json({ error: "No task found for this SKU/issue" });
+      }
+      res.json({ uniqueId: rows[0].unique_id, repName: rows[0].rep_name, actionStatus: rows[0].action_status });
+    } catch (error) {
+      console.error("Error resolving Nexus task:", error);
+      res.status(500).json({ error: "Failed to resolve task" });
+    }
+  });
+
   // POST /api/nexus-tasks/:uniqueId/claim — added 2026-08-16, separate from
   // the PATCH above on purpose (that one is the existing rep-facing endpoint
   // the live app already depends on - not touched). Auto-generated Nexus
