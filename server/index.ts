@@ -6,7 +6,6 @@ import path from "path";
 import { startWeeklyEmailScheduler } from "./scheduled-emails";
 import { startPilotBackupScheduler } from "./pilot-backup";
 import { startNexusWeeklyScheduler } from "./nexus-weekly-scheduler";
-import { ensurePhotosBucket } from "./supabase-storage";
 import cors from "cors";
 
 // Log-and-continue instead of crashing the whole server - added 2026-08-14
@@ -134,9 +133,6 @@ app.use((req, res, next) => {
       startWeeklyEmailScheduler();
       startPilotBackupScheduler();
       startNexusWeeklyScheduler();
-      ensurePhotosBucket().catch((e) =>
-        console.error("[storage] Bucket init error:", e)
-      );
 
       // ONE-TIME STARTUP SCRIPT: Fix mis-parsed week ending dates (2026-03-12 → 2026-03-11)
       // Excel serial numbers were off by one day during import
