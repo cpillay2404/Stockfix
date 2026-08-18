@@ -323,10 +323,13 @@ export default function SelectRepStore() {
       const data = await res.json();
       const allReps: string[] = data.allReps || [];
       setRepOptionsForStore(allReps);
+      // Only auto-fill when there's exactly one real answer. With 2+ people
+      // covering a store, auto-picking one (Carin, 2026-08-18: "shouldnt we
+      // have select and then a drop down?") looked like a confirmed choice
+      // (checkmark shown) when it was really just a guess - leave it blank
+      // so the person has to actively pick from the dropdown.
       if (allReps.length === 1) {
         setRepValue(allReps[0]);
-      } else if (data.rep) {
-        setRepValue(data.rep);
       }
     } catch {
       // leave rep unresolved - user can still pick manually if this fails
