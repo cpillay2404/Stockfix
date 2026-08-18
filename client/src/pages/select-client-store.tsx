@@ -143,13 +143,18 @@ export default function SelectClientStore() {
   // this used to read /api/dashboard/stats, whose client list comes from
   // the legacy tasks table, not the real synced Nexus data this new app
   // actually runs on.
-  const { data: realClientsData } = useQuery({
+  const { data: realClientsData, isError: clientsError, refetch: refetchClients, isFetching: clientsFetching } = useQuery({
     queryKey: ["all-clients"],
     queryFn: async () => {
       const res = await fetch("/api/roster/all-clients");
       if (!res.ok) throw new Error("Failed to fetch clients");
+      const ct = res.headers.get("content-type") || "";
+      if (!ct.includes("application/json")) throw new Error("Server returned non-JSON");
       return res.json();
     },
+    refetchOnMount: "always",
+    retry: 2,
+    retryDelay: 1000,
   });
 
   const { data: hasPasswordData } = useQuery({
@@ -331,9 +336,20 @@ export default function SelectClientStore() {
             value={clientValue}
             onValueChange={handleClientChange}
             options={clients}
-            placeholder="Select Client"
+            placeholder={clientsFetching ? "Loading clients..." : "Select Client"}
             testId="select-client"
           />
+          {clientsError && !clientsFetching && (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 8 }}>
+              <span style={{ fontSize: 12, color: "#F87171" }}>Failed to load clients.</span>
+              <button
+                onClick={() => refetchClients()}
+                style={{ fontSize: 12, color: ORANGE, background: "none", border: "none", cursor: "pointer", padding: 0, fontWeight: 600 }}
+              >
+                Try again
+              </button>
+            </div>
+          )}
         </div>
 
         {clientValue && requiresPassword && !isAuthenticated && (
