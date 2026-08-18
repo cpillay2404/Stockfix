@@ -472,6 +472,22 @@ if (!fs.existsSync('uploads')) fs.mkdirSync('uploads');
 if (!fs.existsSync('public')) fs.mkdirSync('public');
 if (!fs.existsSync('public/images')) fs.mkdirSync('public/images', { recursive: true });
 
+// Real bug found 2026-08-18 (Carin: "why would you put all other clients
+// data in the KPI cards" when a dedicated rep already covers one of them) -
+// "dedicated overrides syndicated" already existed for TASK ASSIGNMENT
+// (resolveCoverageForStore/rep-for-store), but the "All Clients" combined
+// view a syndicated rep sees was never filtered by it - it just showed
+// every client with real synced data at the store, including ones a
+// dedicated rep already exclusively covers. A syndicated rep isn't
+// responsible for those, so they shouldn't appear in their combined view.
+async function getDedicatedClientsAtStore(store: string): Promise<Set<string>> {
+  const rows = await db
+    .select({ clientScope: storeAssignments.clientScope })
+    .from(storeAssignments)
+    .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${store.toUpperCase().trim()} and ${storeAssignments.clientScope} != 'SYNDICATED'`);
+  return new Set(rows.map((r) => r.clientScope).filter((c): c is string => !!c));
+}
+
 // Real combined view across every client a syndicated rep covers at this
 // store - the dropdown's default state (Carin, 2026-08-13: "it must say
 // all and then the filter must drop down to the client" - stop
@@ -1302,7 +1318,11 @@ export async function registerRoutes(
         .orderBy(sql`${storeWeeklySummary.weekEnding} DESC`);
 
       if (explicitClient === "ALL" && clientScope === "SYNDICATED" && summaryRows.length > 0) {
-        return res.json(await buildAllClientsOverview(store, summaryRows));
+        const dedicatedClients = await getDedicatedClientsAtStore(store);
+        const syndicatedRows = dedicatedClients.size > 0 ? summaryRows.filter((r) => !dedicatedClients.has(r.client)) : summaryRows;
+        if (syndicatedRows.length > 0) {
+          return res.json(await buildAllClientsOverview(store, syndicatedRows));
+        }
       }
 
       let knownClient: string | undefined;
@@ -1469,7 +1489,11 @@ export async function registerRoutes(
           .where(sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = ${store.toUpperCase().trim()}`)
           .orderBy(sql`${storeWeeklySummary.weekEnding} DESC`);
         const latestWeek = allSummaryRows[0]?.weekEnding;
-        const realClients = Array.from(new Set(allSummaryRows.filter((r) => r.weekEnding === latestWeek).map((r) => r.client)));
+        const allRealClients = Array.from(new Set(allSummaryRows.filter((r) => r.weekEnding === latestWeek).map((r) => r.client)));
+        // Same "a syndicated rep isn't responsible for a client that already
+        // has dedicated coverage here" exclusion as the overview endpoint.
+        const dedicatedClients = await getDedicatedClientsAtStore(store);
+        const realClients = dedicatedClients.size > 0 ? allRealClients.filter((c) => !dedicatedClients.has(c)) : allRealClients;
         if (realClients.length > 0) {
           return res.json(await buildAllClientsSkuList(store, classification, realClients));
         }
