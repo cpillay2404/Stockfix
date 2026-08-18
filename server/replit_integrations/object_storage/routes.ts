@@ -46,18 +46,9 @@ export function registerObjectStorageRoutes(app: Express): void {
     try {
       const client = makeClient();
       const objectKey = `${PREFIX}/${objectId}`;
-      const result = await client.uploadFromStream(objectKey, req, {
-        contentType,
-      });
-
-      if (!result.ok) {
-        const msg =
-          typeof result.error === "string"
-            ? result.error
-            : (result.error as Error)?.message ?? "Upload failed";
-        console.error("[storage] uploadFromStream error:", msg);
-        return res.status(500).json({ error: "Failed to store uploaded file" });
-      }
+      // uploadFromStream returns Promise<void> — resolves on success, rejects with
+      // StreamRequestError on failure. Do NOT check result.ok (there is no Result wrapper).
+      await client.uploadFromStream(objectKey, req, { contentType });
 
       res.status(200).json({ ok: true });
     } catch (err: any) {
