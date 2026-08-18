@@ -141,12 +141,16 @@ export default function ManagerProgress() {
   const urlParams = new URLSearchParams(window.location.search);
   const selectedManager = urlParams.get('manager') || '';
 
+  // Real bug found 2026-08-18: /api/clients sources its list from the
+  // legacy tasks table - switched to the real synced Nexus client list
+  // (same fix already applied to the client-login dropdown).
   const { data: clientsList } = useQuery({
     queryKey: ["clients-list"],
     queryFn: async () => {
-      const res = await fetch('/api/clients');
+      const res = await fetch('/api/roster/all-clients');
       if (!res.ok) return [];
-      return res.json();
+      const data = await res.json();
+      return data.clients || [];
     },
   });
 

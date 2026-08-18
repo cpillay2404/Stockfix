@@ -182,13 +182,16 @@ export default function AdminLeaderboard() {
     setClearing(false);
   };
 
-  // Fetch available clients for dropdown
+  // Fetch available clients for dropdown - real bug found 2026-08-18:
+  // /api/clients sources its list from the legacy tasks table, switched
+  // to the real synced Nexus client list.
   const { data: clientsData } = useQuery<string[]>({
     queryKey: ["clients"],
     queryFn: async () => {
-      const res = await fetch("/api/clients");
+      const res = await fetch("/api/roster/all-clients");
       if (!res.ok) throw new Error("Failed to fetch");
-      return res.json();
+      const data = await res.json();
+      return data.clients || [];
     },
     staleTime: 300000,
   });
