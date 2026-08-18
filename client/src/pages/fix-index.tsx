@@ -17,10 +17,10 @@ interface OverviewResponse {
   suggestedOrderSkuCount: number;
   negSOHCount: number;
   oosCount: number;
-  // Fix's own narrower, actionable Overstock number - only SKUs that
-  // already have a real nexus_tasks row (a real assignee exists). Not the
-  // same as Insights' overstockCount, which is the full uncapped reality.
-  overstockCountFix: number;
+  lowStockCount: number;
+  // Carin, 2026-08-18: "same with overstock" - Fix now shows the same real
+  // full number as Insights here too, not a narrower nexus_tasks-based one.
+  overstockCount: number;
   atRiskCount: number;
   distributionGapsCount: number;
 }
@@ -78,20 +78,25 @@ export default function FixIndex() {
             with a full description under each; title + count is enough for
             a menu a rep returns to often, description isn't needed every time. */}
         <section className="sf2-list sf2-list-compact">
+          {/* Carin, 2026-08-18: "we need to show the 64 here" - the real
+              full count (matching the list), not the further-narrowed P1
+              subset which could legitimately read much smaller or 0.
+              priority=P1 removed from the tap-through too, so the badge and
+              the list it opens always agree. */}
           <button
             className="sf2-listrow tone-red"
-            onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=oos&priority=P1${clientQS}`)}
+            onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=oos${clientQS}`)}
           >
-            <div className="sf2-listrow-title">Out of Stock - Critical</div>
-            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.oosP1Count}</span><ChevronRight size={16} /></div>
+            <div className="sf2-listrow-title">Out of Stock</div>
+            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.oosCount}</span><ChevronRight size={16} /></div>
           </button>
 
           <button
             className="sf2-listrow tone-orange"
-            onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=low&priority=P1${clientQS}`)}
+            onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=low${clientQS}`)}
           >
-            <div className="sf2-listrow-title">Low Stock - Critical</div>
-            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.lowStockP1Count}</span><ChevronRight size={16} /></div>
+            <div className="sf2-listrow-title">Low Stock</div>
+            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.lowStockCount}</span><ChevronRight size={16} /></div>
           </button>
 
           <button
@@ -115,7 +120,7 @@ export default function FixIndex() {
             onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=overstock${clientQS}`)}
           >
             <div className="sf2-listrow-title">Overstock</div>
-            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.overstockCountFix}</span><ChevronRight size={16} /></div>
+            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.overstockCount}</span><ChevronRight size={16} /></div>
           </button>
 
           <button
