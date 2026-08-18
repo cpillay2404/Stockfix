@@ -37,7 +37,7 @@ import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRost
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync } from "./nexus-sync";
-import { claimTask, generateTasksForWeek, createTaskOnDemand } from "./nexus-task-generation";
+import { claimTask, generateTasksForWeek, createTaskOnDemand, countRealOverstockAtStore } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks } from "@shared/schema";
 
 function safeParseFloat(val: string | number | null | undefined): number {
@@ -484,22 +484,18 @@ if (!fs.existsSync('public/images')) fs.mkdirSync('public/images', { recursive: 
 
 // Overstock is no longer "cover >= 18 weeks" (store_weekly_summary's
 // precomputed overstockCount, the old blanket rule) - Carin gave real
-// per-client "no sales in N days" criteria instead (client_overstock_rules,
-// applied in generateTasksForWeek). nexus_tasks is the only place that
-// real per-client logic lives now, so every Overstock count/list must read
-// from there, not the stale precomputed column (real bug found 2026-08-18:
-// the Fix screen still showed the old 556-SKU blanket-rule count after the
-// per-client regeneration had already run).
-async function getOverstockCountFromTasks(store: string, client?: string): Promise<number> {
-  const clientFilter = client && client !== "ALL" && client !== "SYNDICATED" ? sql`and client = ${client}` : sql``;
-  const result = await db.execute(sql`
-    select count(*)::int as count from nexus_tasks
-    where lower(trim(store_name)) = lower(trim(${store}))
-      and unique_id like '%\_overstock\_%' escape '\'
-      ${clientFilter}
-  `);
-  const rows = (result.rows || result) as any[];
-  return Number(rows[0]?.count) || 0;
+// per-client "no sales in N days" criteria instead (client_overstock_rules).
+// Both Insights and Fix read this same badge (Carin, 2026-08-18: Insights
+// "must show all overstocks" - the full real number - while Fix "must be
+// the fixes based on the predefined client ones" - only clients with a
+// rule count at all). countRealOverstockAtStore satisfies both: it's a
+// live query against store_sku_weekly using the exact per-client checkpoint
+// logic, restricted to clients that actually have a rule, and NOT gated by
+// nexus_tasks (which silently drops rows for stores with no call-cycle
+// assignee - real bug found 2026-08-18: counting nexus_tasks rows
+// undercounted every store with a coverage gap).
+async function getOverstockCountForStore(store: string, week: string, client?: string): Promise<number> {
+  return countRealOverstockAtStore(store, week, client);
 }
 
 async function buildAllClientsOverview(store: string, summaryRows: any[]) {
@@ -522,7 +518,7 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
   const totalSkus = sumBy(latestRows, "totalSkus");
   const oosCount = sumBy(latestRows, "oosCount");
   const lowStockCount = sumBy(latestRows, "lowStockCount");
-  const overstockCount = await getOverstockCountFromTasks(store);
+  const overstockCount = await getOverstockCountForStore(store, latestWeek);
   const salesAtRiskSkuCount = sumBy(latestRows, "salesAtRiskSkuCount");
   const dcAvailabilityPct = weightedAvg(latestRows, "dcAvailabilityPct", "oosCount", 100);
   const avgWeeksOfCover = weightedAvg(latestRows, "avgWeeksOfCover", "lowStockCount", 0);
@@ -1306,6 +1302,7 @@ export async function registerRoutes(
       let deltas: Record<string, number> | null = null;
       let atRiskCount = 0;
       let distributionGapsCount = 0;
+      let resolvedWeek: string | undefined;
 
       if (summaryRows.length > 0) {
         const relevantRows = clientScope === "SYNDICATED"
@@ -1314,6 +1311,7 @@ export async function registerRoutes(
         const rowsToUse = relevantRows.length > 0 ? relevantRows : summaryRows;
 
         const latestWeek = rowsToUse[0]?.weekEnding;
+        resolvedWeek = latestWeek;
         const latestForEachClient = rowsToUse.filter((r) => r.weekEnding === latestWeek);
         const bestRow = latestForEachClient.sort((a, b) => (b.oosCount + b.lowStockCount) - (a.oosCount + a.lowStockCount))[0];
 
@@ -1385,8 +1383,10 @@ export async function registerRoutes(
       }
       // Overrides fetchStoreOverviewFast's stale store_weekly_summary-based
       // overstockCount (old cover>=18 blanket rule) with the real per-client
-      // "no sales in N days" count from nexus_tasks.
-      overview.overstockCount = await getOverstockCountFromTasks(store, knownClient || clientScope);
+      // "no sales in N days" count.
+      if (resolvedWeek) {
+        overview.overstockCount = await getOverstockCountForStore(store, resolvedWeek, knownClient || clientScope);
+      }
 
       // At Risk now comes straight off overview (computed there from the
       // same skuRows already loaded - no second DB round-trip). Distribution
