@@ -85,16 +85,22 @@ async function buildStoreCoverageMap(): Promise<Map<string, { empId: string; res
   return map;
 }
 
+// Generalized 2026-08-18 - this only ever special-cased "P&G" (real bug
+// found the same day: a Duracell-dedicated rep was showing up assigned to
+// Sodastream tasks, because every non-P&G client fell straight through to
+// the SYNDICATED-only filter, never checking for that client's own
+// dedicated coverage). store_assignments now has real per-client scopes
+// (DURACELL/SODASTREAM/AQUELLE/NESTLE/P&G/SYNDICATED) after today's
+// rebuild, so dedicated-overrides-syndicated must apply to all of them,
+// not just P&G.
 function resolveAssignees(
   coverage: Map<string, { empId: string; resourceName: string; clientScope: string }[]>,
   storeName: string,
   client: string
 ): { empId: string; resourceName: string }[] {
   const entries = coverage.get(String(storeName).toUpperCase().trim()) || [];
-  if (client === "P&G") {
-    const dedicated = entries.filter((e) => e.clientScope === "P&G");
-    if (dedicated.length > 0) return dedicated;
-  }
+  const dedicated = entries.filter((e) => e.clientScope === client);
+  if (dedicated.length > 0) return dedicated;
   return entries.filter((e) => e.clientScope === "SYNDICATED");
 }
 
@@ -419,14 +425,13 @@ export async function createTaskOnDemand(params: {
   const sourceStem = params.classification === "cover" ? "risk" : params.classification;
   const normalizedStore = params.store.trim().toUpperCase();
 
+  // Same generalization as resolveAssignees above - not just P&G.
   async function resolveCoverageForStore(storeName: string, client: string): Promise<{ empId: string; resourceName: string }[]> {
     const rows = await db.select().from(storeAssignments)
       .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${storeName.toUpperCase().trim()}`);
     const entries = rows.map((r) => ({ empId: r.resourceEmpId, resourceName: r.resourceName, clientScope: r.clientScope }));
-    if (client === "P&G") {
-      const dedicated = entries.filter((e) => e.clientScope === "P&G");
-      if (dedicated.length > 0) return dedicated;
-    }
+    const dedicated = entries.filter((e) => e.clientScope === client);
+    if (dedicated.length > 0) return dedicated;
     return entries.filter((e) => e.clientScope === "SYNDICATED");
   }
 
