@@ -130,14 +130,6 @@ export default function FixIndex() {
             <div className="sf2-listrow-title">Distribution Gaps</div>
             <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.distributionGapsCount}</span><ChevronRight size={16} /></div>
           </button>
-
-          <button
-            className="sf2-listrow tone-blue"
-            onClick={() => setLocation(`/tasks?rep=${encodeURIComponent(rep)}`)}
-          >
-            <div className="sf2-listrow-title">Feedback / resolve issue</div>
-            <ChevronRight size={16} />
-          </button>
         </section>
       </main>
 
