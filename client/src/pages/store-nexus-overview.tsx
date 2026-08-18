@@ -265,7 +265,17 @@ export default function StoreOverview() {
               store, but had no way out at all once a SKU was selected
               inline (Carin: "now i cant get out of here, no back button").
               Goes back to store selection, the screen before this one. */}
-          <button className="icon-btn" onClick={() => setLocation(`/select-rep?role=${encodeURIComponent(role)}`)}><ArrowLeft size={20} /></button>
+          {/* Fixed 2026-08-18 (Carin: client back-nav landed on the legacy
+              Store Overview page) - a client visit never has a `rep` param,
+              so route it back to client/store selection instead of the
+              rep-only /select-rep screen ClientGuard would just bounce it
+              off of. */}
+          <button
+            className="icon-btn"
+            onClick={() => setLocation(rep ? `/select-rep?role=${encodeURIComponent(role)}` : "/select-client-store")}
+          >
+            <ArrowLeft size={20} />
+          </button>
           <BrandLogo size={20} />
         </div>
         <div className="sf2-topbar-right">

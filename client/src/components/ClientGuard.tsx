@@ -13,7 +13,11 @@ export function ClientGuard({ children }: ClientGuardProps) {
   useEffect(() => {
     if (accessMode === "client" && clientLocked) {
       if (selectedClient && selectedStore) {
-        setLocation(`/store-overview?store=${encodeURIComponent(selectedStore)}&client=${encodeURIComponent(selectedClient)}`);
+        // Fixed 2026-08-18 (Carin: client back-nav landed on the legacy
+        // light-theme Store Overview) - a locked client session must stay
+        // on the same new Insights/Fix screens a rep/merchandiser uses, not
+        // fall back to the old /store-overview page.
+        setLocation(`/store-detail?store=${encodeURIComponent(selectedStore)}&client=${encodeURIComponent(selectedClient)}`);
       } else {
         setLocation("/select-client");
       }
