@@ -1,56 +1,89 @@
 import type { Express } from "express";
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { Client } from "@replit/object-storage";
+import { randomUUID } from "crypto";
 
 /**
- * Photo storage routes using Replit Object Storage (GCS via local sidecar).
+ * Photo storage via @replit/object-storage SDK.
  *
- * Requires a Replit Object Storage bucket to be created via the Replit UI
- * (Tools → Object Storage → Create bucket). Once created, Replit automatically
- * sets PRIVATE_OBJECT_DIR and PUBLIC_OBJECT_SEARCH_PATHS env vars.
+ * Uses a server-proxy upload flow so the client interface stays unchanged:
+ * 1. POST /api/uploads/request-url  → { uploadURL: "/api/uploads/proxy-put/:id", objectPath: "/objects/:id" }
+ * 2. Client PUTs file body to uploadURL (our server, not GCS directly)
+ * 3. Server streams body into Object Storage via SDK
+ * 4. GET /objects/:id → served back via SDK downloadAsStream
  *
- * Flow:
- * 1. POST /api/uploads/request-url — returns a signed PUT URL + objectPath
- * 2. Client uploads file directly to the signed URL (PUT)
- * 3. GET /objects/:path — serves the file from object storage
+ * Bucket: FrankGuiltyMatrix (created via Replit Tools → Object Storage)
  */
-export function registerObjectStorageRoutes(app: Express): void {
-  const objectStorageService = new ObjectStorageService();
 
-  app.post("/api/uploads/request-url", async (req, res) => {
+const BUCKET_ID = "FrankGuiltyMatrix";
+const PREFIX = "photos";
+
+function makeClient() {
+  return new Client({ bucketId: BUCKET_ID });
+}
+
+export function registerObjectStorageRoutes(app: Express): void {
+  // Step 1 — client requests an upload slot
+  app.post("/api/uploads/request-url", (req, res) => {
+    const { name, size, contentType } = req.body ?? {};
+    if (!name) {
+      return res.status(400).json({ error: "Missing required field: name" });
+    }
+
+    const objectId = randomUUID();
+    const uploadURL = `/api/uploads/proxy-put/${objectId}`;
+    const objectPath = `/objects/${objectId}`;
+
+    res.json({ uploadURL, objectPath, metadata: { name, size, contentType } });
+  });
+
+  // Step 2 — client PUTs raw file body here; we stream it into Object Storage
+  app.put("/api/uploads/proxy-put/:objectId", async (req, res) => {
+    const { objectId } = req.params;
+    const contentType =
+      req.headers["content-type"] || "application/octet-stream";
+
     try {
-      const { name, size, contentType } = req.body;
-      if (!name) {
-        return res.status(400).json({ error: "Missing required field: name" });
+      const client = makeClient();
+      const objectKey = `${PREFIX}/${objectId}`;
+      const result = await client.uploadFromStream(objectKey, req, {
+        contentType,
+      });
+
+      if (!result.ok) {
+        const msg =
+          typeof result.error === "string"
+            ? result.error
+            : (result.error as Error)?.message ?? "Upload failed";
+        console.error("[storage] uploadFromStream error:", msg);
+        return res.status(500).json({ error: "Failed to store uploaded file" });
       }
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
-
-      res.json({ uploadURL, objectPath, metadata: { name, size, contentType } });
-    } catch (error: any) {
-      const isSetupError =
-        error?.message?.includes("PRIVATE_OBJECT_DIR") ||
-        error?.message?.includes("Object Storage");
-
-      console.error("[storage] Error generating upload URL:", error?.message);
-      res.status(500).json({
-        error: isSetupError
-          ? "Photo storage not configured — create an Object Storage bucket in the Replit UI"
-          : "Failed to generate upload URL",
-      });
+      res.status(200).json({ ok: true });
+    } catch (err: any) {
+      console.error("[storage] proxy-put error:", err?.message);
+      res.status(500).json({ error: "Failed to store uploaded file" });
     }
   });
 
-  app.get("/objects/:objectPath(*)", async (req, res) => {
+  // Serve stored objects
+  app.get("/objects/:objectId(*)", async (req, res) => {
+    const objectId = req.params.objectId;
+    const objectKey = `${PREFIX}/${objectId}`;
+
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      await objectStorageService.downloadObject(objectFile, res);
-    } catch (error) {
-      if (error instanceof ObjectNotFoundError) {
+      const client = makeClient();
+      const result = await client.downloadAsStream(objectKey);
+
+      if (!result.ok) {
         return res.status(404).json({ error: "Photo not found" });
       }
-      console.error("[storage] Error serving photo:", error);
-      return res.status(500).json({ error: "Failed to serve photo" });
+
+      res.set("Content-Type", "application/octet-stream");
+      res.set("Cache-Control", "private, max-age=3600");
+      result.value.pipe(res);
+    } catch (err: any) {
+      console.error("[storage] download error:", err?.message);
+      res.status(500).json({ error: "Failed to serve photo" });
     }
   });
 }
