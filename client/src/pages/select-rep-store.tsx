@@ -323,14 +323,10 @@ export default function SelectRepStore() {
       const data = await res.json();
       const allReps: string[] = data.allReps || [];
       setRepOptionsForStore(allReps);
-      // Only auto-fill when there's exactly one real answer. With 2+ people
-      // covering a store, auto-picking one (Carin, 2026-08-18: "shouldnt we
-      // have select and then a drop down?") looked like a confirmed choice
-      // (checkmark shown) when it was really just a guess - leave it blank
-      // so the person has to actively pick from the dropdown.
-      if (allReps.length === 1) {
-        setRepValue(allReps[0]);
-      }
+      // Never auto-fill, even with exactly one real match (Carin,
+      // 2026-08-18: "dont auto pick... the rep/merch selects his name") -
+      // the person must actively confirm their own identity by picking it,
+      // not have it silently filled in as if already confirmed.
     } catch {
       // leave rep unresolved - user can still pick manually if this fails
     }
@@ -412,13 +408,19 @@ export default function SelectRepStore() {
         </label>
         <PickerField
           value={repValue}
-          placeholder={storeValue ? "No one assigned to this store" : "Select a store first"}
-          onOpen={() => storeValue && setShowRepSelector(true)}
-          disabled={!storeValue}
+          placeholder={
+            !storeValue
+              ? "Select a store first"
+              : repOptionsForStore.length === 0
+              ? "No one assigned to this store"
+              : "Select your name"
+          }
+          onOpen={() => storeValue && repOptionsForStore.length > 0 && setShowRepSelector(true)}
+          disabled={!storeValue || repOptionsForStore.length === 0}
         />
-        {storeValue && repOptionsForStore.length > 1 && (
+        {storeValue && repOptionsForStore.length > 0 && (
           <p style={{ fontSize: 12, color: TEXT_MUTED, marginTop: 8 }}>
-            {repOptionsForStore.length} people cover this store - tap above to choose a different one.
+            {repOptionsForStore.length === 1 ? "1 person covers" : `${repOptionsForStore.length} people cover`} this store - tap above to select your name.
           </p>
         )}
 

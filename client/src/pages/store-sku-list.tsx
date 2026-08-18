@@ -313,9 +313,13 @@ export default function StoreSkuList() {
                     // No DC stock = escalate, regardless of what the target-
                     // cover formula calculates as a theoretical order size.
                     const dcCanFulfill = (r.dcSoh || 0) > 0 || (r.dcFulfillableUnits || 0) > 0;
-                    if (classification === "overstock" && r.cover !== null) {
-                      return <div className="sf2-listrow-status ok">{`+${(r.cover - OVERSTOCK_TARGET_WEEKS).toFixed(1)}w`}</div>;
-                    }
+                    // Removed 2026-08-18 - "+X.Xw excess vs 6-week target"
+                    // was leftover from the old blanket cover>=18 rule and
+                    // could show nonsense like "+-6.0w" (cover 0.0, target
+                    // 6). Overstock now qualifies by real per-client
+                    // no-sales-days criteria, not a cover target, so there's
+                    // no meaningful "excess" number to show per row - the
+                    // real reason is already in the action text below.
                     if (!dcCanFulfill && (classification === "low" || classification === "oos" || classification === "risk")) {
                       return <div className="sf2-listrow-status warn">no DC</div>;
                     }

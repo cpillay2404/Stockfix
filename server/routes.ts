@@ -617,6 +617,12 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
     suggestedOrderUnitsTotal: sumOk((o) => o.suggestedOrderUnitsTotal || 0),
     suggestedOrderDcSupportedCount: sumOk((o) => o.suggestedOrderDcSupportedCount || 0),
     immediateActionCount: sumOk((o) => o.immediateActionCount || 0),
+    // Real bug found 2026-08-18: these two never made it into the combined
+    // "All Clients" response at all (only immediateActionCount, their sum,
+    // was here) - Fix screen's Out of Stock/Low Stock - Critical badges
+    // showed blank instead of 0 or a real number.
+    oosP1Count: sumOk((o) => o.oosP1Count || 0),
+    lowStockP1Count: sumOk((o) => o.lowStockP1Count || 0),
     salesAtRiskSkuCount,
     topIssues: ok
       .flatMap((c) => c.overview.topIssues || [])
