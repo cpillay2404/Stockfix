@@ -4,6 +4,7 @@ import tailwindcss from "@tailwindcss/vite";
 import path from "path";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { metaImagesPlugin } from "./vite-plugin-meta-images";
+import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
   plugins: [
@@ -11,6 +12,52 @@ export default defineConfig({
     runtimeErrorOverlay(),
     tailwindcss(),
     metaImagesPlugin(),
+    VitePWA({
+      registerType: "autoUpdate",
+      // SW registration is handled manually in main.tsx (PROD only)
+      // to avoid the virtual:pwa-register import failing in dev.
+      injectRegister: null,
+      manifest: false,
+      workbox: {
+        // Cache all built assets
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,woff2}"],
+        navigateFallback: "index.html",
+        // Don't use cached fallback for API routes
+        navigateFallbackDenylist: [/^\/api\//, /^\/objects\//],
+        runtimeCaching: [
+          {
+            // API: network-first with short cache fallback
+            urlPattern: /^\/api\//,
+            handler: "NetworkFirst",
+            options: {
+              cacheName: "stockfix-api",
+              networkTimeoutSeconds: 8,
+              expiration: { maxEntries: 60, maxAgeSeconds: 5 * 60 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
+            // Google Fonts CSS
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\//,
+            handler: "StaleWhileRevalidate",
+            options: { cacheName: "google-fonts-stylesheets" },
+          },
+          {
+            // Google Fonts files — cache aggressively (1 year)
+            urlPattern: /^https:\/\/fonts\.gstatic\.com\//,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-webfonts",
+              expiration: {
+                maxEntries: 10,
+                maxAgeSeconds: 365 * 24 * 60 * 60,
+              },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
+      },
+    }),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
