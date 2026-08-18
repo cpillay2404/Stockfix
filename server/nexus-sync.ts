@@ -29,9 +29,12 @@ const NEXUS_BASE_URL =
   process.env.NEXUS_BASE_URL ||
   "https://stockfix-validate-fdhkefdwc6dmejda.northeurope-01.azurewebsites.net";
 
+// Davidoff removed 2026-08-18 (Carin: "should be out no longer receiving
+// the data from this client") - the weekly sync must never touch it again,
+// otherwise it keeps reappearing in store_weekly_summary indefinitely.
 const NEXUS_CLIENTS = [
   "AGROSERVE", "ALPEN", "ANCHOR YEAST", "AQUELLE", "ASPEN", "BUTTERFLY",
-  "CAPE COOKIES", "DAVIDOFF", "DURACELL", "DYNAMIC BRANDS", "ETHICA",
+  "CAPE COOKIES", "DURACELL", "DYNAMIC BRANDS", "ETHICA",
   "LINDT", "MAGALIES", "P&G", "PENFLEX", "PMI", "SCJ", "SIR JUICE",
   "SODASTREAM", "SOILL", "STAEDTLER", "SWEET NOTHINGS", "TACOMA",
   "ULTRACHEM", "WILMAR",
