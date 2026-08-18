@@ -481,6 +481,27 @@ if (!fs.existsSync('public/images')) fs.mkdirSync('public/images', { recursive: 
 // a plain sum would be wrong - weighted by the same denominator each was
 // originally computed over (oosCount / lowStockCount) so the combined
 // figure stays a real weighted average, not a fabricated blend.
+
+// Overstock is no longer "cover >= 18 weeks" (store_weekly_summary's
+// precomputed overstockCount, the old blanket rule) - Carin gave real
+// per-client "no sales in N days" criteria instead (client_overstock_rules,
+// applied in generateTasksForWeek). nexus_tasks is the only place that
+// real per-client logic lives now, so every Overstock count/list must read
+// from there, not the stale precomputed column (real bug found 2026-08-18:
+// the Fix screen still showed the old 556-SKU blanket-rule count after the
+// per-client regeneration had already run).
+async function getOverstockCountFromTasks(store: string, client?: string): Promise<number> {
+  const clientFilter = client && client !== "ALL" && client !== "SYNDICATED" ? sql`and client = ${client}` : sql``;
+  const result = await db.execute(sql`
+    select count(*)::int as count from nexus_tasks
+    where lower(trim(store_name)) = lower(trim(${store}))
+      and unique_id like '%\_overstock\_%' escape '\'
+      ${clientFilter}
+  `);
+  const rows = (result.rows || result) as any[];
+  return Number(rows[0]?.count) || 0;
+}
+
 async function buildAllClientsOverview(store: string, summaryRows: any[]) {
   const latestWeek = summaryRows[0]?.weekEnding;
   const latestRows = summaryRows.filter((r) => r.weekEnding === latestWeek);
@@ -501,7 +522,7 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
   const totalSkus = sumBy(latestRows, "totalSkus");
   const oosCount = sumBy(latestRows, "oosCount");
   const lowStockCount = sumBy(latestRows, "lowStockCount");
-  const overstockCount = sumBy(latestRows, "overstockCount");
+  const overstockCount = await getOverstockCountFromTasks(store);
   const salesAtRiskSkuCount = sumBy(latestRows, "salesAtRiskSkuCount");
   const dcAvailabilityPct = weightedAvg(latestRows, "dcAvailabilityPct", "oosCount", 100);
   const avgWeeksOfCover = weightedAvg(latestRows, "avgWeeksOfCover", "lowStockCount", 0);
@@ -535,7 +556,8 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
     deltas = {
       oosCount: oosCount - prevOos,
       lowStockCount: lowStockCount - sumBy(prevRows, "lowStockCount"),
-      overstockCount: overstockCount - sumBy(prevRows, "overstockCount"),
+      // No delta for overstockCount - it now comes from nexus_tasks (real
+      // per-client rules), which has no historical snapshot to diff against.
       atRiskCount: sumBy(latestRows, "atRiskCount") - sumBy(prevRows, "atRiskCount"),
       distributionGapsCount: sumBy(latestRows, "distributionGapsCount") - sumBy(prevRows, "distributionGapsCount"),
       ...(prevInStockPct !== null && currInStockPct !== null
@@ -711,7 +733,40 @@ async function fetchSkuListForClient(client: string, store: string, classificati
     return { resolvedClient: client, rows, missingSkus: gaps.missingSkus, rangedSkus: skuList.rows.length, avgCoveragePct: gaps.avgCoverage };
   }
 
-  const result = await fetchIssueDetailList(client, store, classification as "oos" | "low" | "overstock", client);
+  if (classification === "overstock") {
+    // Real per-client rule (client_overstock_rules via generateTasksForWeek),
+    // same fix as the single-client sku-list branch above - this per-client
+    // helper was still calling the legacy fetchIssueDetailList (its own,
+    // separate blanket-rule source), which is why "All Clients" kept
+    // showing the stale count even after the single-client path was fixed.
+    const result = await db.execute(sql`
+      select barcode, article_description, store_soh, dc_soh, p4_week_sales, store_wfc, stock_classification, action
+      from nexus_tasks
+      where lower(trim(store_name)) = lower(trim(${store}))
+        and client = ${client}
+        and unique_id like '%\_overstock\_%' escape '\'
+      order by store_soh desc
+    `);
+    const taskRows = (result.rows || result) as any[];
+    const rows = taskRows.map((r) => ({
+      barcode: r.barcode,
+      articleDescription: r.article_description,
+      storeSoh: Number(r.store_soh) || 0,
+      dcSoh: r.dc_soh != null ? Number(r.dc_soh) : null,
+      sellOutP4: r.p4_week_sales != null ? Number(r.p4_week_sales) : null,
+      cover: r.store_wfc != null ? Number(r.store_wfc) : null,
+      estimatedMissedUnits: 0,
+      action: r.action,
+      classification: r.stock_classification || "Overstock",
+      issueDriver: null as string | null,
+      suggestedOrderUnits: null as number | null,
+      dcFulfillableUnits: null as number | null,
+      client,
+    }));
+    return { resolvedClient: client, rows, missingSkus: undefined, rangedSkus: undefined, avgCoveragePct: undefined };
+  }
+
+  const result = await fetchIssueDetailList(client, store, classification as "oos" | "low", client);
   return {
     resolvedClient: client,
     rows: result.rows.map((r: any) => ({ ...r, client })),
@@ -749,6 +804,8 @@ async function buildAllClientsSkuList(store: string, classification: string, rea
 
   const sorted = classification === "cover"
     ? rows.sort((a: any, b: any) => (a.cover ?? 0) - (b.cover ?? 0))
+    : classification === "overstock"
+    ? rows.sort((a: any, b: any) => (b.storeSoh || 0) - (a.storeSoh || 0))
     : rows.sort((a: any, b: any) => (b.estimatedMissedUnits || 0) - (a.estimatedMissedUnits || 0));
 
   return { storeName: store, resolvedClient: "All Clients", rows: sorted };
@@ -1296,7 +1353,7 @@ export async function registerRoutes(
             deltas = {
               oosCount: bestRow.oosCount - previousWeekRow.oosCount,
               lowStockCount: bestRow.lowStockCount - previousWeekRow.lowStockCount,
-              overstockCount: bestRow.overstockCount - previousWeekRow.overstockCount,
+              // No delta for overstockCount - see buildAllClientsOverview's comment.
               atRiskCount: atRiskCount - (previousWeekRow.atRiskCount || 0),
               distributionGapsCount: distributionGapsCount - (previousWeekRow.distributionGapsCount || 0),
               ...(prevInStockPct !== null && currInStockPct !== null
@@ -1326,6 +1383,10 @@ export async function registerRoutes(
       if (!overview) {
         return res.status(404).json({ error: "No live Nexus data found for this store" });
       }
+      // Overrides fetchStoreOverviewFast's stale store_weekly_summary-based
+      // overstockCount (old cover>=18 blanket rule) with the real per-client
+      // "no sales in N days" count from nexus_tasks.
+      overview.overstockCount = await getOverstockCountFromTasks(store, knownClient || clientScope);
 
       // At Risk now comes straight off overview (computed there from the
       // same skuRows already loaded - no second DB round-trip). Distribution
@@ -1522,13 +1583,48 @@ export async function registerRoutes(
         });
       }
 
-      // Fast local path 2026-08-16 for the main OOS/Low/Overstock lists -
-      // was still calling live Nexus (fetchIssueDetailList) on every
-      // request, the one classification list that hadn't been migrated yet.
+      if (classification === "overstock") {
+        // Real per-client "no sales in N days" rule (client_overstock_rules,
+        // applied by generateTasksForWeek) - nexus_tasks is the only place
+        // that logic lives, not storeSkuWeekly's classification column
+        // (still the old blanket cover>=18 rule - real bug found 2026-08-18:
+        // this list kept showing the blanket-rule 556 SKUs after the
+        // per-client regeneration had already replaced them in nexus_tasks).
+        const clientFilter = clientScope !== "SYNDICATED" && clientScope !== "ALL" ? sql`and client = ${clientScope}` : sql``;
+        const result = await db.execute(sql`
+          select barcode, article_description, client, store_soh, dc_soh, p4_week_sales, store_wfc, stock_classification, action
+          from nexus_tasks
+          where lower(trim(store_name)) = lower(trim(${store}))
+            and unique_id like '%\_overstock\_%' escape '\'
+            ${clientFilter}
+          order by store_soh desc
+        `);
+        const taskRows = (result.rows || result) as any[];
+        const overstockRows = taskRows.map((r) => ({
+          barcode: r.barcode,
+          articleDescription: r.article_description,
+          client: r.client,
+          storeSoh: Number(r.store_soh) || 0,
+          dcSoh: r.dc_soh != null ? Number(r.dc_soh) : null,
+          sellOutP4: r.p4_week_sales != null ? Number(r.p4_week_sales) : null,
+          cover: r.store_wfc != null ? Number(r.store_wfc) : null,
+          estimatedMissedUnits: 0,
+          action: r.action,
+          classification: r.stock_classification || "Overstock",
+          issueDriver: null,
+          suggestedOrderUnits: null,
+          dcFulfillableUnits: null,
+        }));
+        return res.json({ storeName: store, resolvedClient: knownClient || clientScope, rows: overstockRows });
+      }
+
+      // Fast local path 2026-08-16 for the main OOS/Low lists - was still
+      // calling live Nexus (fetchIssueDetailList) on every request, the one
+      // classification list that hadn't been migrated yet.
       // Optional ?priority=P1 filters to just that priority tier (e.g. the
       // Fix screen's "Out of Stock - Critical" / "Low Stock - Critical"
       // buckets, split out 2026-08-16 instead of one combined P1 count).
-      const sourceStemFilter = classification === "oos" ? "oos" : classification === "low" ? "low" : "overstock";
+      const sourceStemFilter = classification === "oos" ? "oos" : "low";
       const priorityFilter = String(req.query.priority || "").trim();
       const skuList = await fetchStoreSkuListFast(clientScope, store, knownClient);
       let filteredRows = skuList.rows.filter((r) => r.sourceStem === sourceStemFilter);
