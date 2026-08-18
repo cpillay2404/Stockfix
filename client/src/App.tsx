@@ -110,7 +110,7 @@ function App() {
     return (
       <SplashScreen
         onComplete={() => setShowSplash(false)}
-        minDisplayTime={1100}
+        minDisplayTime={8000 /* TEMP for review - revert to 1100 before shipping */}
       />
     );
   }
