@@ -159,7 +159,12 @@ export default function SelectClientStore() {
     enabled: !!clientValue,
   });
 
-  const requiresPassword = hasPasswordData?.hasPassword === true;
+  // TEMPORARILY DISABLED 2026-08-18 (Carin: "remove password for now so we
+  // can see whats happening then we create passwords") - real passwords
+  // haven't been set up for this new flow yet. Revert to
+  // `hasPasswordData?.hasPassword === true` once client_passwords has real
+  // entries for the clients being tested.
+  const requiresPassword = false;
 
   const { data: storesData, isLoading: storesLoading } = useQuery({
     queryKey: ["client-stores", clientValue, isAuthenticated, requiresPassword],
