@@ -102,18 +102,6 @@ export default function AnalysisIndex() {
             </div>
             <div className="sf2-listrow-status warn">{data.overstockCount} SKUs</div>
           </button>
-          <div className="sf2-listrow tone-blue sf2-listrow-static">
-            <div>
-              <div className="sf2-listrow-title">Fastest Stock Decline</div>
-              <div className="sf2-listrow-meta">Not built yet - needs a new per-SKU week-over-week ranking</div>
-            </div>
-          </div>
-          <div className="sf2-listrow tone-blue sf2-listrow-static">
-            <div>
-              <div className="sf2-listrow-title">Strongest Sales Growth</div>
-              <div className="sf2-listrow-meta">Not built yet - needs a new per-SKU week-over-week ranking</div>
-            </div>
-          </div>
         </section>
       </main>
 

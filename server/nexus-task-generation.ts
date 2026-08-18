@@ -10,7 +10,7 @@
 // serves the classic Tasks screen from, so isolating it here means testing/
 // generated rows can never mix into that table's completion reporting).
 import { db } from "./db";
-import { storeSkuWeekly, storeAssignments, resourceRoster, nexusTasks, nexusTaskAssignees, distributionGaps, type InsertNexusTask } from "@shared/schema";
+import { storeSkuWeekly, storeAssignments, resourceRoster, nexusTasks, nexusTaskAssignees, distributionGaps, clientOverstockRules, type InsertNexusTask } from "@shared/schema";
 import { sql, eq } from "drizzle-orm";
 import { AT_RISK_WFC_THRESHOLD_WEEKS } from "./nexus";
 
@@ -109,36 +109,56 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
       and estimated_missed_units > 0
   `);
 
-  // Overstock is capped, not flagged wholesale (Carin, 2026-08-17: "unfair
-  // to ask a rep to action all of them" - confirmed 619,932 rows flagged
-  // network-wide the week this was built, a 2-week chronic filter only cut
-  // that to 495,088 - duration wasn't the right lever). Only SKUs at least
-  // 3x the real overstock threshold (6 weeks cover, confirmed against the
-  // existing "configured maximum of 6 weeks" subtitle text elsewhere in
-  // this app - so cover >= 18) even qualify, and only the worst 5 per store
-  // become tasks - the rest stay fully visible on the Overstock screen,
-  // just without a generated task (Carin: "dont grey it out but only cap
-  // these under the fix menu").
-  const OVERSTOCK_SEVERITY_THRESHOLD_WEEKS = 18;
-  const OVERSTOCK_CAP_PER_STORE = 5;
-  const flaggedOverstockRaw = await db.execute(sql`
-    select client, cleaned_store_name, banner, region, barcode,
-      article_description, category, classification,
-      store_soh, dc_soh, sell_out_p4, cover
-    from store_sku_weekly
-    where week_ending = ${week}
-      and source_stem = 'overstock'
-      and cover >= ${OVERSTOCK_SEVERITY_THRESHOLD_WEEKS}
-  `);
-  const overstockByStore = new Map<string, any[]>();
-  for (const r of (flaggedOverstockRaw.rows || flaggedOverstockRaw) as any[]) {
-    const key = `${r.client}_${r.cleaned_store_name}`;
-    const list = overstockByStore.get(key) || [];
-    list.push(r);
-    overstockByStore.set(key, list);
+  // Overstock is now judged per-client, not by one blanket Nexus label
+  // (Carin, 2026-08-18: real network-wide data showed a flat 6-week cover
+  // rule flagged 74% of everything, with client-level variance 13.7%-77.4%
+  // far wider than category variance 35%-60% - proof a single client's
+  // real order cadence, not a universal number, decides what "genuinely
+  // stuck" means). client_overstock_rules holds Carin's real per-client
+  // "no sales in N days" definition, collected one client at a time.
+  // sellOutP4 is a rolling 4-week (28-day) total, the finest grain Nexus
+  // gives us - N days converts to ceil(N/28) checkpoints spaced 4 weeks
+  // apart (current week, -4wk, -8wk, ...), ALL of which must show
+  // sellOutP4=0 to qualify. A checkpoint week with no synced row at all
+  // means we can't prove that far back, so it's excluded, not assumed -
+  // this is an honest approximation of the real 28-day-window data we
+  // actually have, not exact daily tracking (Nexus doesn't provide that).
+  const overstockRules = await db.select().from(clientOverstockRules);
+  const weeksNeededByClient = new Map<string, number>();
+  for (const r of overstockRules) {
+    weeksNeededByClient.set(r.client, Math.max(1, Math.ceil(r.noSalesDaysThreshold / 28)));
   }
-  const flaggedOverstock = Array.from(overstockByStore.values())
-    .flatMap((rows) => rows.sort((a, b) => (b.cover ?? 0) - (a.cover ?? 0)).slice(0, OVERSTOCK_CAP_PER_STORE));
+  const clientsByWeeksNeeded = new Map<number, string[]>();
+  for (const [client, weeksNeeded] of Array.from(weeksNeededByClient.entries())) {
+    const list = clientsByWeeksNeeded.get(weeksNeeded) || [];
+    list.push(client);
+    clientsByWeeksNeeded.set(weeksNeeded, list);
+  }
+
+  const flaggedOverstock: any[] = [];
+  for (const [weeksNeeded, clients] of Array.from(clientsByWeeksNeeded.entries())) {
+    const checkpointExists = Array.from({ length: weeksNeeded }, (_, k) => sql`
+      exists (
+        select 1 from store_sku_weekly chk
+        where chk.client = curr.client
+          and chk.cleaned_store_name = curr.cleaned_store_name
+          and chk.barcode = curr.barcode
+          and chk.week_ending = (${week}::date - (${k * 4} || ' weeks')::interval)::date::text
+          and coalesce(chk.sell_out_p4, 0) = 0
+      )
+    `);
+    const rows = await db.execute(sql`
+      select curr.client, curr.cleaned_store_name, curr.banner, curr.region, curr.barcode,
+        curr.article_description, curr.category, curr.classification,
+        curr.store_soh, curr.dc_soh, curr.sell_out_p4, curr.cover
+      from store_sku_weekly curr
+      where curr.week_ending = ${week}
+        and curr.client in (${sql.join(clients.map((c: string) => sql`${c}`), sql`, `)})
+        and curr.store_soh > 0
+        and ${sql.join(checkpointExists, sql` and `)}
+    `);
+    flaggedOverstock.push(...((rows.rows || rows) as any[]));
+  }
 
   const flaggedAtRisk = await db.execute(sql`
     select client, cleaned_store_name, banner, region, barcode,
@@ -223,7 +243,8 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
   }
 
   for (const r of flaggedOverstock) {
-    const actionText = `${r.classification || "Possible Overstock"} - ${Number(r.cover).toFixed(1)} weeks cover, well over the 6-week threshold. Review for markdown / transfer.`;
+    const daysThreshold = weeksNeededByClient.has(r.client) ? overstockRules.find((rule) => rule.client === r.client)?.noSalesDaysThreshold : null;
+    const actionText = `${r.classification || "Possible Overstock"} - no sales in ${daysThreshold ?? "60+"} days, ${Number(r.cover ?? 0).toFixed(1)} weeks cover. Review for markdown / transfer.`;
     pushRow("overstock", {
       client: r.client, storeName: r.cleaned_store_name, banner: r.banner, region: r.region,
       barcode: r.barcode, articleDescription: r.article_description, category: r.category,
