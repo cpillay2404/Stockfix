@@ -58,24 +58,25 @@ export function registerObjectStorageRoutes(app: Express): void {
   });
 
   // Serve stored objects
-  app.get("/objects/:objectId(*)", async (req, res) => {
+  // downloadAsStream() returns a PassThrough stream directly (not Promise<Result>).
+  // Errors surface via the stream's "error" event.
+  app.get("/objects/:objectId(*)", (req, res) => {
     const objectId = req.params.objectId;
     const objectKey = `${PREFIX}/${objectId}`;
 
-    try {
-      const client = makeClient();
-      const result = await client.downloadAsStream(objectKey);
+    const client = makeClient();
+    const stream = client.downloadAsStream(objectKey);
 
-      if (!result.ok) {
-        return res.status(404).json({ error: "Photo not found" });
-      }
+    res.set("Content-Type", "application/octet-stream");
+    res.set("Cache-Control", "private, max-age=3600");
 
-      res.set("Content-Type", "application/octet-stream");
-      res.set("Cache-Control", "private, max-age=3600");
-      result.value.pipe(res);
-    } catch (err: any) {
+    stream.on("error", (err: any) => {
       console.error("[storage] download error:", err?.message);
-      res.status(500).json({ error: "Failed to serve photo" });
-    }
+      if (!res.headersSent) {
+        res.status(404).json({ error: "Photo not found" });
+      }
+    });
+
+    stream.pipe(res);
   });
 }
