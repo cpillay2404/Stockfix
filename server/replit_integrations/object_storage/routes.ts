@@ -14,11 +14,12 @@ import { randomUUID } from "crypto";
  * Bucket: FrankGuiltyMatrix (created via Replit Tools → Object Storage)
  */
 
-const BUCKET_ID = "FrankGuiltyMatrix";
 const PREFIX = "photos";
 
+// No bucketId — SDK auto-discovers the bucket attached to this Repl.
+// The display name ("FrankGuiltyMatrix") is not the internal bucket ID.
 function makeClient() {
-  return new Client({ bucketId: BUCKET_ID });
+  return new Client();
 }
 
 export function registerObjectStorageRoutes(app: Express): void {
