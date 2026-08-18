@@ -53,7 +53,7 @@ export default function SupplyDetail() {
     enabled: !!store,
   });
 
-  const { data: lowStock } = useQuery<SkuListResponse>({
+  const { data: lowStock, isLoading: lowStockLoading } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, "low", client],
     queryFn: async () => {
       const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=low${clientQS || "&client=ALL"}`);
@@ -63,7 +63,7 @@ export default function SupplyDetail() {
     enabled: !!store,
   });
 
-  const { data: oosStock } = useQuery<SkuListResponse>({
+  const { data: oosStock, isLoading: oosStockLoading } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, "oos", client],
     queryFn: async () => {
       const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=oos${clientQS || "&client=ALL"}`);
@@ -78,7 +78,7 @@ export default function SupplyDetail() {
     setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}`);
   };
 
-  if (isLoading) return <Sf2LoadingState />;
+  if (isLoading || lowStockLoading || oosStockLoading) return <Sf2LoadingState />;
   if (error || !data) return <div className="stockfix2-page"><p className="error-state">Couldn't load supply data right now.</p></div>;
 
   // Fixed 2026-08-17 (Carin: "shouldnt be in replenishment opportunities if
