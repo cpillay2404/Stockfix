@@ -556,6 +556,15 @@ export const storeSkuWeekly = pgTable("store_sku_weekly", {
   // source_stem) - these filter on storeSoh and cover with no index at all,
   // same full-week-scan cost.
   soHCoverIdx: index("idx_store_sku_weekly_soh_cover").on(table.weekEnding, table.storeSoh, table.cover),
+  // Added 2026-08-18 for the per-client Overstock checkpoint logic
+  // (countRealOverstockAtStore/listRealOverstockAtStore/generateTasksForWeek's
+  // overstock branch) - each candidate row runs a correlated EXISTS lookup
+  // by (client, cleaned_store_name, barcode, week_ending) for every
+  // checkpoint week (current, -4wk, -8wk, ...). With no index matching
+  // that exact equality set, each lookup falls back to a scan - this index
+  // makes it a direct hit instead (real slowness reported 2026-08-18 right
+  // after this logic shipped).
+  checkpointIdx: index("idx_store_sku_weekly_checkpoint").on(table.client, table.cleanedStoreName, table.barcode, table.weekEnding),
 }));
 
 export const insertStoreSkuWeeklySchema = createInsertSchema(storeSkuWeekly).omit({
