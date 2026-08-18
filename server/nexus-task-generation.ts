@@ -108,14 +108,21 @@ function resolveAssignees(
 // undercounts every store with a call-cycle gap; this is the fix).
 // A client with no row in client_overstock_rules is excluded entirely
 // (never assumed a default threshold), matching Davidoff's real removal.
-export async function countRealOverstockAtStore(store: string, week: string, clientFilter?: string): Promise<number> {
+// Real row list backing both the badge and the drill-down list - both must
+// show the exact same SKUs (Carin, 2026-08-18: "if I click it and see the
+// full [list], what happens?" - a badge and a list built from two different
+// sources can silently disagree; this is the single source of truth for
+// Overstock everywhere in the app).
+export async function listRealOverstockAtStore(store: string, week: string, clientFilter?: string): Promise<any[]> {
   const overstockRules = await db.select().from(clientOverstockRules);
   const weeksNeededByClient = new Map<string, number>();
+  const thresholdByClient = new Map<string, number>();
   for (const r of overstockRules) {
     if (clientFilter && clientFilter !== "ALL" && clientFilter !== "SYNDICATED" && r.client !== clientFilter) continue;
     weeksNeededByClient.set(r.client, Math.max(1, Math.ceil(r.noSalesDaysThreshold / 28)));
+    thresholdByClient.set(r.client, r.noSalesDaysThreshold);
   }
-  if (weeksNeededByClient.size === 0) return 0;
+  if (weeksNeededByClient.size === 0) return [];
 
   const clientsByWeeksNeeded = new Map<number, string[]>();
   for (const [client, weeksNeeded] of Array.from(weeksNeededByClient.entries())) {
@@ -124,7 +131,7 @@ export async function countRealOverstockAtStore(store: string, week: string, cli
     clientsByWeeksNeeded.set(weeksNeeded, list);
   }
 
-  let total = 0;
+  const allRows: any[] = [];
   for (const [weeksNeeded, clients] of Array.from(clientsByWeeksNeeded.entries())) {
     const checkpointExists = Array.from({ length: weeksNeeded }, (_, k) => sql`
       exists (
@@ -137,18 +144,27 @@ export async function countRealOverstockAtStore(store: string, week: string, cli
       )
     `);
     const result = await db.execute(sql`
-      select count(*)::int as count
+      select curr.client, curr.cleaned_store_name, curr.barcode, curr.article_description,
+        curr.category, curr.classification, curr.store_soh, curr.dc_soh, curr.sell_out_p4, curr.cover
       from store_sku_weekly curr
       where curr.week_ending = ${week}
         and lower(trim(curr.cleaned_store_name)) = lower(trim(${store}))
         and curr.client in (${sql.join(clients.map((c: string) => sql`${c}`), sql`, `)})
         and curr.store_soh > 0
         and ${sql.join(checkpointExists, sql` and `)}
+      order by curr.store_soh desc
     `);
     const rows = (result.rows || result) as any[];
-    total += Number(rows[0]?.count) || 0;
+    for (const r of rows) {
+      allRows.push({ ...r, days_threshold: thresholdByClient.get(r.client) ?? null });
+    }
   }
-  return total;
+  return allRows;
+}
+
+export async function countRealOverstockAtStore(store: string, week: string, clientFilter?: string): Promise<number> {
+  const rows = await listRealOverstockAtStore(store, week, clientFilter);
+  return rows.length;
 }
 
 export async function generateTasksForWeek(week: string): Promise<{ tasksCreated: number; storesWithNoAssignment: number }> {

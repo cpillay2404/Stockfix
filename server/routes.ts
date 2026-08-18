@@ -37,7 +37,7 @@ import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRost
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync } from "./nexus-sync";
-import { claimTask, generateTasksForWeek, createTaskOnDemand, countRealOverstockAtStore } from "./nexus-task-generation";
+import { claimTask, generateTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks } from "@shared/schema";
 
 function safeParseFloat(val: string | number | null | undefined): number {
@@ -730,30 +730,23 @@ async function fetchSkuListForClient(client: string, store: string, classificati
   }
 
   if (classification === "overstock") {
-    // Real per-client rule (client_overstock_rules via generateTasksForWeek),
-    // same fix as the single-client sku-list branch above - this per-client
-    // helper was still calling the legacy fetchIssueDetailList (its own,
-    // separate blanket-rule source), which is why "All Clients" kept
-    // showing the stale count even after the single-client path was fixed.
-    const result = await db.execute(sql`
-      select barcode, article_description, store_soh, dc_soh, p4_week_sales, store_wfc, stock_classification, action
-      from nexus_tasks
-      where lower(trim(store_name)) = lower(trim(${store}))
-        and client = ${client}
-        and unique_id like '%\_overstock\_%' escape '\'
-      order by store_soh desc
-    `);
-    const taskRows = (result.rows || result) as any[];
-    const rows = taskRows.map((r) => ({
+    // Real bug found 2026-08-18: the badge (countRealOverstockAtStore) and
+    // this list must show the exact same SKUs - a list built from a
+    // different source (nexus_tasks, capped by assignee availability) than
+    // the badge (live, uncapped) meant tapping the tile could show fewer
+    // rows than the number promised. Both now read listRealOverstockAtStore.
+    const week = await storage.getMostPopulatedWeekEndingDate();
+    const overstockRows = week ? await listRealOverstockAtStore(store, week, client) : [];
+    const rows = overstockRows.map((r) => ({
       barcode: r.barcode,
       articleDescription: r.article_description,
       storeSoh: Number(r.store_soh) || 0,
       dcSoh: r.dc_soh != null ? Number(r.dc_soh) : null,
-      sellOutP4: r.p4_week_sales != null ? Number(r.p4_week_sales) : null,
-      cover: r.store_wfc != null ? Number(r.store_wfc) : null,
+      sellOutP4: r.sell_out_p4 != null ? Number(r.sell_out_p4) : null,
+      cover: r.cover != null ? Number(r.cover) : null,
       estimatedMissedUnits: 0,
-      action: r.action,
-      classification: r.stock_classification || "Overstock",
+      action: `${r.classification || "Possible Overstock"} - no sales in ${r.days_threshold ?? "?"} days, ${Number(r.cover ?? 0).toFixed(1)} weeks cover. Review for markdown / transfer.`,
+      classification: r.classification || "Overstock",
       issueDriver: null as string | null,
       suggestedOrderUnits: null as number | null,
       dcFulfillableUnits: null as number | null,
@@ -1584,38 +1577,28 @@ export async function registerRoutes(
       }
 
       if (classification === "overstock") {
-        // Real per-client "no sales in N days" rule (client_overstock_rules,
-        // applied by generateTasksForWeek) - nexus_tasks is the only place
-        // that logic lives, not storeSkuWeekly's classification column
-        // (still the old blanket cover>=18 rule - real bug found 2026-08-18:
-        // this list kept showing the blanket-rule 556 SKUs after the
-        // per-client regeneration had already replaced them in nexus_tasks).
-        const clientFilter = clientScope !== "SYNDICATED" && clientScope !== "ALL" ? sql`and client = ${clientScope}` : sql``;
-        const result = await db.execute(sql`
-          select barcode, article_description, client, store_soh, dc_soh, p4_week_sales, store_wfc, stock_classification, action
-          from nexus_tasks
-          where lower(trim(store_name)) = lower(trim(${store}))
-            and unique_id like '%\_overstock\_%' escape '\'
-            ${clientFilter}
-          order by store_soh desc
-        `);
-        const taskRows = (result.rows || result) as any[];
-        const overstockRows = taskRows.map((r) => ({
+        // Real bug found 2026-08-18: the badge (countRealOverstockAtStore)
+        // and this list must show the exact same SKUs - a list sourced from
+        // nexus_tasks (capped by assignee availability) disagreed with the
+        // badge (live, uncapped). Both now read listRealOverstockAtStore.
+        const week = summaryRows[0]?.weekEnding;
+        const overstockRows = week ? await listRealOverstockAtStore(store, week, clientScope) : [];
+        const listRows = overstockRows.map((r) => ({
           barcode: r.barcode,
           articleDescription: r.article_description,
           client: r.client,
           storeSoh: Number(r.store_soh) || 0,
           dcSoh: r.dc_soh != null ? Number(r.dc_soh) : null,
-          sellOutP4: r.p4_week_sales != null ? Number(r.p4_week_sales) : null,
-          cover: r.store_wfc != null ? Number(r.store_wfc) : null,
+          sellOutP4: r.sell_out_p4 != null ? Number(r.sell_out_p4) : null,
+          cover: r.cover != null ? Number(r.cover) : null,
           estimatedMissedUnits: 0,
-          action: r.action,
-          classification: r.stock_classification || "Overstock",
+          action: `${r.classification || "Possible Overstock"} - no sales in ${r.days_threshold ?? "?"} days, ${Number(r.cover ?? 0).toFixed(1)} weeks cover. Review for markdown / transfer.`,
+          classification: r.classification || "Overstock",
           issueDriver: null,
           suggestedOrderUnits: null,
           dcFulfillableUnits: null,
         }));
-        return res.json({ storeName: store, resolvedClient: knownClient || clientScope, rows: overstockRows });
+        return res.json({ storeName: store, resolvedClient: knownClient || clientScope, rows: listRows });
       }
 
       // Fast local path 2026-08-16 for the main OOS/Low lists - was still
