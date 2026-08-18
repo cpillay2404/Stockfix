@@ -139,6 +139,22 @@ export default function SelectClientStore() {
     }
   }, [accessMode, setAccessMode, setClientLocked]);
 
+  // Intercept the device/browser back button so it returns to home
+  // instead of landing on whatever was previously in browser history
+  // (e.g. Store Overview from a prior rep session).
+  useEffect(() => {
+    window.history.pushState({ page: "select-client" }, "");
+    const handlePopState = () => {
+      setAccessMode(null);
+      setClientLocked(false);
+      setSelectedClient(null);
+      setContextStore(null);
+      setLocation("/");
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
   // Real bug found 2026-08-18 (Carin: "it must talk to the real app now") -
   // this used to read /api/dashboard/stats, whose client list comes from
   // the legacy tasks table, not the real synced Nexus data this new app
