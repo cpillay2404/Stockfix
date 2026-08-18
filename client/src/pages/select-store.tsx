@@ -109,7 +109,7 @@ export default function SelectStore() {
     }
   }, [accessMode, selectedRep, selectedClient, setLocation]);
 
-  const { data: repStoresData } = useQuery({
+  const { data: repStoresData, isLoading: repStoresLoading } = useQuery({
     queryKey: ["rep-stores", selectedRep],
     queryFn: async () => {
       if (!selectedRep) return { stores: [] };
@@ -120,7 +120,7 @@ export default function SelectStore() {
     enabled: accessMode === "rep" && !!selectedRep,
   });
 
-  const { data: clientStoresData } = useQuery({
+  const { data: clientStoresData, isLoading: clientStoresLoading } = useQuery({
     queryKey: ["client-stores", selectedClient],
     queryFn: async () => {
       if (!selectedClient) return { stores: [] };
@@ -131,9 +131,10 @@ export default function SelectStore() {
     enabled: accessMode === "client" && !!selectedClient,
   });
 
-  const stores = accessMode === "rep" 
+  const stores = accessMode === "rep"
     ? (repStoresData?.stores || [])
     : (clientStoresData?.stores || []);
+  const storesLoading = accessMode === "rep" ? repStoresLoading : clientStoresLoading;
 
   const handleBack = () => {
     if (accessMode === "rep") {
@@ -231,9 +232,14 @@ export default function SelectStore() {
             placeholder="Select Store"
             testId="select-store"
           />
-          {stores.length === 0 && (
+          {storesLoading && (
             <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
-              {accessMode === "rep" 
+              Loading stores...
+            </p>
+          )}
+          {!storesLoading && stores.length === 0 && (
+            <p style={{ fontSize: '12px', color: '#9CA3AF', marginTop: '8px' }}>
+              {accessMode === "rep"
                 ? "No stores found for this rep"
                 : "No stores found for this client"}
             </p>
