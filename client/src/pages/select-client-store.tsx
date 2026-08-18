@@ -69,13 +69,30 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId, 
       </PopoverTrigger>
       <PopoverContent
         className="p-0"
-        style={{ width: "var(--radix-popover-trigger-width)", maxHeight: 300 }}
+        style={{
+          width: "var(--radix-popover-trigger-width)",
+          maxHeight: 300,
+          backgroundColor: NAVY_ELEVATED,
+          border: "1px solid rgba(23,68,111,0.6)",
+        }}
         align="start"
       >
-        <Command shouldFilter={false}>
-          <CommandInput placeholder={`Search ${placeholder.toLowerCase()}...`} value={search} onValueChange={setSearch} />
-          <CommandList style={{ maxHeight: 250, overflowY: "auto", WebkitOverflowScrolling: "touch" }}>
-            <CommandEmpty>No results found.</CommandEmpty>
+        {/* Dark-theme override 2026-08-18 (Carin: "not aligned to the
+            current design") - shadcn's Command/Popover default to a light
+            theme via CSS variables this app never activates (every other
+            screen is manually dark-styled with inline colors, not Tailwind's
+            dark class), so this dropdown rendered white/black while its own
+            trigger button was already dark. */}
+        <Command shouldFilter={false} style={{ backgroundColor: NAVY_ELEVATED, color: "#F7F9FC" }}>
+          <CommandInput
+            placeholder={`Search ${placeholder.toLowerCase()}...`}
+            value={search}
+            onValueChange={setSearch}
+            style={{ color: "#F7F9FC" }}
+            className="placeholder:text-[#8CA3C4]"
+          />
+          <CommandList style={{ maxHeight: 250, overflowY: "auto", WebkitOverflowScrolling: "touch", backgroundColor: NAVY_ELEVATED }}>
+            <CommandEmpty style={{ color: TEXT_MUTED }}>No results found.</CommandEmpty>
             <CommandGroup>
               {filteredOptions.map((option) => (
                 <CommandItem
@@ -86,13 +103,15 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId, 
                     setOpen(false);
                     setSearch("");
                   }}
+                  style={{ color: "#F7F9FC" }}
+                  className="aria-selected:bg-[rgba(255,121,0,0.18)] aria-selected:text-[#F7F9FC] data-[selected=true]:bg-[rgba(255,121,0,0.18)] data-[selected=true]:text-[#F7F9FC]"
                 >
                   <Check className={cn("mr-2 h-4 w-4", value === option ? "opacity-100" : "opacity-0")} />
                   {option}
                 </CommandItem>
               ))}
               {options.length > 100 && !search && (
-                <div className="px-2 py-1.5 text-xs text-gray-500 text-center">
+                <div className="px-2 py-1.5 text-xs text-center" style={{ color: TEXT_MUTED }}>
                   Type to search {options.length.toLocaleString()} items...
                 </div>
               )}

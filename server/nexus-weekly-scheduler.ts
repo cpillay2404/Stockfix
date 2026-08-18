@@ -2,20 +2,25 @@ import { db } from "./db";
 import { storeSkuWeekly } from "@shared/schema";
 import { sql } from "drizzle-orm";
 import { fetchLatestWeek, runWeeklySummarySync } from "./nexus-sync";
-import { storage } from "./storage";
 import { generateTasksForWeek, wipeTasksForWeek } from "./nexus-task-generation";
 
 // Automatic weekly cycle (agreed with Carin 2026-08-16): when a new week
 // appears in Nexus -
-//   1. export the outgoing week's tasks (both Completed and Pending - the
-//      full set is needed to calculate capture rate) to SharePoint, via the
-//      already-existing /api/tasks/save-to-sharepoint route
+//   1. export the outgoing week's nexus_tasks (both Completed and Pending -
+//      the full set is needed to calculate capture rate) to SharePoint, via
+//      /api/nexus-tasks/save-to-sharepoint
 //   2. sync the new week's inventory data in
 //   3. auto-generate the new week's tasks from that data
 //   4. wipe the outgoing week's tasks from the live table (safe - it's
 //      already archived in step 1)
 // Each step only proceeds if the previous one succeeded - never wipe tasks
 // whose export we can't confirm worked.
+//
+// Real bug found and fixed 2026-08-18: this used to call the LEGACY
+// /api/tasks/save-to-sharepoint (the classic tasks table) here, then wipe
+// nexus_tasks below regardless - meaning every week's real nexus_tasks
+// captures were being deleted with zero backup once this app is actually in
+// use. Must export the same table it's about to wipe.
 //
 // Deliberately simple, one clean pass per check - does NOT auto-retry failed
 // clients in a loop. The 2026-08-14/15 backfill session found a real bug in
@@ -26,13 +31,14 @@ import { generateTasksForWeek, wipeTasksForWeek } from "./nexus-task-generation"
 // POST /api/admin/nexus-summary-sync?week=X&clients=A,B,C - same as every
 // gap-fill done tonight.
 async function exportOutgoingWeekToSharePoint(): Promise<{ ok: boolean; week: string | null }> {
-  const outgoingWeek = await storage.getMostPopulatedWeekEndingDate();
+  const [row] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+  const outgoingWeek = row?.week as string | undefined;
   if (!outgoingWeek) {
-    console.log("[Nexus Weekly Cycle] No existing tasks to export - skipping export step");
+    console.log("[Nexus Weekly Cycle] No existing nexus_tasks to export - skipping export step");
     return { ok: true, week: null };
   }
   const port = process.env.PORT || "5000";
-  const resp = await fetch(`http://127.0.0.1:${port}/api/tasks/save-to-sharepoint`, { method: "POST" });
+  const resp = await fetch(`http://127.0.0.1:${port}/api/nexus-tasks/save-to-sharepoint`, { method: "POST" });
   const body = await resp.json().catch(() => ({}));
   if (!resp.ok || !body.ok) {
     console.error(`[Nexus Weekly Cycle] Export of week ${outgoingWeek} FAILED - will not wipe this week's tasks:`, body);

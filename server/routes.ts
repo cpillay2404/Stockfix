@@ -38,7 +38,7 @@ import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore } from "./nexus-task-generation";
-import { storeWeeklySummary, storeSkuWeekly, nexusTasks } from "@shared/schema";
+import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
 
 function safeParseFloat(val: string | number | null | undefined): number {
   if (val === null || val === undefined) return 0;
@@ -2754,6 +2754,123 @@ export async function registerRoutes(
       res.json({ ok: true, filename, rows: completedRows, week: latestWeek, webUrl });
     } catch (error: any) {
       console.error('SharePoint completed export error:', error);
+      res.status(500).json({ ok: false, error: error.message || 'Upload failed' });
+    }
+  });
+
+  // POST /api/nexus-tasks/save-to-sharepoint — the nexus_tasks equivalent of
+  // the legacy /api/tasks/save-to-sharepoint above. Real gap found 2026-08-18:
+  // the automated weekly cycle (nexus-weekly-scheduler.ts) was exporting the
+  // LEGACY tasks table, then wiping nexus_tasks - meaning every week's real
+  // captures in this new app were being deleted with zero backup once the
+  // team actually starts using it. Same CSV column structure as the legacy
+  // export (Carin asked to check they match) plus one real addition,
+  // 'Resource Type', already captured on nexus_tasks but never exposed.
+  //
+  // Attribution rule (Carin, 2026-08-18: "completed tasks + unanswered
+  // attributed to all eligible assignees"):
+  //   - Completed: ONE row, using the task's own repName/resourceType - the
+  //     real person who actually captured it.
+  //   - Pending (unanswered): ONE ROW PER eligible assignee in
+  //     nexus_task_assignees - accountability spreads across everyone who
+  //     could have captured it, not just whoever it happened to be claimed
+  //     by (repName stays "Unassigned" until claimed, so it alone can't
+  //     carry that attribution for an unanswered task).
+  app.post("/api/nexus-tasks/save-to-sharepoint", async (req, res) => {
+    try {
+      const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+      const week = weekRow?.week as string | undefined;
+      if (!week) {
+        return res.status(404).json({ ok: false, error: "No nexus_tasks found" });
+      }
+
+      const escapeCSV = (val: string | number | null | undefined): string => {
+        if (val === null || val === undefined) return '';
+        const str = String(val).replace(/[\r\n]+/g, ' ').trim();
+        if (str.includes(',') || str.includes('"') || str.includes('\t')) {
+          return `"${str.replace(/"/g, '""')}"`;
+        }
+        return str;
+      };
+
+      const csvHeaders = [
+        'Unique Id', 'Key', 'client', 'BANNER.1', 'REGION.1', 'cleaned store name',
+        'REP NAME', 'Resource Type', 'LINE MANAGER', 'Category', 'barcode', 'article description',
+        'Supplying dc soh', 'Store SOH', 'Sell out p4 weeks', 'Missed Sales (This Week)',
+        'WFC', 'Stock Classification (This Week)', 'week ending', 'Action Column',
+        'Action Date', 'Action Status', 'physicalCount', 'variance', 'systemAdjusted',
+        'reasonCode', 'actionTakenComment', 'feedback', 'captureDate', 'image1', 'image2', 'image3', 'image4'
+      ];
+      const lines: string[] = ['﻿' + csvHeaders.join(',')];
+
+      const allTasks = await db.select().from(nexusTasks).where(eq(nexusTasks.weekEndingDate, week));
+
+      const assigneeRows = await db.select().from(nexusTaskAssignees).where(
+        sql`${nexusTaskAssignees.taskUniqueId} in (${sql.join(allTasks.map((t) => sql`${t.uniqueId}`), sql`, `)})`
+      );
+      // Real resourceType per assignee (nexus_task_assignees doesn't store
+      // it - only the roster does) so unanswered rows carry the same real
+      // Rep/Merchandiser split as completed ones.
+      const empIds = Array.from(new Set(assigneeRows.map((a) => a.resourceEmpId)));
+      const rosterTypeRows = empIds.length
+        ? await db.select({ resourceEmpId: resourceRoster.resourceEmpId, resourceType: resourceRoster.resourceType })
+            .from(resourceRoster).where(sql`${resourceRoster.resourceEmpId} in ${empIds}`)
+        : [];
+      const resourceTypeByEmpId = new Map(rosterTypeRows.map((r) => [r.resourceEmpId, r.resourceType || ""]));
+
+      const assigneesByTask = new Map<string, { resourceName: string; resourceType: string }[]>();
+      for (const a of assigneeRows) {
+        const list = assigneesByTask.get(a.taskUniqueId) || [];
+        list.push({ resourceName: a.resourceName, resourceType: resourceTypeByEmpId.get(a.resourceEmpId) || "" });
+        assigneesByTask.set(a.taskUniqueId, list);
+      }
+
+      let rowsWritten = 0;
+      const pushRow = (task: typeof allTasks[number], repName: string, resourceType: string) => {
+        lines.push([
+          escapeCSV(task.uniqueId), escapeCSV(task.key), escapeCSV(task.client),
+          escapeCSV(task.banner), escapeCSV(task.region), escapeCSV(task.storeName),
+          escapeCSV(repName), escapeCSV(resourceType), escapeCSV(task.lineManager), escapeCSV(task.category),
+          escapeCSV(task.barcode), escapeCSV(task.articleDescription),
+          escapeCSV(task.dcSoh), escapeCSV(task.storeSoh), escapeCSV(task.p4WeekSales),
+          escapeCSV(task.missedSales), escapeCSV(task.storeWfc), escapeCSV(task.stockClassification),
+          escapeCSV(task.weekEndingDate), escapeCSV(task.action), escapeCSV(task.actionDate),
+          escapeCSV(task.actionStatus), escapeCSV(task.physicalCount), escapeCSV(task.variance),
+          escapeCSV(task.systemAdjusted), escapeCSV(task.reasonCode), escapeCSV(task.actionTakenComment),
+          escapeCSV(task.feedback), escapeCSV(task.captureDate),
+          escapeCSV(task.image1), escapeCSV(task.image2), escapeCSV(task.image3), escapeCSV(task.image4),
+        ].join(','));
+        rowsWritten++;
+      };
+
+      for (const task of allTasks) {
+        if (task.actionStatus === "Completed") {
+          pushRow(task, task.repName, task.resourceType || "");
+        } else {
+          const assignees = assigneesByTask.get(task.uniqueId) || [];
+          if (assignees.length === 0) {
+            pushRow(task, "Unassigned", "");
+          } else {
+            for (const a of assignees) {
+              pushRow(task, a.resourceName, a.resourceType);
+            }
+          }
+        }
+      }
+
+      const csv = lines.join('\n');
+      const filename = `nexus-stockfix-weekly-export-${week}.csv`;
+      // ?test=true writes to an isolated test folder instead of the real
+      // reporting location - lets this brand-new export be verified without
+      // any risk to the existing Historical feedback reporting.
+      const isTest = String(req.query.test || "") === "true";
+      const folder = isTest ? 'Stock Fix/Reporting/Historical feedback/NEXUS EXPORT TEST' : 'Stock Fix/Reporting/Historical feedback';
+      const { webUrl } = await uploadToSharePoint(folder, filename, csv);
+
+      console.log(`Nexus SharePoint export complete: ${rowsWritten} rows (${allTasks.length} tasks) → ${filename}${isTest ? " [TEST FOLDER]" : ""}`);
+      res.json({ ok: true, filename, rows: rowsWritten, tasks: allTasks.length, week, webUrl });
+    } catch (error: any) {
+      console.error('Nexus SharePoint weekly export error:', error);
       res.status(500).json({ ok: false, error: error.message || 'Upload failed' });
     }
   });
