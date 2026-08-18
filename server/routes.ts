@@ -2895,6 +2895,21 @@ export async function registerRoutes(
       ];
       const lines: string[] = ['﻿' + csvHeaders.join(',')];
 
+      // Real gap found 2026-08-18 (Carin: "will that url come with to the
+      // export") - this route was writing the raw relative object path
+      // (e.g. "/objects/uploads/uuid") straight into the CSV instead of a
+      // full clickable URL, unlike the legacy /api/tasks/save-to-sharepoint
+      // export this one otherwise mirrors.
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+      const baseUrl = `${protocol}://${host}`;
+      const getFullImageUrl = (imagePath: string | null | undefined): string => {
+        if (!imagePath) return '';
+        const normalized = normalizeObjectUrl(imagePath);
+        if (normalized.startsWith('http')) return normalized;
+        return `${baseUrl}${normalized}`;
+      };
+
       const allTasks = await db.select().from(nexusTasks).where(eq(nexusTasks.weekEndingDate, week));
 
       // Real bug found 2026-08-18: building an IN (...) list of all 130k+
@@ -2939,7 +2954,8 @@ export async function registerRoutes(
           escapeCSV(task.actionStatus), escapeCSV(task.physicalCount), escapeCSV(task.variance),
           escapeCSV(task.systemAdjusted), escapeCSV(task.reasonCode), escapeCSV(task.actionTakenComment),
           escapeCSV(task.feedback), escapeCSV(task.captureDate),
-          escapeCSV(task.image1), escapeCSV(task.image2), escapeCSV(task.image3), escapeCSV(task.image4),
+          escapeCSV(getFullImageUrl(task.image1)), escapeCSV(getFullImageUrl(task.image2)),
+          escapeCSV(getFullImageUrl(task.image3)), escapeCSV(getFullImageUrl(task.image4)),
         ].join(','));
         rowsWritten++;
       };
