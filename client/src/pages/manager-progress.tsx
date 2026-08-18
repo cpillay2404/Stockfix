@@ -3,7 +3,6 @@ import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, AlertTriangle, Users, Store, RefreshCw } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import BottomNav from "@/components/BottomNav";
 import Leaderboard from "@/components/Leaderboard";
 import { COLORS } from "@/lib/design-tokens";
 
@@ -506,8 +505,6 @@ export default function ManagerProgress() {
         )}
 
       </div>
-
-      <BottomNav />
     </div>
   );
 }

@@ -1715,45 +1715,24 @@ export async function registerRoutes(
         });
       }
 
-      if (classification === "overstock") {
-        // EMERGENCY REVERT 2026-08-18 - see getOverstockCountForStore's
-        // comment. Back to the fast nexus_tasks-sourced list while the live
-        // query gets profiled and fixed without blocking real usage.
-        const clientFilter = clientScope !== "SYNDICATED" && clientScope !== "ALL" ? sql`and client = ${clientScope}` : sql``;
-        const result = await db.execute(sql`
-          select barcode, article_description, client, store_soh, dc_soh, p4_week_sales, store_wfc, stock_classification, action
-          from nexus_tasks
-          where lower(trim(store_name)) = lower(trim(${store}))
-            and unique_id like '%\_overstock\_%' escape '\'
-            ${clientFilter}
-          order by store_soh desc
-        `);
-        const taskRows = (result.rows || result) as any[];
-        const listRows = taskRows.map((r) => ({
-          barcode: r.barcode,
-          articleDescription: r.article_description,
-          client: r.client,
-          storeSoh: Number(r.store_soh) || 0,
-          dcSoh: r.dc_soh != null ? Number(r.dc_soh) : null,
-          sellOutP4: r.p4_week_sales != null ? Number(r.p4_week_sales) : null,
-          cover: r.store_wfc != null ? Number(r.store_wfc) : null,
-          estimatedMissedUnits: 0,
-          action: r.action,
-          classification: r.stock_classification || "Overstock",
-          issueDriver: null,
-          suggestedOrderUnits: null,
-          dcFulfillableUnits: null,
-        }));
-        return res.json({ storeName: store, resolvedClient: knownClient || clientScope, rows: listRows });
-      }
-
-      // Fast local path 2026-08-16 for the main OOS/Low lists - was still
-      // calling live Nexus (fetchIssueDetailList) on every request, the one
-      // classification list that hadn't been migrated yet.
+      // Fast local path 2026-08-16 for the main OOS/Low/Overstock lists - was
+      // still calling live Nexus (fetchIssueDetailList) on every request, the
+      // one classification list that hadn't been migrated yet.
       // Optional ?priority=P1 filters to just that priority tier (e.g. the
       // Fix screen's "Out of Stock - Critical" / "Low Stock - Critical"
       // buckets, split out 2026-08-16 instead of one combined P1 count).
-      const sourceStemFilter = classification === "oos" ? "oos" : "low";
+      //
+      // Real bug found 2026-08-18 (Carin: "Shoprite Cradock, P&G, KPI card
+      // says 69 overstock, clicking it only shows 4 SKUs") - overstock used
+      // to have its own special-cased branch here sourcing from nexus_tasks
+      // (the narrow client_overstock_rules-driven task-generation subset:
+      // only SKUs meeting that client's specific no-sales-days threshold).
+      // The KPI badge, though, reads the blanket sourceStem="overstock" count
+      // synced straight from Nexus (store_weekly_summary.overstockCount) -
+      // a different, much larger universe. Overstock must use the exact same
+      // sourceStem-filtered path as OOS/Low so the badge and the list it
+      // opens always agree, matching how OOS/Low already work.
+      const sourceStemFilter = classification;
       const priorityFilter = String(req.query.priority || "").trim();
       const skuList = await fetchStoreSkuListFast(clientScope, store, knownClient);
       let filteredRows = skuList.rows.filter((r) => r.sourceStem === sourceStemFilter);
