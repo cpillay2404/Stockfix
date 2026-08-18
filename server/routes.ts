@@ -2805,9 +2805,18 @@ export async function registerRoutes(
 
       const allTasks = await db.select().from(nexusTasks).where(eq(nexusTasks.weekEndingDate, week));
 
-      const assigneeRows = await db.select().from(nexusTaskAssignees).where(
-        sql`${nexusTaskAssignees.taskUniqueId} in (${sql.join(allTasks.map((t) => sql`${t.uniqueId}`), sql`, `)})`
-      );
+      // Real bug found 2026-08-18: building an IN (...) list of all 130k+
+      // task uniqueIds crashed with "Maximum call stack size exceeded" -
+      // sql.join recursively nests one fragment per value, and drizzle's
+      // query builder can't handle that many. Joining directly in SQL
+      // instead avoids ever constructing a huge parameter list.
+      const assigneeRowsRaw = await db.execute(sql`
+        select a.task_unique_id as "taskUniqueId", a.resource_emp_id as "resourceEmpId", a.resource_name as "resourceName"
+        from nexus_task_assignees a
+        join nexus_tasks t on t.unique_id = a.task_unique_id
+        where t.week_ending_date = ${week}
+      `);
+      const assigneeRows = (assigneeRowsRaw.rows || assigneeRowsRaw) as { taskUniqueId: string; resourceEmpId: string; resourceName: string }[];
       // Real resourceType per assignee (nexus_task_assignees doesn't store
       // it - only the roster does) so unanswered rows carry the same real
       // Rep/Merchandiser split as completed ones.
