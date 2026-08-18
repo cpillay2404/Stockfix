@@ -356,10 +356,7 @@ export default function StoreOverview() {
           <KPI label="Distribution gaps" value={data.distributionGapsCount} tone="blue" delta={data.deltas?.distributionGapsCount} invertDeltaColor onClick={() => goToList("distribution")} />
         </section>
 
-        <button
-          className="sf2-instock-banner"
-          onClick={() => setLocation(`/store-detail/instock?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`)}
-        >
+        <div className="sf2-instock-banner sf2-instock-banner-static">
           <div className="sf2-instock-copy">
             <div className="sf2-instock-title">In stock</div>
             <div className="sf2-instock-value">{Math.round(data.inStockPct)}%</div>
@@ -370,7 +367,43 @@ export default function StoreOverview() {
               {data.deltas.inStockPct > 0 ? "+" : ""}{data.deltas.inStockPct}% <small>vs LW</small>
             </span>
           )}
-        </button>
+        </div>
+
+        {/* Compact stacked composition bar - replaces the old separate
+            Assortment/Availability page's clickable list (Carin, 2026-08-18:
+            "kind of a repetition ... don't want to take up more real estate
+            than this in stock card is now"). Non-interactive, single thin
+            row, same footprint as the In Stock card above it. Distribution
+            Gaps is deliberately excluded - it's about SKUs NOT ranged here,
+            so it doesn't belong in "composition of our ranged SKUs". */}
+        {(() => {
+          const segments = [
+            { label: "Out of stock", count: data.oosCount, tone: "red" },
+            { label: "Low stock", count: data.lowStockCount, tone: "orange" },
+            { label: "At risk", count: data.atRiskCount, tone: "amber" },
+            { label: "Overstock", count: data.overstockCount, tone: "purple" },
+            { label: "Negative SOH", count: data.negSOHCount, tone: "pink" },
+          ];
+          const flagged = segments.reduce((s, x) => s + x.count, 0);
+          const optimal = Math.max(0, data.totalSkus - flagged);
+          const total = Math.max(1, data.totalSkus);
+          return (
+            <div className="sf2-composition">
+              <div className="sf2-composition-bar">
+                {segments.map((s) => s.count > 0 && (
+                  <div key={s.label} className={`sf2-composition-seg tone-${s.tone}`} style={{ width: `${(s.count / total) * 100}%` }} title={`${s.label}: ${s.count}`} />
+                ))}
+                {optimal > 0 && <div className="sf2-composition-seg tone-green" style={{ width: `${(optimal / total) * 100}%` }} title={`Optimal: ${optimal}`} />}
+              </div>
+              <div className="sf2-composition-legend">
+                <span className="tone-green">Optimal {Math.round((optimal / total) * 100)}%</span>
+                {segments.filter((s) => s.count > 0).map((s) => (
+                  <span key={s.label} className={`tone-${s.tone}`}>{s.label} {Math.round((s.count / total) * 100)}%</span>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* DC availability, Replenishment opportunity moved to the Supply
             tab; Avg weeks of cover and Sales at risk moved to the Analysis

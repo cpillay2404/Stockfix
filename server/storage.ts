@@ -833,15 +833,18 @@ export class DatabaseStorage implements IStorage {
     return result.rows.map((r: any) => r.store_name).filter(Boolean) as string[];
   }
 
+  // Sourced from store_weekly_summary (the real synced Nexus data), NOT the
+  // legacy tasks table - Carin, 2026-08-18: "it mustnt come from the old
+  // app." Only caller is the client-facing store picker.
   async getStoresForClient(clientName: string): Promise<string[]> {
     const result = await db.execute(sql`
-      SELECT DISTINCT store_name
-      FROM tasks
+      SELECT DISTINCT cleaned_store_name
+      FROM store_weekly_summary
       WHERE client = ${clientName}
-        AND week_ending_date = (SELECT MAX(week_ending_date) FROM tasks WHERE client = ${clientName})
-      ORDER BY store_name
+        AND week_ending = (SELECT MAX(week_ending) FROM store_weekly_summary WHERE client = ${clientName})
+      ORDER BY cleaned_store_name
     `);
-    return result.rows.map((r: any) => r.store_name).filter(Boolean) as string[];
+    return result.rows.map((r: any) => r.cleaned_store_name).filter(Boolean) as string[];
   }
 
   async getDashboardStatsOptimized(filters?: { client?: string; region?: string; weekEndingDate?: string }): Promise<{

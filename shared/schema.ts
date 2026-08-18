@@ -531,6 +531,16 @@ export const storeSkuWeekly = pgTable("store_sku_weekly", {
   // a big client like P&G. This index leads with the fields that query
   // actually filters on.
   historyIdx: index("idx_store_sku_weekly_history").on(table.client, sql`upper(trim(${table.cleanedStoreName}))`, table.barcode),
+  // Added 2026-08-18 - generateTasksForWeek's flaggedIssue query (source_stem
+  // in oos/low, estimated_missed_units>0) took 118s on its own with no index
+  // covering source_stem, forcing a scan of the whole week (~1.6M rows) every
+  // time. This index lets that query (and the overstock cap query, which
+  // also filters on source_stem) go straight to the matching subset instead.
+  sourceStemIdx: index("idx_store_sku_weekly_source_stem").on(table.weekEnding, table.sourceStem),
+  // Same story for the at-risk/negative-SOH queries (store_soh/cover, no
+  // source_stem) - these filter on storeSoh and cover with no index at all,
+  // same full-week-scan cost.
+  soHCoverIdx: index("idx_store_sku_weekly_soh_cover").on(table.weekEnding, table.storeSoh, table.cover),
 }));
 
 export const insertStoreSkuWeeklySchema = createInsertSchema(storeSkuWeekly).omit({

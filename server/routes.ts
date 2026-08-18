@@ -3720,13 +3720,25 @@ export async function registerRoutes(
   });
 
   // GET list of managers (line managers)
+  // Sourced from resource_roster (the real Call Cycle Master import), NOT
+  // the legacy tasks.line_manager column - Carin, 2026-08-18: "it mustnt
+  // come from the old app." The two can drift (different casing/spelling,
+  // someone added to one but not the other) since they're populated by
+  // separate pipelines - this is the one that reflects this week's actual
+  // Call Cycle update. Also fixes a real hang found the same day: the old
+  // version pulled every column of ~220k full task rows just to get
+  // distinct names in JS; this is a direct DISTINCT at the DB level.
   app.get("/api/managers", async (req, res) => {
     try {
-      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
-      const allTasks = await storage.getTasksFiltered({
-        weekEndingDate: latestWeek || undefined,
-      });
-      const managers = [...new Set(allTasks.map(t => t.lineManager).filter(Boolean))].sort();
+      const result = await db.execute(sql`
+        select distinct manager
+        from resource_roster
+        where manager is not null
+          and manager != ''
+        order by manager
+      `);
+      const rows = (result.rows || result) as any[];
+      const managers = rows.map((r) => r.manager);
       res.json({ managers });
     } catch (error) {
       console.error("Error fetching managers:", error);

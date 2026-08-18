@@ -81,6 +81,36 @@ export default function StoreSkuList() {
   // found 2026-08-13).
   const client = params.get("client") || "";
   const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
+  const activeClient = client || "ALL";
+
+  // Real bug fixed 2026-08-18 (Carin: "client filter not working here,
+  // clicking but nothing happening") - these were plain static buttons with
+  // no onClick at all. Wired to real client/SKU dropdowns, same data source
+  // as the shared Sf2ClientSkuFilters component uses elsewhere.
+  const { data: clientOptions } = useQuery<{ clients: string[] }>({
+    queryKey: ["clients-for-store", store, rep],
+    queryFn: async () => {
+      const res = await fetch(`/api/roster/clients-for-store?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}`);
+      if (!res.ok) throw new Error("Failed to fetch clients");
+      return res.json();
+    },
+    enabled: !!store,
+  });
+
+  const { data: skuOptions } = useQuery<{ rows: { barcode: string; articleDescription: string; client?: string }[] }>({
+    queryKey: ["nexus-sku-list", store, rep, "cover", activeClient],
+    queryFn: async () => {
+      const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=cover&client=${encodeURIComponent(activeClient)}`);
+      if (!res.ok) throw new Error("Failed to fetch SKU list");
+      return res.json();
+    },
+    enabled: !!store,
+  });
+
+  const setClientFilter = (next: string) => {
+    const qs = next ? `&client=${encodeURIComponent(next)}` : "&client=ALL";
+    setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${qs}`);
+  };
 
   const { data, isLoading, error } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, classification, client],
@@ -172,8 +202,38 @@ export default function StoreSkuList() {
         </section>
 
         <section className="sf2-filters">
-          <button className="sf2-filter"><span>Client</span><strong>{data.resolvedClient}</strong><ChevronDown size={14} /></button>
-          <button className="sf2-filter"><span>SKU</span><strong>All SKUs</strong><ChevronDown size={14} /></button>
+          {(clientOptions?.clients?.length ?? 0) > 1 ? (
+            <div className="sf2-filter sf2-filter-select">
+              <span>Client</span>
+              <select value={client && client !== "ALL" ? client : ""} onChange={(e) => setClientFilter(e.target.value)}>
+                <option value="">All Clients</option>
+                {clientOptions!.clients.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div className="sf2-filter"><span>Client</span><strong>{data.resolvedClient}</strong></div>
+          )}
+          <div className="sf2-filter sf2-filter-select">
+            <span>SKU</span>
+            <select
+              value=""
+              onChange={(e) => {
+                if (!e.target.value) return;
+                const [barcode, skuClient] = e.target.value.split("::");
+                goToSku(barcode, skuClient || undefined);
+                e.target.value = "";
+              }}
+            >
+              <option value="">All SKUs</option>
+              {(skuOptions?.rows || []).map((r) => (
+                <option key={`${r.client || ""}-${r.barcode}`} value={`${r.barcode}::${r.client || ""}`}>
+                  {r.articleDescription}{activeClient === "ALL" && r.client ? ` (${r.client})` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
         </section>
 
         <h1 className="sf2-listtitle">{TITLES[classification]}</h1>
@@ -217,7 +277,13 @@ export default function StoreSkuList() {
               ) : classification === "low" ? (
                 <div className="sf2-stat tone-purple"><div className="sf2-stat-n">{avgCover.toFixed(1)}</div><div className="sf2-stat-l">Avg WFC</div></div>
               ) : (
-                <div className="sf2-stat tone-cyan"><div className="sf2-stat-n">{dcAvailableCount}</div><div className="sf2-stat-l">SKUs w/ DC</div></div>
+                <button
+                  className={`sf2-stat tone-cyan${dcFilterActive ? " sf2-stat-active" : ""}`}
+                  onClick={() => setDcFilterActive((v) => !v)}
+                  title={dcFilterActive ? "Showing only SKUs with DC stock - tap to show all" : "Tap to filter to only SKUs with DC stock"}
+                >
+                  <div className="sf2-stat-n">{dcAvailableCount}</div><div className="sf2-stat-l">SKUs w/ DC</div>
+                </button>
               )}
               {classification === "overstock" ? (
                 <div className="sf2-stat tone-orange"><div className="sf2-stat-n">{Math.round(unitsTiedUp)}</div><div className="sf2-stat-l">Units tied up</div></div>
@@ -227,7 +293,10 @@ export default function StoreSkuList() {
             </section>
 
             <section className="sf2-list">
-              {rows.map((r) => (
+              {(dcFilterActive ? rows.filter((r) => (r.dcSoh || 0) > 0) : rows)
+                .slice()
+                .sort((a, b) => ((b.dcSoh || 0) > 0 ? 1 : 0) - ((a.dcSoh || 0) > 0 ? 1 : 0))
+                .map((r) => (
                 <button className={`sf2-listrow tone-${tone}`} key={r.barcode} onClick={() => goToSku(r.barcode, r.client)}>
                   <div>
                     <div className="sf2-listrow-title">{r.articleDescription}</div>
@@ -257,8 +326,12 @@ export default function StoreSkuList() {
                   })()}
                 </button>
               ))}
-              {rows.length === 0 && (
-                <p className="empty-state">No {TITLES[classification].toLowerCase()} SKUs at this store.</p>
+              {(dcFilterActive ? rows.filter((r) => (r.dcSoh || 0) > 0) : rows).length === 0 && (
+                <p className="empty-state">
+                  {dcFilterActive
+                    ? "No SKUs with DC stock right now - tap the filter again to show all."
+                    : `No ${TITLES[classification].toLowerCase()} SKUs at this store.`}
+                </p>
               )}
             </section>
           </>

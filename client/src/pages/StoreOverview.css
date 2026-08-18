@@ -1091,6 +1091,32 @@
 .sf2-instock-delta small { font-size: 6px; color: #627DA5; font-weight: 600; }
 .sf2-instock-delta.up { color: var(--green); }
 .sf2-instock-delta.down { color: var(--red); }
+.sf2-instock-banner-static { cursor: default; }
+
+/* Compact stacked composition bar - replaces the old separate Assortment/
+   Availability page (Carin, 2026-08-18: "kind of a repetition ... don't
+   want to take up more real estate than this in stock card is now"). */
+.sf2-composition { margin-top: 6px; }
+.sf2-composition-bar {
+  display: flex; height: 10px; border-radius: 5px; overflow: hidden;
+  background: var(--card); border: 1px solid var(--border);
+}
+.sf2-composition-seg { height: 100%; }
+.sf2-composition-seg.tone-red { background: var(--red); }
+.sf2-composition-seg.tone-orange { background: var(--orange); }
+.sf2-composition-seg.tone-amber { background: var(--amber); }
+.sf2-composition-seg.tone-purple { background: var(--purple); }
+.sf2-composition-seg.tone-pink { background: #e05fa0; }
+.sf2-composition-seg.tone-green { background: var(--green); }
+.sf2-composition-legend {
+  display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 5px; font-size: 8.5px; font-weight: 600;
+}
+.sf2-composition-legend .tone-red { color: var(--red); }
+.sf2-composition-legend .tone-orange { color: var(--orange); }
+.sf2-composition-legend .tone-amber { color: var(--amber); }
+.sf2-composition-legend .tone-purple { color: var(--purple); }
+.sf2-composition-legend .tone-pink { color: #e05fa0; }
+.sf2-composition-legend .tone-green { color: var(--green); }
 
 .kpi2-card {
   position: relative;
