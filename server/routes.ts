@@ -1299,6 +1299,78 @@ export async function registerRoutes(
     }
   });
 
+  // Real visit summary for the new nexus_tasks flow's "End Visit" screen
+  // (Carin, 2026-08-18: "no end visit or log out... theres no visit summary
+  // screen or fuck all") - real completed/open counts for this rep at this
+  // store, plus their real recent captures (feedback/reason code), not a
+  // fabricated summary. Deliberately a new endpoint, not a reuse of the
+  // legacy /tasks-based exit-visit page - that page stays untouched for
+  // the old flow it still serves.
+  app.get("/api/nexus-tasks/visit-summary", async (req, res) => {
+    try {
+      const store = String(req.query.store || "").trim();
+      const rep = String(req.query.rep || "").trim();
+      const client = String(req.query.client || "").trim();
+      if (!store) return res.status(400).json({ error: "store query param is required" });
+
+      const clientCond = client && client !== "ALL" ? sql`and client = ${client}` : sql``;
+
+      const completedResult = await db.execute(sql`
+        select barcode, article_description, feedback, reason_code, action_taken_comment, capture_date, image1
+        from nexus_tasks
+        where upper(trim(store_name)) = ${store.toUpperCase().trim()}
+          and upper(trim(rep_name)) = ${rep.toUpperCase().trim()}
+          and action_status = 'Completed'
+          ${clientCond}
+        order by capture_date desc nulls last
+        limit 50
+      `);
+      const completed = (completedResult.rows || completedResult) as any[];
+
+      let openCount = 0;
+      if (rep) {
+        const [rosterRow] = await db.select({ resourceEmpId: resourceRoster.resourceEmpId })
+          .from(resourceRoster).where(sql`upper(trim(${resourceRoster.resourceName})) = ${rep.toUpperCase().trim()}`).limit(1);
+        if (rosterRow) {
+          const openResult = await db.execute(sql`
+            select count(distinct t.unique_id)::int as c
+            from nexus_task_assignees a
+            join nexus_tasks t on t.unique_id = a.task_unique_id
+            where upper(trim(t.store_name)) = ${store.toUpperCase().trim()}
+              and a.resource_emp_id = ${rosterRow.resourceEmpId}
+              and t.action_status != 'Completed'
+              ${clientCond}
+          `);
+          openCount = ((openResult.rows || openResult) as any[])[0]?.c || 0;
+        }
+      }
+
+      const photosCount = completed.filter((c) => c.image1).length;
+      const reasonCodeCounts: Record<string, number> = {};
+      for (const c of completed) {
+        if (c.reason_code) reasonCodeCounts[c.reason_code] = (reasonCodeCounts[c.reason_code] || 0) + 1;
+      }
+
+      res.json({
+        completedCount: completed.length,
+        openCount,
+        photosCount,
+        reasonCodeCounts,
+        recent: completed.slice(0, 10).map((c) => ({
+          barcode: c.barcode,
+          articleDescription: c.article_description,
+          feedback: c.feedback,
+          reasonCode: c.reason_code,
+          actionTakenComment: c.action_taken_comment,
+          captureDate: c.capture_date,
+        })),
+      });
+    } catch (error) {
+      console.error("Error fetching visit summary:", error);
+      res.status(500).json({ error: "Failed to fetch visit summary" });
+    }
+  });
+
   // Real store-level detail view, no fabricated categories/rand values.
   // Client scope is looked up from the roster by the person's real name -
   // confirmed bug 2026-08-08: an empty/never-populated ?client= param

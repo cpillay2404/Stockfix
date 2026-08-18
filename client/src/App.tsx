@@ -28,6 +28,7 @@ import ActionCapture from "@/pages/action-capture";
 import SupplyDetail from "@/pages/supply-detail";
 import AnalysisIndex from "@/pages/analysis-index";
 import FixIndex from "@/pages/fix-index";
+import NexusExitVisit from "@/pages/nexus-exit-visit";
 import TaskList from "@/pages/dashboard";
 import TaskDetail from "@/pages/task-detail";
 import ImportData from "@/pages/import-data";
@@ -71,6 +72,7 @@ function Router() {
       <Route path="/store-detail/supply" component={SupplyDetail} />
       <Route path="/store-detail/analysis" component={AnalysisIndex} />
       <Route path="/store-detail/fix" component={FixIndex} />
+      <Route path="/store-detail/exit-visit" component={NexusExitVisit} />
       <Route path="/dashboard">{() => <ClientGuard><Home /></ClientGuard>}</Route>
       <Route path="/tasks" component={TaskList} />
       <Route path="/import">{() => <ClientGuard><ImportData /></ClientGuard>}</Route>
