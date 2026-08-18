@@ -498,16 +498,14 @@ async function getDedicatedClientsAtStore(store: string): Promise<Set<string>> {
 // originally computed over (oosCount / lowStockCount) so the combined
 // figure stays a real weighted average, not a fabricated blend.
 
-// EMERGENCY REVERT 2026-08-18: countRealOverstockAtStore's live per-client
-// checkpoint query was making every single store load hang (60s+, some
-// never returning) even with an added index - real production impact,
-// confirmed by Carin live in the test app. Reverting the store-overview
-// badge/list back to the fast nexus_tasks count while the live-query
-// version gets profiled and fixed offline (not blocking real usage while
-// that happens). Known limitation restored along with this revert: a
-// store with no call-cycle assignee won't count here (nexus_tasks doesn't
-// have a row for it) - a real gap, but the app being unusable is worse.
-async function getOverstockCountForStore(store: string, week: string, client?: string): Promise<number> {
+// Fix's Overstock badge - intentionally the NARROW, actionable number
+// (Carin, 2026-08-18: "on fix its linked to nexus tasks... we only want
+// reps to see a limited amount because thats what they must focus on").
+// Only counts SKUs that already have a real nexus_tasks row (meaning a
+// real assignee exists) - a store/client with no one assigned won't count
+// here, on purpose, matching what's actually actionable today. This is a
+// small, indexed table read, not a live calculation - safe at request time.
+async function getOverstockCountForFix(store: string, client?: string): Promise<number> {
   const clientFilter = client && client !== "ALL" && client !== "SYNDICATED" ? sql`and client = ${client}` : sql``;
   const result = await db.execute(sql`
     select count(*)::int as count from nexus_tasks
@@ -539,7 +537,15 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
   const totalSkus = sumBy(latestRows, "totalSkus");
   const oosCount = sumBy(latestRows, "oosCount");
   const lowStockCount = sumBy(latestRows, "lowStockCount");
-  const overstockCount = await getOverstockCountForStore(store, latestWeek);
+  // Insights' Overstock badge - the real, uncapped number (Carin,
+  // 2026-08-18: "on insights it must show all overstocks... the actual
+  // reality"). Same mechanism Insights already used before nexus_tasks
+  // existed - a precomputed store_weekly_summary column, just now written
+  // by generateTasksForWeek using the real per-client rule instead of the
+  // old blanket cover>=18 one (see nexus-task-generation.ts). A plain sum
+  // of an already-loaded column, not a live calculation.
+  const overstockCount = sumBy(latestRows, "overstockCount");
+  const overstockCountFix = await getOverstockCountForFix(store);
   const salesAtRiskSkuCount = sumBy(latestRows, "salesAtRiskSkuCount");
   const dcAvailabilityPct = weightedAvg(latestRows, "dcAvailabilityPct", "oosCount", 100);
   const avgWeeksOfCover = weightedAvg(latestRows, "avgWeeksOfCover", "lowStockCount", 0);
@@ -644,6 +650,7 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
     // showed blank instead of 0 or a real number.
     oosP1Count: sumOk((o) => o.oosP1Count || 0),
     lowStockP1Count: sumOk((o) => o.lowStockP1Count || 0),
+    overstockCountFix,
     salesAtRiskSkuCount,
     topIssues: ok
       .flatMap((c) => c.overview.topIssues || [])
@@ -1410,12 +1417,12 @@ export async function registerRoutes(
       if (!overview) {
         return res.status(404).json({ error: "No live Nexus data found for this store" });
       }
-      // Overrides fetchStoreOverviewFast's stale store_weekly_summary-based
-      // overstockCount (old cover>=18 blanket rule) with the real per-client
-      // "no sales in N days" count.
-      if (resolvedWeek) {
-        overview.overstockCount = await getOverstockCountForStore(store, resolvedWeek, knownClient || clientScope);
-      }
+      // overview.overstockCount already comes straight off store_weekly_summary
+      // (fetchStoreOverviewFast's best.overstockCount) - the real, full number,
+      // now correct because generateTasksForWeek writes it using the actual
+      // per-client rule instead of the old blanket one. overstockCountFix is
+      // Fix's separate, narrower, nexus_tasks-based number.
+      (overview as any).overstockCountFix = await getOverstockCountForFix(store, knownClient || clientScope);
 
       // At Risk now comes straight off overview (computed there from the
       // same skuRows already loaded - no second DB round-trip). Distribution

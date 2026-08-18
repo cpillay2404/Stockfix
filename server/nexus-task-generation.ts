@@ -148,7 +148,7 @@ export async function listRealOverstockAtStore(store: string, week: string, clie
         curr.category, curr.classification, curr.store_soh, curr.dc_soh, curr.sell_out_p4, curr.cover
       from store_sku_weekly curr
       where curr.week_ending = ${week}
-        and lower(trim(curr.cleaned_store_name)) = lower(trim(${store}))
+        and upper(trim(curr.cleaned_store_name)) = upper(trim(${store}))
         and curr.client in (${sql.join(clients.map((c: string) => sql`${c}`), sql`, `)})
         and curr.store_soh > 0
         and ${sql.join(checkpointExists, sql` and `)}
@@ -227,6 +227,40 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
         and ${sql.join(checkpointExists, sql` and `)}
     `);
     flaggedOverstock.push(...((rows.rows || rows) as any[]));
+  }
+
+  // Precompute the real, uncapped Overstock count into store_weekly_summary
+  // (Carin, 2026-08-18: "the KPI card... can it read from the original
+  // table? yes, same table, same column") - this is the exact mechanism
+  // Insights already used before nexus_tasks existed (a fast, precomputed
+  // column read), just now driven by the real per-client rule instead of
+  // the old blanket cover>=18 one. Never computed live at request time -
+  // that's what caused the real production slowdown earlier today.
+  // Reset first: nexus-sync just wrote the old blanket-rule value from live
+  // Nexus for every client (including ones with no client_overstock_rules
+  // entry at all, who must show 0, not a stale blanket number).
+  await db.execute(sql`update store_weekly_summary set overstock_count = 0 where week_ending = ${week}`);
+  const overstockCountsByStoreClient = new Map<string, number>();
+  for (const r of flaggedOverstock) {
+    const key = `${r.client}|||${r.cleaned_store_name}`;
+    overstockCountsByStoreClient.set(key, (overstockCountsByStoreClient.get(key) || 0) + 1);
+  }
+  const overstockEntries = Array.from(overstockCountsByStoreClient.entries());
+  const OVERSTOCK_UPDATE_BATCH = 500;
+  for (let i = 0; i < overstockEntries.length; i += OVERSTOCK_UPDATE_BATCH) {
+    const batch = overstockEntries.slice(i, i + OVERSTOCK_UPDATE_BATCH);
+    const values = batch.map(([key, count]) => {
+      const [client, storeName] = key.split("|||");
+      return sql`(${client}, ${storeName}, ${count}::int)`;
+    });
+    await db.execute(sql`
+      update store_weekly_summary sws
+      set overstock_count = v.cnt
+      from (values ${sql.join(values, sql`, `)}) as v(client, store_name, cnt)
+      where sws.week_ending = ${week}
+        and sws.client = v.client
+        and sws.cleaned_store_name = v.store_name
+    `);
   }
 
   const flaggedAtRisk = await db.execute(sql`

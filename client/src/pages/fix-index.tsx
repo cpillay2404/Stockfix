@@ -17,7 +17,10 @@ interface OverviewResponse {
   suggestedOrderSkuCount: number;
   negSOHCount: number;
   oosCount: number;
-  overstockCount: number;
+  // Fix's own narrower, actionable Overstock number - only SKUs that
+  // already have a real nexus_tasks row (a real assignee exists). Not the
+  // same as Insights' overstockCount, which is the full uncapped reality.
+  overstockCountFix: number;
   atRiskCount: number;
   distributionGapsCount: number;
 }
@@ -112,7 +115,7 @@ export default function FixIndex() {
             onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=overstock${clientQS}`)}
           >
             <div className="sf2-listrow-title">Overstock</div>
-            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.overstockCount}</span><ChevronRight size={16} /></div>
+            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.overstockCountFix}</span><ChevronRight size={16} /></div>
           </button>
 
           <button
