@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Bell, CheckCircle2, Clock, Camera, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2LoadingState from "@/components/sf2-loading-state";
+import { useAccess } from "@/context/AccessContext";
 import "./StoreOverview.css";
 
 interface VisitSummaryResponse {
@@ -28,6 +29,7 @@ interface VisitSummaryResponse {
 // already serves).
 export default function NexusExitVisit() {
   const [, setLocation] = useLocation();
+  const { clearAll } = useAccess();
   const params = new URLSearchParams(window.location.search);
   const store = params.get("store") || "";
   const rep = params.get("rep") || "";
@@ -45,7 +47,10 @@ export default function NexusExitVisit() {
   });
 
   const handleBack = () => setLocation(`/store-detail/fix?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
-  const handleLogout = () => setLocation("/");
+  const handleLogout = () => {
+    clearAll();
+    setLocation("/");
+  };
 
   if (isLoading) return <Sf2LoadingState />;
 
