@@ -1,86 +1,52 @@
 import type { Express } from "express";
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import {
+  createPhotoUploadUrl,
+  proxyPhoto,
+} from "../../supabase-storage";
 
 /**
- * Register object storage routes for file uploads.
+ * Register photo storage routes backed by Supabase Storage.
  *
- * This provides example routes for the presigned URL upload flow:
- * 1. POST /api/uploads/request-url - Get a presigned URL for uploading
- * 2. The client then uploads directly to the presigned URL
- *
- * IMPORTANT: These are example routes. Customize based on your use case:
- * - Add authentication middleware for protected uploads
- * - Add file metadata storage (save to database after upload)
- * - Add ACL policies for access control
+ * Flow:
+ * 1. POST /api/uploads/request-url — returns a Supabase signed upload URL
+ *    and the objectPath to save in the DB (image1/2/3/4 columns).
+ * 2. Client uploads the file directly to the signed URL (PUT).
+ * 3. GET /objects/:objectPath(*) — proxies the photo from Supabase Storage.
  */
 export function registerObjectStorageRoutes(app: Express): void {
-  const objectStorageService = new ObjectStorageService();
-
-  /**
-   * Request a presigned URL for file upload.
-   *
-   * Request body (JSON):
-   * {
-   *   "name": "filename.jpg",
-   *   "size": 12345,
-   *   "contentType": "image/jpeg"
-   * }
-   *
-   * Response:
-   * {
-   *   "uploadURL": "https://storage.googleapis.com/...",
-   *   "objectPath": "/objects/uploads/uuid"
-   * }
-   *
-   * IMPORTANT: The client should NOT send the file to this endpoint.
-   * Send JSON metadata only, then upload the file directly to uploadURL.
-   */
+  /** Request a presigned upload URL for a new photo. */
   app.post("/api/uploads/request-url", async (req, res) => {
     try {
       const { name, size, contentType } = req.body;
 
       if (!name) {
-        return res.status(400).json({
-          error: "Missing required field: name",
-        });
+        return res.status(400).json({ error: "Missing required field: name" });
       }
 
-      const uploadURL = await objectStorageService.getObjectEntityUploadURL();
-
-      // Extract object path from the presigned URL for later reference
-      const objectPath = objectStorageService.normalizeObjectEntityPath(uploadURL);
+      const { uploadURL, objectPath } = await createPhotoUploadUrl(name);
 
       res.json({
         uploadURL,
         objectPath,
-        // Echo back the metadata for client convenience
         metadata: { name, size, contentType },
       });
     } catch (error) {
-      console.error("Error generating upload URL:", error);
+      console.error("[storage] Error generating upload URL:", error);
       res.status(500).json({ error: "Failed to generate upload URL" });
     }
   });
 
-  /**
-   * Serve uploaded objects.
-   *
-   * GET /objects/:objectPath(*)
-   *
-   * This serves files from object storage. For public files, no auth needed.
-   * For protected files, add authentication middleware and ACL checks.
-   */
+  /** Serve / proxy a stored photo by its objectPath. */
   app.get("/objects/:objectPath(*)", async (req, res) => {
     try {
-      const objectFile = await objectStorageService.getObjectEntityFile(req.path);
-      await objectStorageService.downloadObject(objectFile, res);
+      // req.path is e.g. /objects/uploads/uuid.jpg
+      const objectPath = req.path.replace(/^\/objects\//, "");
+      await proxyPhoto(objectPath, res);
     } catch (error) {
-      console.error("Error serving object:", error);
-      if (error instanceof ObjectNotFoundError) {
-        return res.status(404).json({ error: "Object not found" });
+      console.error("[storage] Error serving photo:", error);
+      if (!res.headersSent) {
+        res.status(500).json({ error: "Failed to serve photo" });
       }
-      return res.status(500).json({ error: "Failed to serve object" });
     }
   });
 }
-
