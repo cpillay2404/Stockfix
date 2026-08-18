@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, ChevronDown, ChevronRight, ArrowLeft, Store as StoreIcon } from "lucide-react";
+import { ChevronDown, ChevronRight, ArrowLeft, Store as StoreIcon } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2BottomNav from "@/components/sf2-bottom-nav";
 import Sf2SkuInlineCard from "@/components/sf2-sku-inline-card";
@@ -270,7 +270,6 @@ export default function StoreOverview() {
         </div>
         <div className="sf2-topbar-right">
           <span className="sf2-sync"><span className="sf2-sync-dot" />Synced</span>
-          <Bell size={18} />
         </div>
       </header>
 

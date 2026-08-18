@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Store as StoreIcon, ChevronRight, LogOut } from "lucide-react";
+import { Store as StoreIcon, ChevronRight, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2BottomNav from "@/components/sf2-bottom-nav";
 import Sf2ClientSkuFilters from "@/components/sf2-client-sku-filters";
@@ -65,7 +65,6 @@ export default function FixIndex() {
           >
             <LogOut size={18} />
           </button>
-          <Bell size={18} />
         </div>
       </header>
 

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Wrench, Minus, Plus, Camera, AlertTriangle, X, CheckCircle2 } from "lucide-react";
+import { Wrench, Minus, Plus, Camera, AlertTriangle, X, CheckCircle2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import "./StoreOverview.css";
 
@@ -170,7 +170,6 @@ export default function ActionCapture() {
         <BrandLogo size={20} />
         <div className="sf2-topbar-right">
           <span className="sf2-sync"><span className="sf2-sync-dot" />Synced</span>
-          <Bell size={18} />
         </div>
       </header>
 

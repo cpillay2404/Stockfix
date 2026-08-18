@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Bell, Store as StoreIcon } from "lucide-react";
+import { ArrowLeft, Store as StoreIcon } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2LoadingState from "@/components/sf2-loading-state";
 import "./StoreOverview.css";
@@ -69,7 +69,6 @@ export default function CoverAnalysisDetail() {
         </div>
         <div className="sf2-topbar-right">
           <span className="sf2-sync"><span className="sf2-sync-dot" />Synced</span>
-          <Bell size={18} />
         </div>
       </header>
 

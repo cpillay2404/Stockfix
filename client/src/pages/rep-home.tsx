@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Menu, Bell, RefreshCw, ChevronRight, Store as StoreIcon, Search, Filter, Home, ClipboardList } from "lucide-react";
+import { Menu, RefreshCw, ChevronRight, Store as StoreIcon, Search, Filter, Home, ClipboardList } from "lucide-react";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import { COLORS, DOT_MATRIX_BG, HEX_OUTLINE_PATTERN_BG } from "@/lib/design-tokens";
 
@@ -109,7 +109,6 @@ export default function RepHome() {
             <img src={meridianGroupLogo} alt="Meridian Group" style={{ height: 24 }} />
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-            <Bell style={{ width: 22, height: 22, color: "#F7F9FC" }} />
             <div style={{ display: "flex", alignItems: "center", gap: 5, color: "#38BDF8", fontSize: 13 }}>
               <RefreshCw style={{ width: 15, height: 15 }} />
               Synced

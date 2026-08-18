@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Store as StoreIcon, ShoppingCart, ChevronRight } from "lucide-react";
+import { Store as StoreIcon, ShoppingCart, ChevronRight } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2BottomNav from "@/components/sf2-bottom-nav";
 import Sf2ClientSkuFilters from "@/components/sf2-client-sku-filters";
@@ -100,7 +100,6 @@ export default function SupplyDetail() {
         <BrandLogo size={20} />
         <div className="sf2-topbar-right">
           <span className="sf2-sync"><span className="sf2-sync-dot" />Synced</span>
-          <Bell size={18} />
         </div>
       </header>
 

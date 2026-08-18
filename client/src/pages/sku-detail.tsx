@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, ArrowLeft, Store as StoreIcon, Wrench } from "lucide-react";
+import { ArrowLeft, Store as StoreIcon, Wrench } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import { BarTrend } from "./store-nexus-overview";
 import Sf2LoadingState from "@/components/sf2-loading-state";
@@ -124,7 +124,6 @@ export default function SkuDetail() {
         </div>
         <div className="sf2-topbar-right">
           <span className="sf2-sync"><span className="sf2-sync-dot" />Synced</span>
-          <Bell size={18} />
         </div>
       </header>
 

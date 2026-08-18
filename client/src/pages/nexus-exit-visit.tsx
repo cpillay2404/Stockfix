@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Bell, CheckCircle2, Clock, Camera, LogOut } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Camera, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2LoadingState from "@/components/sf2-loading-state";
 import { useAccess } from "@/context/AccessContext";
@@ -60,7 +60,6 @@ export default function NexusExitVisit() {
         <button className="icon-btn" onClick={handleBack}><ArrowLeft size={20} /></button>
         <BrandLogo size={20} />
         <div className="sf2-topbar-right">
-          <Bell size={18} />
         </div>
       </header>
 
