@@ -139,11 +139,15 @@ export default function SelectClientStore() {
     }
   }, [accessMode, setAccessMode, setClientLocked]);
 
-  const { data: stats } = useQuery({
-    queryKey: ["dashboard-stats"],
+  // Real bug found 2026-08-18 (Carin: "it must talk to the real app now") -
+  // this used to read /api/dashboard/stats, whose client list comes from
+  // the legacy tasks table, not the real synced Nexus data this new app
+  // actually runs on.
+  const { data: realClientsData } = useQuery({
+    queryKey: ["all-clients"],
     queryFn: async () => {
-      const res = await fetch("/api/dashboard/stats");
-      if (!res.ok) throw new Error("Failed to fetch stats");
+      const res = await fetch("/api/roster/all-clients");
+      if (!res.ok) throw new Error("Failed to fetch clients");
       return res.json();
     },
   });
@@ -200,7 +204,7 @@ export default function SelectClientStore() {
     },
   });
 
-  const clients = stats?.filters?.clients || [];
+  const clients = realClientsData?.clients || [];
   const stores = storesData?.stores || [];
 
   const handleClientChange = (newClient: string) => {

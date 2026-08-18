@@ -989,6 +989,26 @@ export async function registerRoutes(
     }
   });
 
+  // Real, network-wide list of clients with actual synced Nexus data - real
+  // gap found 2026-08-18 (Carin: "it must talk to the real app now"): the
+  // client-login screen's dropdown was reading /api/dashboard/stats, which
+  // sources its client list from the legacy tasks table - a client with
+  // real store_weekly_summary data but no legacy tasks entries wouldn't
+  // show up, and inactive legacy-only clients (e.g. Davidoff) still could.
+  app.get("/api/roster/all-clients", async (req, res) => {
+    try {
+      const [weekRow] = await db.execute(sql`select max(week_ending) as week from store_weekly_summary`).then((r: any) => (r.rows || r));
+      const week = weekRow?.week as string | undefined;
+      if (!week) return res.json({ clients: [] });
+      const rows = await db.selectDistinct({ client: storeWeeklySummary.client }).from(storeWeeklySummary).where(eq(storeWeeklySummary.weekEnding, week));
+      const clients = rows.map((r) => r.client).filter(Boolean).sort();
+      res.json({ clients });
+    } catch (error) {
+      console.error("Error fetching real clients list:", error);
+      res.status(500).json({ error: "Failed to fetch clients" });
+    }
+  });
+
   // Store-first flow: search real stores by name (for "select store first,
   // then see who's linked to it" per direct request 2026-08-12).
   // Real list of clients that actually have synced Nexus data for a given
