@@ -172,6 +172,21 @@ export const nexusTaskAssignees = pgTable("nexus_task_assignees", {
 
 export type NexusTaskAssignee = typeof nexusTaskAssignees.$inferSelect;
 
+// Per-client overstock definition (Carin, 2026-08-18): a blanket 6-week
+// cover threshold flagged 74% of the entire network as "overstock" one
+// week - real client-by-client variance (13.7%-77.4%) showed a flat rule
+// doesn't fit every client's real order cadence. Real criteria given
+// per-client, one at a time, over this session - see project memory
+// for the full collection conversation. Davidoff deliberately has no row -
+// inactive client, no longer receiving data (Carin, 2026-08-18).
+export const clientOverstockRules = pgTable("client_overstock_rules", {
+  id: serial("id").primaryKey(),
+  client: text("client").notNull().unique(),
+  noSalesDaysThreshold: integer("no_sales_days_threshold").notNull(),
+});
+
+export type ClientOverstockRule = typeof clientOverstockRules.$inferSelect;
+
 export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),
   repName: text("rep_name").notNull(),

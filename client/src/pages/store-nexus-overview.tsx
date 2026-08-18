@@ -375,7 +375,7 @@ export default function StoreOverview() {
           return (
             <div className="sf2-composition">
               <div className="sf2-composition-head">
-                <span className="sf2-composition-title">In stock</span>
+                <span className="sf2-composition-title">In-Stock Availability</span>
                 {data.deltas?.inStockPct != null && data.deltas.inStockPct !== 0 && (
                   <span className={`sf2-composition-delta ${data.deltas.inStockPct > 0 ? "up" : "down"}`}>
                     {data.deltas.inStockPct > 0 ? "+" : ""}{data.deltas.inStockPct}% vs LW

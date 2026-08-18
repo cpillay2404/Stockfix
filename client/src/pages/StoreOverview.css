@@ -1098,20 +1098,20 @@
    stacked bar with inline labels on the two largest segments, two-column
    legend below. */
 .sf2-composition {
-  margin-top: 6px; padding: 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--border);
+  margin-top: 6px; padding: 9px; border-radius: 10px; background: var(--card); border: 1px solid var(--border);
 }
 .sf2-composition-head { display: flex; align-items: center; justify-content: space-between; }
-.sf2-composition-title { font-size: 12px; color: #91A7C9; }
-.sf2-composition-delta { font-size: 11px; font-weight: 700; }
+.sf2-composition-title { font-size: 10px; color: #91A7C9; }
+.sf2-composition-delta { font-size: 9.5px; font-weight: 700; }
 .sf2-composition-delta.up { color: var(--green); }
 .sf2-composition-delta.down { color: var(--red); }
-.sf2-composition-pct { font-size: 32px; font-weight: 800; color: var(--green); line-height: 1.1; margin-top: 2px; }
+.sf2-composition-pct { font-size: 24px; font-weight: 800; color: var(--green); line-height: 1.1; margin-top: 1px; }
 .sf2-composition-bar {
-  display: flex; height: 22px; border-radius: 11px; overflow: hidden; margin-top: 10px;
+  display: flex; height: 16px; border-radius: 8px; overflow: hidden; margin-top: 7px;
 }
 .sf2-composition-seg {
   height: 100%; display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; color: rgba(0,0,0,0.55); white-space: nowrap; overflow: hidden;
+  font-size: 8.5px; font-weight: 700; color: rgba(0,0,0,0.55); white-space: nowrap; overflow: hidden;
 }
 .sf2-composition-seg.tone-red { background: var(--red); }
 .sf2-composition-seg.tone-orange { background: var(--orange); }
@@ -1120,14 +1120,14 @@
 .sf2-composition-seg.tone-pink { background: #e05fa0; }
 .sf2-composition-seg.tone-green { background: var(--green); }
 .sf2-composition-legend-grid {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-top: 12px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; margin-top: 8px;
 }
-.sf2-composition-legend-col { display: flex; flex-direction: column; gap: 8px; }
+.sf2-composition-legend-col { display: flex; flex-direction: column; gap: 5px; }
 .sf2-composition-legend-row {
-  display: flex; align-items: center; gap: 7px; font-size: 12px; color: #DCE7F7;
+  display: flex; align-items: center; gap: 6px; font-size: 10px; color: #DCE7F7;
 }
-.sf2-composition-legend-row small { color: #91A7C9; font-weight: 600; }
-.sf2-composition-swatch { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.sf2-composition-legend-row small { color: #91A7C9; font-weight: 600; font-size: 9px; }
+.sf2-composition-swatch { width: 8px; height: 8px; border-radius: 3px; flex-shrink: 0; }
 .sf2-composition-swatch.tone-red { background: var(--red); }
 .sf2-composition-swatch.tone-orange { background: var(--orange); }
 .sf2-composition-swatch.tone-amber { background: var(--amber); }
