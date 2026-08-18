@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, TrendingUp, CheckCircle, AlertCircle, AlertTriangle, Users, Store, Trophy, RefreshCw } from "lucide-react";
+import { ArrowLeft, AlertTriangle, Users, Store, RefreshCw } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import BottomNav from "@/components/BottomNav";
 import Leaderboard from "@/components/Leaderboard";
@@ -60,80 +60,6 @@ function KpiTile({ label, value, icon, accentColor, testId }: KpiTileProps) {
       }}>
         {label}
       </span>
-    </div>
-  );
-}
-
-interface RepRowProps {
-  rep: {
-    repName: string;
-    open: number;
-    completed: number;
-    completionRate: number;
-    priorityOpen?: number;
-    priorityCompleted?: number;
-    priorityCompletionRate?: number;
-    oldestOpenDays: number;
-  };
-  onClick: () => void;
-}
-
-function RepRow({ rep, onClick }: RepRowProps) {
-  const isAtRisk = rep.open >= 10 || rep.oldestOpenDays >= 14;
-
-  return (
-    <div
-      data-testid={`rep-row-${rep.repName}`}
-      onClick={onClick}
-      style={{
-        backgroundColor: NAVY_CARD,
-        borderRadius: 10,
-        padding: 12,
-        marginBottom: 8,
-        cursor: 'pointer',
-        borderLeft: isAtRisk ? `4px solid ${RED}` : `4px solid ${GREEN}`,
-      }}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{
-            fontSize: 14,
-            fontWeight: 600,
-            color: "#F7F9FC",
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-          }}>
-            {rep.repName}
-          </div>
-          <div style={{
-            display: 'flex',
-            gap: 12,
-            marginTop: 4,
-            fontSize: 12,
-            color: TEXT_MUTED,
-          }}>
-            <span style={{ color: ORANGE, fontWeight: 600 }}>
-              {rep.priorityOpen ?? 0} priority
-            </span>
-            <span style={{ color: GREEN }}>
-              {rep.priorityCompletionRate ?? 0}% priority rate
-            </span>
-            <span>
-              {rep.open} total open
-            </span>
-          </div>
-        </div>
-        <div style={{ textAlign: 'right', flexShrink: 0, marginLeft: 8 }}>
-          <div style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: rep.oldestOpenDays > 14 ? RED : rep.oldestOpenDays > 7 ? AMBER : TEXT_MUTED
-          }}>
-            {rep.oldestOpenDays} days oldest
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -262,13 +188,13 @@ export default function ManagerProgress() {
 
   const repLeaderboard = data?.repLeaderboard || [];
   const topPerformer = repLeaderboard.length > 0
-    ? [...repLeaderboard].sort((a: any, b: any) => (b.priorityCompletionRate ?? 0) - (a.priorityCompletionRate ?? 0))[0]
+    ? [...repLeaderboard].sort((a: any, b: any) => (b.completionRate ?? 0) - (a.completionRate ?? 0))[0]
     : null;
-  const mostPriorityOpenRep = repLeaderboard.length > 0
-    ? [...repLeaderboard].sort((a: any, b: any) => (b.priorityOpen ?? 0) - (a.priorityOpen ?? 0))[0]
+  const mostOpenRep = repLeaderboard.length > 0
+    ? [...repLeaderboard].sort((a: any, b: any) => (b.open ?? 0) - (a.open ?? 0))[0]
     : null;
-  const teamAvgPriorityRate = repLeaderboard.length > 0
-    ? Math.round(repLeaderboard.reduce((sum: number, r: any) => sum + (r.priorityCompletionRate ?? 0), 0) / repLeaderboard.length)
+  const teamAvgRate = repLeaderboard.length > 0
+    ? Math.round(repLeaderboard.reduce((sum: number, r: any) => sum + (r.completionRate ?? 0), 0) / repLeaderboard.length)
     : 0;
 
   return (
@@ -355,7 +281,8 @@ export default function ManagerProgress() {
           onRepClick={handleRepClick}
         />
 
-        {/* Team Achievements Insights */}
+        {/* Team Summary - real numbers only (Carin, 2026-08-18: "i dont
+            want emojis and crap... all this nonsense") */}
         {(data?.repLeaderboard?.length > 0) && (
           <div style={{
             backgroundColor: NAVY_CARD,
@@ -363,17 +290,8 @@ export default function ManagerProgress() {
             padding: 12,
             marginBottom: 16,
           }}>
-            <h3 style={{
-              fontSize: 14,
-              fontWeight: 600,
-              color: "#F7F9FC",
-              marginBottom: 12,
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-            }}>
-              <Trophy size={16} style={{ color: AMBER }} />
-              Team Achievements
+            <h3 style={{ fontSize: 14, fontWeight: 600, color: "#F7F9FC", marginBottom: 12 }}>
+              Team Summary
             </h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
               <div style={{
@@ -382,12 +300,12 @@ export default function ManagerProgress() {
                 padding: 10,
                 borderLeft: `3px solid ${GREEN}`,
               }}>
-                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Top Priority Performer</div>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Top Performer</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#F7F9FC" }}>
                   {topPerformer?.repName || '-'}
                 </div>
                 <div style={{ fontSize: 11, color: GREEN }}>
-                  {topPerformer?.priorityCompletionRate ?? topPerformer?.completionRate ?? 0}% priority
+                  {topPerformer?.completionRate ?? 0}% completion
                 </div>
               </div>
               <div style={{
@@ -396,12 +314,12 @@ export default function ManagerProgress() {
                 padding: 10,
                 borderLeft: `3px solid ${RED}`,
               }}>
-                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Most Priority Open</div>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Most Open Tasks</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "#F7F9FC" }}>
-                  {mostPriorityOpenRep?.repName || '-'}
+                  {mostOpenRep?.repName || '-'}
                 </div>
                 <div style={{ fontSize: 11, color: RED }}>
-                  {mostPriorityOpenRep?.priorityOpen ?? 0} priority open
+                  {mostOpenRep?.open ?? 0} open
                 </div>
               </div>
               <div style={{
@@ -410,9 +328,9 @@ export default function ManagerProgress() {
                 padding: 10,
                 borderLeft: `3px solid ${AMBER}`,
               }}>
-                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Team Priority Avg</div>
+                <div style={{ fontSize: 11, color: TEXT_MUTED, marginBottom: 4 }}>Team Completion Avg</div>
                 <div style={{ fontSize: 16, fontWeight: 700, color: AMBER, fontFamily: 'monospace' }}>
-                  {teamAvgPriorityRate}%
+                  {teamAvgRate}%
                 </div>
               </div>
               <div style={{
@@ -511,8 +429,7 @@ export default function ManagerProgress() {
                 <PieChart>
                   <Pie
                     data={[
-                      { name: 'Priority Open', value: data?.kpis?.priorityOpenCount || 0, fill: RED },
-                      { name: 'Non-Priority Open', value: (data?.kpis?.totalOpen || 0) - (data?.kpis?.priorityOpenCount || 0), fill: ORANGE },
+                      { name: 'Open', value: data?.kpis?.totalOpen || 0, fill: ORANGE },
                       { name: 'Completed', value: data?.kpis?.totalCompleted || 0, fill: GREEN },
                     ]}
                     cx="50%"
@@ -522,7 +439,6 @@ export default function ManagerProgress() {
                     paddingAngle={2}
                     dataKey="value"
                   >
-                    <Cell fill={RED} />
                     <Cell fill={ORANGE} />
                     <Cell fill={GREEN} />
                   </Pie>
@@ -531,17 +447,10 @@ export default function ManagerProgress() {
             </div>
             <div style={{ flex: 1 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                <div style={{ width: 12, height: 12, backgroundColor: RED, borderRadius: 2 }} />
-                <span style={{ fontSize: 13, color: TEXT_MUTED }}>Priority Open</span>
-                <span style={{ fontSize: 16, fontWeight: 700, color: RED, marginLeft: 'auto', fontFamily: 'monospace' }}>
-                  {data?.kpis?.priorityOpenCount?.toLocaleString() || 0}
-                </span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                 <div style={{ width: 12, height: 12, backgroundColor: ORANGE, borderRadius: 2 }} />
-                <span style={{ fontSize: 13, color: TEXT_MUTED }}>Non-Priority Open</span>
+                <span style={{ fontSize: 13, color: TEXT_MUTED }}>Open</span>
                 <span style={{ fontSize: 16, fontWeight: 700, color: ORANGE, marginLeft: 'auto', fontFamily: 'monospace' }}>
-                  {((data?.kpis?.totalOpen || 0) - (data?.kpis?.priorityOpenCount || 0)).toLocaleString()}
+                  {data?.kpis?.totalOpen?.toLocaleString() || 0}
                 </span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

@@ -4063,40 +4063,52 @@ export async function registerRoutes(
     }
   });
 
-  // GET Gamification Leaderboard (this week only) - with caching
+  // GET Leaderboard (this week only) - with caching
+  // Rebuilt 2026-08-18 (Carin: "it must be linked to the correct table now" +
+  // "forget the priority crap") to read from nexus_tasks instead of the
+  // legacy tasks table, and dropped the priority-task split, badges,
+  // streaks, and "stores mastered" entirely - plain real completion numbers.
   app.get("/api/gamification/leaderboard", async (req, res) => {
     try {
       const manager = req.query.manager as string | undefined;
       const client = req.query.client as string | undefined;
       const limit = parseInt(req.query.limit as string) || 10;
-      const cacheKey = `leaderboard_${manager || 'all'}_${client || 'all'}`;
-      
-      let cachedData = getCachedGamificationStats(cacheKey);
-      let allStats: RepGamificationStats[];
-      let latestWeek: string | null;
-      
-      if (cachedData) {
-        allStats = cachedData.stats;
-        latestWeek = cachedData.weekEndingDate;
-      } else {
-        latestWeek = await storage.getMostPopulatedWeekEndingDate();
-        if (!latestWeek) {
-          return res.json({ leaderboard: [], teamStats: {}, totalReps: 0, weekEndingDate: null });
-        }
-        
-        const [repStatsRaw, streaks] = await Promise.all([
-          storage.getLeaderboardAggregated(latestWeek, client || undefined),
-          storage.getRepStreaks(),
-        ]);
-        
-        let filteredStats = repStatsRaw;
-        if (manager) {
-          filteredStats = repStatsRaw.filter(r => r.lineManager === manager);
-        }
-        
-        allStats = filteredStats.map(rep => {
+      const cacheKey = `nexus_leaderboard_${manager || 'all'}_${client || 'all'}`;
+
+      const cached = dashboardStatsCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
+        return res.json(cached.data);
+      }
+
+      const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+      const latestWeek = weekRow?.week as string | undefined;
+      if (!latestWeek) {
+        return res.json({ leaderboard: [], teamStats: {}, totalReps: 0, weekEndingDate: null });
+      }
+
+      const conditions = [eq(nexusTasks.weekEndingDate, latestWeek)];
+      if (client) conditions.push(eq(nexusTasks.client, client));
+      if (manager) conditions.push(eq(nexusTasks.lineManager, manager));
+
+      const repRows = await db
+        .select({
+          repName: nexusTasks.repName,
+          lineManager: nexusTasks.lineManager,
+          region: nexusTasks.region,
+          totalTasks: sql<number>`count(*)::int`,
+          completedTasks: sql<number>`sum(case when ${nexusTasks.actionStatus} = 'Completed' then 1 else 0 end)::int`,
+        })
+        .from(nexusTasks)
+        .where(and(...conditions))
+        .groupBy(nexusTasks.repName, nexusTasks.lineManager, nexusTasks.region);
+
+      // "Unassigned" isn't a real rep - only claimed/completed tasks have a
+      // real name attached, so it's excluded from the leaderboard itself
+      // (still counted in team totals below).
+      let allStats = repRows
+        .filter((r) => r.repName && r.repName !== "Unassigned")
+        .map((rep) => {
           const completionRate = rep.totalTasks > 0 ? Math.round((rep.completedTasks / rep.totalTasks) * 100) : 0;
-          const priorityCompletionRate = rep.priorityTotalTasks > 0 ? Math.round((rep.priorityCompletedTasks / rep.priorityTotalTasks) * 100) : 0;
           return {
             repName: rep.repName,
             lineManager: rep.lineManager,
@@ -4105,36 +4117,30 @@ export async function registerRoutes(
             completedTasks: rep.completedTasks,
             openTasks: rep.totalTasks - rep.completedTasks,
             completionRate,
-            priorityTotalTasks: rep.priorityTotalTasks,
-            priorityCompletedTasks: rep.priorityCompletedTasks,
-            priorityOpenTasks: rep.priorityTotalTasks - rep.priorityCompletedTasks,
-            priorityCompletionRate,
-            badge: calculateBadge(priorityCompletionRate),
-            streak: streaks[rep.repName] || 0,
-            storesMastered: rep.storesMastered,
             rank: 0,
-            rankChange: 'same' as const,
-            isTopPerformer: false,
           };
-        }).sort((a, b) => b.priorityCompletionRate - a.priorityCompletionRate);
-        
-        allStats.forEach((rep, index) => {
-          rep.rank = index + 1;
-          rep.isTopPerformer = index < 3;
-        });
-        
-        setCachedGamificationStats(cacheKey, { stats: allStats, weekEndingDate: latestWeek });
-      }
-      
-      const leaderboard = getLeaderboard(allStats, limit);
-      const teamStats = getTeamStats(allStats);
-      
-      res.json({
-        leaderboard,
+        })
+        .sort((a, b) => b.completionRate - a.completionRate);
+
+      allStats.forEach((rep, index) => { rep.rank = index + 1; });
+
+      const totalTasks = repRows.reduce((s, r) => s + r.totalTasks, 0);
+      const totalCompleted = repRows.reduce((s, r) => s + r.completedTasks, 0);
+      const teamStats = {
+        totalReps: allStats.length,
+        totalTasks,
+        totalCompleted,
+        avgCompletionRate: totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0,
+      };
+
+      const responseData = {
+        leaderboard: allStats.slice(0, limit),
         teamStats,
         totalReps: allStats.length,
         weekEndingDate: latestWeek,
-      });
+      };
+      dashboardStatsCache.set(cacheKey, { data: responseData, timestamp: Date.now(), key: cacheKey });
+      res.json(responseData);
     } catch (error) {
       console.error("Error fetching leaderboard:", error);
       res.status(500).json({ error: "Failed to fetch leaderboard" });
@@ -4389,6 +4395,9 @@ export async function registerRoutes(
   });
 
   // GET Manager Task Progress - shows team-wide progress across all reps (this week only)
+  // Rebuilt 2026-08-18 (Carin: "it must be linked to the correct table now" +
+  // "forget the priority crap") - reads nexus_tasks instead of the legacy
+  // tasks table, dropped the priority-task split entirely.
   app.get("/api/task-progress/manager", async (req, res) => {
     try {
       const region = req.query.region as string | undefined;
@@ -4398,8 +4407,7 @@ export async function registerRoutes(
       const dateFrom = req.query.dateFrom as string | undefined;
       const dateTo = req.query.dateTo as string | undefined;
 
-      // Check cache first (only if no date filters)
-      const cacheKey = `manager_progress_${manager || 'all'}_${region || 'all'}_${client || 'all'}_${store || 'all'}`;
+      const cacheKey = `nexus_manager_progress_${manager || 'all'}_${region || 'all'}_${client || 'all'}_${store || 'all'}`;
       if (!dateFrom && !dateTo) {
         const cached = dashboardStatsCache.get(cacheKey);
         if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
@@ -4407,20 +4415,20 @@ export async function registerRoutes(
         }
       }
 
-      const latestWeek = await storage.getMostPopulatedWeekEndingDate();
-      
-      const teamTasks = await storage.getTasksFiltered({
-        weekEndingDate: latestWeek || undefined,
-        lineManager: manager,
-        region,
-        client,
-        store,
-      });
+      const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+      const latestWeek = weekRow?.week as string | undefined;
+
+      const conditions = latestWeek ? [eq(nexusTasks.weekEndingDate, latestWeek)] : [sql`1=0`];
+      if (manager) conditions.push(eq(nexusTasks.lineManager, manager));
+      if (region) conditions.push(eq(nexusTasks.region, region));
+      if (client) conditions.push(eq(nexusTasks.client, client));
+      if (store) conditions.push(sql`upper(trim(${nexusTasks.storeName})) = ${store.toUpperCase().trim()}`);
+
+      const teamTasks = latestWeek ? await db.select().from(nexusTasks).where(and(...conditions)) : [];
 
       const openTasks = teamTasks.filter(t => t.actionStatus !== 'Completed');
       let completedTasks = teamTasks.filter(t => t.actionStatus === 'Completed');
 
-      // Apply date range filter for completed tasks
       if (dateFrom || dateTo) {
         completedTasks = completedTasks.filter(t => {
           if (!t.captureDate) return false;
@@ -4431,21 +4439,11 @@ export async function registerRoutes(
         });
       }
 
-      // Team KPIs
       const totalOpen = openTasks.length;
       const totalCompleted = completedTasks.length;
       const total = totalOpen + totalCompleted;
       const completionRate = total > 0 ? Math.round((totalCompleted / total) * 100) : 0;
 
-      // Priority task metrics (what reps are measured on)
-      const priorityOpenTasks = openTasks.filter(t => isPriorityTask(t.action));
-      const priorityCompletedTasks = completedTasks.filter(t => isPriorityTask(t.action));
-      const priorityTotal = priorityOpenTasks.length + priorityCompletedTasks.length;
-      const priorityCompletionRate = priorityTotal > 0 
-        ? Math.round((priorityCompletedTasks.length / priorityTotal) * 100) 
-        : 0;
-
-      // Oldest open task (team)
       let oldestOpenDays = 0;
       if (openTasks.length > 0) {
         const today = new Date();
@@ -4457,42 +4455,30 @@ export async function registerRoutes(
         oldestOpenDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       }
 
-      // Rep leaderboard with priority task tracking
-      const repStats: Record<string, { 
-        repName: string; 
-        open: number; 
-        completed: number; 
-        priorityOpen: number;
-        priorityCompleted: number;
-        oldestOpenDays: number;
-      }> = {};
-      
+      // Rep leaderboard - "Unassigned" excluded, same as /api/gamification/leaderboard.
+      const repStats: Record<string, { repName: string; open: number; completed: number; oldestOpenDays: number }> = {};
+
       teamTasks.forEach(task => {
-        const rep = task.repName || 'Unknown';
-        const isPriority = isPriorityTask(task.action);
-        
+        const rep = task.repName;
+        if (!rep || rep === "Unassigned") return;
+
         if (!repStats[rep]) {
-          repStats[rep] = { repName: rep, open: 0, completed: 0, priorityOpen: 0, priorityCompleted: 0, oldestOpenDays: 0 };
+          repStats[rep] = { repName: rep, open: 0, completed: 0, oldestOpenDays: 0 };
         }
         if (task.actionStatus === 'Completed') {
-          // Only count if within date range
           if (dateFrom || dateTo) {
             if (task.captureDate) {
               const captureDate = new Date(task.captureDate);
-              if ((!dateFrom || captureDate >= new Date(dateFrom)) && 
+              if ((!dateFrom || captureDate >= new Date(dateFrom)) &&
                   (!dateTo || captureDate <= new Date(dateTo + 'T23:59:59'))) {
                 repStats[rep].completed++;
-                if (isPriority) repStats[rep].priorityCompleted++;
               }
             }
           } else {
             repStats[rep].completed++;
-            if (isPriority) repStats[rep].priorityCompleted++;
           }
         } else {
           repStats[rep].open++;
-          if (isPriority) repStats[rep].priorityOpen++;
-          // Calculate oldest open for this rep
           const taskAge = Math.floor((new Date().getTime() - new Date(task.createdAt).getTime()) / (1000 * 60 * 60 * 24));
           if (taskAge > repStats[rep].oldestOpenDays) {
             repStats[rep].oldestOpenDays = taskAge;
@@ -4501,27 +4487,18 @@ export async function registerRoutes(
       });
 
       const repLeaderboard = Object.values(repStats)
-        .map(rep => {
-          const priorityTotal = rep.priorityOpen + rep.priorityCompleted;
-          return {
-            ...rep,
-            completionRate: (rep.open + rep.completed) > 0 
-              ? Math.round((rep.completed / (rep.open + rep.completed)) * 100) 
-              : 0,
-            priorityCompletionRate: priorityTotal > 0
-              ? Math.round((rep.priorityCompleted / priorityTotal) * 100)
-              : 0,
-          };
-        })
-        .sort((a, b) => b.priorityOpen - a.priorityOpen); // Sort by priority open tasks descending
+        .map(rep => ({
+          ...rep,
+          completionRate: (rep.open + rep.completed) > 0
+            ? Math.round((rep.completed / (rep.open + rep.completed)) * 100)
+            : 0,
+        }))
+        .sort((a, b) => b.open - a.open);
 
-      // Risk/attention section - identify reps and stores needing attention
       const highOpenThreshold = 10;
       const oldTaskThreshold = 14; // days
-
       const repsAtRisk = repLeaderboard.filter(r => r.open >= highOpenThreshold || r.oldestOpenDays >= oldTaskThreshold);
 
-      // Stores with most open tasks
       const storeOpenCounts: Record<string, number> = {};
       openTasks.forEach(task => {
         storeOpenCounts[task.storeName] = (storeOpenCounts[task.storeName] || 0) + 1;
@@ -4531,37 +4508,20 @@ export async function registerRoutes(
         .sort((a, b) => b.openCount - a.openCount)
         .slice(0, 5);
 
-      // Get unique regions and clients for filters
-      const regions = [...new Set(teamTasks.map(t => t.region))].filter(Boolean).sort();
-      const clients = [...new Set(teamTasks.map(t => t.client))].filter(Boolean).sort();
+      const regions = Array.from(new Set(teamTasks.map(t => t.region))).filter(Boolean).sort();
+      const clients = Array.from(new Set(teamTasks.map(t => t.client))).filter(Boolean).sort();
 
       const response = {
-        kpis: {
-          totalOpen,
-          totalCompleted,
-          completionRate,
-          oldestOpenDays,
-          // Priority task metrics (what reps are measured on)
-          priorityOpenCount: priorityOpenTasks.length,
-          priorityCompletedCount: priorityCompletedTasks.length,
-          priorityCompletionRate,
-        },
+        kpis: { totalOpen, totalCompleted, completionRate, oldestOpenDays },
         repLeaderboard,
-        riskAttention: {
-          repsAtRisk,
-          storesAtRisk
-        },
-        filters: {
-          regions,
-          clients
-        }
+        riskAttention: { repsAtRisk, storesAtRisk },
+        filters: { regions, clients }
       };
-      
-      // Cache response if no date filters
+
       if (!dateFrom && !dateTo) {
         dashboardStatsCache.set(cacheKey, { data: response, timestamp: Date.now(), key: cacheKey });
       }
-      
+
       res.json(response);
     } catch (error) {
       console.error("Error fetching manager task progress:", error);
