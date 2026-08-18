@@ -28,7 +28,7 @@ interface OverviewResponse {
   suggestedOrderDcSupportedCount: number;
   salesAtRiskSkuCount: number;
   negSOHCount: number;
-  trend: Array<{ weekEnding: string; oosCount: number; lowStockCount: number; atRiskCount: number; storeSoh: number }>;
+  trend: Array<{ weekEnding: string; oosCount: number; lowStockCount: number; atRiskCount: number; storeSoh: number; overstockCount: number; negSohCount: number; totalSkus: number }>;
   salesTrend: Array<{ weekEnding: string; salesP4: number }>;
   deltas: Record<string, number> | null;
 }
@@ -250,6 +250,42 @@ export default function StoreOverview() {
   const sohMoM = pctChange(data.trend.map((t) => t.storeSoh), 4);
   const salesWoW = pctChange(data.salesTrend.map((t) => t.salesP4), 1);
   const salesMoM = pctChange(data.salesTrend.map((t) => t.salesP4), 4);
+  // In Stock % WoW/MoM, computed from the same real per-week totalSkus/
+  // oosCount history already retained in the trend array (added 2026-08-18
+  // so this widget could compute both these pills and the "main driver"
+  // sentence below without any new backend field beyond overstockCount/
+  // negSohCount/totalSkus, which were already stored per week, just not
+  // previously exposed here).
+  const inStockPctSeries = data.trend.map((t) => (t.totalSkus > 0 ? ((t.totalSkus - t.oosCount) / t.totalSkus) * 100 : null)).filter((v): v is number => v !== null);
+  const inStockWoW = pctChange(inStockPctSeries, 1);
+  const inStockMoM = pctChange(inStockPctSeries, 4);
+  // Real "main driver" of the WoW move - compares the latest week's problem
+  // counts against the prior week, in percentage-points of totalSkus (so a
+  // category is comparable across store sizes), and names whichever one
+  // moved the most. Not a fabricated insight - every number here comes
+  // straight from the same two trend rows the WoW pill itself uses.
+  function mainDriverSentence(): string | null {
+    if (!data || data.trend.length < 2) return null;
+    const latest = data.trend[data.trend.length - 1];
+    const prev = data.trend[data.trend.length - 2];
+    if (!latest.totalSkus || !prev.totalSkus) return null;
+    const categories: Array<{ label: string; latest: number; prev: number }> = [
+      { label: "Out of stock", latest: latest.oosCount, prev: prev.oosCount },
+      { label: "Low stock", latest: latest.lowStockCount, prev: prev.lowStockCount },
+      { label: "At risk", latest: latest.atRiskCount, prev: prev.atRiskCount },
+      { label: "Overstock", latest: latest.overstockCount, prev: prev.overstockCount },
+      { label: "Negative SOH", latest: latest.negSohCount, prev: prev.negSohCount },
+    ];
+    const withPp = categories.map((c) => ({
+      ...c,
+      pp: (c.latest / latest.totalSkus) * 100 - (c.prev / prev.totalSkus) * 100,
+    }));
+    const driver = withPp.reduce((biggest, c) => (Math.abs(c.pp) > Math.abs(biggest.pp) ? c : biggest), withPp[0]);
+    if (Math.abs(driver.pp) < 0.5) return null;
+    const wowDir = inStockWoW !== null && inStockWoW < 0 ? "dip" : "rise";
+    return `${driver.label} ${driver.pp > 0 ? "up" : "down"} ${driver.pp > 0 ? "+" : ""}${driver.pp.toFixed(0)}pp vs last week — the main driver of the WoW ${wowDir}.`;
+  }
+  const driverSentence = mainDriverSentence();
   const weekRangeLabel = data.trend.length > 0
     ? `${data.trend.length} WKS TO ${shortDate(data.trend[data.trend.length - 1].weekEnding).toUpperCase()}`
     : "";
@@ -356,26 +392,15 @@ export default function StoreOverview() {
           <KPI label="Distribution gaps" value={data.distributionGapsCount} tone="blue" delta={data.deltas?.distributionGapsCount} invertDeltaColor onClick={() => goToList("distribution")} />
         </section>
 
-        <div className="sf2-instock-banner sf2-instock-banner-static">
-          <div className="sf2-instock-copy">
-            <div className="sf2-instock-title">In stock</div>
-            <div className="sf2-instock-value">{Math.round(data.inStockPct)}%</div>
-            <div className="sf2-instock-sub">Availability across ranged SKUs</div>
-          </div>
-          {data.deltas?.inStockPct != null && data.deltas.inStockPct !== 0 && (
-            <span className={`sf2-instock-delta ${data.deltas.inStockPct > 0 ? "up" : "down"}`}>
-              {data.deltas.inStockPct > 0 ? "+" : ""}{data.deltas.inStockPct}% <small>vs LW</small>
-            </span>
-          )}
-        </div>
-
-        {/* Compact stacked composition bar - replaces the old separate
-            Assortment/Availability page's clickable list (Carin, 2026-08-18:
-            "kind of a repetition ... don't want to take up more real estate
-            than this in stock card is now"). Non-interactive, single thin
-            row, same footprint as the In Stock card above it. Distribution
-            Gaps is deliberately excluded - it's about SKUs NOT ranged here,
-            so it doesn't belong in "composition of our ranged SKUs". */}
+        {/* Replaces the separate In Stock card + composition bar with one
+            combined widget (Carin, 2026-08-18: donut instead, "without
+            taking up too much space" - replaces rather than adds to the
+            old In Stock card). Donut + legend on top, real WoW/MoM pills
+            and a "main driver" sentence below - same real numbers as
+            before, just reusing the leftover width instead of a second
+            stacked element. Distribution Gaps stays excluded - it's about
+            SKUs NOT ranged here, doesn't belong in "composition of ranged
+            SKUs". */}
         {(() => {
           const segments = [
             { label: "Out of stock", count: data.oosCount, tone: "red" },
@@ -387,19 +412,50 @@ export default function StoreOverview() {
           const flagged = segments.reduce((s, x) => s + x.count, 0);
           const optimal = Math.max(0, data.totalSkus - flagged);
           const total = Math.max(1, data.totalSkus);
+          const order = [{ label: "Optimal", count: optimal, tone: "green" }, ...segments].filter((s) => s.count > 0);
+          const R = 40, C = 2 * Math.PI * R;
+          let offset = 0;
           return (
             <div className="sf2-composition">
-              <div className="sf2-composition-bar">
-                {segments.map((s) => s.count > 0 && (
-                  <div key={s.label} className={`sf2-composition-seg tone-${s.tone}`} style={{ width: `${(s.count / total) * 100}%` }} title={`${s.label}: ${s.count}`} />
-                ))}
-                {optimal > 0 && <div className="sf2-composition-seg tone-green" style={{ width: `${(optimal / total) * 100}%` }} title={`Optimal: ${optimal}`} />}
-              </div>
-              <div className="sf2-composition-legend">
-                <span className="tone-green">Optimal {Math.round((optimal / total) * 100)}%</span>
-                {segments.filter((s) => s.count > 0).map((s) => (
-                  <span key={s.label} className={`tone-${s.tone}`}>{s.label} {Math.round((s.count / total) * 100)}%</span>
-                ))}
+              <div className="sf2-composition-top">
+                <div className="sf2-donut-wrap">
+                  <svg viewBox="0 0 100 100" className="sf2-donut-svg">
+                    {order.map((s) => {
+                      const frac = s.count / total;
+                      const dash = frac * C;
+                      const el = (
+                        <circle
+                          key={s.label}
+                          cx="50" cy="50" r={R}
+                          className={`sf2-donut-seg tone-${s.tone}`}
+                          strokeDasharray={`${dash} ${C - dash}`}
+                          strokeDashoffset={-offset}
+                        >
+                          <title>{`${s.label}: ${s.count}`}</title>
+                        </circle>
+                      );
+                      offset += dash;
+                      return el;
+                    })}
+                  </svg>
+                  <div className="sf2-donut-center">
+                    <div className="sf2-donut-pct">{Math.round(data.inStockPct)}%</div>
+                    <div className="sf2-donut-label">in stock</div>
+                  </div>
+                </div>
+                <div className="sf2-composition-legend sf2-composition-legend-col">
+                  <span className="tone-green">Optimal {Math.round((optimal / total) * 100)}%</span>
+                  {segments.filter((s) => s.count > 0).map((s) => (
+                    <span key={s.label} className={`tone-${s.tone}`}>{s.label} {Math.round((s.count / total) * 100)}%</span>
+                  ))}
+                </div>
+                <div className="sf2-composition-side">
+                  <div className="sf2-composition-pills">
+                    <PctBadge label="WoW" value={inStockWoW} />
+                    <PctBadge label="MoM" value={inStockMoM} />
+                  </div>
+                  {driverSentence && <p className="sf2-composition-driver">{driverSentence}</p>}
+                </div>
               </div>
             </div>
           );

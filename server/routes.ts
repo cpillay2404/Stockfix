@@ -1267,7 +1267,16 @@ export async function registerRoutes(
           // Full retained history (up to 13 real weeks, matching the
           // storage design's retention window) - not hardcoded to 4.
           const thisClientHistory = rowsToUse.filter((r) => r.client === bestRow.client).reverse();
-          trend = thisClientHistory.map((r) => ({ weekEnding: r.weekEnding, oosCount: r.oosCount, lowStockCount: r.lowStockCount, atRiskCount: r.atRiskCount || 0, storeSoh: r.storeSoh || 0 }));
+          // overstockCount/negSohCount/totalSkus added 2026-08-18 so the
+          // client can compute a real "main driver of the WoW change"
+          // sentence across all 5 problem categories, not just the 3 that
+          // were already here - both fields were already stored per week
+          // in store_weekly_summary (used elsewhere for deltas), just not
+          // previously included in this trend array.
+          trend = thisClientHistory.map((r) => ({
+            weekEnding: r.weekEnding, oosCount: r.oosCount, lowStockCount: r.lowStockCount, atRiskCount: r.atRiskCount || 0, storeSoh: r.storeSoh || 0,
+            overstockCount: r.overstockCount || 0, negSohCount: r.negSohCount || 0, totalSkus: r.totalSkus || 0,
+          }));
           salesTrend = thisClientHistory.map((r) => ({ weekEnding: r.weekEnding, salesP4: r.salesP4 || 0 }));
 
           const previousWeekRow = rowsToUse.find((r) => r.client === bestRow.client && r.weekEnding !== latestWeek);

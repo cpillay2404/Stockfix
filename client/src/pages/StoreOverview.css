@@ -1093,23 +1093,30 @@
 .sf2-instock-delta.down { color: var(--red); }
 .sf2-instock-banner-static { cursor: default; }
 
-/* Compact stacked composition bar - replaces the old separate Assortment/
-   Availability page (Carin, 2026-08-18: "kind of a repetition ... don't
-   want to take up more real estate than this in stock card is now"). */
-.sf2-composition { margin-top: 6px; }
-.sf2-composition-bar {
-  display: flex; height: 10px; border-radius: 5px; overflow: hidden;
-  background: var(--card); border: 1px solid var(--border);
+/* Donut + legend + WoW/MoM/driver widget - replaces the separate In Stock
+   card entirely, not just the old composition bar (Carin, 2026-08-18:
+   "what about this rather? without taking up too much space" - one
+   combined widget instead of two stacked ones). */
+.sf2-composition {
+  margin-top: 6px; padding: 10px; border-radius: 10px; background: var(--card); border: 1px solid var(--border);
 }
-.sf2-composition-seg { height: 100%; }
-.sf2-composition-seg.tone-red { background: var(--red); }
-.sf2-composition-seg.tone-orange { background: var(--orange); }
-.sf2-composition-seg.tone-amber { background: var(--amber); }
-.sf2-composition-seg.tone-purple { background: var(--purple); }
-.sf2-composition-seg.tone-pink { background: #e05fa0; }
-.sf2-composition-seg.tone-green { background: var(--green); }
-.sf2-composition-legend {
-  display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 5px; font-size: 8.5px; font-weight: 600;
+.sf2-composition-top { display: flex; align-items: center; gap: 12px; }
+.sf2-donut-wrap { position: relative; width: 72px; height: 72px; flex-shrink: 0; }
+.sf2-donut-svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.sf2-donut-seg { fill: none; stroke-width: 16; }
+.sf2-donut-seg.tone-red { stroke: var(--red); }
+.sf2-donut-seg.tone-orange { stroke: var(--orange); }
+.sf2-donut-seg.tone-amber { stroke: var(--amber); }
+.sf2-donut-seg.tone-purple { stroke: var(--purple); }
+.sf2-donut-seg.tone-pink { stroke: #e05fa0; }
+.sf2-donut-seg.tone-green { stroke: var(--green); }
+.sf2-donut-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.sf2-donut-pct { font-size: 15px; font-weight: 800; color: var(--green); line-height: 1; }
+.sf2-donut-label { font-size: 7px; color: #91A7C9; margin-top: 1px; }
+.sf2-composition-legend-col {
+  display: flex; flex-direction: column; gap: 3px; font-size: 9px; font-weight: 600; flex-shrink: 0;
 }
 .sf2-composition-legend .tone-red { color: var(--red); }
 .sf2-composition-legend .tone-orange { color: var(--orange); }
@@ -1117,6 +1124,10 @@
 .sf2-composition-legend .tone-purple { color: var(--purple); }
 .sf2-composition-legend .tone-pink { color: #e05fa0; }
 .sf2-composition-legend .tone-green { color: var(--green); }
+.sf2-composition-side { flex: 1; min-width: 0; }
+.sf2-composition-pills { display: flex; gap: 6px; }
+.sf2-composition-driver { font-size: 9.5px; line-height: 1.4; color: #C3D2EC; margin-top: 6px; }
+.sf2-composition-driver strong { color: #F7F9FC; }
 
 .kpi2-card {
   position: relative;
