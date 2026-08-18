@@ -482,20 +482,25 @@ if (!fs.existsSync('public/images')) fs.mkdirSync('public/images', { recursive: 
 // originally computed over (oosCount / lowStockCount) so the combined
 // figure stays a real weighted average, not a fabricated blend.
 
-// Overstock is no longer "cover >= 18 weeks" (store_weekly_summary's
-// precomputed overstockCount, the old blanket rule) - Carin gave real
-// per-client "no sales in N days" criteria instead (client_overstock_rules).
-// Both Insights and Fix read this same badge (Carin, 2026-08-18: Insights
-// "must show all overstocks" - the full real number - while Fix "must be
-// the fixes based on the predefined client ones" - only clients with a
-// rule count at all). countRealOverstockAtStore satisfies both: it's a
-// live query against store_sku_weekly using the exact per-client checkpoint
-// logic, restricted to clients that actually have a rule, and NOT gated by
-// nexus_tasks (which silently drops rows for stores with no call-cycle
-// assignee - real bug found 2026-08-18: counting nexus_tasks rows
-// undercounted every store with a coverage gap).
+// EMERGENCY REVERT 2026-08-18: countRealOverstockAtStore's live per-client
+// checkpoint query was making every single store load hang (60s+, some
+// never returning) even with an added index - real production impact,
+// confirmed by Carin live in the test app. Reverting the store-overview
+// badge/list back to the fast nexus_tasks count while the live-query
+// version gets profiled and fixed offline (not blocking real usage while
+// that happens). Known limitation restored along with this revert: a
+// store with no call-cycle assignee won't count here (nexus_tasks doesn't
+// have a row for it) - a real gap, but the app being unusable is worse.
 async function getOverstockCountForStore(store: string, week: string, client?: string): Promise<number> {
-  return countRealOverstockAtStore(store, week, client);
+  const clientFilter = client && client !== "ALL" && client !== "SYNDICATED" ? sql`and client = ${client}` : sql``;
+  const result = await db.execute(sql`
+    select count(*)::int as count from nexus_tasks
+    where lower(trim(store_name)) = lower(trim(${store}))
+      and unique_id like '%\_overstock\_%' escape '\'
+      ${clientFilter}
+  `);
+  const rows = (result.rows || result) as any[];
+  return Number(rows[0]?.count) || 0;
 }
 
 async function buildAllClientsOverview(store: string, summaryRows: any[]) {
@@ -736,23 +741,28 @@ async function fetchSkuListForClient(client: string, store: string, classificati
   }
 
   if (classification === "overstock") {
-    // Real bug found 2026-08-18: the badge (countRealOverstockAtStore) and
-    // this list must show the exact same SKUs - a list built from a
-    // different source (nexus_tasks, capped by assignee availability) than
-    // the badge (live, uncapped) meant tapping the tile could show fewer
-    // rows than the number promised. Both now read listRealOverstockAtStore.
-    const week = await storage.getMostPopulatedWeekEndingDate();
-    const overstockRows = week ? await listRealOverstockAtStore(store, week, client) : [];
-    const rows = overstockRows.map((r) => ({
+    // EMERGENCY REVERT 2026-08-18 - see getOverstockCountForStore's comment.
+    // Back to the fast nexus_tasks-sourced list while the live query gets
+    // profiled and fixed without blocking real usage.
+    const result = await db.execute(sql`
+      select barcode, article_description, store_soh, dc_soh, p4_week_sales, store_wfc, stock_classification, action
+      from nexus_tasks
+      where lower(trim(store_name)) = lower(trim(${store}))
+        and client = ${client}
+        and unique_id like '%\_overstock\_%' escape '\'
+      order by store_soh desc
+    `);
+    const taskRows = (result.rows || result) as any[];
+    const rows = taskRows.map((r) => ({
       barcode: r.barcode,
       articleDescription: r.article_description,
       storeSoh: Number(r.store_soh) || 0,
       dcSoh: r.dc_soh != null ? Number(r.dc_soh) : null,
-      sellOutP4: r.sell_out_p4 != null ? Number(r.sell_out_p4) : null,
-      cover: r.cover != null ? Number(r.cover) : null,
+      sellOutP4: r.p4_week_sales != null ? Number(r.p4_week_sales) : null,
+      cover: r.store_wfc != null ? Number(r.store_wfc) : null,
       estimatedMissedUnits: 0,
-      action: `${r.classification || "Possible Overstock"} - no sales in ${r.days_threshold ?? "?"} days, ${Number(r.cover ?? 0).toFixed(1)} weeks cover. Review for markdown / transfer.`,
-      classification: r.classification || "Overstock",
+      action: r.action,
+      classification: r.stock_classification || "Overstock",
       issueDriver: null as string | null,
       suggestedOrderUnits: null as number | null,
       dcFulfillableUnits: null as number | null,
@@ -1583,23 +1593,30 @@ export async function registerRoutes(
       }
 
       if (classification === "overstock") {
-        // Real bug found 2026-08-18: the badge (countRealOverstockAtStore)
-        // and this list must show the exact same SKUs - a list sourced from
-        // nexus_tasks (capped by assignee availability) disagreed with the
-        // badge (live, uncapped). Both now read listRealOverstockAtStore.
-        const week = summaryRows[0]?.weekEnding;
-        const overstockRows = week ? await listRealOverstockAtStore(store, week, clientScope) : [];
-        const listRows = overstockRows.map((r) => ({
+        // EMERGENCY REVERT 2026-08-18 - see getOverstockCountForStore's
+        // comment. Back to the fast nexus_tasks-sourced list while the live
+        // query gets profiled and fixed without blocking real usage.
+        const clientFilter = clientScope !== "SYNDICATED" && clientScope !== "ALL" ? sql`and client = ${clientScope}` : sql``;
+        const result = await db.execute(sql`
+          select barcode, article_description, client, store_soh, dc_soh, p4_week_sales, store_wfc, stock_classification, action
+          from nexus_tasks
+          where lower(trim(store_name)) = lower(trim(${store}))
+            and unique_id like '%\_overstock\_%' escape '\'
+            ${clientFilter}
+          order by store_soh desc
+        `);
+        const taskRows = (result.rows || result) as any[];
+        const listRows = taskRows.map((r) => ({
           barcode: r.barcode,
           articleDescription: r.article_description,
           client: r.client,
           storeSoh: Number(r.store_soh) || 0,
           dcSoh: r.dc_soh != null ? Number(r.dc_soh) : null,
-          sellOutP4: r.sell_out_p4 != null ? Number(r.sell_out_p4) : null,
-          cover: r.cover != null ? Number(r.cover) : null,
+          sellOutP4: r.p4_week_sales != null ? Number(r.p4_week_sales) : null,
+          cover: r.store_wfc != null ? Number(r.store_wfc) : null,
           estimatedMissedUnits: 0,
-          action: `${r.classification || "Possible Overstock"} - no sales in ${r.days_threshold ?? "?"} days, ${Number(r.cover ?? 0).toFixed(1)} weeks cover. Review for markdown / transfer.`,
-          classification: r.classification || "Overstock",
+          action: r.action,
+          classification: r.stock_classification || "Overstock",
           issueDriver: null,
           suggestedOrderUnits: null,
           dcFulfillableUnits: null,
