@@ -1108,15 +1108,6 @@
 .sf2-composition-seg.tone-purple { background: var(--purple); }
 .sf2-composition-seg.tone-pink { background: #e05fa0; }
 .sf2-composition-seg.tone-green { background: var(--green); }
-.sf2-composition-legend {
-  display: flex; flex-wrap: wrap; gap: 6px 10px; margin-top: 5px; font-size: 8.5px; font-weight: 600;
-}
-.sf2-composition-legend .tone-red { color: var(--red); }
-.sf2-composition-legend .tone-orange { color: var(--orange); }
-.sf2-composition-legend .tone-amber { color: var(--amber); }
-.sf2-composition-legend .tone-purple { color: var(--purple); }
-.sf2-composition-legend .tone-pink { color: #e05fa0; }
-.sf2-composition-legend .tone-green { color: var(--green); }
 
 .kpi2-card {
   position: relative;

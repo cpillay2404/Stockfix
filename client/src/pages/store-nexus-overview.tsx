@@ -395,12 +395,6 @@ export default function StoreOverview() {
                 ))}
                 {optimal > 0 && <div className="sf2-composition-seg tone-green" style={{ width: `${(optimal / total) * 100}%` }} title={`Optimal: ${optimal}`} />}
               </div>
-              <div className="sf2-composition-legend">
-                <span className="tone-green">Optimal {Math.round((optimal / total) * 100)}%</span>
-                {segments.filter((s) => s.count > 0).map((s) => (
-                  <span key={s.label} className={`tone-${s.tone}`}>{s.label} {Math.round((s.count / total) * 100)}%</span>
-                ))}
-              </div>
             </div>
           );
         })()}
