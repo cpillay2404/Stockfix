@@ -16,17 +16,10 @@ const AMBER = "#FBBF24";
 
 interface RepStats {
   repName: string;
-  lineManager: string;
-  region: string;
   totalTasks: number;
   completedTasks: number;
   openTasks: number;
   completionRate: number;
-  // Priority task metrics (what reps are measured on)
-  priorityTotalTasks: number;
-  priorityCompletedTasks: number;
-  priorityOpenTasks: number;
-  priorityCompletionRate: number;
   rank: number;
 }
 
@@ -37,10 +30,6 @@ interface LeaderboardData {
     totalTasks: number;
     totalCompleted: number;
     avgCompletionRate: number;
-    // Priority task metrics (what the team is measured on)
-    priorityTotalTasks: number;
-    priorityCompletedTasks: number;
-    avgPriorityCompletionRate: number;
   };
   totalReps: number;
 }
@@ -150,9 +139,9 @@ export default function Leaderboard({ manager, client, limit = 10, showTeamStats
           }}
         >
           <div>
-            <div style={{ fontSize: '11px', color: TEXT_MUTED }}>Team Priority Completion</div>
+            <div style={{ fontSize: '11px', color: TEXT_MUTED }}>Team Completion</div>
             <div style={{ fontSize: '22px', fontWeight: 700, color: "#F7F9FC" }}>
-              {data.teamStats.avgPriorityCompletionRate ?? data.teamStats.avgCompletionRate}%
+              {data.teamStats.avgCompletionRate}%
             </div>
           </div>
           <div>
@@ -214,22 +203,22 @@ export default function Leaderboard({ manager, client, limit = 10, showTeamStats
                   {rep.repName}
                 </div>
                 <div style={{ fontSize: '11px', color: TEXT_MUTED, marginTop: '2px' }}>
-                  {rep.region} | {rep.completedTasks}/{rep.totalTasks} tasks
+                  {rep.completedTasks}/{rep.totalTasks} tasks
                 </div>
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <CompletionBar rate={rep.priorityCompletionRate ?? rep.completionRate} />
+                <CompletionBar rate={rep.completionRate} />
                 <span
                   style={{
                     fontSize: '14px',
                     fontWeight: 700,
-                    color: (rep.priorityCompletionRate ?? rep.completionRate) >= 90 ? GREEN : (rep.priorityCompletionRate ?? rep.completionRate) >= 70 ? AMBER : ORANGE,
+                    color: rep.completionRate >= 90 ? GREEN : rep.completionRate >= 70 ? AMBER : ORANGE,
                     minWidth: '40px',
                     textAlign: 'right',
                   }}
                 >
-                  {rep.priorityCompletionRate ?? rep.completionRate}%
+                  {rep.completionRate}%
                 </span>
               </div>
             </div>

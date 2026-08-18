@@ -4088,12 +4088,19 @@ export async function registerRoutes(
   // "forget the priority crap") to read from nexus_tasks instead of the
   // legacy tasks table, and dropped the priority-task split, badges,
   // streaks, and "stores mastered" entirely - plain real completion numbers.
+  //
+  // Real bug found the same day: nexus_tasks.line_manager is hardcoded
+  // blank at generation time (correctly - a task can have several eligible
+  // assignees who report to different managers, so there's no single
+  // "the" manager for a task until someone actually claims it). Manager
+  // scoping has to go through resource_roster.manager -> the real people
+  // under them -> nexus_task_assignees, not a field on the task itself.
   app.get("/api/gamification/leaderboard", async (req, res) => {
     try {
       const manager = req.query.manager as string | undefined;
       const client = req.query.client as string | undefined;
       const limit = parseInt(req.query.limit as string) || 10;
-      const cacheKey = `nexus_leaderboard_${manager || 'all'}_${client || 'all'}`;
+      const cacheKey = `nexus_leaderboard_v2_${manager || 'all'}_${client || 'all'}`;
 
       const cached = dashboardStatsCache.get(cacheKey);
       if (cached && (Date.now() - cached.timestamp) < DASHBOARD_CACHE_TTL_MS) {
@@ -4106,46 +4113,73 @@ export async function registerRoutes(
         return res.json({ leaderboard: [], teamStats: {}, totalReps: 0, weekEndingDate: null });
       }
 
-      const conditions = [eq(nexusTasks.weekEndingDate, latestWeek)];
-      if (client) conditions.push(eq(nexusTasks.client, client));
-      if (manager) conditions.push(eq(nexusTasks.lineManager, manager));
+      const repsResult = manager
+        ? await db.select({ resourceEmpId: resourceRoster.resourceEmpId, resourceName: resourceRoster.resourceName })
+            .from(resourceRoster).where(eq(resourceRoster.manager, manager))
+        : await db.select({ resourceEmpId: resourceRoster.resourceEmpId, resourceName: resourceRoster.resourceName })
+            .from(resourceRoster);
+      if (repsResult.length === 0) {
+        return res.json({ leaderboard: [], teamStats: {}, totalReps: 0, weekEndingDate: latestWeek });
+      }
+      const empIds = repsResult.map((r) => r.resourceEmpId);
+      const repNamesUpper = Array.from(new Set(repsResult.map((r) => r.resourceName.toUpperCase().trim())));
 
-      const repRows = await db
-        .select({
-          repName: nexusTasks.repName,
-          lineManager: nexusTasks.lineManager,
-          region: nexusTasks.region,
-          totalTasks: sql<number>`count(*)::int`,
-          completedTasks: sql<number>`sum(case when ${nexusTasks.actionStatus} = 'Completed' then 1 else 0 end)::int`,
-        })
-        .from(nexusTasks)
-        .where(and(...conditions))
-        .groupBy(nexusTasks.repName, nexusTasks.lineManager, nexusTasks.region);
+      const clientCond = client ? sql`and t.client = ${client}` : sql``;
 
-      // "Unassigned" isn't a real rep - only claimed/completed tasks have a
-      // real name attached, so it's excluded from the leaderboard itself
-      // (still counted in team totals below).
-      let allStats = repRows
-        .filter((r) => r.repName && r.repName !== "Unassigned")
+      const completedRows = await db.execute(sql`
+        select t.rep_name as "repName", count(*)::int as c
+        from nexus_tasks t
+        where t.week_ending_date = ${latestWeek} and t.action_status = 'Completed'
+          and upper(trim(t.rep_name)) = any(${repNamesUpper})
+          ${clientCond}
+        group by t.rep_name
+      `);
+      const completedByName = new Map<string, number>();
+      for (const r of ((completedRows.rows || completedRows) as any[])) {
+        completedByName.set(String(r.repName).toUpperCase().trim(), r.c);
+      }
+
+      const openRows = await db.execute(sql`
+        select a.resource_emp_id as "empId", count(distinct t.unique_id)::int as c
+        from nexus_task_assignees a
+        join nexus_tasks t on t.unique_id = a.task_unique_id
+        where t.week_ending_date = ${latestWeek} and t.action_status != 'Completed'
+          and a.resource_emp_id = any(${empIds})
+          ${clientCond}
+        group by a.resource_emp_id
+      `);
+      const openByEmpId = new Map<string, number>();
+      for (const r of ((openRows.rows || openRows) as any[])) {
+        openByEmpId.set(r.empId, r.c);
+      }
+
+      let allStats = repsResult
         .map((rep) => {
-          const completionRate = rep.totalTasks > 0 ? Math.round((rep.completedTasks / rep.totalTasks) * 100) : 0;
-          return {
-            repName: rep.repName,
-            lineManager: rep.lineManager,
-            region: rep.region,
-            totalTasks: rep.totalTasks,
-            completedTasks: rep.completedTasks,
-            openTasks: rep.totalTasks - rep.completedTasks,
-            completionRate,
-            rank: 0,
-          };
+          const completedTasks = completedByName.get(rep.resourceName.toUpperCase().trim()) || 0;
+          const openTasks = openByEmpId.get(rep.resourceEmpId) || 0;
+          const totalTasks = completedTasks + openTasks;
+          const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+          return { repName: rep.resourceName, totalTasks, completedTasks, openTasks, completionRate, rank: 0 };
         })
+        .filter((r) => r.totalTasks > 0)
         .sort((a, b) => b.completionRate - a.completionRate);
 
       allStats.forEach((rep, index) => { rep.rank = index + 1; });
 
-      const totalTasks = repRows.reduce((s, r) => s + r.totalTasks, 0);
-      const totalCompleted = repRows.reduce((s, r) => s + r.completedTasks, 0);
+      // Team-level open count uses a DISTINCT task count (not a sum of
+      // per-rep counts) - a task shared by 2 eligible reps under the same
+      // manager must not be counted twice at the team level.
+      const teamOpenResult = await db.execute(sql`
+        select count(distinct t.unique_id)::int as c
+        from nexus_task_assignees a
+        join nexus_tasks t on t.unique_id = a.task_unique_id
+        where t.week_ending_date = ${latestWeek} and t.action_status != 'Completed'
+          and a.resource_emp_id = any(${empIds})
+          ${clientCond}
+      `);
+      const teamOpen = ((teamOpenResult.rows || teamOpenResult) as any[])[0]?.c || 0;
+      const totalCompleted = allStats.reduce((s, r) => s + r.completedTasks, 0);
+      const totalTasks = teamOpen + totalCompleted;
       const teamStats = {
         totalReps: allStats.length,
         totalTasks,
@@ -4438,13 +4472,41 @@ export async function registerRoutes(
       const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
       const latestWeek = weekRow?.week as string | undefined;
 
-      const conditions = latestWeek ? [eq(nexusTasks.weekEndingDate, latestWeek)] : [sql`1=0`];
-      if (manager) conditions.push(eq(nexusTasks.lineManager, manager));
-      if (region) conditions.push(eq(nexusTasks.region, region));
-      if (client) conditions.push(eq(nexusTasks.client, client));
-      if (store) conditions.push(sql`upper(trim(${nexusTasks.storeName})) = ${store.toUpperCase().trim()}`);
+      // Real bug found 2026-08-18: nexus_tasks.line_manager is hardcoded
+      // blank (correctly - a task can have several eligible assignees who
+      // report to different managers, so there's no single "the" manager
+      // for a task until claimed). Manager scoping goes through
+      // resource_roster.manager -> their real empIds -> nexus_task_assignees.
+      let managerEmpIds: string[] | null = null;
+      if (manager) {
+        const reps = await db.select({ resourceEmpId: resourceRoster.resourceEmpId })
+          .from(resourceRoster).where(eq(resourceRoster.manager, manager));
+        managerEmpIds = reps.map((r) => r.resourceEmpId);
+        if (managerEmpIds.length === 0) {
+          const empty = {
+            kpis: { totalOpen: 0, totalCompleted: 0, completionRate: 0, oldestOpenDays: 0 },
+            repLeaderboard: [], riskAttention: { repsAtRisk: [], storesAtRisk: [] }, filters: { regions: [], clients: [] },
+          };
+          return res.json(empty);
+        }
+      }
 
-      const teamTasks = latestWeek ? await db.select().from(nexusTasks).where(and(...conditions)) : [];
+      let teamTasks: (typeof nexusTasks.$inferSelect)[] = [];
+      if (latestWeek) {
+        const regionCond = region ? sql`and t.region = ${region}` : sql``;
+        const clientCond = client ? sql`and t.client = ${client}` : sql``;
+        const storeCond = store ? sql`and upper(trim(t.store_name)) = ${store.toUpperCase().trim()}` : sql``;
+        const managerJoin = managerEmpIds
+          ? sql`join nexus_task_assignees a on a.task_unique_id = t.unique_id and a.resource_emp_id = any(${managerEmpIds})`
+          : sql``;
+        const result = await db.execute(sql`
+          select distinct t.*
+          from nexus_tasks t
+          ${managerJoin}
+          where t.week_ending_date = ${latestWeek} ${regionCond} ${clientCond} ${storeCond}
+        `);
+        teamTasks = (result.rows || result) as any[];
+      }
 
       const openTasks = teamTasks.filter(t => t.actionStatus !== 'Completed');
       let completedTasks = teamTasks.filter(t => t.actionStatus === 'Completed');
@@ -4475,36 +4537,49 @@ export async function registerRoutes(
         oldestOpenDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
       }
 
-      // Rep leaderboard - "Unassigned" excluded, same as /api/gamification/leaderboard.
+      // Rep leaderboard. Completed tasks have a real repName (whoever
+      // actually captured it) - straightforward. Open tasks are still
+      // "Unassigned" on the task itself, so per-rep open counts have to
+      // come from nexus_task_assignees (every eligible person), same
+      // pattern as /api/gamification/leaderboard.
       const repStats: Record<string, { repName: string; open: number; completed: number; oldestOpenDays: number }> = {};
 
-      teamTasks.forEach(task => {
+      for (const task of teamTasks) {
+        if (task.actionStatus !== 'Completed') continue;
         const rep = task.repName;
-        if (!rep || rep === "Unassigned") return;
+        if (!rep || rep === "Unassigned") continue;
+        if (dateFrom || dateTo) {
+          if (!task.captureDate) continue;
+          const captureDate = new Date(task.captureDate);
+          if ((dateFrom && captureDate < new Date(dateFrom)) || (dateTo && captureDate > new Date(dateTo + 'T23:59:59'))) continue;
+        }
+        if (!repStats[rep]) repStats[rep] = { repName: rep, open: 0, completed: 0, oldestOpenDays: 0 };
+        repStats[rep].completed++;
+      }
 
-        if (!repStats[rep]) {
-          repStats[rep] = { repName: rep, open: 0, completed: 0, oldestOpenDays: 0 };
-        }
-        if (task.actionStatus === 'Completed') {
-          if (dateFrom || dateTo) {
-            if (task.captureDate) {
-              const captureDate = new Date(task.captureDate);
-              if ((!dateFrom || captureDate >= new Date(dateFrom)) &&
-                  (!dateTo || captureDate <= new Date(dateTo + 'T23:59:59'))) {
-                repStats[rep].completed++;
-              }
+      const openTasks2 = teamTasks.filter((t) => t.actionStatus !== 'Completed');
+      const openTaskIds = openTasks2.map((t) => t.uniqueId);
+      const openTaskCreatedAt = new Map(openTasks2.map((t) => [t.uniqueId, t.createdAt]));
+      if (openTaskIds.length > 0) {
+        const assigneeResult = await db.execute(sql`
+          select a.resource_name as "resourceName", a.task_unique_id as "taskUniqueId"
+          from nexus_task_assignees a
+          where a.task_unique_id = any(${openTaskIds})
+          ${managerEmpIds ? sql`and a.resource_emp_id = any(${managerEmpIds})` : sql``}
+        `);
+        const assigneeRows = (assigneeResult.rows || assigneeResult) as { resourceName: string; taskUniqueId: string }[];
+        for (const a of assigneeRows) {
+          if (!repStats[a.resourceName]) repStats[a.resourceName] = { repName: a.resourceName, open: 0, completed: 0, oldestOpenDays: 0 };
+          repStats[a.resourceName].open++;
+          const createdAt = openTaskCreatedAt.get(a.taskUniqueId);
+          if (createdAt) {
+            const taskAge = Math.floor((new Date().getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
+            if (taskAge > repStats[a.resourceName].oldestOpenDays) {
+              repStats[a.resourceName].oldestOpenDays = taskAge;
             }
-          } else {
-            repStats[rep].completed++;
-          }
-        } else {
-          repStats[rep].open++;
-          const taskAge = Math.floor((new Date().getTime() - new Date(task.createdAt).getTime()) / (1000 * 60 * 60 * 24));
-          if (taskAge > repStats[rep].oldestOpenDays) {
-            repStats[rep].oldestOpenDays = taskAge;
           }
         }
-      });
+      }
 
       const repLeaderboard = Object.values(repStats)
         .map(rep => ({
