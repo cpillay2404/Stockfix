@@ -37,7 +37,7 @@ import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRost
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync } from "./nexus-sync";
-import { claimTask, generateTasksForWeek } from "./nexus-task-generation";
+import { claimTask, generateTasksForWeek, createTaskOnDemand } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks } from "@shared/schema";
 
 function safeParseFloat(val: string | number | null | undefined): number {
@@ -3091,10 +3091,19 @@ export async function registerRoutes(
         limit 1
       `);
       const rows = (result.rows || result) as any[];
-      if (rows.length === 0) {
+      if (rows.length > 0) {
+        return res.json({ uniqueId: rows[0].unique_id, repName: rows[0].rep_name, actionStatus: rows[0].action_status });
+      }
+
+      // No pre-generated task (e.g. an Overstock SKU outside the capped
+      // top-5) - create it on the spot instead of dead-ending the rep,
+      // per Carin 2026-08-18: "yes we must record it even if that
+      // overstock is not in the preset table."
+      const created = await createTaskOnDemand({ client, store, classification, barcode });
+      if (!created) {
         return res.status(404).json({ error: "No task found for this SKU/issue" });
       }
-      res.json({ uniqueId: rows[0].unique_id, repName: rows[0].rep_name, actionStatus: rows[0].action_status });
+      return res.json({ uniqueId: created.uniqueId, repName: "Unassigned", actionStatus: "Pending" });
     } catch (error) {
       console.error("Error resolving Nexus task:", error);
       res.status(500).json({ error: "Failed to resolve task" });

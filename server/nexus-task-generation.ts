@@ -300,3 +300,113 @@ export async function wipeTasksForWeek(week: string): Promise<number> {
   const result = await db.execute(sql`delete from nexus_tasks where week_ending_date = ${week}`);
   return (result as any).rowCount ?? 0;
 }
+
+// Called by GET /api/nexus-tasks/resolve when the weekly batch didn't
+// generate a task for this exact SKU/issue (e.g. an Overstock SKU outside
+// the capped top-5, or any SKU flagged after the batch ran) - Carin,
+// 2026-08-18: "yes we must record it even if that overstock is not in the
+// preset table." Confirms the SKU is genuinely flagged for the requested
+// classification (never fabricates a task for a SKU that isn't actually an
+// issue) using the exact same real thresholds generateTasksForWeek uses,
+// then creates it on the spot with the same deterministic uniqueId -
+// onConflictDoNothing makes this race-safe if two reps tap the same SKU
+// at once. Doesn't touch the overstock cap - a SKU outside the cap still
+// gets created here since a rep genuinely trying to capture it should
+// never hit a dead end (KPI cards intentionally stay uncapped/live per
+// the same conversation).
+export async function createTaskOnDemand(params: {
+  client: string; store: string; classification: string; barcode: string;
+}): Promise<{ uniqueId: string } | null> {
+  const sourceStem = params.classification === "cover" ? "risk" : params.classification;
+  const normalizedStore = params.store.trim().toUpperCase();
+
+  async function resolveCoverageForStore(storeName: string, client: string): Promise<{ empId: string; resourceName: string }[]> {
+    const rows = await db.select().from(storeAssignments)
+      .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${storeName.toUpperCase().trim()}`);
+    const entries = rows.map((r) => ({ empId: r.resourceEmpId, resourceName: r.resourceName, clientScope: r.clientScope }));
+    if (client === "P&G") {
+      const dedicated = entries.filter((e) => e.clientScope === "P&G");
+      if (dedicated.length > 0) return dedicated;
+    }
+    return entries.filter((e) => e.clientScope === "SYNDICATED");
+  }
+
+  async function insertOnDemand(week: string, opts: {
+    client: string; storeName: string; banner?: string | null; region?: string | null;
+    barcode: string; articleDescription?: string | null; category?: string | null;
+    dcSoh?: unknown; storeSoh?: unknown; sellOutP4?: unknown; cover?: unknown;
+    classification?: string | null; missedUnits?: number | null;
+  }, actionText: string): Promise<{ uniqueId: string } | null> {
+    const assignees = await resolveCoverageForStore(opts.storeName, opts.client);
+    if (assignees.length === 0) return null; // real call-cycle gap, not guessed at
+
+    const uniqueId = `NEXUS_${week}_${opts.client}_${opts.storeName}_${sourceStem}_${opts.barcode}`.replace(/\s+/g, "_");
+
+    await db.insert(nexusTasks).values({
+      uniqueId, key: uniqueId, client: opts.client, banner: opts.banner || "", region: opts.region || "",
+      storeName: opts.storeName, repName: "Unassigned", lineManager: "", category: opts.category || "",
+      barcode: opts.barcode, articleDescription: opts.articleDescription || "",
+      dcSoh: String(opts.dcSoh ?? ""), storeSoh: String(opts.storeSoh ?? ""), p4WeekSales: String(opts.sellOutP4 ?? ""),
+      missedSales: String(opts.missedUnits ?? 0), storeWfc: String(opts.cover ?? ""), stockClassification: opts.classification || "",
+      weekEnding: week, weekEndingDate: week, action: actionText, actionStatus: "Pending",
+    }).onConflictDoNothing();
+
+    for (const a of assignees) {
+      await db.insert(nexusTaskAssignees).values({ taskUniqueId: uniqueId, resourceEmpId: a.empId, resourceName: a.resourceName }).onConflictDoNothing();
+    }
+
+    return { uniqueId };
+  }
+
+  if (sourceStem === "distribution") {
+    const [latestWeekRow] = await db.select({ weekEnding: distributionGaps.weekEnding }).from(distributionGaps)
+      .where(sql`upper(trim(${distributionGaps.cleanedStoreName})) = ${normalizedStore} and ${distributionGaps.client} = ${params.client} and ${distributionGaps.barcode} = ${params.barcode}`)
+      .orderBy(sql`${distributionGaps.weekEnding} desc`).limit(1);
+    if (!latestWeekRow) return null;
+    const [row] = await db.select().from(distributionGaps)
+      .where(sql`upper(trim(${distributionGaps.cleanedStoreName})) = ${normalizedStore} and ${distributionGaps.client} = ${params.client} and ${distributionGaps.barcode} = ${params.barcode} and ${distributionGaps.weekEnding} = ${latestWeekRow.weekEnding}`)
+      .limit(1);
+    if (!row) return null;
+    return insertOnDemand(row.weekEnding, {
+      client: row.client, storeName: row.cleanedStoreName, banner: row.banner, region: null,
+      barcode: row.barcode, articleDescription: row.articleDescription, category: row.category,
+      storeSoh: 0, classification: row.gapType || "Distribution Gap",
+    }, row.suggestedAction || "Distribution gap - review ranging for this store.");
+  }
+
+  const [latestWeekRow] = await db.select({ weekEnding: storeSkuWeekly.weekEnding }).from(storeSkuWeekly)
+    .where(sql`upper(trim(${storeSkuWeekly.cleanedStoreName})) = ${normalizedStore} and ${storeSkuWeekly.client} = ${params.client} and ${storeSkuWeekly.barcode} = ${params.barcode}`)
+    .orderBy(sql`${storeSkuWeekly.weekEnding} desc`).limit(1);
+  if (!latestWeekRow) return null;
+  const [row] = await db.select().from(storeSkuWeekly)
+    .where(sql`upper(trim(${storeSkuWeekly.cleanedStoreName})) = ${normalizedStore} and ${storeSkuWeekly.client} = ${params.client} and ${storeSkuWeekly.barcode} = ${params.barcode} and ${storeSkuWeekly.weekEnding} = ${latestWeekRow.weekEnding}`)
+    .limit(1);
+  if (!row) return null;
+
+  // Only ever create a task for a SKU that genuinely qualifies for the
+  // requested classification right now - same real thresholds as
+  // generateTasksForWeek, never a fabricated task.
+  let qualifies = false;
+  if (sourceStem === "oos" || sourceStem === "low") qualifies = row.sourceStem === sourceStem;
+  else if (sourceStem === "overstock") qualifies = row.sourceStem === "overstock";
+  else if (sourceStem === "risk") qualifies = (row.storeSoh || 0) > 0 && row.cover !== null && row.cover <= AT_RISK_WFC_THRESHOLD_WEEKS;
+  else if (sourceStem === "negsoh") qualifies = (row.storeSoh || 0) < 0;
+  if (!qualifies) return null;
+
+  const actionText = row.issueDriver === "DC Constraint"
+    ? `${row.classification} - DC has no stock (supply constraint). Escalate the order, this isn't fixable on-shelf.`
+    : sourceStem === "risk"
+      ? `At Risk - ${Number(row.cover).toFixed(1)} weeks cover, replenish before it becomes Out of Stock.`
+      : sourceStem === "negsoh"
+        ? "Negative SOH - investigate stock count discrepancy."
+        : sourceStem === "overstock"
+          ? `${row.classification || "Possible Overstock"} - ${Number(row.cover ?? 0).toFixed(1)} weeks cover, well over the 6-week threshold. Review for markdown / transfer.`
+          : `${row.classification} - review stock levels, ${Math.round(row.estimatedMissedUnits || 0)} units/week at risk.`;
+
+  return insertOnDemand(row.weekEnding, {
+    client: row.client, storeName: row.cleanedStoreName, banner: row.banner, region: row.region,
+    barcode: row.barcode, articleDescription: row.articleDescription, category: row.category,
+    dcSoh: row.dcSoh, storeSoh: row.storeSoh, sellOutP4: row.sellOutP4, cover: row.cover,
+    classification: row.classification, missedUnits: row.estimatedMissedUnits,
+  }, actionText);
+}
