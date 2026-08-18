@@ -5,6 +5,19 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Real gap found 2026-08-18 (Carin: "use the same fonts across all the
+   app") - Inter was already loaded (index.html) and set as --font-sans
+   below, but nothing ever applied it to the page by default. Only pages
+   using the .store-overview-page wrapper class (a handful of older detail
+   screens) explicitly set font-family: Inter themselves - everything else,
+   including the current Insights/Fix/Supply/Analysis screens
+   (.stockfix2-page), silently fell back to the browser's default sans
+   stack. One rule here fixes every screen at once, instead of chasing
+   font-family down page by page. */
+body {
+  font-family: var(--font-sans);
+}
+
 @theme inline {
   --font-sans: 'Inter', sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
