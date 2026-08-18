@@ -77,9 +77,10 @@ interface NameSelectorProps {
   onClose: () => void;
   recentKind: string;
   testId: string;
+  isLoading?: boolean;
 }
 
-function NameSelectorModal({ title, entityLabel, options, currentValue, onSelect, onClose, recentKind, testId }: NameSelectorProps) {
+function NameSelectorModal({ title, entityLabel, options, currentValue, onSelect, onClose, recentKind, testId, isLoading }: NameSelectorProps) {
   const [search, setSearch] = useState("");
   const recent = useMemo(() => loadRecent(recentKind).filter((r) => options.includes(r)), [recentKind, options]);
 
@@ -162,10 +163,13 @@ function NameSelectorModal({ title, entityLabel, options, currentValue, onSelect
           )}
 
           <div style={sectionLabelStyle}>All {entityLabel}</div>
-          {filtered.length === 0 && (
+          {isLoading && (
+            <p style={{ color: TEXT_MUTED, fontSize: 14, padding: "12px 0" }}>Loading...</p>
+          )}
+          {!isLoading && filtered.length === 0 && (
             <p style={{ color: TEXT_MUTED, fontSize: 14, padding: "12px 0" }}>No results found.</p>
           )}
-          {filtered.map((name) => (
+          {!isLoading && filtered.map((name) => (
             <NameRow key={name} name={name} isSelected={name === currentValue} onClick={() => handlePick(name)} />
           ))}
         </div>
@@ -299,7 +303,7 @@ export default function SelectRepStore() {
     if (accessMode !== "rep") setAccessMode("rep");
   }, [accessMode, setAccessMode]);
 
-  const { data: storeData } = useQuery({
+  const { data: storeData, isLoading: storesLoading } = useQuery({
     queryKey: ["store-search"],
     queryFn: async () => {
       const res = await fetch(`/api/roster/store-search`);
@@ -458,6 +462,7 @@ export default function SelectRepStore() {
           onClose={() => setShowStoreSelector(false)}
           recentKind="stores"
           testId="modal-select-store"
+          isLoading={storesLoading}
         />
       )}
 
