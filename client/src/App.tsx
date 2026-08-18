@@ -95,7 +95,11 @@ function Router() {
 function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [location] = useLocation();
-  const skipSplash = location === '/merchandiser-pilot' || location === '/inventory';
+  // Skip splash for deep-linked routes (e.g. from Perfect Store Pro) that
+  // carry rep= in the query string — the page reads everything from URL params
+  // directly and doesn't need the choose-access flow.
+  const hasRepParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('rep');
+  const skipSplash = location === '/merchandiser-pilot' || location === '/inventory' || hasRepParam;
 
   // Mutually exclusive by construction: the role-selection UI (Router) is
   // never mounted while the splash is showing - not hidden behind it, not
@@ -106,7 +110,7 @@ function App() {
     return (
       <SplashScreen
         onComplete={() => setShowSplash(false)}
-        minDisplayTime={8000 /* TEMP for review - revert to 1100 before shipping */}
+        minDisplayTime={1100}
       />
     );
   }
