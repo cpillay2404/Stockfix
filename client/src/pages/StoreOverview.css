@@ -1408,6 +1408,13 @@
 
 .sf2-ac-note { font-size: 11px; color: #91A7C9; text-align: center; margin: 0; }
 
+.sf2-ac-toast {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  font-size: 13px; font-weight: 600; color: #34D399;
+  background: rgba(52,211,153,0.12); border: 1px solid rgba(52,211,153,0.35);
+  border-radius: 10px; padding: 10px; margin: 0;
+}
+
 .sf2-ac-actions {
   display: grid; grid-template-columns: 1fr 2fr; gap: 10px;
   /* Pinned to the viewport bottom 2026-08-16 (Carin: "bring everything above

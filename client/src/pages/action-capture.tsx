@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Bell, Wrench, Minus, Plus, Camera, AlertTriangle, X } from "lucide-react";
+import { Bell, Wrench, Minus, Plus, Camera, AlertTriangle, X, CheckCircle2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import "./StoreOverview.css";
 
@@ -149,6 +149,14 @@ export default function ActionCapture() {
         throw new Error("Failed to save this action");
       }
       setSubmitted(true);
+      // Real gap found 2026-08-18 (Carin: "no toast or to say its logged...
+      // theres no end visit or log out or fuck all") - submitting just sat
+      // on a dead "Action Submitted" screen with nowhere to go. Confirm,
+      // then automatically return to the list this SKU came from so the
+      // rep can keep working through it.
+      setTimeout(() => {
+        setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}`);
+      }, 1400);
     } catch (err: any) {
       setSubmitError(err?.message || "Failed to submit action");
     } finally {
@@ -287,9 +295,16 @@ export default function ActionCapture() {
             </div>
           </div>
 
-          <p className="sf2-ac-note">
-            {submitError || (!canSubmit && !submitted ? submitBlockedReason() : submitted ? "Saved to this store's task list." : "Note: photos aren't uploaded yet - everything else saves.")}
-          </p>
+          {submitted ? (
+            <div className="sf2-ac-toast">
+              <CheckCircle2 size={16} />
+              Fix logged - returning to the list...
+            </div>
+          ) : (
+            <p className="sf2-ac-note">
+              {submitError || (!canSubmit ? submitBlockedReason() : "Note: photos aren't uploaded yet - everything else saves.")}
+            </p>
+          )}
 
           <div className="sf2-ac-actions">
             <button className="sf2-ac-cancel" onClick={onBack}>Cancel</button>
