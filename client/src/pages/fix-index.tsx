@@ -18,9 +18,10 @@ interface OverviewResponse {
   negSOHCount: number;
   oosCount: number;
   lowStockCount: number;
-  // Carin, 2026-08-18: "same with overstock" - Fix now shows the same real
-  // full number as Insights here too, not a narrower nexus_tasks-based one.
-  overstockCount: number;
+  // Carin, 2026-08-18: "the fix menu must only show the client computed
+  // overstocks" - the nexus_tasks-based number, NOT the same "all
+  // overstocks" blanket number Insights shows.
+  overstockCountFix: number;
   atRiskCount: number;
   distributionGapsCount: number;
 }
@@ -120,7 +121,7 @@ export default function FixIndex() {
             onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=overstock${clientQS}`)}
           >
             <div className="sf2-listrow-title">Overstock</div>
-            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.overstockCount}</span><ChevronRight size={16} /></div>
+            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.overstockCountFix}</span><ChevronRight size={16} /></div>
           </button>
 
           <button

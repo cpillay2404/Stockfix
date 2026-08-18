@@ -579,8 +579,7 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
     deltas = {
       oosCount: oosCount - prevOos,
       lowStockCount: lowStockCount - sumBy(prevRows, "lowStockCount"),
-      // No delta for overstockCount - it now comes from nexus_tasks (real
-      // per-client rules), which has no historical snapshot to diff against.
+      overstockCount: overstockCount - sumBy(prevRows, "overstockCount"),
       atRiskCount: sumBy(latestRows, "atRiskCount") - sumBy(prevRows, "atRiskCount"),
       distributionGapsCount: sumBy(latestRows, "distributionGapsCount") - sumBy(prevRows, "distributionGapsCount"),
       ...(prevInStockPct !== null && currInStockPct !== null
@@ -1387,7 +1386,7 @@ export async function registerRoutes(
             deltas = {
               oosCount: bestRow.oosCount - previousWeekRow.oosCount,
               lowStockCount: bestRow.lowStockCount - previousWeekRow.lowStockCount,
-              // No delta for overstockCount - see buildAllClientsOverview's comment.
+              overstockCount: (bestRow.overstockCount || 0) - (previousWeekRow.overstockCount || 0),
               atRiskCount: atRiskCount - (previousWeekRow.atRiskCount || 0),
               distributionGapsCount: distributionGapsCount - (previousWeekRow.distributionGapsCount || 0),
               ...(prevInStockPct !== null && currInStockPct !== null
@@ -1418,10 +1417,11 @@ export async function registerRoutes(
         return res.status(404).json({ error: "No live Nexus data found for this store" });
       }
       // overview.overstockCount already comes straight off store_weekly_summary
-      // (fetchStoreOverviewFast's best.overstockCount) - the real, full number,
-      // now correct because generateTasksForWeek writes it using the actual
-      // per-client rule instead of the old blanket one. overstockCountFix is
-      // Fix's separate, narrower, nexus_tasks-based number.
+      // (fetchStoreOverviewFast's best.overstockCount) - Insights' "all
+      // overstocks" blanket number, untouched by any per-client logic.
+      // overstockCountFix is Fix's separate, client-computed, nexus_tasks-based
+      // number (Carin, 2026-08-18: "the fix menu must only show the client
+      // computed overstocks").
       (overview as any).overstockCountFix = await getOverstockCountForFix(store, knownClient || clientScope);
 
       // At Risk now comes straight off overview (computed there from the

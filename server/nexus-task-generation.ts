@@ -229,39 +229,14 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
     flaggedOverstock.push(...((rows.rows || rows) as any[]));
   }
 
-  // Precompute the real, uncapped Overstock count into store_weekly_summary
-  // (Carin, 2026-08-18: "the KPI card... can it read from the original
-  // table? yes, same table, same column") - this is the exact mechanism
-  // Insights already used before nexus_tasks existed (a fast, precomputed
-  // column read), just now driven by the real per-client rule instead of
-  // the old blanket cover>=18 one. Never computed live at request time -
-  // that's what caused the real production slowdown earlier today.
-  // Reset first: nexus-sync just wrote the old blanket-rule value from live
-  // Nexus for every client (including ones with no client_overstock_rules
-  // entry at all, who must show 0, not a stale blanket number).
-  await db.execute(sql`update store_weekly_summary set overstock_count = 0 where week_ending = ${week}`);
-  const overstockCountsByStoreClient = new Map<string, number>();
-  for (const r of flaggedOverstock) {
-    const key = `${r.client}|||${r.cleaned_store_name}`;
-    overstockCountsByStoreClient.set(key, (overstockCountsByStoreClient.get(key) || 0) + 1);
-  }
-  const overstockEntries = Array.from(overstockCountsByStoreClient.entries());
-  const OVERSTOCK_UPDATE_BATCH = 500;
-  for (let i = 0; i < overstockEntries.length; i += OVERSTOCK_UPDATE_BATCH) {
-    const batch = overstockEntries.slice(i, i + OVERSTOCK_UPDATE_BATCH);
-    const values = batch.map(([key, count]) => {
-      const [client, storeName] = key.split("|||");
-      return sql`(${client}, ${storeName}, ${count}::int)`;
-    });
-    await db.execute(sql`
-      update store_weekly_summary sws
-      set overstock_count = v.cnt
-      from (values ${sql.join(values, sql`, `)}) as v(client, store_name, cnt)
-      where sws.week_ending = ${week}
-        and sws.client = v.client
-        and sws.cleaned_store_name = v.store_name
-    `);
-  }
+  // Insights' Overstock KPI is "all overstocks" - the original blanket
+  // definition Nexus itself computes and nexus-sync.ts writes into
+  // store_weekly_summary.overstockCount, exactly as it was before any of
+  // today's per-client work (Carin, 2026-08-18: "exactly as it was before
+  // we introduced the client compute"). generateTasksForWeek must never
+  // touch that column - flaggedOverstock above (the per-client rule result)
+  // is only used below to create real nexus_tasks rows, which is what
+  // powers Fix's separate, client-computed number instead.
 
   const flaggedAtRisk = await db.execute(sql`
     select client, cleaned_store_name, banner, region, barcode,
