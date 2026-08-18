@@ -490,36 +490,18 @@ export async function createTaskOnDemand(params: {
   // Only ever create a task for a SKU that genuinely qualifies for the
   // requested classification right now - same real thresholds as
   // generateTasksForWeek, never a fabricated task.
+  // Real bug found 2026-08-18 (Carin: Shoprite Cradock/P&G capture attempt
+  // failed with "no task found") - overstock used to require the SKU to
+  // independently re-qualify under client_overstock_rules' no-sales-days
+  // checkpoint logic, a narrower definition than the blanket
+  // sourceStem="overstock" list a rep is actually looking at (same
+  // inconsistency just fixed on the list endpoint above). A client with no
+  // rule configured at all - or a SKU that doesn't happen to meet that
+  // stricter threshold - could never be captured even though it's sitting
+  // right there in the list. Overstock now qualifies the same simple way
+  // oos/low/risk/negsoh already do: match the real synced classification.
   let qualifies = false;
-  let overstockDaysThreshold: number | null = null;
-  if (sourceStem === "oos" || sourceStem === "low") qualifies = row.sourceStem === sourceStem;
-  else if (sourceStem === "overstock") {
-    // Real bug found 2026-08-18: this was still checking row.sourceStem ===
-    // "overstock" (the old blanket cover>=18 classification) - a client
-    // outside the per-client no-sales-days rules (client_overstock_rules)
-    // must never qualify here (Davidoff, for one, was explicitly removed
-    // from those rules entirely), and a client that IS in the rules must be
-    // judged by the same real checkpoint logic generateTasksForWeek uses,
-    // not the stale blanket label.
-    const [rule] = await db.select().from(clientOverstockRules).where(eq(clientOverstockRules.client, params.client)).limit(1);
-    if (rule && (row.storeSoh || 0) > 0) {
-      overstockDaysThreshold = rule.noSalesDaysThreshold;
-      const weeksNeeded = Math.max(1, Math.ceil(rule.noSalesDaysThreshold / 28));
-      const checkpointExists = Array.from({ length: weeksNeeded }, (_, k) => sql`
-        exists (
-          select 1 from store_sku_weekly chk
-          where chk.client = ${params.client}
-            and chk.cleaned_store_name = ${normalizedStore}
-            and chk.barcode = ${params.barcode}
-            and chk.week_ending = (${row.weekEnding}::date - (${k * 4} || ' weeks')::interval)::date::text
-            and coalesce(chk.sell_out_p4, 0) = 0
-        )
-      `);
-      const checkResult = await db.execute(sql`select (${sql.join(checkpointExists, sql` and `)}) as ok`);
-      const checkRows = (checkResult.rows || checkResult) as any[];
-      qualifies = !!checkRows[0]?.ok;
-    }
-  }
+  if (sourceStem === "oos" || sourceStem === "low" || sourceStem === "overstock") qualifies = row.sourceStem === sourceStem;
   else if (sourceStem === "risk") qualifies = (row.storeSoh || 0) > 0 && row.cover !== null && row.cover <= AT_RISK_WFC_THRESHOLD_WEEKS;
   else if (sourceStem === "negsoh") qualifies = (row.storeSoh || 0) < 0;
   if (!qualifies) return null;
@@ -531,7 +513,7 @@ export async function createTaskOnDemand(params: {
       : sourceStem === "negsoh"
         ? "Negative SOH - investigate stock count discrepancy."
         : sourceStem === "overstock"
-          ? `${row.classification || "Possible Overstock"} - no sales in ${overstockDaysThreshold ?? "?"} days, ${Number(row.cover ?? 0).toFixed(1)} weeks cover. Review for markdown / transfer.`
+          ? `${row.classification || "Possible Overstock"} - ${Number(row.cover ?? 0).toFixed(1)} weeks cover. Review for markdown / transfer.`
           : `${row.classification} - review stock levels, ${Math.round(row.estimatedMissedUnits || 0)} units/week at risk.`;
 
   return insertOnDemand(row.weekEnding, {
