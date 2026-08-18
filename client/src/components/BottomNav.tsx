@@ -52,7 +52,8 @@ export default function BottomNav({ rep = '', store = '', client, activeTaskId }
         left: 0,
         right: 0,
         height: '56px',
-        backgroundColor: '#003B71',
+        backgroundColor: '#0D2137',
+        borderTop: '1px solid rgba(23,68,111,0.6)',
         display: 'flex',
         justifyContent: 'space-around',
         alignItems: 'center',
@@ -78,8 +79,8 @@ export default function BottomNav({ rep = '', store = '', client, activeTaskId }
           padding: '8px 0',
         }}
       >
-        <LayoutDashboard style={{ width: '20px', height: '20px', color: isOverview ? '#FFFFFF' : 'rgba(255,255,255,0.6)' }} />
-        <span style={{ fontSize: '10px', color: isOverview ? '#FFFFFF' : 'rgba(255,255,255,0.6)', fontWeight: isOverview ? 600 : 400 }}>Overview</span>
+        <LayoutDashboard style={{ width: '20px', height: '20px', color: isOverview ? '#F58220' : 'rgba(220,231,247,0.55)' }} />
+        <span style={{ fontSize: '10px', color: isOverview ? '#F58220' : 'rgba(220,231,247,0.55)', fontWeight: isOverview ? 600 : 400 }}>Overview</span>
       </button>
 
       <button
@@ -98,8 +99,8 @@ export default function BottomNav({ rep = '', store = '', client, activeTaskId }
           padding: '8px 0',
         }}
       >
-        <ClipboardList style={{ width: '20px', height: '20px', color: isTasks ? '#FFFFFF' : 'rgba(255,255,255,0.6)' }} />
-        <span style={{ fontSize: '10px', color: isTasks ? '#FFFFFF' : 'rgba(255,255,255,0.6)', fontWeight: isTasks ? 600 : 400 }}>Tasks</span>
+        <ClipboardList style={{ width: '20px', height: '20px', color: isTasks ? '#F58220' : 'rgba(220,231,247,0.55)' }} />
+        <span style={{ fontSize: '10px', color: isTasks ? '#F58220' : 'rgba(220,231,247,0.55)', fontWeight: isTasks ? 600 : 400 }}>Tasks</span>
       </button>
 
       <button
@@ -120,8 +121,8 @@ export default function BottomNav({ rep = '', store = '', client, activeTaskId }
           opacity: feedbackDisabled ? 0.4 : 1,
         }}
       >
-        <MessageSquare style={{ width: '20px', height: '20px', color: isFeedback ? '#FFFFFF' : 'rgba(255,255,255,0.6)' }} />
-        <span style={{ fontSize: '10px', color: isFeedback ? '#FFFFFF' : 'rgba(255,255,255,0.6)', fontWeight: isFeedback ? 600 : 400 }}>Feedback</span>
+        <MessageSquare style={{ width: '20px', height: '20px', color: isFeedback ? '#F58220' : 'rgba(220,231,247,0.55)' }} />
+        <span style={{ fontSize: '10px', color: isFeedback ? '#F58220' : 'rgba(220,231,247,0.55)', fontWeight: isFeedback ? 600 : 400 }}>Feedback</span>
       </button>
 
       <button
@@ -140,8 +141,8 @@ export default function BottomNav({ rep = '', store = '', client, activeTaskId }
           padding: '8px 0',
         }}
       >
-        <LogOut style={{ width: '20px', height: '20px', color: 'rgba(255,255,255,0.6)' }} />
-        <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.6)', fontWeight: 400 }}>Visit</span>
+        <LogOut style={{ width: '20px', height: '20px', color: 'rgba(220,231,247,0.55)' }} />
+        <span style={{ fontSize: '10px', color: 'rgba(220,231,247,0.55)', fontWeight: 400 }}>Visit</span>
       </button>
     </div>
   );
