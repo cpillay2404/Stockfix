@@ -166,7 +166,7 @@ export default function SelectManager() {
                 >
                   <Users style={{ width: 18, height: 18 }} />
                 </div>
-                <div style={{ flex: 1, color: "#F7F9FC", fontSize: 14.5, fontWeight: 600 }}>{manager}</div>
+                <div style={{ flex: 1, color: "#F7F9FC", fontSize: 14.5, fontWeight: 600 }}>{manager.toUpperCase()}</div>
                 <ChevronRight style={{ width: 18, height: 18, color: TEXT_MUTED, flexShrink: 0 }} />
               </button>
             ))}

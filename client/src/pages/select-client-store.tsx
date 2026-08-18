@@ -63,7 +63,7 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId, 
             opacity: disabled ? 0.6 : 1,
           }}
         >
-          <span>{value || placeholder}</span>
+          <span>{value ? value.toUpperCase() : placeholder}</span>
           <ChevronDown style={{ width: 18, height: 18, opacity: 0.6, color: TEXT_MUTED }} />
         </button>
       </PopoverTrigger>
@@ -107,7 +107,7 @@ function SearchableSelect({ value, onValueChange, options, placeholder, testId, 
                   className="aria-selected:bg-[rgba(255,121,0,0.18)] aria-selected:text-[#F7F9FC] data-[selected=true]:bg-[rgba(255,121,0,0.18)] data-[selected=true]:text-[#F7F9FC]"
                 >
                   <Check className={cn("mr-2 h-4 w-4", value === option ? "opacity-100" : "opacity-0")} />
-                  {option}
+                  {option.toUpperCase()}
                 </CommandItem>
               ))}
               {options.length > 100 && !search && (
