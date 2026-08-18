@@ -67,7 +67,11 @@ export default function Sf2ClientSkuFilters({ store, rep, client, basePath, onSk
 
   return (
     <section className="sf2-filters">
-      {(clientOptions?.clients?.length ?? 0) > 1 ? (
+      {/* No `rep` at all means this is a client login (Carin, 2026-08-18:
+          client view must use these same screens, locked to their own
+          client - never a dropdown that could show another client's
+          data). */}
+      {rep && (clientOptions?.clients?.length ?? 0) > 1 ? (
         <div className="sf2-filter sf2-filter-select">
           <span>Client</span>
           <select value={client && client !== "ALL" ? client : ""} onChange={(e) => setClient(e.target.value)}>

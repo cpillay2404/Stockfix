@@ -199,11 +199,18 @@ export default function SelectClientStore() {
       setContextStore(storeValue);
       sessionStorage.setItem('visitStartTime', new Date().toISOString());
 
+      // Routes into the same new Insights/Fix screens a rep/merchandiser
+      // uses (Carin, 2026-08-18: "THE CLIENT VIEW MUST LOGIN TO THE SAME
+      // SCREENS LIKE A REP/MERCHANDISER JUST FILTERED FOR THAT CLIENT") -
+      // was going to the old /store-overview page. No `rep` param at all
+      // is the real signal every Insights/Fix page uses to know "this is
+      // a client visit, lock the client filter" (a client login never has
+      // a rep name).
       const params = new URLSearchParams();
       params.set('store', storeValue);
       params.set('client', clientValue);
 
-      setLocation(`/store-overview?${params.toString()}`);
+      setLocation(`/store-detail?${params.toString()}`);
     }
   };
 
