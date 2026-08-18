@@ -159,7 +159,7 @@ export default function SupplyDetail() {
         </section>
 
         <div className="sf2-sectionhead"><span>SUPPLY CONSTRAINTS</span></div>
-        <p className="sf2-subtitle">Out of stock and DC has none either - escalate, don't order.</p>
+        <p className="sf2-subtitle">Out of stock in store and DC.</p>
         <section className="sf2-list">
           {supplyConstraints.map((r) => (
             <button className="sf2-listrow tone-red" key={r.barcode} onClick={() => goToSku(r.barcode, "oos", (r as any).client)}>
