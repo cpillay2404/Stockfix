@@ -83,6 +83,13 @@ export default function StoreSkuList() {
   const client = params.get("client") || "";
   const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
   const activeClient = client || "ALL";
+  // Carin, 2026-08-19 (final call on Overstock): Fix links here with
+  // ?scope=fix for the narrow, actionable nexus_tasks-based list; Insights
+  // omits it for the blanket "all overstocks" list - must be preserved
+  // through every fetch/link on this page or switching client here would
+  // silently drop back to the blanket list.
+  const scope = params.get("scope") || "";
+  const scopeQS = scope ? `&scope=${encodeURIComponent(scope)}` : "";
 
   // Real bug fixed 2026-08-18 (Carin: "client filter not working here,
   // clicking but nothing happening") - these were plain static buttons with
@@ -110,14 +117,14 @@ export default function StoreSkuList() {
 
   const setClientFilter = (next: string) => {
     const qs = next ? `&client=${encodeURIComponent(next)}` : "&client=ALL";
-    setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${qs}`);
+    setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${qs}${scopeQS}`);
   };
 
   const { data, isLoading, error } = useQuery<SkuListResponse>({
-    queryKey: ["nexus-sku-list", store, rep, classification, client],
+    queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
     queryFn: async () => {
       const res = await fetch(
-        `/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}`
+        `/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}${scopeQS}`
       );
       if (!res.ok) throw new Error("Failed to fetch SKU list");
       return res.json();
