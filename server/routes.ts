@@ -1210,7 +1210,19 @@ export async function registerRoutes(
       const dedicated = rows.find((r) => r.clientScope !== "SYNDICATED");
       const chosen = dedicated || rows[0];
       const allNames = Array.from(new Set(rows.map((r) => r.resourceName)));
-      res.json({ rep: chosen?.resourceName || null, allReps: allNames });
+      // Real gap found 2026-08-19 (Carin: "why is there no resource linked
+      // to it") - /api/auth/identify (which the claim step needs) requires
+      // both a name and resourceEmpId, but nothing in the UI ever called it
+      // - select-rep-store.tsx only ever had a name to work with. Since a
+      // name picked here is already a confirmed roster match, expose the
+      // empId alongside it so the login flow can identify the person
+      // automatically, with no new field for the rep to fill in.
+      const empIdByName = new Map<string, string>();
+      for (const r of rows) {
+        if (r.resourceEmpId && !empIdByName.has(r.resourceName)) empIdByName.set(r.resourceName, r.resourceEmpId);
+      }
+      const repsWithIds = allNames.map((name) => ({ name, resourceEmpId: empIdByName.get(name) || null }));
+      res.json({ rep: chosen?.resourceName || null, allReps: allNames, repsWithIds });
     } catch (error) {
       console.error("Error resolving rep for store:", error);
       res.status(500).json({ error: "Failed to resolve rep for store" });
@@ -5011,7 +5023,7 @@ export async function registerRoutes(
       const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
       const week = weekRow?.week as string | undefined;
       if (!week) {
-        return res.json({ week: null, totals: { completed: 0, open: 0 }, byStore: [], byClient: [], byRep: [], recent: [] });
+        return res.json({ week: null, totals: { completed: 0, open: 0 }, byStore: [], byClient: [], byRep: [], byRegion: [], recent: [] });
       }
 
       const clientCond = client ? sql`and t.client = ${client}` : sql``;
@@ -5052,7 +5064,7 @@ export async function registerRoutes(
       // eligible people must count once here, same reasoning already used
       // in /api/task-progress/manager and /api/gamification/leaderboard.
       const openResult = await db.execute(sql`
-        select distinct t.unique_id as "uniqueId", t.store_name as "storeName", t.client, a.resource_name as "resourceName"
+        select distinct t.unique_id as "uniqueId", t.store_name as "storeName", t.client, t.region, a.resource_name as "resourceName"
         from nexus_task_assignees a
         join nexus_tasks t on t.unique_id = a.task_unique_id
         where t.week_ending_date = ${week} and t.action_status != 'Completed' ${clientCond} ${storeCond}
@@ -5063,6 +5075,13 @@ export async function registerRoutes(
       const byStoreMap = new Map<string, { completed: number; open: Set<string> }>();
       const byClientMap = new Map<string, { completed: number; open: Set<string> }>();
       const byRepMap = new Map<string, { completed: number; open: Set<string> }>();
+      // Real gap found 2026-08-19 (Carin: "I don't think this is right" -
+      // a Claude Design build's "Adoption by region" only showed 2 regions
+      // with Open always 0, since there was no byRegion field here at all
+      // to build it from - whoever built that panel had to approximate off
+      // just the completed rows' region field). Same real join-based
+      // pattern as the other breakdowns, not a completed-only approximation.
+      const byRegionMap = new Map<string, { completed: number; open: Set<string> }>();
 
       for (const c of completed) {
         if (!byStoreMap.has(c.storeName)) byStoreMap.set(c.storeName, { completed: 0, open: new Set() });
@@ -5073,6 +5092,9 @@ export async function registerRoutes(
           if (!byRepMap.has(c.repName)) byRepMap.set(c.repName, { completed: 0, open: new Set() });
           byRepMap.get(c.repName)!.completed++;
         }
+        const region = c.region || "Unknown";
+        if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
+        byRegionMap.get(region)!.completed++;
       }
       for (const o of openRows) {
         if (!byStoreMap.has(o.storeName)) byStoreMap.set(o.storeName, { completed: 0, open: new Set() });
@@ -5083,6 +5105,9 @@ export async function registerRoutes(
           if (!byRepMap.has(o.resourceName)) byRepMap.set(o.resourceName, { completed: 0, open: new Set() });
           byRepMap.get(o.resourceName)!.open.add(o.uniqueId);
         }
+        const region = o.region || "Unknown";
+        if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
+        byRegionMap.get(region)!.open.add(o.uniqueId);
       }
 
       const toSorted = (map: Map<string, { completed: number; open: Set<string> }>, keyName: string) =>
@@ -5112,6 +5137,7 @@ export async function registerRoutes(
         byStore: toSorted(byStoreMap, "store"),
         byClient: toSorted(byClientMap, "client"),
         byRep,
+        byRegion: toSorted(byRegionMap, "region"),
         recent: completed.slice(0, 50),
       });
     } catch (error) {

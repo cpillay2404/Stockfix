@@ -295,6 +295,13 @@ export default function SelectRepStore() {
   const [showStoreSelector, setShowStoreSelector] = useState(false);
   const [showRepSelector, setShowRepSelector] = useState(false);
   const [repOptionsForStore, setRepOptionsForStore] = useState<string[]>([]);
+  // Real gap found 2026-08-19 (Carin: "why is there no resource linked to
+  // it") - the claim step needs a real identity (POST /api/auth/identify,
+  // requires name + resourceEmpId), but nothing ever called it - every
+  // capture attributed "Unassigned" regardless of who was actually
+  // logged in. rep-for-store now returns each name's real resourceEmpId
+  // alongside it, so identification can happen automatically here.
+  const [empIdByName, setEmpIdByName] = useState<Record<string, string | null>>({});
 
   const roleParam = new URLSearchParams(window.location.search).get("role");
   const roleLabel = roleParam === "Merchandiser" ? "Merchandiser" : "Rep";
@@ -327,6 +334,9 @@ export default function SelectRepStore() {
       const data = await res.json();
       const allReps: string[] = data.allReps || [];
       setRepOptionsForStore(allReps);
+      const idMap: Record<string, string | null> = {};
+      for (const r of (data.repsWithIds || [])) idMap[r.name] = r.resourceEmpId;
+      setEmpIdByName(idMap);
       // Never auto-fill, even with exactly one real match (Carin,
       // 2026-08-18: "dont auto pick... the rep/merch selects his name") -
       // the person must actively confirm their own identity by picking it,
@@ -340,11 +350,27 @@ export default function SelectRepStore() {
     setRepValue(newRep);
   };
 
-  const handleContinue = () => {
-    if (repValue) {
-      setSelectedRep(repValue);
-      setLocation(`/home?rep=${encodeURIComponent(repValue)}&role=${roleLabel}&store=${encodeURIComponent(storeValue)}`);
+  const handleContinue = async () => {
+    if (!repValue) return;
+    setSelectedRep(repValue);
+    // Identify this session so the claim step later actually attributes
+    // captures to a real person instead of leaving them "Unassigned" -
+    // best-effort: a failure here (e.g. a data timing edge case) shouldn't
+    // block the rep from starting their visit, just means claim won't work
+    // for this session.
+    const empId = empIdByName[repValue];
+    if (empId) {
+      try {
+        await fetch("/api/auth/identify", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ resourceEmpId: empId, resourceName: repValue }),
+        });
+      } catch (err) {
+        console.error("Failed to identify session", err);
+      }
     }
+    setLocation(`/home?rep=${encodeURIComponent(repValue)}&role=${roleLabel}&store=${encodeURIComponent(storeValue)}`);
   };
 
   const canContinue = !!storeValue && !!repValue;
