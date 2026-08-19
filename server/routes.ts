@@ -5097,10 +5097,8 @@ export async function registerRoutes(
       const repNames = Array.from(byRepMap.keys());
       const resourceTypeByName = new Map<string, string>();
       if (repNames.length > 0) {
-        const upperNames = repNames.map((n) => n.toUpperCase().trim());
         const typeRows = await db.select({ resourceName: resourceRoster.resourceName, resourceType: resourceRoster.resourceType })
-          .from(resourceRoster)
-          .where(sql`upper(trim(${resourceRoster.resourceName})) = any(${upperNames})`);
+          .from(resourceRoster);
         for (const r of typeRows) resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
       }
       const byRep = toSorted(byRepMap, "rep").map((r: any) => ({
