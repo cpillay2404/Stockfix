@@ -48,6 +48,14 @@ export default function NexusExitVisit() {
 
   const handleBack = () => setLocation(`/store-detail/fix?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
   const handleLogout = () => {
+    // Fire-and-forget consolidated visit-summary email (Carin, 2026-08-19:
+    // "can we consolidate all captures for one store in one email") - not
+    // awaited so it never delays logout/navigation.
+    fetch("/api/nexus-tasks/visit-summary/send-email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ store, rep, client }),
+    }).catch(() => {});
     clearAll();
     setLocation("/");
   };

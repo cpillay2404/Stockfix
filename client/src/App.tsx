@@ -11,7 +11,6 @@ import NotFound from "@/pages/not-found";
 import ChooseAccess from "@/pages/choose-access";
 import SelectRepStore from "@/pages/select-rep-store";
 import SelectClientStore from "@/pages/select-client-store";
-import Home from "@/pages/home";
 import RepHome from "@/pages/rep-home";
 import StoresList from "@/pages/stores-list";
 import StoreNexusOverview from "@/pages/store-nexus-overview";
@@ -29,13 +28,7 @@ import SupplyDetail from "@/pages/supply-detail";
 import AnalysisIndex from "@/pages/analysis-index";
 import FixIndex from "@/pages/fix-index";
 import NexusExitVisit from "@/pages/nexus-exit-visit";
-import TaskList from "@/pages/dashboard";
-import TaskDetail from "@/pages/task-detail";
 import ImportData from "@/pages/import-data";
-import StoreSummary from "@/pages/store-summary";
-import StoreOverview from "@/pages/store-overview";
-import ExitVisit from "@/pages/exit-visit";
-import RepProgress from "@/pages/rep-progress";
 import NexusRepProgress from "@/pages/nexus-rep-progress";
 import ManagerProgress from "@/pages/manager-progress";
 import SelectManager from "@/pages/select-manager";
@@ -56,7 +49,6 @@ function Router() {
       <Route path="/select-client" component={SelectClientStore} />
       <Route path="/select-client-store" component={SelectClientStore} />
       <Route path="/select-manager">{() => <ClientGuard><SelectManager /></ClientGuard>}</Route>
-      <Route path="/store-overview" component={StoreOverview} />
       <Route path="/home" component={RepHome} />
       <Route path="/stores" component={StoresList} />
       <Route path="/store-detail" component={StoreNexusOverview} />
@@ -74,13 +66,7 @@ function Router() {
       <Route path="/store-detail/analysis" component={AnalysisIndex} />
       <Route path="/store-detail/fix" component={FixIndex} />
       <Route path="/store-detail/exit-visit" component={NexusExitVisit} />
-      <Route path="/dashboard">{() => <ClientGuard><Home /></ClientGuard>}</Route>
-      <Route path="/tasks" component={TaskList} />
       <Route path="/import">{() => <ClientGuard><ImportData /></ClientGuard>}</Route>
-      <Route path="/task/:id" component={TaskDetail} />
-      <Route path="/store/:storeName">{() => <ClientGuard><StoreSummary /></ClientGuard>}</Route>
-      <Route path="/exit-visit" component={ExitVisit} />
-      <Route path="/rep-progress">{() => <ClientGuard><RepProgress /></ClientGuard>}</Route>
       <Route path="/nexus-rep-progress">{() => <ClientGuard><NexusRepProgress /></ClientGuard>}</Route>
       <Route path="/manager-progress">{() => <ClientGuard><ManagerProgress /></ClientGuard>}</Route>
       <Route path="/admin/leaderboard">{() => <ClientGuard><AdminLeaderboard /></ClientGuard>}</Route>

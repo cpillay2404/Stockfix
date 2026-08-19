@@ -191,11 +191,16 @@ export default function SelectClientStore() {
   // entries for the clients being tested.
   const requiresPassword = false;
 
+  // Real bug found 2026-08-19 (old-app retirement audit) - this used to
+  // read /api/clients/:client/stores, the legacy tasks-table-backed
+  // endpoint (same class of gap as the all-clients dropdown fix above) -
+  // a client with only synced Nexus data and no legacy tasks rows would
+  // appear in the (already-fixed) dropdown then show zero stores.
   const { data: storesData, isLoading: storesLoading } = useQuery({
     queryKey: ["client-stores", clientValue, isAuthenticated, requiresPassword],
     queryFn: async () => {
       if (!clientValue) return { stores: [] };
-      const res = await fetch(`/api/clients/${encodeURIComponent(clientValue)}/stores`);
+      const res = await fetch(`/api/roster/stores-for-client?client=${encodeURIComponent(clientValue)}`);
       if (!res.ok) throw new Error("Failed to fetch stores");
       return res.json();
     },

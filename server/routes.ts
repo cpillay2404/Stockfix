@@ -9,7 +9,7 @@ import XLSX from "xlsx";
 import path from "path";
 import fs from "fs";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { sendTaskCompletedEmail } from "./email";
+import { sendTaskCompletedEmail, sendVisitSummaryEmail } from "./email";
 import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
 import { sql, eq, and, desc, type SQL } from "drizzle-orm";
@@ -1009,6 +1009,32 @@ export async function registerRoutes(
     }
   });
 
+  // Real per-client store list for the client-login flow - same gap as
+  // all-clients above, found during the 2026-08-19 old-app retirement:
+  // select-client-store.tsx's store dropdown still read
+  // /api/clients/:client/stores (legacy tasks table), so a client with
+  // only synced Nexus data and no legacy tasks rows would show up in the
+  // (now-real) client dropdown but then show zero stores.
+  app.get("/api/roster/stores-for-client", async (req, res) => {
+    try {
+      const client = String(req.query.client || "").trim();
+      if (!client) {
+        return res.status(400).json({ error: "client query param is required" });
+      }
+      const [weekRow] = await db.execute(sql`select max(week_ending) as week from store_weekly_summary`).then((r: any) => (r.rows || r));
+      const week = weekRow?.week as string | undefined;
+      if (!week) return res.json({ stores: [] });
+      const rows = await db.selectDistinct({ store: storeWeeklySummary.cleanedStoreName })
+        .from(storeWeeklySummary)
+        .where(sql`${storeWeeklySummary.weekEnding} = ${week} and ${storeWeeklySummary.client} = ${client}`);
+      const stores = rows.map((r) => r.store).filter(Boolean).sort();
+      res.json({ stores });
+    } catch (error) {
+      console.error("Error fetching stores for client:", error);
+      res.status(500).json({ error: "Failed to fetch stores for client" });
+    }
+  });
+
   // Store-first flow: search real stores by name (for "select store first,
   // then see who's linked to it" per direct request 2026-08-12).
   // Real list of clients that actually have synced Nexus data for a given
@@ -1368,6 +1394,83 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching visit summary:", error);
       res.status(500).json({ error: "Failed to fetch visit summary" });
+    }
+  });
+
+  // POST /api/nexus-tasks/visit-summary/send-email — fires once when the
+  // rep taps "End Visit" (Carin, 2026-08-19: "can we consolidate all
+  // captures for one store in one email" - replaces the old per-task
+  // "critical SKU" email for the new flow, which risked flooding inboxes
+  // given how common OOS/Risk captures are here vs the old system's
+  // narrow priority patterns). Reuses the exact same query as the GET
+  // above so the emailed digest matches what the rep actually saw on
+  // screen.
+  app.post("/api/nexus-tasks/visit-summary/send-email", async (req, res) => {
+    try {
+      const store = String(req.body?.store || "").trim();
+      const rep = String(req.body?.rep || "").trim();
+      const client = String(req.body?.client || "").trim();
+      if (!store) return res.status(400).json({ error: "store is required" });
+
+      const clientCond = client && client !== "ALL" ? sql`and client = ${client}` : sql``;
+
+      const completedResult = await db.execute(sql`
+        select barcode, article_description, feedback, reason_code, action_taken_comment, capture_date, image1, banner, region, client
+        from nexus_tasks
+        where upper(trim(store_name)) = ${store.toUpperCase().trim()}
+          and upper(trim(rep_name)) = ${rep.toUpperCase().trim()}
+          and action_status = 'Completed'
+          ${clientCond}
+        order by capture_date desc nulls last
+        limit 50
+      `);
+      const completed = (completedResult.rows || completedResult) as any[];
+
+      let openCount = 0;
+      if (rep) {
+        const [rosterRow] = await db.select({ resourceEmpId: resourceRoster.resourceEmpId })
+          .from(resourceRoster).where(sql`upper(trim(${resourceRoster.resourceName})) = ${rep.toUpperCase().trim()}`).limit(1);
+        if (rosterRow) {
+          const openResult = await db.execute(sql`
+            select count(distinct t.unique_id)::int as c
+            from nexus_task_assignees a
+            join nexus_tasks t on t.unique_id = a.task_unique_id
+            where upper(trim(t.store_name)) = ${store.toUpperCase().trim()}
+              and a.resource_emp_id = ${rosterRow.resourceEmpId}
+              and t.action_status != 'Completed'
+              ${clientCond}
+          `);
+          openCount = ((openResult.rows || openResult) as any[])[0]?.c || 0;
+        }
+      }
+
+      const photosCount = completed.filter((c) => c.image1).length;
+
+      // Fire and forget - don't block the End Visit navigation on email delivery.
+      sendVisitSummaryEmail({
+        repName: rep || null,
+        client: client && client !== "ALL" ? client : (completed[0]?.client ?? null),
+        storeName: store,
+        banner: completed[0]?.banner ?? null,
+        region: completed[0]?.region ?? null,
+        completedCount: completed.length,
+        openCount,
+        photosCount,
+        captures: completed.map((c) => ({
+          barcode: c.barcode,
+          articleDescription: c.article_description,
+          reasonCode: c.reason_code,
+          actionTakenComment: c.action_taken_comment,
+          feedback: c.feedback,
+        })),
+      }).catch((err) => {
+        console.error('[Email] Error in fire-and-forget visit summary email:', err);
+      });
+
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error sending visit summary email:", error);
+      res.status(500).json({ error: "Failed to send visit summary email" });
     }
   });
 

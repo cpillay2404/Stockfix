@@ -67,9 +67,12 @@ export default function InsightsOverview() {
   return (
     <div style={{ minHeight: "100vh", backgroundColor: NAVY, paddingBottom: "70px", color: "#FFFFFF" }}>
       <div style={{ padding: "16px" }}>
+        {/* Back button fixed 2026-08-19 - /store-overview (the old flow)
+            was retired; this add-on's own back button now returns to the
+            real current flow instead of a dead route. */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "12px" }}>
           <button
-            onClick={() => setLocation(`/store-overview?${backParams.toString()}`)}
+            onClick={() => setLocation(`/store-detail?${backParams.toString()}`)}
             data-testid="button-back-insights"
             style={{ display: "flex", alignItems: "center", gap: "4px", color: "rgba(255,255,255,0.8)", background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: "14px" }}
           >
