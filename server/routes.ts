@@ -4987,21 +4987,22 @@ export async function registerRoutes(
 
       const clientCond = client ? sql`and t.client = ${client}` : sql``;
       const storeCond = store ? sql`and upper(trim(t.store_name)) = ${store.toUpperCase().trim()}` : sql``;
+      // Same filters, unaliased - the join query below uses "t" as its
+      // alias, this direct nexusTasks select does not.
+      const clientCondPlain = client ? sql`and client = ${client}` : sql``;
+      const storeCondPlain = store ? sql`and upper(trim(store_name)) = ${store.toUpperCase().trim()}` : sql``;
 
-      // Real gap found 2026-08-19 (Carin: "needs to have the feedback
-      // captured as well as the image... we need the data exactly how it
-      // comes out") - this was only returning a curated subset of fields,
-      // dropping feedback/reason code/action taken/images entirely.
-      const completedResult = await db.execute(sql`
-        select unique_id as "uniqueId", store_name as "storeName", client, rep_name as "repName",
-          barcode, article_description as "articleDescription", stock_classification as "classification",
-          capture_date as "captureDate", feedback, reason_code as "reasonCode", action_taken_comment as "actionTakenComment",
-          image1, image2, image3, image4
-        from nexus_tasks t
-        where t.week_ending_date = ${week} and t.action_status = 'Completed' ${clientCond} ${storeCond}
-        order by capture_date desc nulls last
-      `);
-      const completedRaw = (completedResult.rows || completedResult) as any[];
+      // Real gap found 2026-08-19 (Carin: "cant we have direct access to
+      // that... we need the data exactly how it comes out" - same
+      // completeness as the SharePoint export, not a curated subset) -
+      // this used to hand-pick a handful of fields, dropping most of the
+      // real nexus_tasks row (banner/region/lineManager/resourceType/
+      // category/dcSoh/p4WeekSales/missedSales/storeWfc/action/actionDate/
+      // physicalCount/variance/systemAdjusted, and 3 of 4 images) entirely.
+      // Full typed select - every real column on the row.
+      const completedRawFull = await db.select().from(nexusTasks)
+        .where(sql`${nexusTasks.weekEndingDate} = ${week} and ${nexusTasks.actionStatus} = 'Completed' ${clientCondPlain} ${storeCondPlain}`)
+        .orderBy(sql`${nexusTasks.captureDate} desc nulls last`);
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
       const baseUrl = `${protocol}://${host}`;
@@ -5010,7 +5011,7 @@ export async function registerRoutes(
         const normalized = normalizeObjectUrl(p);
         return normalized.startsWith('http') ? normalized : `${baseUrl}${normalized}`;
       };
-      const completed = completedRaw.map((c) => ({
+      const completed = completedRawFull.map((c) => ({
         ...c,
         image1: toFullImageUrl(c.image1),
         image2: toFullImageUrl(c.image2),
