@@ -4707,21 +4707,49 @@ export async function registerRoutes(
         }
       }
 
-      let teamTasks: (typeof nexusTasks.$inferSelect)[] = [];
+      type ManagerProgressTask = {
+        uniqueId: string;
+        actionStatus: string;
+        captureDate: string | null;
+        createdAt: Date;
+        repName: string;
+        storeName: string;
+        region: string;
+        client: string;
+      };
+      let teamTasks: ManagerProgressTask[] = [];
       if (latestWeek) {
-        const regionCond = region ? sql`and t.region = ${region}` : sql``;
-        const clientCond = client ? sql`and t.client = ${client}` : sql``;
-        const storeCond = store ? sql`and upper(trim(t.store_name)) = ${store.toUpperCase().trim()}` : sql``;
-        const managerJoin = managerEmpIds
-          ? sql`join nexus_task_assignees a on a.task_unique_id = t.unique_id and a.resource_emp_id = any(${managerEmpIds})`
-          : sql``;
+        const conditions = [sql`t.week_ending_date = ${latestWeek}`];
+        if (region) conditions.push(sql`t.region = ${region}`);
+        if (client) conditions.push(sql`t.client = ${client}`);
+        if (store) {
+          conditions.push(
+            sql`upper(trim(t.store_name)) = ${store.toUpperCase().trim()}`,
+          );
+        }
+        const whereClause = sql.join(conditions, sql` and `);
+        const fromClause = manager
+          ? sql`from nexus_tasks t
+              join nexus_task_assignees a
+                on a.task_unique_id = t.unique_id
+              join resource_roster r
+                on r.resource_emp_id = a.resource_emp_id
+               and r.manager = ${manager}`
+          : sql`from nexus_tasks t`;
         const result = await db.execute(sql`
-          select distinct t.*
-          from nexus_tasks t
-          ${managerJoin}
-          where t.week_ending_date = ${latestWeek} ${regionCond} ${clientCond} ${storeCond}
+          select distinct
+            t.unique_id as "uniqueId",
+            t.action_status as "actionStatus",
+            t.capture_date as "captureDate",
+            t.created_at as "createdAt",
+            t.rep_name as "repName",
+            t.store_name as "storeName",
+            t.region,
+            t.client
+          ${fromClause}
+          where ${whereClause}
         `);
-        teamTasks = (result.rows || result) as any[];
+        teamTasks = (result.rows || result) as ManagerProgressTask[];
       }
 
       const openTasks = teamTasks.filter(t => t.actionStatus !== 'Completed');
@@ -4774,14 +4802,34 @@ export async function registerRoutes(
       }
 
       const openTasks2 = teamTasks.filter((t) => t.actionStatus !== 'Completed');
-      const openTaskIds = openTasks2.map((t) => t.uniqueId);
       const openTaskCreatedAt = new Map(openTasks2.map((t) => [t.uniqueId, t.createdAt]));
-      if (openTaskIds.length > 0) {
+      if (openTasks2.length > 0 && latestWeek) {
+        const assigneeConditions = [
+          sql`t.week_ending_date = ${latestWeek}`,
+          sql`t.action_status != 'Completed'`,
+        ];
+        if (region) assigneeConditions.push(sql`t.region = ${region}`);
+        if (client) assigneeConditions.push(sql`t.client = ${client}`);
+        if (store) {
+          assigneeConditions.push(
+            sql`upper(trim(t.store_name)) = ${store.toUpperCase().trim()}`,
+          );
+        }
+        const assigneeWhereClause = sql.join(assigneeConditions, sql` and `);
+        const assigneeFromClause = manager
+          ? sql`from nexus_task_assignees a
+              join nexus_tasks t on t.unique_id = a.task_unique_id
+              join resource_roster r
+                on r.resource_emp_id = a.resource_emp_id
+               and r.manager = ${manager}`
+          : sql`from nexus_task_assignees a
+              join nexus_tasks t on t.unique_id = a.task_unique_id`;
         const assigneeResult = await db.execute(sql`
-          select a.resource_name as "resourceName", a.task_unique_id as "taskUniqueId"
-          from nexus_task_assignees a
-          where a.task_unique_id = any(${openTaskIds})
-          ${managerEmpIds ? sql`and a.resource_emp_id = any(${managerEmpIds})` : sql``}
+          select distinct
+            a.resource_name as "resourceName",
+            a.task_unique_id as "taskUniqueId"
+          ${assigneeFromClause}
+          where ${assigneeWhereClause}
         `);
         const assigneeRows = (assigneeResult.rows || assigneeResult) as { resourceName: string; taskUniqueId: string }[];
         for (const a of assigneeRows) {

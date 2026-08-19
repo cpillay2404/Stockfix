@@ -4,3 +4,4 @@
 - [Pilot dashboard store aggregation](pilot-dashboard-store-aggregation.md) — /api/pilot-report has no store rollup endpoint but does support manager/region/store/banner filters + a flat taskDetail array.
 - [Recharts bar chart scale visibility](chart-scale-visibility.md) — fixed 0-100% axis domains make low-magnitude real data (e.g. single-digit rates) render as invisible slivers; scale domain to actual data.
 - [Object Storage SDK metadata](object-storage-sdk-metadata.md) — the installed SDK does not expose object metadata reads/writes; persist application MIME metadata separately.
+- [Drizzle dynamic SQL limits](drizzle-dynamic-sql-limits.md) — avoid JavaScript arrays and huge `sql.join` parameter lists in raw queries; prefer set-based joins and explicit result aliases.
