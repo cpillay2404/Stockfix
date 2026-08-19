@@ -671,7 +671,7 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
 // real Nexus data, just shown together (Carin, 2026-08-13: "wire this up
 // and fix it" - SKU drill-in was silently falling back to a single
 // arbitrary client while in All mode).
-async function fetchSkuListForClient(client: string, store: string, classification: string) {
+async function fetchSkuListForClient(client: string, store: string, classification: string, scope?: string) {
   if (classification === "risk") {
     const skuList = await fetchStoreSkuListFast(client, store, client);
     const rows = computeAtRiskRows(skuList.rows).map((r) => ({
@@ -763,34 +763,63 @@ async function fetchSkuListForClient(client: string, store: string, classificati
   }
 
   if (classification === "overstock") {
-    // EMERGENCY REVERT 2026-08-18 - see getOverstockCountForStore's comment.
-    // Back to the fast nexus_tasks-sourced list while the live query gets
-    // profiled and fixed without blocking real usage.
-    const result = await db.execute(sql`
-      select barcode, article_description, store_soh, dc_soh, p4_week_sales, store_wfc, stock_classification, action
-      from nexus_tasks
-      where lower(trim(store_name)) = lower(trim(${store}))
-        and client = ${client}
-        and unique_id like '%\_overstock\_%' escape '\'
-      order by store_soh desc
-    `);
-    const taskRows = (result.rows || result) as any[];
-    const rows = taskRows.map((r) => ({
-      barcode: r.barcode,
-      articleDescription: r.article_description,
-      storeSoh: Number(r.store_soh) || 0,
-      dcSoh: r.dc_soh != null ? Number(r.dc_soh) : null,
-      sellOutP4: r.p4_week_sales != null ? Number(r.p4_week_sales) : null,
-      cover: r.store_wfc != null ? Number(r.store_wfc) : null,
-      estimatedMissedUnits: 0,
-      action: r.action,
-      classification: r.stock_classification || "Overstock",
-      issueDriver: null as string | null,
-      suggestedOrderUnits: null as number | null,
-      dcFulfillableUnits: null as number | null,
-      client,
-    }));
-    return { resolvedClient: client, rows, missingSkus: undefined, rangedSkus: undefined, avgCoveragePct: undefined };
+    // Real bug found 2026-08-19 (Carin: KPI card said 18, "All Clients"
+    // list said "no overstock SKUs") - this branch always used the narrow
+    // nexus_tasks-based query (correct for Fix, scope=fix), even for
+    // Insights' blanket badge, which this store's ALL-clients mode never
+    // matched since nexus_tasks task-generation doesn't pre-generate for
+    // every real client/store the same way store_sku_weekly's live sync
+    // does. Same fix as the single-client path: only use the narrow
+    // nexus_tasks query for Fix; Insights gets the real blanket
+    // sourceStem="overstock" rows.
+    if (scope === "fix") {
+      const result = await db.execute(sql`
+        select barcode, article_description, store_soh, dc_soh, p4_week_sales, store_wfc, stock_classification, action, action_status
+        from nexus_tasks
+        where lower(trim(store_name)) = lower(trim(${store}))
+          and client = ${client}
+          and unique_id like '%\_overstock\_%' escape '\'
+        order by store_soh desc
+      `);
+      const taskRows = (result.rows || result) as any[];
+      const rows = taskRows.map((r) => ({
+        barcode: r.barcode,
+        articleDescription: r.article_description,
+        storeSoh: Number(r.store_soh) || 0,
+        dcSoh: r.dc_soh != null ? Number(r.dc_soh) : null,
+        sellOutP4: r.p4_week_sales != null ? Number(r.p4_week_sales) : null,
+        cover: r.store_wfc != null ? Number(r.store_wfc) : null,
+        estimatedMissedUnits: 0,
+        action: r.action,
+        classification: r.stock_classification || "Overstock",
+        issueDriver: null as string | null,
+        suggestedOrderUnits: null as number | null,
+        dcFulfillableUnits: null as number | null,
+        isCompleted: r.action_status === "Completed",
+        client,
+      }));
+      return { resolvedClient: client, rows, missingSkus: undefined, rangedSkus: undefined, avgCoveragePct: undefined };
+    }
+
+    const skuList = await fetchStoreSkuListFast(client, store, client);
+    const rows = skuList.rows
+      .filter((r) => r.sourceStem === "overstock")
+      .map((r) => ({
+        barcode: r.barcode,
+        articleDescription: r.articleDescription,
+        storeSoh: r.storeSoh,
+        dcSoh: r.dcSoh,
+        sellOutP4: r.sellOutP4,
+        cover: r.cover,
+        estimatedMissedUnits: r.estimatedMissedUnits,
+        action: "Review stock levels",
+        classification: r.classification,
+        issueDriver: r.issueDriver ?? null,
+        suggestedOrderUnits: r.suggestedOrderUnits ?? null,
+        dcFulfillableUnits: r.dcFulfillableUnits ?? null,
+        client,
+      }));
+    return { resolvedClient: client, rows, missingSkus: undefined, rangedSkus: skuList.rows.length, avgCoveragePct: undefined };
   }
 
   const result = await fetchIssueDetailList(client, store, classification as "oos" | "low", client);
@@ -803,11 +832,11 @@ async function fetchSkuListForClient(client: string, store: string, classificati
   };
 }
 
-async function buildAllClientsSkuList(store: string, classification: string, realClients: string[]) {
+async function buildAllClientsSkuList(store: string, classification: string, realClients: string[], scope?: string) {
   const perClient = await Promise.all(
     realClients.map(async (client) => {
       try {
-        return await fetchSkuListForClient(client, store, classification);
+        return await fetchSkuListForClient(client, store, classification, scope);
       } catch {
         return null;
       }
@@ -1697,7 +1726,7 @@ export async function registerRoutes(
         const dedicatedClients = await getDedicatedClientsAtStore(store);
         const realClients = dedicatedClients.size > 0 ? allRealClients.filter((c) => !dedicatedClients.has(c)) : allRealClients;
         if (realClients.length > 0) {
-          return res.json(await buildAllClientsSkuList(store, classification, realClients));
+          return res.json(await buildAllClientsSkuList(store, classification, realClients, String(req.query.scope || "")));
         }
       }
 

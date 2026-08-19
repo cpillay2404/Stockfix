@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Menu, RefreshCw, ChevronRight, Store as StoreIcon, Search, Filter, Home, ClipboardList } from "lucide-react";
+import { Menu, RefreshCw, ChevronRight, Store as StoreIcon, Search, Filter, Home } from "lucide-react";
 import meridianGroupLogo from "@/assets/meridian-group-logo.png";
 import { COLORS, DOT_MATRIX_BG, HEX_OUTLINE_PATTERN_BG } from "@/lib/design-tokens";
 
@@ -267,9 +267,11 @@ function BackgroundPatterns() {
 export function BottomNav({ active, rep, role }: { active: string; rep: string; role: string }) {
   const [, setLocation] = useLocation();
   const qs = `?rep=${encodeURIComponent(rep)}&role=${role}`;
+  // Real bug found 2026-08-19 (Carin: "please remove tasks, this the old
+  // apps tasks page") - the Tasks tab pointed at /tasks (dashboard.tsx),
+  // deleted today along with the rest of the old pre-redesign flow.
   const items = [
     { key: "home", label: "Home", icon: Home, path: `/home${qs}` },
-    { key: "tasks", label: "Tasks", icon: ClipboardList, path: `/tasks${qs}` },
     { key: "stores", label: "Stores", icon: StoreIcon, path: `/stores${qs}` },
   ];
   return (
