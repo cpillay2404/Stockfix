@@ -18,10 +18,12 @@ interface OverviewResponse {
   negSOHCount: number;
   oosCount: number;
   lowStockCount: number;
-  // Carin, 2026-08-18: "the fix menu must only show the client computed
-  // overstocks" - the nexus_tasks-based number, NOT the same "all
-  // overstocks" blanket number Insights shows.
-  overstockCountFix: number;
+  // Real bug found 2026-08-19 (Carin: KPI card and drill-down list didn't
+  // match) - Fix was still showing overstockCountFix (the old narrower
+  // nexus_tasks-derived number) while its own drill-down list already
+  // shows the blanket count (fixed 2026-08-18: "same with overstock" -
+  // Fix shows full counts everywhere, same as Insights).
+  overstockCount: number;
   atRiskCount: number;
   distributionGapsCount: number;
 }
@@ -120,7 +122,7 @@ export default function FixIndex() {
             onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=overstock${clientQS}`)}
           >
             <div className="sf2-listrow-title">Overstock</div>
-            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.overstockCountFix}</span><ChevronRight size={16} /></div>
+            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.overstockCount}</span><ChevronRight size={16} /></div>
           </button>
 
           <button
