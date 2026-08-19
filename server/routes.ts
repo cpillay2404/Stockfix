@@ -4988,14 +4988,35 @@ export async function registerRoutes(
       const clientCond = client ? sql`and t.client = ${client}` : sql``;
       const storeCond = store ? sql`and upper(trim(t.store_name)) = ${store.toUpperCase().trim()}` : sql``;
 
+      // Real gap found 2026-08-19 (Carin: "needs to have the feedback
+      // captured as well as the image... we need the data exactly how it
+      // comes out") - this was only returning a curated subset of fields,
+      // dropping feedback/reason code/action taken/images entirely.
       const completedResult = await db.execute(sql`
         select unique_id as "uniqueId", store_name as "storeName", client, rep_name as "repName",
-          barcode, article_description as "articleDescription", stock_classification as "classification", capture_date as "captureDate"
+          barcode, article_description as "articleDescription", stock_classification as "classification",
+          capture_date as "captureDate", feedback, reason_code as "reasonCode", action_taken_comment as "actionTakenComment",
+          image1, image2, image3, image4
         from nexus_tasks t
         where t.week_ending_date = ${week} and t.action_status = 'Completed' ${clientCond} ${storeCond}
         order by capture_date desc nulls last
       `);
-      const completed = (completedResult.rows || completedResult) as any[];
+      const completedRaw = (completedResult.rows || completedResult) as any[];
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+      const baseUrl = `${protocol}://${host}`;
+      const toFullImageUrl = (p: string | null | undefined): string | null => {
+        if (!p) return null;
+        const normalized = normalizeObjectUrl(p);
+        return normalized.startsWith('http') ? normalized : `${baseUrl}${normalized}`;
+      };
+      const completed = completedRaw.map((c) => ({
+        ...c,
+        image1: toFullImageUrl(c.image1),
+        image2: toFullImageUrl(c.image2),
+        image3: toFullImageUrl(c.image3),
+        image4: toFullImageUrl(c.image4),
+      }));
 
       // Distinct task count, not per-assignee rows - a task with several
       // eligible people must count once here, same reasoning already used
@@ -5039,12 +5060,30 @@ export async function registerRoutes(
           .map(([key, v]) => ({ [keyName]: key, completed: v.completed, open: v.open.size }))
           .sort((a: any, b: any) => (b.completed + b.open) - (a.completed + a.open));
 
+      // Real resourceType per rep (Carin, 2026-08-19: a "Merchandiser
+      // Activity" table built off this data showed real reps under it -
+      // resourceType was never in this response at all, so whoever
+      // consumes it was guessing/mislabeling instead of using real data).
+      const repNames = Array.from(byRepMap.keys());
+      const resourceTypeByName = new Map<string, string>();
+      if (repNames.length > 0) {
+        const upperNames = repNames.map((n) => n.toUpperCase().trim());
+        const typeRows = await db.select({ resourceName: resourceRoster.resourceName, resourceType: resourceRoster.resourceType })
+          .from(resourceRoster)
+          .where(sql`upper(trim(${resourceRoster.resourceName})) = any(${upperNames})`);
+        for (const r of typeRows) resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
+      }
+      const byRep = toSorted(byRepMap, "rep").map((r: any) => ({
+        ...r,
+        resourceType: resourceTypeByName.get(String(r.rep).toUpperCase().trim()) || null,
+      }));
+
       res.json({
         week,
         totals: { completed: completed.length, open: openTaskIds.size },
         byStore: toSorted(byStoreMap, "store"),
         byClient: toSorted(byClientMap, "client"),
-        byRep: toSorted(byRepMap, "rep"),
+        byRep,
         recent: completed.slice(0, 50),
       });
     } catch (error) {
