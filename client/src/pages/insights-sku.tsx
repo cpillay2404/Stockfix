@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useLocation, useSearch, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Camera, ScanLine } from "lucide-react";
-import BottomNav from "@/components/BottomNav";
 import { fetchNexusSkuRecord } from "@/lib/nexus-api";
 
 const NAVY = "#071A2D";
@@ -241,7 +240,6 @@ export default function InsightsSku() {
         </button>
       </div>
 
-      <BottomNav rep={rep} store={store} client={client} />
     </div>
   );
 }

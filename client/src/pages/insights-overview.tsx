@@ -1,7 +1,6 @@
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight } from "lucide-react";
-import BottomNav from "@/components/BottomNav";
 import { useToast } from "@/hooks/use-toast";
 import { fetchNexusStoreOverview } from "@/lib/nexus-api";
 
@@ -200,7 +199,6 @@ export default function InsightsOverview() {
         </div>
       </div>
 
-      <BottomNav rep={rep} store={store} client={client} />
     </div>
   );
 }

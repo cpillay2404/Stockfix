@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useLocation, useSearch, useParams } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import BottomNav from "@/components/BottomNav";
 import { fetchNexusLineList, type NexusLineListRecord } from "@/lib/nexus-api";
 
 const NAVY = "#071A2D";
@@ -167,7 +166,6 @@ export default function InsightsLineList() {
         </div>
       </div>
 
-      <BottomNav rep={rep} store={store} client={client} />
     </div>
   );
 }

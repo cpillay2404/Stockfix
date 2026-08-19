@@ -1,7 +1,6 @@
 import { useLocation, useSearch } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ChevronRight } from "lucide-react";
-import BottomNav from "@/components/BottomNav";
 import { fetchNexusAvailability, type NexusClassification } from "@/lib/nexus-api";
 
 const NAVY = "#071A2D";
@@ -161,7 +160,6 @@ export default function InsightsAvailability() {
         </div>
       </div>
 
-      <BottomNav rep={rep} store={store} client={client} />
     </div>
   );
 }
