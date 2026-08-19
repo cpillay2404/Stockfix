@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { Store as StoreIcon, Package, Truck, BarChart3, Wrench } from "lucide-react";
+import { Store as StoreIcon, Package, Truck, BarChart3, Wrench, LogOut } from "lucide-react";
 
 interface Sf2BottomNavProps {
   active: "stores" | "insights" | "supply" | "analysis" | "fix";
@@ -33,6 +33,13 @@ export default function Sf2BottomNav({ active, store, rep, clientQS }: Sf2Bottom
       </button>
       <button className={active === "fix" ? "active" : ""} onClick={() => setLocation(`/store-detail/fix?${qs}`)}>
         <Wrench size={20} /><small>Fix</small>
+      </button>
+      {/* Real gap found 2026-08-19 (Carin: "theres no complete visit or exit
+          visit") - End Visit used to live only on Fix's topbar, so leaving
+          from Insights/Supply/Analysis meant navigating to Fix first. Now
+          available from every tab in this shared nav. */}
+      <button onClick={() => setLocation(`/store-detail/exit-visit?${qs}`)}>
+        <LogOut size={20} /><small>Visit</small>
       </button>
     </nav>
   );

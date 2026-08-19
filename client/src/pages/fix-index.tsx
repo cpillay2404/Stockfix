@@ -1,6 +1,6 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { Store as StoreIcon, ChevronRight, LogOut } from "lucide-react";
+import { Store as StoreIcon, ChevronRight } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2BottomNav from "@/components/sf2-bottom-nav";
 import Sf2ClientSkuFilters from "@/components/sf2-client-sku-filters";
@@ -57,14 +57,6 @@ export default function FixIndex() {
         <BrandLogo size={20} />
         <div className="sf2-topbar-right">
           <span className="sf2-sync"><span className="sf2-sync-dot" />Synced</span>
-          <button
-            className="icon-btn"
-            data-testid="button-end-visit"
-            onClick={() => setLocation(`/store-detail/exit-visit?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`)}
-            title="End Visit"
-          >
-            <LogOut size={18} />
-          </button>
         </div>
       </header>
 

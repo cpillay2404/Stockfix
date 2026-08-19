@@ -1739,6 +1739,22 @@ export async function registerRoutes(
       if (priorityFilter) {
         filteredRows = filteredRows.filter((r) => String(r.priority || "").startsWith(priorityFilter));
       }
+
+      // Real gap found 2026-08-19 (Carin: "when something is logged or
+      // feedback given can we have a tick mark") - a rep/merch working
+      // through a list had no way to see which SKUs they'd already
+      // captured. Same store+barcode+classification match as
+      // /api/nexus-tasks/resolve, most recent week per barcode.
+      const completedResult = await db.execute(sql`
+        select distinct on (barcode) barcode, action_status
+        from nexus_tasks
+        where lower(trim(store_name)) = lower(trim(${store}))
+          and unique_id like ${'%\\_' + sourceStemFilter + '\\_%'}
+        order by barcode, week_ending_date desc
+      `);
+      const completedRows = (completedResult.rows || completedResult) as { barcode: string; action_status: string }[];
+      const completedByBarcode = new Map(completedRows.map((r) => [r.barcode, r.action_status === "Completed"]));
+
       const listRows = filteredRows.map((r) => ({
         barcode: r.barcode,
         articleDescription: r.articleDescription,
@@ -1755,6 +1771,7 @@ export async function registerRoutes(
         issueDriver: r.issueDriver ?? null,
         suggestedOrderUnits: r.suggestedOrderUnits ?? null,
         dcFulfillableUnits: r.dcFulfillableUnits ?? null,
+        isCompleted: completedByBarcode.get(r.barcode) === true,
       }));
       res.json({ storeName: store, resolvedClient: skuList.resolvedClient, rows: listRows });
     } catch (error) {

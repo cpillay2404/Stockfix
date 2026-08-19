@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronDown, ChevronRight, Store as StoreIcon } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronRight, Store as StoreIcon, CheckCircle2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2LoadingState from "@/components/sf2-loading-state";
 import "./StoreOverview.css";
@@ -20,6 +20,7 @@ interface SkuRow {
   dcFulfillableUnits?: number | null;
   issueDriver?: string | null;
   client?: string;
+  isCompleted?: boolean;
 }
 interface SkuListResponse {
   storeName: string;
@@ -298,13 +299,22 @@ export default function StoreSkuList() {
                 .map((r) => (
                 <button className={`sf2-listrow tone-${tone}`} key={r.barcode} onClick={() => goToSku(r.barcode, r.client)}>
                   <div>
-                    <div className="sf2-listrow-title">{r.articleDescription}</div>
+                    <div className="sf2-listrow-title">
+                      {/* Real gap found 2026-08-19 (Carin: "when something is
+                          logged or feedback given can we have a tick mark") -
+                          so a rep/merch working through a list can see at a
+                          glance what they've already captured. */}
+                      {r.isCompleted && <CheckCircle2 size={14} className="sf2-listrow-done" />}
+                      {r.articleDescription}
+                    </div>
                     <div className="sf2-listrow-meta">
                       {r.barcode} · SOH {r.storeSoh} · DC {r.dcSoh ?? "—"}
                       {r.cover !== null && ` · WFC ${r.cover.toFixed(1)}`}
                     </div>
                   </div>
-                  {(() => {
+                  {r.isCompleted ? (
+                    <div className="sf2-listrow-status ok">Logged</div>
+                  ) : (function () {
                     // DC availability must win over a suggested-order number
                     // - fixed 2026-08-16 after a real case showed "+27" (a
                     // suggested order) on a SKU where the DC itself has zero

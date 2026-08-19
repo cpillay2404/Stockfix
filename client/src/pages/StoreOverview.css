@@ -1212,7 +1212,7 @@
   position: fixed; left: 0; right: 0; bottom: 0;
   height: 46px;
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   background: rgba(0, 9, 28, 0.97);
   border-top: 1px solid var(--border);
 }
@@ -1260,6 +1260,7 @@
 .sf2-listrow.tone-cyan { border-left-color: var(--cyan); }
 .sf2-listrow-title { font-size: 13px; font-weight: 700; }
 .sf2-listrow-meta { font-size: 11px; color: #91A7C9; margin-top: 3px; }
+.sf2-listrow-done { color: var(--green, #34D399); margin-right: 4px; vertical-align: -2px; flex-shrink: 0; }
 .sf2-gaptype-red { color: var(--red); font-weight: 700; }
 .sf2-listrow-status { font-size: 11px; font-weight: 700; white-space: nowrap; }
 .sf2-listrow-static { cursor: default; }
