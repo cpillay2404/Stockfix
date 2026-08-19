@@ -36,6 +36,7 @@ import StoreSummary from "@/pages/store-summary";
 import StoreOverview from "@/pages/store-overview";
 import ExitVisit from "@/pages/exit-visit";
 import RepProgress from "@/pages/rep-progress";
+import NexusRepProgress from "@/pages/nexus-rep-progress";
 import ManagerProgress from "@/pages/manager-progress";
 import SelectManager from "@/pages/select-manager";
 import AdminLeaderboard from "@/pages/admin-leaderboard";
@@ -80,6 +81,7 @@ function Router() {
       <Route path="/store/:storeName">{() => <ClientGuard><StoreSummary /></ClientGuard>}</Route>
       <Route path="/exit-visit" component={ExitVisit} />
       <Route path="/rep-progress">{() => <ClientGuard><RepProgress /></ClientGuard>}</Route>
+      <Route path="/nexus-rep-progress">{() => <ClientGuard><NexusRepProgress /></ClientGuard>}</Route>
       <Route path="/manager-progress">{() => <ClientGuard><ManagerProgress /></ClientGuard>}</Route>
       <Route path="/admin/leaderboard">{() => <ClientGuard><AdminLeaderboard /></ClientGuard>}</Route>
       <Route path="/qr" component={QRPage} />

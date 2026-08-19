@@ -4708,6 +4708,84 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/nexus-tasks/rep-progress — nexus_tasks equivalent of the legacy
+  // /api/task-progress/rep, built 2026-08-19 so manager-progress.tsx's
+  // rep-row tap can go to a new dark-themed page instead of the old
+  // /rep-progress screen (still legacy-tasks-based, badges/streaks/priority
+  // removed elsewhere per Carin: "forget the priority crap"). Same simple
+  // philosophy as the leaderboard/manager rewrite - real open/completed
+  // counts only, no gamification.
+  app.get("/api/nexus-tasks/rep-progress", async (req, res) => {
+    try {
+      const repName = String(req.query.rep || "").trim();
+      if (!repName) {
+        return res.status(400).json({ error: "rep is required" });
+      }
+
+      const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+      const latestWeek = weekRow?.week as string | undefined;
+      if (!latestWeek) {
+        return res.json({ kpis: { openCount: 0, completedCount: 0, completionRate: 0 }, openByStore: [], tasks: { open: [], completed: [] } });
+      }
+
+      const [rosterRow] = await db.select({ resourceEmpId: resourceRoster.resourceEmpId })
+        .from(resourceRoster)
+        .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
+        .limit(1);
+      const empId = rosterRow?.resourceEmpId;
+
+      const completedResult = await db.execute(sql`
+        select unique_id as "uniqueId", article_description as "articleDescription", store_name as "storeName",
+          client, store_wfc as "storeWfc", capture_date as "captureDate", action_status as "actionStatus"
+        from nexus_tasks
+        where week_ending_date = ${latestWeek}
+          and upper(trim(rep_name)) = ${repName.toUpperCase().trim()}
+          and action_status = 'Completed'
+        order by capture_date desc
+        limit 200
+      `);
+      const completedTasks = (completedResult.rows || completedResult) as any[];
+
+      let openTasks: any[] = [];
+      if (empId) {
+        const openResult = await db.execute(sql`
+          select t.unique_id as "uniqueId", t.article_description as "articleDescription", t.store_name as "storeName",
+            t.client, t.store_wfc as "storeWfc", t.capture_date as "captureDate", t.action_status as "actionStatus"
+          from nexus_task_assignees a
+          join nexus_tasks t on t.unique_id = a.task_unique_id
+          where t.week_ending_date = ${latestWeek}
+            and a.resource_emp_id = ${empId}
+            and t.action_status != 'Completed'
+          order by t.store_name
+          limit 200
+        `);
+        openTasks = (openResult.rows || openResult) as any[];
+      }
+
+      const openCount = openTasks.length;
+      const completedCount = completedTasks.length;
+      const total = openCount + completedCount;
+      const completionRate = total > 0 ? Math.round((completedCount / total) * 100) : 0;
+
+      const storeOpenCounts: Record<string, number> = {};
+      for (const t of openTasks) storeOpenCounts[t.storeName] = (storeOpenCounts[t.storeName] || 0) + 1;
+      const openByStore = Object.entries(storeOpenCounts)
+        .map(([store, count]) => ({ store, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      res.json({
+        repName,
+        kpis: { openCount, completedCount, completionRate },
+        openByStore,
+        tasks: { open: openTasks, completed: completedTasks },
+      });
+    } catch (error) {
+      console.error("Error fetching nexus rep progress:", error);
+      res.status(500).json({ error: "Failed to fetch rep progress" });
+    }
+  });
+
   // GET all contacts
   app.get("/api/contacts", async (req, res) => {
     try {

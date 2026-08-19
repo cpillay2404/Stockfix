@@ -182,8 +182,11 @@ export default function ManagerProgress() {
     setLocation('/select-manager');
   };
 
+  // Real gap found 2026-08-19 (Carin: "need to route to new") - this used
+  // to go to the legacy /rep-progress screen (still on the old tasks
+  // table with badges/streaks/priority splits already removed elsewhere).
   const handleRepClick = (repName: string) => {
-    setLocation(`/rep-progress?rep=${encodeURIComponent(repName)}&from=manager`);
+    setLocation(`/nexus-rep-progress?rep=${encodeURIComponent(repName)}`);
   };
 
   const repsAtRisk = data?.riskAttention?.repsAtRisk || [];
