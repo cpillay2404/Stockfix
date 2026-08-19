@@ -1,4 +1,7 @@
 import { storage } from './storage';
+import { db } from './db';
+import { resourceRoster } from '@shared/schema';
+import { sql } from 'drizzle-orm';
 
 interface TaskEmailData {
   repName?: string | null;
@@ -96,6 +99,35 @@ async function resolveEmailRecipients(params: { repName?: string | null; client?
   let recipients: string[] = [];
 
   if (params.repName) {
+    // Real Call Cycle Master emails (Carin, 2026-08-19: "they are in there
+    // for some people... both in the P&G and the call cycle master") -
+    // preferred over the separate contacts import when present, since
+    // it's the file actually kept up to date weekly. Tried alongside (not
+    // instead of) the contacts lookup below - real emails from either
+    // source are combined and deduped, not one replacing the other.
+    try {
+      const [repRow] = await db.select({ email: resourceRoster.email, manager: resourceRoster.manager })
+        .from(resourceRoster)
+        .where(sql`upper(trim(${resourceRoster.resourceName})) = ${params.repName.toUpperCase().trim()}`)
+        .limit(1);
+      if (repRow?.email) {
+        console.log('[Email] Found rep email in resource_roster:', repRow.email);
+        recipients.push(repRow.email);
+      }
+      if (repRow?.manager) {
+        const [managerRow] = await db.select({ email: resourceRoster.email })
+          .from(resourceRoster)
+          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repRow.manager.toUpperCase().trim()}`)
+          .limit(1);
+        if (managerRow?.email) {
+          console.log('[Email] Found manager email in resource_roster:', managerRow.email);
+          recipients.push(managerRow.email);
+        }
+      }
+    } catch (rosterErr: any) {
+      console.error('[Email] resource_roster email lookup failed:', rosterErr.message);
+    }
+
     console.log('[Email] Looking up contact for rep:', params.repName);
     try {
       const contactTimeout = new Promise<undefined>((_, reject) =>

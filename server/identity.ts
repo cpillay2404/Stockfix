@@ -167,6 +167,7 @@ export async function importRosterRows(rows: Array<{
   banner?: string;
   manager?: string;
   clientScope?: string;
+  email?: string;
 }>): Promise<{ imported: number; skipped: number; errors: string[] }> {
   let skipped = 0;
   const errors: string[] = [];
@@ -181,6 +182,11 @@ export async function importRosterRows(rows: Array<{
       banner: raw.banner ?? null,
       manager: raw.manager ?? null,
       clientScope: raw.clientScope?.trim() || "SYNDICATED",
+      // Real gap found 2026-08-19 (Carin: "they are in there for some
+      // people... both in the P&G and the call cycle master") - the Call
+      // Cycle Master's real EMAIL/"Email address" columns were never
+      // captured at all until now.
+      email: raw.email?.trim() || null,
     });
     if (!parsed.success || !parsed.data.resourceEmpId || !parsed.data.resourceName) {
       skipped++;
@@ -207,6 +213,7 @@ export async function importRosterRows(rows: Array<{
           banner: sql`excluded.banner`,
           manager: sql`excluded.manager`,
           clientScope: sql`excluded.client_scope`,
+          email: sql`coalesce(excluded.email, ${resourceRoster.email})`,
           updatedAt: new Date(),
         },
       });
