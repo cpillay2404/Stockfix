@@ -382,6 +382,11 @@ export const resourceRoster = pgTable("resource_roster", {
   banner: text("banner"),
   manager: text("manager"),
   clientScope: text("client_scope").notNull().default("SYNDICATED"),
+  // Carin, 2026-08-19: the real Call Cycle Master (both its Call Cycle tab
+  // and the P&G tab) has email addresses for some people - not previously
+  // captured at all. Preferred over the separate contacts table import
+  // when present (see resolveEmailRecipients in server/email.ts).
+  email: text("email"),
   importedAt: timestamp("imported_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

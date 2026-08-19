@@ -160,6 +160,12 @@ export default function StoreOverview() {
   const store = params.get("store") || "";
   const rep = params.get("rep") || "";
   const role = params.get("role") || "Rep";
+  // Real bug found 2026-08-19 (Carin: "selected aspen, selected a store...
+  // I could see all clients") - a client login (no rep) passes its picked
+  // client via ?client= from select-client-store.tsx, but this page never
+  // read it at all - only tracked its own dropdown state, which defaults
+  // straight to "ALL" regardless of what client was actually logged in as.
+  const lockedClient = !rep ? (params.get("client") || "") : "";
   const [clientOverride, setClientOverride] = useState("");
   // Picking a SKU stays on this screen and shows its numbers inline instead
   // of navigating away (Carin, 2026-08-13: "stay on the insights screen and
@@ -180,10 +186,13 @@ export default function StoreOverview() {
   // store, not an arbitrary "loudest" pick (Carin, 2026-08-13: "it must say
   // all and then the filter must drop down to the client"). Only a real,
   // explicitly-picked client is ever a filterable single-client value.
+  // A client login's locked client always wins over the dropdown/default.
+  const activeClient = lockedClient || clientOverride || "ALL";
+
   const { data, isLoading, error } = useQuery<OverviewResponse>({
-    queryKey: ["nexus-store-overview", store, rep, clientOverride],
+    queryKey: ["nexus-store-overview", store, rep, activeClient],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&client=${encodeURIComponent(clientOverride || "ALL")}`);
+      const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&client=${encodeURIComponent(activeClient)}`);
       if (!res.ok) throw new Error("Failed to fetch store overview");
       return res.json();
     },
@@ -195,7 +204,6 @@ export default function StoreOverview() {
   // fabricated blend), so the SKU dropdown works in both modes. A specific
   // client picked from the dropdown filters to just that client's rows;
   // "ALL" (the default) shows every client's SKUs together.
-  const activeClient = clientOverride || "ALL";
 
   const { data: skuOptions } = useQuery<{ rows: SkuOption[] }>({
     queryKey: ["nexus-sku-list", store, rep, "cover", activeClient],
