@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StockFix | Live Dashboard</title>
+<style>
+  :root {
+    --navy-deep: #071A2D;
+    --navy-elevated: #0D2137;
+    --navy-card: #0D2137;
+    --orange: #F58220;
+    --text-muted: #8CA3C4;
+    --line-blue: rgba(23,68,111,0.6);
+    --green: #34D399;
+    --red: #F87171;
+    --blue: #60A5FA;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--navy-deep);
+    color: #F7F9FC;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: 40px;
+  }
+  header {
+    background: linear-gradient(135deg, var(--navy-elevated) 0%, var(--navy-deep) 100%);
+    border-bottom: 1px solid var(--line-blue);
+    padding: 20px 16px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  header p { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
+  .filters {
+    display: flex; gap: 8px; margin-top: 16px; flex-wrap: wrap;
+  }
+  select {
+    background: var(--navy-card);
+    color: #F7F9FC;
+    border: 1px solid var(--line-blue);
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 13px;
+    min-width: 160px;
+  }
+  main { padding: 16px; max-width: 1100px; margin: 0 auto; }
+  .totals { display: flex; gap: 12px; margin-bottom: 16px; }
+  .tile {
+    flex: 1;
+    background: var(--navy-card);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    border-top: 3px solid var(--orange);
+  }
+  .tile.completed { border-top-color: var(--green); }
+  .tile .value { font-size: 28px; font-weight: 800; font-family: monospace; }
+  .tile .label { font-size: 11px; color: var(--text-muted); margin-top: 4px; text-transform: uppercase; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px; }
+  .card { background: var(--navy-card); border-radius: 10px; padding: 14px; }
+  .card h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.3px; color: var(--text-muted); }
+  .bar-row { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+  .bar-row .row-top { display: flex; justify-content: space-between; font-size: 12px; }
+  .bar-row .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 8px; }
+  .bar-row .counts { font-family: monospace; flex-shrink: 0; white-space: nowrap; }
+  .bar-track { height: 6px; background: rgba(23,68,111,0.4); border-radius: 3px; overflow: hidden; display: flex; }
+  .bar-fill-completed { background: var(--green); height: 100%; }
+  .bar-fill-open { background: var(--orange); height: 100%; }
+  .recent-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 10px 0; border-bottom: 1px solid rgba(23,68,111,0.35); gap: 8px;
+  }
+  .recent-row:last-child { border-bottom: none; }
+  .recent-row .title { font-size: 13px; font-weight: 600; }
+  .recent-row .meta { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .recent-row .time { font-size: 11px; color: var(--text-muted); flex-shrink: 0; white-space: nowrap; }
+  .empty { color: var(--text-muted); font-size: 13px; text-align: center; padding: 20px 0; }
+  .loading { text-align: center; padding: 60px 0; color: var(--text-muted); }
+</style>
+</head>
+<body>
+<header>
+  <h1>StockFix Live Dashboard</h1>
+  <p id="week-label">Loading current week...</p>
+  <div class="filters">
+    <select id="client-filter"><option value="">All Clients</option></select>
+    <select id="store-filter"><option value="">All Stores</option></select>
+  </div>
+</header>
+<main id="app">
+  <div class="loading">Loading...</div>
+</main>
+<script>
+  const params = new URLSearchParams(window.location.search);
+  let currentClient = params.get("client") || "";
+  let currentStore = params.get("store") || "";
+
+  async function loadClients() {
+    try {
+      const res = await fetch("/api/roster/all-clients");
+      const data = await res.json();
+      const sel = document.getElementById("client-filter");
+      (data.clients || []).forEach((c) => {
+        const opt = document.createElement("option");
+        opt.value = c;
+        opt.textContent = c;
+        if (c === currentClient) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    } catch (e) { console.error("Failed to load clients", e); }
+  }
+
+  async function loadStoresForClient(client) {
+    const sel = document.getElementById("store-filter");
+    sel.innerHTML = '<option value="">All Stores</option>';
+    if (!client) return;
+    try {
+      const res = await fetch(`/api/roster/stores-for-client?client=${encodeURIComponent(client)}`);
+      const data = await res.json();
+      (data.stores || []).forEach((s) => {
+        const opt = document.createElement("option");
+        opt.value = s;
+        opt.textContent = s.toUpperCase();
+        if (s === currentStore) opt.selected = true;
+        sel.appendChild(opt);
+      });
+    } catch (e) { console.error("Failed to load stores", e); }
+  }
+
+  function renderBars(containerId, rows, keyName) {
+    const el = document.getElementById(containerId);
+    if (!rows || rows.length === 0) {
+      el.innerHTML = '<div class="empty">No data for this week.</div>';
+      return;
+    }
+    const top = rows.slice(0, 10);
+    const max = Math.max(1, ...top.map((r) => r.completed + r.open));
+    el.innerHTML = top.map((r) => {
+      const total = r.completed + r.open;
+      const completedPct = (r.completed / max) * 100;
+      const openPct = (r.open / max) * 100;
+      const name = String(r[keyName] || "Unknown");
+      return `
+        <div class="bar-row">
+          <div class="row-top">
+            <span class="name">${escapeHtml(name)}</span>
+            <span class="counts">${r.completed} done / ${r.open} open</span>
+          </div>
+          <div class="bar-track">
+            <div class="bar-fill-completed" style="width:${completedPct}%"></div>
+            <div class="bar-fill-open" style="width:${openPct}%"></div>
+          </div>
+        </div>`;
+    }).join("");
+  }
+
+  function renderRecent(rows) {
+    const el = document.getElementById("recent-list");
+    if (!rows || rows.length === 0) {
+      el.innerHTML = '<div class="empty">No captures yet this week.</div>';
+      return;
+    }
+    el.innerHTML = rows.map((r) => {
+      const date = r.captureDate ? new Date(r.captureDate).toLocaleString() : "";
+      return `
+        <div class="recent-row">
+          <div>
+            <div class="title">${escapeHtml(r.articleDescription || r.barcode || "")}</div>
+            <div class="meta">${escapeHtml(r.storeName || "")} &middot; ${escapeHtml(r.client || "")} &middot; ${escapeHtml(r.repName || "")} &middot; ${escapeHtml(r.classification || "")}</div>
+          </div>
+          <div class="time">${escapeHtml(date)}</div>
+        </div>`;
+    }).join("");
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  async function loadDashboard() {
+    const app = document.getElementById("app");
+    const qs = new URLSearchParams();
+    if (currentClient) qs.set("client", currentClient);
+    if (currentStore) qs.set("store", currentStore);
+    try {
+      const res = await fetch(`/api/live-dashboard?${qs.toString()}`);
+      if (!res.ok) throw new Error("Failed to load");
+      const data = await res.json();
+
+      document.getElementById("week-label").textContent = data.week
+        ? `Week ending ${data.week} · refreshed ${new Date().toLocaleTimeString()}`
+        : "No data synced yet";
+
+      app.innerHTML = `
+        <div class="totals">
+          <div class="tile completed"><div class="value">${data.totals.completed}</div><div class="label">Captured this week</div></div>
+          <div class="tile"><div class="value">${data.totals.open}</div><div class="label">Still open</div></div>
+        </div>
+        <div class="grid">
+          <div class="card"><h3>By Store</h3><div id="by-store"></div></div>
+          <div class="card"><h3>By Client</h3><div id="by-client"></div></div>
+          <div class="card"><h3>By Rep</h3><div id="by-rep"></div></div>
+        </div>
+        <div class="card">
+          <h3>Recent Captures</h3>
+          <div id="recent-list"></div>
+        </div>
+      `;
+      renderBars("by-store", data.byStore, "store");
+      renderBars("by-client", data.byClient, "client");
+      renderBars("by-rep", data.byRep, "rep");
+      renderRecent(data.recent);
+    } catch (e) {
+      app.innerHTML = '<div class="empty">Couldn\'t load the live dashboard right now.</div>';
+      console.error(e);
+    }
+  }
+
+  document.getElementById("client-filter").addEventListener("change", async (e) => {
+    currentClient = e.target.value;
+    currentStore = "";
+    await loadStoresForClient(currentClient);
+    loadDashboard();
+  });
+  document.getElementById("store-filter").addEventListener("change", (e) => {
+    currentStore = e.target.value;
+    loadDashboard();
+  });
+
+  (async function init() {
+    await loadClients();
+    if (currentClient) await loadStoresForClient(currentClient);
+    loadDashboard();
+  })();
+</script>
+</body>
+</html>

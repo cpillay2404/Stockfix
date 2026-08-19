@@ -4966,6 +4966,93 @@ export async function registerRoutes(
     }
   });
 
+  // GET /api/live-dashboard - company-wide live view of this week's
+  // capture activity (Carin, 2026-08-19: "we need to plan a live dashboard
+  // for this weeks tasks being captured" - "everyone" should be able to see
+  // it, as a standalone page, no login/role gate needed - same security
+  // posture as the rest of this app, where "login" is just picking a name
+  // from a list, not real authentication). Optional client/store filters.
+  // Always computed fresh on request - no caching, per Carin's "always-
+  // fresh on load" call.
+  app.get("/api/live-dashboard", async (req, res) => {
+    try {
+      const client = String(req.query.client || "").trim();
+      const store = String(req.query.store || "").trim();
+
+      const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+      const week = weekRow?.week as string | undefined;
+      if (!week) {
+        return res.json({ week: null, totals: { completed: 0, open: 0 }, byStore: [], byClient: [], byRep: [], recent: [] });
+      }
+
+      const clientCond = client ? sql`and t.client = ${client}` : sql``;
+      const storeCond = store ? sql`and upper(trim(t.store_name)) = ${store.toUpperCase().trim()}` : sql``;
+
+      const completedResult = await db.execute(sql`
+        select unique_id as "uniqueId", store_name as "storeName", client, rep_name as "repName",
+          barcode, article_description as "articleDescription", stock_classification as "classification", capture_date as "captureDate"
+        from nexus_tasks t
+        where t.week_ending_date = ${week} and t.action_status = 'Completed' ${clientCond} ${storeCond}
+        order by capture_date desc nulls last
+      `);
+      const completed = (completedResult.rows || completedResult) as any[];
+
+      // Distinct task count, not per-assignee rows - a task with several
+      // eligible people must count once here, same reasoning already used
+      // in /api/task-progress/manager and /api/gamification/leaderboard.
+      const openResult = await db.execute(sql`
+        select distinct t.unique_id as "uniqueId", t.store_name as "storeName", t.client, a.resource_name as "resourceName"
+        from nexus_task_assignees a
+        join nexus_tasks t on t.unique_id = a.task_unique_id
+        where t.week_ending_date = ${week} and t.action_status != 'Completed' ${clientCond} ${storeCond}
+      `);
+      const openRows = (openResult.rows || openResult) as any[];
+      const openTaskIds = new Set(openRows.map((r) => r.uniqueId));
+
+      const byStoreMap = new Map<string, { completed: number; open: Set<string> }>();
+      const byClientMap = new Map<string, { completed: number; open: Set<string> }>();
+      const byRepMap = new Map<string, { completed: number; open: Set<string> }>();
+
+      for (const c of completed) {
+        if (!byStoreMap.has(c.storeName)) byStoreMap.set(c.storeName, { completed: 0, open: new Set() });
+        byStoreMap.get(c.storeName)!.completed++;
+        if (!byClientMap.has(c.client)) byClientMap.set(c.client, { completed: 0, open: new Set() });
+        byClientMap.get(c.client)!.completed++;
+        if (c.repName && c.repName !== "Unassigned") {
+          if (!byRepMap.has(c.repName)) byRepMap.set(c.repName, { completed: 0, open: new Set() });
+          byRepMap.get(c.repName)!.completed++;
+        }
+      }
+      for (const o of openRows) {
+        if (!byStoreMap.has(o.storeName)) byStoreMap.set(o.storeName, { completed: 0, open: new Set() });
+        byStoreMap.get(o.storeName)!.open.add(o.uniqueId);
+        if (!byClientMap.has(o.client)) byClientMap.set(o.client, { completed: 0, open: new Set() });
+        byClientMap.get(o.client)!.open.add(o.uniqueId);
+        if (o.resourceName) {
+          if (!byRepMap.has(o.resourceName)) byRepMap.set(o.resourceName, { completed: 0, open: new Set() });
+          byRepMap.get(o.resourceName)!.open.add(o.uniqueId);
+        }
+      }
+
+      const toSorted = (map: Map<string, { completed: number; open: Set<string> }>, keyName: string) =>
+        Array.from(map.entries())
+          .map(([key, v]) => ({ [keyName]: key, completed: v.completed, open: v.open.size }))
+          .sort((a: any, b: any) => (b.completed + b.open) - (a.completed + a.open));
+
+      res.json({
+        week,
+        totals: { completed: completed.length, open: openTaskIds.size },
+        byStore: toSorted(byStoreMap, "store"),
+        byClient: toSorted(byClientMap, "client"),
+        byRep: toSorted(byRepMap, "rep"),
+        recent: completed.slice(0, 50),
+      });
+    } catch (error) {
+      console.error("Error fetching live dashboard:", error);
+      res.status(500).json({ error: "Failed to fetch live dashboard" });
+    }
+  });
+
   // GET all contacts
   app.get("/api/contacts", async (req, res) => {
     try {
