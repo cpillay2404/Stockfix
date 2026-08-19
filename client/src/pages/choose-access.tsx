@@ -86,7 +86,12 @@ export default function ChooseAccess() {
 
   useEffect(() => {
     if (accessMode === "client" && clientLocked && selectedClient && selectedStore) {
-      setLocation(`/store-overview?store=${encodeURIComponent(selectedStore)}&client=${encodeURIComponent(selectedClient)}`);
+      // Fixed 2026-08-19 (Carin: landed on the old light-theme Store
+      // Overview under the Manager flow) - a stale client session left in
+      // context could force-redirect here before any button was even
+      // clicked, same bug already fixed once in ClientGuard.tsx. Route to
+      // the real new flow instead of the legacy page.
+      setLocation(`/store-detail?store=${encodeURIComponent(selectedStore)}&client=${encodeURIComponent(selectedClient)}`);
     } else if (accessMode === "client" && clientLocked) {
       setLocation("/select-client");
     }
