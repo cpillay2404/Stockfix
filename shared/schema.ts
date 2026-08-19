@@ -612,3 +612,15 @@ export const insertDistributionGapsSchema = createInsertSchema(distributionGaps)
 
 export type InsertDistributionGaps = z.infer<typeof insertDistributionGapsSchema>;
 export type DistributionGaps = typeof distributionGaps.$inferSelect;
+
+// Stores the MIME type for files in Replit Object Storage. The public SDK
+// exposes no metadata/stat API, so this keeps download responses accurate
+// across server restarts and deployments.
+export const objectMetadata = pgTable("object_metadata", {
+  objectId: text("object_id").primaryKey(),
+  contentType: text("content_type").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type ObjectMetadata = typeof objectMetadata.$inferSelect;
