@@ -36,7 +36,7 @@ import {
 import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRoster, storeAssignments } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
-import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync } from "./nexus-sync";
+import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
 
@@ -1265,16 +1265,38 @@ export async function registerRoutes(
   // Manual trigger for the weekly summary sync - on the real app this runs
   // automatically on the same scheduler pattern as the existing weekly
   // email, not via a manually-called endpoint. Exposed here for testing.
+  //
+  // Real gap found 2026-08-20 (Carin: "im worried how this is going to work
+  // every week") - this used to await the whole sync inside one request,
+  // so every trigger was a single long-held connection that Replit's own
+  // upstream proxy would eventually 504, regardless of whether the sync
+  // itself was fine. That forced a manual poll-the-log-and-guess cycle on
+  // every single trigger. Now it kicks the sync off in the background and
+  // responds immediately - check GET /api/admin/nexus-summary-sync/status
+  // (or the plain-text /api/admin/sync-log) for real progress instead.
   app.post("/api/admin/nexus-summary-sync", async (req, res) => {
-    try {
-      const week = req.query.week ? String(req.query.week) : undefined;
-      const onlyClients = req.query.clients ? String(req.query.clients).split(",").map((c) => c.trim().toUpperCase()) : undefined;
-      const result = await runWeeklySummarySync(week, onlyClients);
-      res.json(result);
-    } catch (error: any) {
-      console.error("Error running weekly summary sync:", error);
-      res.status(500).json({ error: error?.message || "Failed to run summary sync" });
+    if (isSyncRunning()) {
+      return res.status(409).json({ error: "A sync is already running - check /api/admin/nexus-summary-sync/status" });
     }
+    const week = req.query.week ? String(req.query.week) : undefined;
+    const onlyClients = req.query.clients ? String(req.query.clients).split(",").map((c) => c.trim().toUpperCase()) : undefined;
+    markSyncStarted();
+    runWeeklySummarySync(week, onlyClients)
+      .then((result) => markSyncFinished(result))
+      .catch((error: any) => {
+        console.error("Error running weekly summary sync:", error);
+        markSyncFinished(null, error?.message || String(error));
+      });
+    res.status(202).json({
+      started: true,
+      week: week || "(latest)",
+      clients: onlyClients || "(all)",
+      checkProgressAt: "/api/admin/nexus-summary-sync/status",
+    });
+  });
+
+  app.get("/api/admin/nexus-summary-sync/status", async (req, res) => {
+    res.json(getSyncJobStatus());
   });
 
   // Plain-text tail of the sync heartbeat log, viewable straight in a
