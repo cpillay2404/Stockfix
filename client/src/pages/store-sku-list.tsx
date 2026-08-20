@@ -155,7 +155,7 @@ export default function StoreSkuList() {
     const qs = rowClient ? `&client=${encodeURIComponent(rowClient)}` : clientQS;
     const returnTo = `${window.location.pathname}${window.location.search}`;
     setLocation(
-      `/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}${scopeQS}&returnTo=${encodeURIComponent(returnTo)}&returnSteps=2`
+      `/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}${scopeQS}&returnTo=${encodeURIComponent(returnTo)}`
     );
   };
 
