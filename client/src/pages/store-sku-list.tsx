@@ -149,7 +149,7 @@ export default function StoreSkuList() {
   const goToSku = (barcode: string, rowClient?: string) => {
     const qs = rowClient ? `&client=${encodeURIComponent(rowClient)}` : clientQS;
     setLocation(
-      `/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}`
+      `/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}${scopeQS}`
     );
   };
 
