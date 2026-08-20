@@ -37,7 +37,7 @@ import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRost
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus } from "./nexus-sync";
-import { claimTask, generateTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore } from "./nexus-task-generation";
+import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
 
 function safeParseFloat(val: string | number | null | undefined): number {
@@ -1385,6 +1385,52 @@ export async function registerRoutes(
     } catch (error: any) {
       console.error("Error generating Nexus tasks:", error);
       res.status(500).json({ error: error?.message || "Failed to generate tasks" });
+    }
+  });
+
+  // Manual trigger for wipeTasksForWeek - normally only ever called by
+  // nexus-weekly-scheduler.ts's automatic cycle, and only after that same
+  // week's tasks are confirmed exported to SharePoint. Exposed here so an
+  // outgoing week can be retired on demand without waiting for the next
+  // automatic cycle.
+  //
+  // Real gap found 2026-08-20 (Carin: "for next week, a proper process
+  // flow - you cant just wipe without exporting") - the first version of
+  // this endpoint trusted the caller to have already exported before
+  // hitting it, same as the automatic scheduler's own internal ordering,
+  // but nothing stopped a manual call here from skipping straight to
+  // wipeTasksForWeek. This now always runs the same export step itself
+  // first and refuses to wipe unless that export just succeeded for
+  // exactly the requested week - impossible to wipe without exporting,
+  // not just a convention to remember.
+  app.post("/api/admin/nexus-wipe-week", async (req, res) => {
+    try {
+      const week = req.query.week ? String(req.query.week) : undefined;
+      if (!week) {
+        return res.status(400).json({ error: "week is required, e.g. ?week=2026-08-05" });
+      }
+
+      const port = process.env.PORT || "5000";
+      const exportResp = await fetch(`http://127.0.0.1:${port}/api/nexus-tasks/save-to-sharepoint`, { method: "POST" });
+      const exportBody = await exportResp.json().catch(() => ({}));
+      if (!exportResp.ok || !exportBody.ok) {
+        return res.status(409).json({
+          error: "Export to SharePoint failed - refusing to wipe. Fix the export first.",
+          exportResult: exportBody,
+        });
+      }
+      if (exportBody.week !== week) {
+        return res.status(409).json({
+          error: `The export just archived week ${exportBody.week}, not the requested ${week} - refusing to wipe a week that wasn't just confirmed exported.`,
+          exportResult: exportBody,
+        });
+      }
+
+      const wiped = await wipeTasksForWeek(week);
+      res.json({ week, wiped, exportResult: exportBody });
+    } catch (error: any) {
+      console.error("Error wiping Nexus tasks for week:", error);
+      res.status(500).json({ error: error?.message || "Failed to wipe week" });
     }
   });
 
