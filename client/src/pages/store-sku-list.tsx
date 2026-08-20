@@ -35,6 +35,12 @@ interface OverviewResponse {
   banner: string;
 }
 
+interface ClientOptions {
+  clients: string[];
+  locked?: boolean;
+  resourceType?: string;
+}
+
 // Same 6-week Overstock threshold already confirmed elsewhere in this app
 // (cover-analysis-detail.tsx's band function, sourced from
 // aggregate_duckdb-CarinPillay.py's own real classification bands) - not
@@ -81,8 +87,6 @@ export default function StoreSkuList() {
   // reverts to whatever this endpoint would've picked on its own (real bug
   // found 2026-08-13).
   const client = params.get("client") || "";
-  const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
-  const activeClient = client || "ALL";
   // Carin, 2026-08-19 (final call on Overstock): Fix links here with
   // ?scope=fix for the narrow, actionable nexus_tasks-based list; Insights
   // omits it for the blanket "all overstocks" list - must be preserved
@@ -95,7 +99,7 @@ export default function StoreSkuList() {
   // clicking but nothing happening") - these were plain static buttons with
   // no onClick at all. Wired to real client/SKU dropdowns, same data source
   // as the shared Sf2ClientSkuFilters component uses elsewhere.
-  const { data: clientOptions } = useQuery<{ clients: string[] }>({
+  const { data: clientOptions } = useQuery<ClientOptions>({
     queryKey: ["clients-for-store", store, rep],
     queryFn: async () => {
       const res = await fetch(`/api/roster/clients-for-store?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}`);
@@ -104,6 +108,9 @@ export default function StoreSkuList() {
     },
     enabled: !!store,
   });
+  const assignedClient = clientOptions?.locked ? clientOptions.clients[0] || "" : "";
+  const activeClient = client || assignedClient || "ALL";
+  const clientQS = activeClient !== "ALL" ? `&client=${encodeURIComponent(activeClient)}` : "&client=ALL";
 
   const { data: skuOptions } = useQuery<{ rows: { barcode: string; articleDescription: string; client?: string }[] }>({
     queryKey: ["nexus-sku-list", store, rep, "cover", activeClient],
@@ -121,7 +128,7 @@ export default function StoreSkuList() {
   };
 
   const { data, isLoading, error } = useQuery<SkuListResponse>({
-    queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
+    queryKey: ["nexus-sku-list", store, rep, classification, activeClient, scope],
     queryFn: async () => {
       const res = await fetch(
         `/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}${scopeQS}`
@@ -133,7 +140,7 @@ export default function StoreSkuList() {
   });
 
   const { data: overview } = useQuery<OverviewResponse>({
-    queryKey: ["nexus-store-overview", store, rep, client],
+    queryKey: ["nexus-store-overview", store, rep, activeClient],
     queryFn: async () => {
       const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
       if (!res.ok) throw new Error("Failed to fetch store overview");
@@ -218,7 +225,7 @@ export default function StoreSkuList() {
         </section>
 
         <section className="sf2-filters">
-          {(clientOptions?.clients?.length ?? 0) > 1 ? (
+          {!clientOptions?.locked && (clientOptions?.clients?.length ?? 0) > 1 ? (
             <div className="sf2-filter sf2-filter-select">
               <span>Client</span>
               <select value={client && client !== "ALL" ? client : ""} onChange={(e) => setClientFilter(e.target.value)}>

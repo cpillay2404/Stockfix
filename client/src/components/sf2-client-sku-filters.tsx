@@ -7,6 +7,12 @@ interface SkuOption {
   client?: string;
 }
 
+interface ClientOptions {
+  clients: string[];
+  locked?: boolean;
+  resourceType?: string;
+}
+
 interface Sf2ClientSkuFiltersProps {
   store: string;
   rep: string;
@@ -27,9 +33,7 @@ interface Sf2ClientSkuFiltersProps {
 // Supply/Analysis/Fix were split out).
 export default function Sf2ClientSkuFilters({ store, rep, client, basePath, onSkuSelect }: Sf2ClientSkuFiltersProps) {
   const [, setLocation] = useLocation();
-  const activeClient = client || "ALL";
-
-  const { data: clientOptions } = useQuery<{ clients: string[] }>({
+  const { data: clientOptions } = useQuery<ClientOptions>({
     queryKey: ["clients-for-store", store, rep],
     queryFn: async () => {
       const res = await fetch(`/api/roster/clients-for-store?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}`);
@@ -38,6 +42,8 @@ export default function Sf2ClientSkuFilters({ store, rep, client, basePath, onSk
     },
     enabled: !!store,
   });
+  const assignedClient = clientOptions?.locked ? clientOptions.clients[0] || "" : "";
+  const activeClient = client || assignedClient || "ALL";
 
   const { data: skuOptions } = useQuery<{ rows: SkuOption[] }>({
     queryKey: ["nexus-sku-list", store, rep, "cover", activeClient],
@@ -71,7 +77,7 @@ export default function Sf2ClientSkuFilters({ store, rep, client, basePath, onSk
           client view must use these same screens, locked to their own
           client - never a dropdown that could show another client's
           data). */}
-      {rep && (clientOptions?.clients?.length ?? 0) > 1 ? (
+      {rep && !clientOptions?.locked && (clientOptions?.clients?.length ?? 0) > 1 ? (
         <div className="sf2-filter sf2-filter-select">
           <span>Client</span>
           <select value={client && client !== "ALL" ? client : ""} onChange={(e) => setClient(e.target.value)}>

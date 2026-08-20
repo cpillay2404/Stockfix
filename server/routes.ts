@@ -35,7 +35,7 @@ import {
 } from "./nexus";
 import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRoster, storeAssignments } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
-import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
+import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, clientScopeFromResourceType, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
@@ -486,6 +486,65 @@ async function getDedicatedClientsAtStore(store: string): Promise<Set<string>> {
     .from(storeAssignments)
     .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${store.toUpperCase().trim()} and ${storeAssignments.clientScope} != 'SYNDICATED'`);
   return new Set(rows.map((r) => r.clientScope).filter((c): c is string => !!c));
+}
+
+interface RepClientScope {
+  clientScope: string;
+  resourceType: string;
+  locked: boolean;
+}
+
+async function getRepClientScopeForStore(store: string, repName: string): Promise<RepClientScope> {
+  if (!repName) {
+    return { clientScope: "SYNDICATED", resourceType: "", locked: false };
+  }
+
+  const [rosterRow] = await db
+    .select({
+      resourceEmpId: resourceRoster.resourceEmpId,
+      resourceType: resourceRoster.resourceType,
+      clientScope: resourceRoster.clientScope,
+    })
+    .from(resourceRoster)
+    .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
+    .limit(1);
+
+  if (!rosterRow) {
+    return { clientScope: "SYNDICATED", resourceType: "", locked: false };
+  }
+
+  const assignmentRows = await db
+    .select({ clientScope: storeAssignments.clientScope })
+    .from(storeAssignments)
+    .where(sql`
+      upper(trim(${storeAssignments.cleanedStoreName})) = ${store.toUpperCase().trim()}
+      and upper(trim(${storeAssignments.resourceEmpId})) = ${rosterRow.resourceEmpId.toUpperCase().trim()}
+    `);
+  const dedicatedScopes = Array.from(new Set(
+    assignmentRows
+      .map((row) => row.clientScope?.trim())
+      .filter((scope): scope is string => !!scope && scope !== "SYNDICATED")
+  ));
+
+  // Resource type is authoritative when the imported roster scope is stale:
+  // syndicated resources can filter across the store, while dedicated and
+  // semi-dedicated resources stay on their actual assigned client.
+  const resourceType = (rosterRow.resourceType || "").trim();
+  const isSyndicatedResource = resourceType.toUpperCase().includes("SYNDICATED");
+  if (!isSyndicatedResource) {
+    const typeScope = clientScopeFromResourceType(resourceType);
+    const resolvedScope = dedicatedScopes.length === 1
+      ? dedicatedScopes[0]
+      : typeScope
+        || (rosterRow.clientScope && rosterRow.clientScope !== "SYNDICATED"
+          ? rosterRow.clientScope.trim()
+          : dedicatedScopes[0]);
+    if (resolvedScope) {
+      return { clientScope: resolvedScope, resourceType, locked: true };
+    }
+  }
+
+  return { clientScope: "SYNDICATED", resourceType, locked: false };
 }
 
 // Real combined view across every client a syndicated rep covers at this
@@ -1077,21 +1136,14 @@ export async function registerRoutes(
         return res.status(400).json({ error: "store query param is required" });
       }
 
-      // Scope to what this rep is actually assigned to - a dedicated rep
-      // only ever sees their one real client (no dropdown needed); a
-      // syndicated rep sees every real client with data at this store.
-      let clientScope = "SYNDICATED";
-      if (repName) {
-        const [rosterRow] = await db
-          .select({ clientScope: resourceRoster.clientScope })
-          .from(resourceRoster)
-          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
-          .limit(1);
-        if (rosterRow?.clientScope) clientScope = rosterRow.clientScope;
-      }
+      const repScope = await getRepClientScopeForStore(store, repName);
 
-      if (clientScope !== "SYNDICATED") {
-        return res.json({ clients: [clientScope] });
+      if (repScope.locked) {
+        return res.json({
+          clients: [repScope.clientScope],
+          locked: true,
+          resourceType: repScope.resourceType,
+        });
       }
 
       const rows = await db
@@ -1099,7 +1151,15 @@ export async function registerRoutes(
         .from(storeWeeklySummary)
         .where(sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = ${store.toUpperCase().trim()}`)
         .orderBy(storeWeeklySummary.client);
-      res.json({ clients: rows.map((r) => r.client) });
+      const dedicatedClients = await getDedicatedClientsAtStore(store);
+      const clients = rows
+        .map((row) => row.client)
+        .filter((client) => !dedicatedClients.has(client));
+      res.json({
+        clients,
+        locked: false,
+        resourceType: repScope.resourceType,
+      });
     } catch (error) {
       console.error("Error fetching clients for store:", error);
       res.status(500).json({ error: "Failed to fetch clients for store" });
@@ -1658,15 +1718,8 @@ export async function registerRoutes(
       if (!store) {
         return res.status(400).json({ error: "store query param is required" });
       }
-      let clientScope = "SYNDICATED";
-      if (repName) {
-        const [rosterRow] = await db
-          .select({ clientScope: resourceRoster.clientScope })
-          .from(resourceRoster)
-          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
-          .limit(1);
-        if (rosterRow?.clientScope) clientScope = rosterRow.clientScope;
-      }
+      const repScope = await getRepClientScopeForStore(store, repName);
+      let clientScope = repScope.clientScope;
 
       // Explicit client override from the Client filter on Store Overview -
       // lets a syndicated rep switch which real client's data they're
@@ -1678,7 +1731,9 @@ export async function registerRoutes(
       // instruction: default to All, only filter down once a client is
       // explicitly picked.
       const explicitClient = String(req.query.client || "").trim();
-      if (explicitClient && explicitClient !== "ALL") clientScope = explicitClient;
+      if (explicitClient && explicitClient !== "ALL" && !repScope.locked) {
+        clientScope = explicitClient;
+      }
 
       // Fast path: resolve the real client and pull trend/deltas from our
       // own synced summary table first (local, instant) - only fall back to
@@ -1829,15 +1884,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "classification must be 'oos', 'low', 'overstock', 'risk', 'distribution', 'cover', or 'negsoh'" });
       }
 
-      let clientScope = "SYNDICATED";
-      if (repName) {
-        const [rosterRow] = await db
-          .select({ clientScope: resourceRoster.clientScope })
-          .from(resourceRoster)
-          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
-          .limit(1);
-        if (rosterRow?.clientScope) clientScope = rosterRow.clientScope;
-      }
+      const repScope = await getRepClientScopeForStore(store, repName);
+      let clientScope = repScope.clientScope;
 
       // Explicit client override from the Client filter on Store Overview -
       // without this, a syndicated rep who switches client on the overview
@@ -1847,7 +1895,9 @@ export async function registerRoutes(
       // the user's selection (real bug found 2026-08-13: overview showed
       // 11 OOS for one client, drilling in showed 0 for a different one).
       const explicitClient = String(req.query.client || "").trim();
-      if (explicitClient && explicitClient !== "ALL") clientScope = explicitClient;
+      if (explicitClient && explicitClient !== "ALL" && !repScope.locked) {
+        clientScope = explicitClient;
+      }
 
       // Security fix 2026-08-16: "All Clients" must only fan out across
       // every client for a SYNDICATED (non-dedicated) rep. Without the
@@ -2095,15 +2145,8 @@ export async function registerRoutes(
         return res.status(400).json({ error: "store and barcode query params are required" });
       }
 
-      let clientScope = "SYNDICATED";
-      if (repName) {
-        const [rosterRow] = await db
-          .select({ clientScope: resourceRoster.clientScope })
-          .from(resourceRoster)
-          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
-          .limit(1);
-        if (rosterRow?.clientScope) clientScope = rosterRow.clientScope;
-      }
+      const repScope = await getRepClientScopeForStore(store, repName);
+      let clientScope = repScope.clientScope;
 
       // Same explicit override as sku-list/store-overview - see comment there.
       // Bug fixed 2026-08-16: missing the "!== ALL" guard meant a SKU opened
@@ -2111,7 +2154,9 @@ export async function registerRoutes(
       // the string "ALL" - not a real client, so the history query matched
       // zero rows and the trend stayed stuck on "Building history..." forever.
       const explicitClient = String(req.query.client || "").trim();
-      if (explicitClient && explicitClient !== "ALL") clientScope = explicitClient;
+      if (explicitClient && explicitClient !== "ALL" && !repScope.locked) {
+        clientScope = explicitClient;
+      }
 
       const summaryRows = await db
         .select()

@@ -34,6 +34,12 @@ interface OverviewResponse {
   deltas: Record<string, number> | null;
 }
 
+interface ClientOptions {
+  clients: string[];
+  locked?: boolean;
+  resourceType?: string;
+}
+
 function greeting(): string {
   const h = new Date().getHours();
   if (h < 12) return "Good morning";
@@ -182,7 +188,7 @@ export default function StoreOverview() {
   // only change the numbers based on the selection").
   const [selectedSku, setSelectedSku] = useState<{ barcode: string; client?: string } | null>(null);
 
-  const { data: clientOptions } = useQuery<{ clients: string[] }>({
+  const { data: clientOptions } = useQuery<ClientOptions>({
     queryKey: ["clients-for-store", store, rep],
     queryFn: async () => {
       const res = await fetch(`/api/roster/clients-for-store?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}`);
@@ -197,7 +203,8 @@ export default function StoreOverview() {
   // all and then the filter must drop down to the client"). Only a real,
   // explicitly-picked client is ever a filterable single-client value.
   // A client login's locked client always wins over the dropdown/default.
-  const activeClient = lockedClient || clientOverride || "ALL";
+  const assignedClient = clientOptions?.locked ? clientOptions.clients[0] || "" : "";
+  const activeClient = lockedClient || assignedClient || clientOverride || "ALL";
 
   const { data, isLoading, error } = useQuery<OverviewResponse>({
     queryKey: ["nexus-store-overview", store, rep, activeClient],
@@ -330,7 +337,7 @@ export default function StoreOverview() {
               that silently did nothing (activeClient always prioritizes
               lockedClient regardless) - now also requires !lockedClient,
               same locked-display treatment as a client login. */}
-          {rep && !lockedClient && (clientOptions?.clients?.length ?? 0) > 1 ? (
+          {rep && !lockedClient && !clientOptions?.locked && (clientOptions?.clients?.length ?? 0) > 1 ? (
             <div className="sf2-filter sf2-filter-select">
               <span>Client</span>
               <select

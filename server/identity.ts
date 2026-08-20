@@ -24,6 +24,26 @@ export interface IdentityPayload {
   exp: number;
 }
 
+export function clientScopeFromResourceType(resourceType: string | null | undefined): string | null {
+  const normalized = (resourceType || "").trim().toUpperCase();
+  if (!normalized || normalized.includes("SYNDICATED")) {
+    return null;
+  }
+  // Fieldmarketers are a P&G-only resource type in the roster, even though
+  // the type label does not include the client name.
+  if (normalized.includes("FIELDMARKETER")) return "P&G";
+  if (!normalized.includes("DEDICATED")) return null;
+
+  const candidate = normalized
+    .replace(/\bSEMI\b/g, "")
+    .replace(/\bDEDICATED\b/g, "")
+    .replace(/\bREP\b/g, "")
+    .replace(/\bMERCHANDISER\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return candidate || null;
+}
+
 function base64url(input: Buffer | string): string {
   return Buffer.from(input).toString("base64url");
 }
@@ -101,7 +121,8 @@ export function requireIdentity(req: Request, _res: Response, next: NextFunction
  */
 export function scopeToClient(req: Request, _res: Response, next: NextFunction) {
   const identity = req.identity;
-  if (identity && identity.clientScope && identity.clientScope !== "SYNDICATED") {
+  const isSyndicatedResource = identity?.resourceType?.toUpperCase().includes("SYNDICATED");
+  if (identity && !isSyndicatedResource && identity.clientScope && identity.clientScope !== "SYNDICATED") {
     (req.query as Record<string, unknown>).client = identity.clientScope;
   }
   next();
@@ -141,9 +162,16 @@ export async function findRosterMatch(resourceEmpId: string, resourceName: strin
     .where(sql`upper(trim(${resourceRoster.resourceEmpId})) = ${empId} and upper(trim(${resourceRoster.resourceName})) = ${name}`)
     .limit(1);
   if (!row) return row;
+  if (row.resourceType?.toUpperCase().includes("SYNDICATED")) {
+    return { ...row, clientScope: "SYNDICATED" };
+  }
   const realScope = await resolveRealClientScope(row.resourceEmpId);
   if (realScope) {
     return { ...row, clientScope: realScope };
+  }
+  const typeScope = clientScopeFromResourceType(row.resourceType);
+  if (typeScope) {
+    return { ...row, clientScope: typeScope };
   }
   return row;
 }
