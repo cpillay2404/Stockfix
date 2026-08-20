@@ -309,31 +309,55 @@
           </div>
         </div>
 
-        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px;">
-          <sc-for list="{{ captureRows }}" as="r" hint-placeholder-count="6">
-            <div style="border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); background:var(--color-surface); padding:15px 17px; display:flex; flex-direction:column; gap:9px;">
-              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
-                <span style="font-size:13px; font-weight:600; line-height:1.3;">{{ r.title }}</span>
-                <span style="font-size:10.5px; color:var(--color-neutral-500); white-space:nowrap;">{{ r.meta }}</span>
-              </div>
-              <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:8px;">
-                <sc-for list="{{ r.facts }}" as="f" hint-placeholder-count="3">
-                  <div>
-                    <div style="font-size:8.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-neutral-500);">{{ f.label }}</div>
-                    <div style="font-size:11.5px; color:var(--color-neutral-200); margin-top:2px; line-height:1.35;">{{ f.value }}</div>
-                  </div>
-                </sc-for>
-              </div>
-              <sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}">
-                <div style="font-size:11.5px; color:var(--color-neutral-300); line-height:1.5; border-left:2px solid var(--color-accent-700); padding-left:9px;">{{ r.note }}</div>
-              </sc-if>
-              <div style="display:flex; gap:6px; flex-wrap:wrap;">
-                <sc-for list="{{ r.marks }}" as="m" hint-placeholder-count="2">
-                  <span style="padding:2px 9px; border-radius:20px; font-size:10px; color:var(--color-accent-300); border:1px solid rgba(236,109,37,0.35); background:rgba(236,109,37,0.08);">{{ m.label }}</span>
-                </sc-for>
-              </div>
-            </div>
-          </sc-for>
+        <div style="overflow-x:auto; border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); background:var(--color-surface);">
+          <table style="width:100%; min-width:1400px; border-collapse:collapse; font-size:11.5px;">
+            <thead>
+              <tr style="border-bottom:1px solid var(--color-neutral-800);">
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Week Ending</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Action Date</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Client</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Region</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">User</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Line Manager</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Store Name</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Barcode</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Article Description</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Classification</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Action</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Status</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Reason Code</th>
+                <th style="text-align:right; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">SOH</th>
+                <th style="text-align:left; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Comment</th>
+                <th style="text-align:center; padding:10px 12px; font-size:9.5px; letter-spacing:0.06em; text-transform:uppercase; color:var(--color-neutral-500); white-space:nowrap;">Img</th>
+              </tr>
+            </thead>
+            <tbody>
+              <sc-for list="{{ captureTableRows }}" as="r" hint-placeholder-count="8">
+                <tr class="nx-row" style="border-bottom:1px solid var(--color-neutral-800);">
+                  <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.weekEnding }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.actionDate }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-200);">{{ r.client }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.region }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; color:var(--color-text); font-weight:600;">{{ r.user }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.lineManager }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; max-width:160px; overflow:hidden; text-overflow:ellipsis; color:var(--color-neutral-200);">{{ r.storeName }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-400); font-family:monospace;">{{ r.barcode }}</td>
+                  <td style="padding:9px 12px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--color-neutral-200);">{{ r.articleDescription }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.classification }}</td>
+                  <td style="padding:9px 12px; max-width:220px; white-space:normal; line-height:1.4; color:var(--color-neutral-200);">{{ r.action }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; font-weight:600; color:{{ r.statusColor }};">{{ r.status }}</td>
+                  <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.reasonCode }}</td>
+                  <td style="padding:9px 12px; text-align:right; white-space:nowrap; color:var(--color-neutral-200); font-family:monospace;">{{ r.soh }}</td>
+                  <td style="padding:9px 12px; max-width:200px; white-space:normal; line-height:1.4; color:var(--color-neutral-300);">{{ r.comment }}</td>
+                  <td style="padding:9px 12px; text-align:center;">
+                    <sc-if value="{{ r.hasPhoto }}" hint-placeholder-val="{{ false }}">
+                      <a href="{{ r.photoHref }}" target="_blank" rel="noopener" style="color:var(--color-accent-300);"><i class="ph ph-image"></i></a>
+                    </sc-if>
+                  </td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
         </div>
         <sc-if value="{{ noCaptures }}" hint-placeholder-val="{{ false }}">
           <div style="padding:20px 0; font-size:12.5px; color:var(--color-neutral-400);">No captures match this selection.</div>
@@ -695,13 +719,42 @@ class Component extends DCLogic {
     out.noCaptures = capAll.length === 0;
     out.captureFootnote = capAll.length > 36 ? 'Showing the first 36 of ' + n(capAll.length) + ' — export for the full list.' : '';
     out.exportCaptureLabel = 'Export ' + n(capAll.length);
+    // Real gap found 2026-08-20 (Carin: "will the link be clickable") - this
+    // used to export just a photo COUNT, discarding the real image URLs the
+    // API already provides. Export the actual links (one column per photo
+    // slot) so they're directly usable/clickable once opened in a
+    // spreadsheet, not just a number.
+    // Real column set requested 2026-08-20 (Carin: "these are the columns
+    // we need, instead of rep you call it user") - matches the real
+    // SharePoint export shape, not an arbitrary re-pick. "User" replaces
+    // "Rep Name"/"Rep" everywhere on this feed, including the export.
     out.exportCaptures = () => this.csv('stockfix-captures',
-      [{ key: 'store', label: 'Store' }, { key: 'banner', label: 'Banner' }, { key: 'region', label: 'Region' }, { key: 'rep', label: 'Rep' },
-       { key: 'category', label: 'Category' }, { key: 'action', label: 'Action' }, { key: 'dcSoh', label: 'DC SOH' }, { key: 'storeSoh', label: 'Store SOH' },
-       { key: 'reasonCode', label: 'Reason code' }, { key: 'feedback', label: 'Feedback' }, { key: 'actionTakenComment', label: 'Action comment' }, { key: 'photos', label: 'Photos' }],
-      capAll.map(r => ({ store: r.store, banner: r.banner, region: pick(r, REGION_KEYS), rep: r.rep, category: r.category, action: r.action,
-        dcSoh: r.dcSoh, storeSoh: r.storeSoh, reasonCode: r.reasonCode, feedback: r.feedback, actionTakenComment: r.actionTakenComment,
-        photos: IMG_KEYS.filter(k => r[k]).length })));
+      [{ key: 'weekEnding', label: 'Week Ending' }, { key: 'actionDate', label: 'Action Date' }, { key: 'client', label: 'Client' },
+       { key: 'region', label: 'Region' }, { key: 'user', label: 'User' }, { key: 'lineManager', label: 'Line Manager' },
+       { key: 'storeName', label: 'Store Name' }, { key: 'barcode', label: 'Barcode' }, { key: 'articleDescription', label: 'Article Description' },
+       { key: 'classification', label: 'Classification' }, { key: 'action', label: 'Action' }, { key: 'status', label: 'Status' },
+       { key: 'reasonCode', label: 'Reason Code' }, { key: 'soh', label: 'SOH' }, { key: 'comment', label: 'Comment' },
+       { key: 'photo1', label: 'Photo 1' }, { key: 'photo2', label: 'Photo 2' }, { key: 'photo3', label: 'Photo 3' }, { key: 'photo4', label: 'Photo 4' }],
+      capAll.map(r => ({
+        weekEnding: r.weekEnding || r.weekEndingDate, actionDate: r.actionDate, client: r.client, region: pick(r, REGION_KEYS),
+        user: r.rep, lineManager: r.manager || r.lineManager, storeName: r.store, barcode: r.barcode, articleDescription: r.articleDescription,
+        classification: r.stockClassification, action: r.action, status: r.actionStatus, reasonCode: r.reasonCode, soh: r.storeSoh,
+        comment: [r.actionTakenComment, r.feedback].filter(Boolean).join(' — '),
+        photo1: r.image1 || '', photo2: r.image2 || '', photo3: r.image3 || '', photo4: r.image4 || '',
+      })));
+    // Real table requested 2026-08-20 (Carin: "carry on building the
+    // columns i gave you") - matches the real SharePoint export shape,
+    // "User" instead of "Rep Name" throughout.
+    out.captureTableRows = capAll.slice(0, 200).map(r => ({
+      weekEnding: r.weekEnding || r.weekEndingDate || '—', actionDate: r.actionDate || '—', client: r.client || '—',
+      region: pick(r, REGION_KEYS) || '—', user: r.rep || 'Unassigned', lineManager: r.manager || r.lineManager || '—',
+      storeName: r.store || '—', barcode: r.barcode || '—', articleDescription: r.articleDescription || '—',
+      classification: r.stockClassification || '—', action: r.action || '—', status: r.actionStatus || '—',
+      statusColor: (r.actionStatus || '').toLowerCase() === 'completed' ? 'var(--color-accent-300)' : 'var(--color-neutral-400)',
+      reasonCode: r.reasonCode || '—', soh: r.storeSoh != null ? String(r.storeSoh) : '—',
+      comment: [r.actionTakenComment, r.feedback].filter(Boolean).join(' — ') || '—',
+      hasPhoto: !!(r.image1 || r.image2 || r.image3 || r.image4), photoHref: r.image1 || r.image2 || r.image3 || r.image4 || '',
+    }));
     out.captureRows = capAll.slice(0, 36).map(r => {
       const marks = [];
       const imgs = IMG_KEYS.filter(k => r[k]).length;
@@ -709,16 +762,24 @@ class Component extends DCLogic {
       if (r.reasonCode) marks.push({ label: 'reason: ' + r.reasonCode });
       if (r.feedback) marks.push({ label: 'feedback' });
       if (r.actionTakenComment) marks.push({ label: 'comment' });
+      // Real bug found 2026-08-20 (Carin: "it cant look like this") - Action
+      // is a long free-text sentence ("Possible Overstock - 24.8 weeks
+      // cover. Review for markdown / transfer."), not a short fact like
+      // Category/DC SOH/Store SOH - squeezing it into the same ~96px grid
+      // column made it look cramped and uneven. Give it its own full-width
+      // line, same treatment already used for the feedback/comment note.
       const facts = [];
       if (r.category) facts.push({ label: 'Category', value: String(r.category) });
-      if (r.action) facts.push({ label: 'Action', value: String(r.action) });
       if (r.dcSoh != null) facts.push({ label: 'DC SOH', value: String(r.dcSoh) });
       if (r.storeSoh != null) facts.push({ label: 'Store SOH', value: String(r.storeSoh) });
       const note = [r.feedback, r.actionTakenComment].filter(Boolean).join(' — ');
+      const photoUrls = IMG_KEYS.map(k => r[k]).filter(Boolean);
       return {
         title: [r.banner, r.store].filter(Boolean).join(' — ') || 'Capture',
         meta: [r.rep, pick(r, REGION_KEYS)].filter(Boolean).join(' · '),
         facts, marks, hasNote: !!note, note,
+        hasAction: !!r.action, action: r.action ? String(r.action) : '',
+        photos: photoUrls.map((src, i) => ({ src, alt: 'Capture photo ' + (i + 1) })),
       };
     });
 
