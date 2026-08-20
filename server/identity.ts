@@ -107,6 +107,31 @@ export function scopeToClient(req: Request, _res: Response, next: NextFunction) 
   next();
 }
 
+// Real bug found 2026-08-20 (Carin: "why does a Sodastream dedicated rep
+// when i log in as her show all clients" - confirmed same for any
+// dedicated merchandiser too) - resource_roster.clientScope only ever
+// gets set to SYNDICATED or P&G at import time (the Call Cycle Master
+// import only has those two sheets), even though store_assignments
+// already has real per-client scopes (SODASTREAM/DURACELL/AQUELLE/
+// NESTLE/P&G/SYNDICATED) from a separate, more complete rebuild. Login
+// was trusting the stale resource_roster value, so every non-P&G
+// dedicated person showed as SYNDICATED and defaulted to "ALL clients"
+// instead of being locked to their own. Derives the real scope from
+// store_assignments instead: if this person's coverage is ALL one
+// single non-SYNDICATED client (no mixed/SYNDICATED rows), that's who
+// they really are - otherwise leave them SYNDICATED (safer default for
+// genuinely mixed coverage).
+async function resolveRealClientScope(resourceEmpId: string): Promise<string | null> {
+  const rows = await db
+    .selectDistinct({ clientScope: storeAssignments.clientScope })
+    .from(storeAssignments)
+    .where(sql`upper(trim(${storeAssignments.resourceEmpId})) = ${resourceEmpId.trim().toUpperCase()}`);
+  if (rows.length === 1 && rows[0].clientScope !== "SYNDICATED") {
+    return rows[0].clientScope;
+  }
+  return null;
+}
+
 export async function findRosterMatch(resourceEmpId: string, resourceName: string) {
   const empId = resourceEmpId.trim().toUpperCase();
   const name = resourceName.trim().toUpperCase();
@@ -115,6 +140,11 @@ export async function findRosterMatch(resourceEmpId: string, resourceName: strin
     .from(resourceRoster)
     .where(sql`upper(trim(${resourceRoster.resourceEmpId})) = ${empId} and upper(trim(${resourceRoster.resourceName})) = ${name}`)
     .limit(1);
+  if (!row) return row;
+  const realScope = await resolveRealClientScope(row.resourceEmpId);
+  if (realScope) {
+    return { ...row, clientScope: realScope };
+  }
   return row;
 }
 

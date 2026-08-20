@@ -30,6 +30,13 @@ export default function RepHome() {
   const rep = params.get("rep") || "";
   const role = params.get("role") || "Rep";
   const preselectedStore = params.get("store") || "";
+  // Real bug found 2026-08-20 (Carin: "why does a Sodastream dedicated rep
+  // when i log in as her show all clients... applies to merchandisers
+  // too") - select-rep-store.tsx now passes this along for any dedicated
+  // (non-SYNDICATED) person, but it must keep flowing through every
+  // onward navigation here or it's lost the moment they land on Home.
+  const client = params.get("client") || "";
+  const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
   const [search, setSearch] = useState("");
 
   // Store-first login flow (2026-08-12): the store was already picked on
@@ -37,9 +44,9 @@ export default function RepHome() {
   // from a list would be redundant - go straight to that store's overview.
   useEffect(() => {
     if (preselectedStore) {
-      setLocation(`/store-detail?store=${encodeURIComponent(preselectedStore)}&rep=${encodeURIComponent(rep)}`);
+      setLocation(`/store-detail?store=${encodeURIComponent(preselectedStore)}&rep=${encodeURIComponent(rep)}${clientQS}`);
     }
-  }, [preselectedStore, rep, setLocation]);
+  }, [preselectedStore, rep, clientQS, setLocation]);
 
   // Real per-person store list (store_assignments), not inferred from task
   // history - a person with zero pending tasks still has their full store
@@ -124,7 +131,7 @@ export default function RepHome() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 24, marginBottom: 12 }}>
           <h2 style={{ color: "#F7F9FC", fontSize: 17, fontWeight: 700 }}>Stores to Visit</h2>
           <button
-            onClick={() => setLocation(`/stores?rep=${encodeURIComponent(rep)}&role=${role}`)}
+            onClick={() => setLocation(`/stores?rep=${encodeURIComponent(rep)}&role=${role}${clientQS}`)}
             data-testid="link-view-all-stores"
             style={{ display: "flex", alignItems: "center", gap: 4, background: "none", border: "none", color: "#38BDF8", fontSize: 14, cursor: "pointer" }}
           >
@@ -156,7 +163,7 @@ export default function RepHome() {
             />
           </div>
           <button
-            onClick={() => setLocation(`/stores?rep=${encodeURIComponent(rep)}&role=${role}`)}
+            onClick={() => setLocation(`/stores?rep=${encodeURIComponent(rep)}&role=${role}${clientQS}`)}
             data-testid="button-filter"
             style={{ width: 46, height: 46, border: `1px solid ${LINE_BLUE}`, borderRadius: 14, background: NAVY_ELEVATED, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer" }}
           >
@@ -168,7 +175,7 @@ export default function RepHome() {
           {storeRows.slice(0, 8).map((s, i) => (
             <button
               key={s.storeName}
-              onClick={() => setLocation(`/store-detail?store=${encodeURIComponent(s.storeName)}&rep=${encodeURIComponent(rep)}`)}
+              onClick={() => setLocation(`/store-detail?store=${encodeURIComponent(s.storeName)}&rep=${encodeURIComponent(rep)}${clientQS}`)}
               data-testid={`row-store-${s.storeName}`}
               style={{
                 width: "100%",

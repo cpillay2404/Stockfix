@@ -5180,6 +5180,17 @@ export async function registerRoutes(
       // just the completed rows' region field). Same real join-based
       // pattern as the other breakdowns, not a completed-only approximation.
       const byRegionMap = new Map<string, { completed: number; open: Set<string> }>();
+      // Real bug found 2026-08-20, right after adding the Call Cycle Master
+      // region fallback: Nexus's own region values are UPPERCASE ("GAUTENG")
+      // but Call Cycle Master's are Title Case ("Gauteng"), so every region
+      // was splitting into two separate rows depending on which source
+      // supplied it for a given task. Group by a normalized (uppercased,
+      // trimmed) key everywhere region is used as a grouping key, so casing
+      // differences between sources never fragment the same real region.
+      const normalizeRegion = (r: string | null | undefined) => {
+        const trimmed = (r || "").trim();
+        return trimmed ? trimmed.toUpperCase() : "Unknown";
+      };
 
       for (const c of completed) {
         if (!byStoreMap.has(c.storeName)) byStoreMap.set(c.storeName, { completed: 0, open: new Set() });
@@ -5190,7 +5201,7 @@ export async function registerRoutes(
           if (!byRepMap.has(c.repName)) byRepMap.set(c.repName, { completed: 0, open: new Set() });
           byRepMap.get(c.repName)!.completed++;
         }
-        const region = c.region || "Unknown";
+        const region = normalizeRegion(c.region);
         if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
         byRegionMap.get(region)!.completed++;
       }
@@ -5203,7 +5214,7 @@ export async function registerRoutes(
           if (!byRepMap.has(o.resourceName)) byRepMap.set(o.resourceName, { completed: 0, open: new Set() });
           byRepMap.get(o.resourceName)!.open.add(o.uniqueId);
         }
-        const region = o.region || "Unknown";
+        const region = normalizeRegion(o.region);
         if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
         byRegionMap.get(region)!.open.add(o.uniqueId);
       }
@@ -5245,7 +5256,6 @@ export async function registerRoutes(
         entry.completed += counts.completed;
         for (const id of Array.from(counts.open)) entry.open.add(id);
       }
-      const byManager = toSorted(byManagerMap, "manager");
 
       // Real "adoption" (Carin, 2026-08-20: "% of people that at least
       // submitted one task... if they captured at least one task its
@@ -5284,33 +5294,70 @@ export async function registerRoutes(
 
       const totalPeopleByRegion = new Map<string, Set<string>>();
       const totalPeopleByRole = new Map<string, Set<string>>();
+      // Real gap found 2026-08-20 (Carin: "i need this to be % adoption do
+      // we have data in the json to support it" - a per-region table with
+      // separate Reps/Merch/Adoption columns had nothing to read, since
+      // adoption was only ever split by region OR by role, never both
+      // together). Same total/active tracking, keyed by region+role pair.
+      const totalPeopleByRegionRole = new Map<string, Set<string>>();
+      // Carin, 2026-08-20: "and manager data?" - same adoption treatment
+      // for managers as region/role, rolled up via the same manager field
+      // used by byManagerMap above.
+      const totalPeopleByManager = new Map<string, Set<string>>();
       for (const a of allAssignees) {
-        const region = a.region || "Unknown";
+        const region = normalizeRegion(a.region);
         if (!totalPeopleByRegion.has(region)) totalPeopleByRegion.set(region, new Set());
         totalPeopleByRegion.get(region)!.add(a.resourceName);
         const role = normalizeRole(a.resourceType);
         if (!totalPeopleByRole.has(role)) totalPeopleByRole.set(role, new Set());
         totalPeopleByRole.get(role)!.add(a.resourceName);
+        const rrKey = `${region}::${role}`;
+        if (!totalPeopleByRegionRole.has(rrKey)) totalPeopleByRegionRole.set(rrKey, new Set());
+        totalPeopleByRegionRole.get(rrKey)!.add(a.resourceName);
+        const manager = managerByName.get(String(a.resourceName).toUpperCase().trim()) || "Unknown";
+        if (!totalPeopleByManager.has(manager)) totalPeopleByManager.set(manager, new Set());
+        totalPeopleByManager.get(manager)!.add(a.resourceName);
       }
 
       const activePeopleByRegion = new Map<string, Set<string>>();
       const activePeopleByRole = new Map<string, Set<string>>();
+      const activePeopleByRegionRole = new Map<string, Set<string>>();
+      const activePeopleByManager = new Map<string, Set<string>>();
       for (const c of completed) {
         if (!c.repName || c.repName === "Unassigned") continue;
-        const region = c.region || "Unknown";
+        const region = normalizeRegion(c.region);
         if (!activePeopleByRegion.has(region)) activePeopleByRegion.set(region, new Set());
         activePeopleByRegion.get(region)!.add(c.repName);
         const role = normalizeRole(c.resourceType);
         if (!activePeopleByRole.has(role)) activePeopleByRole.set(role, new Set());
         activePeopleByRole.get(role)!.add(c.repName);
+        const rrKey = `${region}::${role}`;
+        if (!activePeopleByRegionRole.has(rrKey)) activePeopleByRegionRole.set(rrKey, new Set());
+        activePeopleByRegionRole.get(rrKey)!.add(c.repName);
+        const manager = managerByName.get(String(c.repName).toUpperCase().trim()) || "Unknown";
+        if (!activePeopleByManager.has(manager)) activePeopleByManager.set(manager, new Set());
+        activePeopleByManager.get(manager)!.add(c.repName);
       }
 
       const adoptionPct = (active: number, total: number) => total > 0 ? Math.round((active / total) * 1000) / 10 : 0;
 
+      const roleAdoptionFor = (region: string, role: string) => {
+        const total = totalPeopleByRegionRole.get(`${region}::${role}`)?.size || 0;
+        const active = activePeopleByRegionRole.get(`${region}::${role}`)?.size || 0;
+        return { totalPeople: total, activePeople: active, adoptionPct: adoptionPct(active, total) };
+      };
+
       const byRegionWithAdoption = toSorted(byRegionMap, "region").map((r: any) => {
         const totalPeople = totalPeopleByRegion.get(r.region)?.size || 0;
         const activePeople = activePeopleByRegion.get(r.region)?.size || 0;
-        return { ...r, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
+        return {
+          ...r,
+          totalPeople,
+          activePeople,
+          adoptionPct: adoptionPct(activePeople, totalPeople),
+          reps: roleAdoptionFor(r.region, "Rep"),
+          merchandisers: roleAdoptionFor(r.region, "Merchandiser"),
+        };
       });
 
       const roleNames = new Set([...Array.from(totalPeopleByRole.keys()), ...Array.from(activePeopleByRole.keys())]);
@@ -5320,6 +5367,12 @@ export async function registerRoutes(
         return { role, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
       }).sort((a, b) => b.totalPeople - a.totalPeople);
 
+      const byManagerWithAdoption = toSorted(byManagerMap, "manager").map((m: any) => {
+        const totalPeople = totalPeopleByManager.get(m.manager)?.size || 0;
+        const activePeople = activePeopleByManager.get(m.manager)?.size || 0;
+        return { ...m, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
+      });
+
       res.json({
         week,
         totals: { completed: completed.length, open: openTaskIds.size },
@@ -5327,7 +5380,7 @@ export async function registerRoutes(
         byClient: toSorted(byClientMap, "client"),
         byRep,
         byRegion: byRegionWithAdoption,
-        byManager,
+        byManager: byManagerWithAdoption,
         adoptionByRole,
         recent: completed.slice(0, 50),
       });
