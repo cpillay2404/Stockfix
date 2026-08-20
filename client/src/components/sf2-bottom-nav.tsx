@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import { useState } from "react";
 import { Store as StoreIcon, Package, Truck, BarChart3, Wrench, LogOut } from "lucide-react";
-import { hasUnclosedVisit, LeaveVisitPrompt } from "@/lib/visit-guard";
+import { getEndVisitPath, hasUnclosedVisit, LeaveVisitPrompt } from "@/lib/visit-guard";
 
 interface Sf2BottomNavProps {
   active: "stores" | "insights" | "supply" | "analysis" | "fix";
@@ -22,13 +22,13 @@ export default function Sf2BottomNav({ active, store, rep, clientQS }: Sf2Bottom
   const client = new URLSearchParams(clientQS.replace(/^&/, "")).get("client") || "";
   const storesPath = `/stores?rep=${encodeURIComponent(rep)}`;
   const goToStores = () => {
-    if (hasUnclosedVisit(store, rep, client)) {
+    if (hasUnclosedVisit()) {
       setShowLeavePrompt(true);
       return;
     }
     setLocation(storesPath);
   };
-  const endVisitPath = `/store-detail/exit-visit?${qs}`;
+  const endVisit = () => setLocation(getEndVisitPath({ store, rep, client }));
 
   return (
     <>
@@ -49,14 +49,14 @@ export default function Sf2BottomNav({ active, store, rep, clientQS }: Sf2Bottom
           <Wrench size={20} /><small>Fix</small>
         </button>
         {/* End Visit is the only store-exit action that sends the summary. */}
-        <button onClick={() => setLocation(endVisitPath)}>
+        <button onClick={endVisit}>
           <LogOut size={20} /><small>Visit</small>
         </button>
       </nav>
       {showLeavePrompt && (
         <LeaveVisitPrompt
           onStay={() => setShowLeavePrompt(false)}
-          onEndVisit={() => setLocation(endVisitPath)}
+          onEndVisit={endVisit}
         />
       )}
     </>

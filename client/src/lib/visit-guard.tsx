@@ -1,6 +1,6 @@
 const ACTIVE_VISIT_KEY = "stockfix_active_visit";
 
-interface ActiveVisit {
+export interface ActiveVisit {
   store: string;
   rep: string;
   client: string;
@@ -20,12 +20,27 @@ function getActiveVisit(): ActiveVisit | null {
   }
 }
 
+export function getUnclosedVisit(): ActiveVisit | null {
+  const activeVisit = getActiveVisit();
+  return activeVisit?.hasCaptures ? activeVisit : null;
+}
+
+export function getEndVisitPath(fallback: Pick<ActiveVisit, "store" | "rep" | "client">): string {
+  const visit = getUnclosedVisit() || fallback;
+  const client = visit.client === "ALL" ? "" : visit.client.trim();
+  const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
+  return `/store-detail/exit-visit?store=${encodeURIComponent(visit.store)}&rep=${encodeURIComponent(visit.rep)}${clientQS}`;
+}
+
 export function markVisitHasCaptures(store: string, rep: string, client: string): void {
   try {
     sessionStorage.setItem(ACTIVE_VISIT_KEY, JSON.stringify({
-      store: normalize(store),
-      rep: normalize(rep),
-      client: normalize(client === "ALL" ? "" : client),
+      // Keep the source values for the summary request, whose rep/client
+      // filters are exact. Normalization is applied only when comparing
+      // an active visit to the current screen.
+      store: store.trim(),
+      rep: rep.trim(),
+      client: client === "ALL" ? "" : client.trim(),
       hasCaptures: true,
     }));
   } catch {
@@ -33,13 +48,15 @@ export function markVisitHasCaptures(store: string, rep: string, client: string)
   }
 }
 
-export function hasUnclosedVisit(store: string, rep: string, client: string): boolean {
-  const activeVisit = getActiveVisit();
-  if (!activeVisit?.hasCaptures) return false;
+export function hasUnclosedVisit(): boolean {
+  return Boolean(getUnclosedVisit());
+}
 
-  return activeVisit.store === normalize(store)
-    && activeVisit.rep === normalize(rep)
-    && activeVisit.client === normalize(client === "ALL" ? "" : client);
+export function isActiveVisitContext(store: string | null, rep: string | null): boolean {
+  const activeVisit = getUnclosedVisit();
+  if (!activeVisit) return false;
+  return normalize(activeVisit.store) === normalize(store)
+    && normalize(activeVisit.rep) === normalize(rep);
 }
 
 export function clearActiveVisit(): void {

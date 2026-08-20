@@ -51,9 +51,12 @@ export default function ReplenishmentDetail() {
     enabled: !!store,
   });
 
-  const onBack = () => setLocation(`/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
-  const goToSku = (barcode: string) =>
-    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=low&barcode=${encodeURIComponent(barcode)}${clientQS}`);
+  const supplyPath = `/store-detail/supply?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`;
+  const onBack = () => setLocation(supplyPath, { replace: true });
+  const goToSku = (barcode: string) => {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=low&barcode=${encodeURIComponent(barcode)}${clientQS}&returnTo=${encodeURIComponent(returnTo)}`);
+  };
 
   if (isLoading) return <Sf2LoadingState />;
   if (error || !data) return <div className="stockfix2-page"><p className="error-state">Couldn't load this data right now.</p></div>;

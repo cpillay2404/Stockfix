@@ -38,7 +38,10 @@ export default function CoverDistributionDetail() {
     enabled: !!store,
   });
 
-  const onBack = () => window.history.back();
+  const onBack = () => setLocation(
+    `/store-detail/analysis?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`,
+    { replace: true }
+  );
 
   if (isLoading) return <Sf2LoadingState />;
   if (error || !data) return <div className="store-overview-page"><p className="error-state">Couldn't load this data right now.</p></div>;

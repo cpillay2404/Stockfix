@@ -112,6 +112,12 @@ export default function SkuDetail() {
   });
 
   const onBack = () => setLocation(returnTo, { replace: true });
+  const goToSkuTrend = (type: "soh" | "sales") => {
+    const currentSkuPath = `${window.location.pathname}${window.location.search}`;
+    setLocation(
+      `/store-detail/sku-trend?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${encodeURIComponent(classification)}&barcode=${encodeURIComponent(barcode)}${clientQS}&type=${type}&name=${encodeURIComponent(row?.articleDescription || barcode)}&returnTo=${encodeURIComponent(currentSkuPath)}`
+    );
+  };
 
   const row = data?.rows.find((r) => r.barcode === barcode);
 
@@ -176,7 +182,18 @@ export default function SkuDetail() {
             </div>
           )}
 
-          <section className="sf2-trendcard">
+          <section
+            className="sf2-trendcard"
+            role="button"
+            tabIndex={0}
+            onClick={() => goToSkuTrend("soh")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                goToSkuTrend("soh");
+              }
+            }}
+          >
             <div className="sf2-trendtop">
               <span>SOH trend</span>
               <strong className="tone-blue">{row.storeSoh}</strong>
@@ -198,7 +215,18 @@ export default function SkuDetail() {
             ) : <p className="loading-state" style={{ fontSize: 11, padding: "12px 0" }}>Building history...</p>}
           </section>
 
-          <section className="sf2-trendcard">
+          <section
+            className="sf2-trendcard"
+            role="button"
+            tabIndex={0}
+            onClick={() => goToSkuTrend("sales")}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                goToSkuTrend("sales");
+              }
+            }}
+          >
             <div className="sf2-trendtop">
               <span>Sales trend</span>
               <strong className="tone-green">{row.sellOutP4 ?? "—"}</strong>

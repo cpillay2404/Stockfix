@@ -75,7 +75,8 @@ export default function SupplyDetail() {
 
   const goToSku = (barcode: string, classification: "low" | "oos", rowClient?: string) => {
     const qs = rowClient ? `&client=${encodeURIComponent(rowClient)}` : clientQS;
-    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}`);
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}&returnTo=${encodeURIComponent(returnTo)}`);
   };
 
   if (isLoading || lowStockLoading || oosStockLoading) return <Sf2LoadingState />;

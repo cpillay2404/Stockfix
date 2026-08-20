@@ -44,9 +44,12 @@ export default function CoverAnalysisDetail() {
     enabled: !!store,
   });
 
-  const onBack = () => window.history.back();
-  const goToSku = (barcode: string) =>
-    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=risk&barcode=${encodeURIComponent(barcode)}${clientQS}`);
+  const analysisPath = `/store-detail/analysis?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`;
+  const onBack = () => setLocation(analysisPath, { replace: true });
+  const goToSku = (barcode: string) => {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=cover&barcode=${encodeURIComponent(barcode)}${clientQS}&returnTo=${encodeURIComponent(returnTo)}`);
+  };
 
   if (isLoading) return <Sf2LoadingState />;
   if (error || !data) return <div className="stockfix2-page"><p className="error-state">Couldn't load this data right now.</p></div>;

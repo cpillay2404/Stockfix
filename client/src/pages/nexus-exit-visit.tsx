@@ -51,7 +51,10 @@ export default function NexusExitVisit() {
     enabled: !!store,
   });
 
-  const handleBack = () => window.history.back();
+  const handleBack = () => setLocation(
+    `/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`,
+    { replace: true }
+  );
   const handleLogout = async () => {
     if (endVisitRequestStarted.current) return;
     endVisitRequestStarted.current = true;

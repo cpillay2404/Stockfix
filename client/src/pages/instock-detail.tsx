@@ -36,7 +36,10 @@ export default function InStockDetail() {
     enabled: !!store,
   });
 
-  const onBack = () => window.history.back();
+  const onBack = () => setLocation(
+    `/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`,
+    { replace: true }
+  );
   const goToList = (classification: string) =>
     setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}`);
 

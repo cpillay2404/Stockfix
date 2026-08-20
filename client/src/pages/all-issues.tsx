@@ -27,6 +27,7 @@ const CHIPS = [
   { key: "risk", label: "At Risk" },
   { key: "distribution", label: "Distribution Gaps" },
   { key: "overstock", label: "Overstock" },
+  { key: "negsoh", label: "Negative SOH" },
 ];
 
 export default function AllIssues() {
@@ -51,13 +52,12 @@ export default function AllIssues() {
     })
   );
 
-  // Real browser back, not a hardcoded destination - fixed 2026-08-17
-  // (Carin: "back must always take you back to the last screen we were on,
-  // not to whatever screen") - every screen was navigating to a fixed
-  // "parent" route regardless of how the user actually got here.
-  const onBack = () => window.history.back();
-  const goToSku = (barcode: string, classification: string) =>
-    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${clientQS}`);
+  const insightsPath = `/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`;
+  const onBack = () => setLocation(insightsPath, { replace: true });
+  const goToSku = (barcode: string, classification: string) => {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${clientQS}&returnTo=${encodeURIComponent(returnTo)}`);
+  };
 
   const isLoading = queries.some((q) => q.isLoading);
   const anyError = queries.some((q) => q.error);

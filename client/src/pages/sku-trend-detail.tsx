@@ -31,14 +31,19 @@ export default function SkuTrendDetail() {
   const rep = params.get("rep") || "";
   const barcode = params.get("barcode") || "";
   const classification = params.get("classification") || "oos";
+  const client = params.get("client") || "";
+  const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
   const type = params.get("type") === "sales" ? "sales" : "soh";
   const name = params.get("name") || "";
+  const requestedReturnTo = params.get("returnTo") || "";
+  const defaultReturnTo = `/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${encodeURIComponent(classification)}&barcode=${encodeURIComponent(barcode)}${clientQS}`;
+  const returnTo = requestedReturnTo.startsWith("/store-detail/sku") ? requestedReturnTo : defaultReturnTo;
 
   const { data, isLoading, error } = useQuery<SkuHistoryResponse>({
-    queryKey: ["nexus-sku-history", store, rep, barcode],
+    queryKey: ["nexus-sku-history", store, rep, barcode, client],
     queryFn: async () => {
       const res = await fetch(
-        `/api/roster/sku-history?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&barcode=${encodeURIComponent(barcode)}`
+        `/api/roster/sku-history?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&barcode=${encodeURIComponent(barcode)}${clientQS}`
       );
       if (!res.ok) throw new Error("Failed to fetch SKU history");
       return res.json();
@@ -46,7 +51,7 @@ export default function SkuTrendDetail() {
     enabled: !!store && !!barcode,
   });
 
-  const onBack = () => window.history.back();
+  const onBack = () => setLocation(returnTo, { replace: true });
 
   if (isLoading) {
     return (

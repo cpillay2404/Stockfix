@@ -40,19 +40,24 @@ export default function StoreTrendDetail() {
   const params = new URLSearchParams(window.location.search);
   const store = params.get("store") || "";
   const rep = params.get("rep") || "";
+  const client = params.get("client") || "";
+  const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
   const type = params.get("type") === "sales" ? "sales" : "soh";
 
   const { data, isLoading, error } = useQuery<OverviewResponse>({
-    queryKey: ["nexus-store-overview", store, rep],
+    queryKey: ["nexus-store-overview", store, rep, client],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}`);
+      const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
       if (!res.ok) throw new Error("Failed to fetch store overview");
       return res.json();
     },
     enabled: !!store,
   });
 
-  const onBack = () => window.history.back();
+  const onBack = () => setLocation(
+    `/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`,
+    { replace: true }
+  );
 
   if (isLoading) {
     return <Sf2LoadingState />;

@@ -143,8 +143,11 @@ export default function StoreSkuList() {
   });
 
   const onBack = () => {
+    const parentPath = scope === "fix"
+      ? `/store-detail/fix?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`
+      : `/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`;
     setLocation(
-      `/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`,
+      parentPath,
       { replace: true }
     );
   };

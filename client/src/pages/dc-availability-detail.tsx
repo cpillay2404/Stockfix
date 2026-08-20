@@ -34,9 +34,12 @@ export default function DcAvailabilityDetail() {
   const oosQuery = useQuery({ queryKey: ["nexus-sku-list", store, rep, "oos", client], queryFn: fetchList("oos"), enabled: !!store });
   const lowQuery = useQuery({ queryKey: ["nexus-sku-list", store, rep, "low", client], queryFn: fetchList("low"), enabled: !!store });
 
-  const onBack = () => window.history.back();
-  const goToSku = (barcode: string, classification: string) =>
-    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${clientQS}`);
+  const supplyPath = `/store-detail/supply?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`;
+  const onBack = () => setLocation(supplyPath, { replace: true });
+  const goToSku = (barcode: string, classification: string) => {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    setLocation(`/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${clientQS}&returnTo=${encodeURIComponent(returnTo)}`);
+  };
 
   if (oosQuery.isLoading || lowQuery.isLoading) {
     return <Sf2LoadingState />;

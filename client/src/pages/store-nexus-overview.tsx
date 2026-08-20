@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, ArrowLeft, Store as StoreIcon } from "lucide-react";
@@ -6,7 +6,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import Sf2BottomNav from "@/components/sf2-bottom-nav";
 import Sf2SkuInlineCard from "@/components/sf2-sku-inline-card";
 import Sf2LoadingState from "@/components/sf2-loading-state";
-import { hasUnclosedVisit, LeaveVisitPrompt } from "@/lib/visit-guard";
+import { getEndVisitPath, hasUnclosedVisit, LeaveVisitPrompt } from "@/lib/visit-guard";
 import "./StoreOverview.css";
 
 interface OverviewResponse {
@@ -231,36 +231,13 @@ export default function StoreOverview() {
   // for one client, drilling in showed 0 for another).
   const clientQS = activeClient ? `&client=${encodeURIComponent(activeClient)}` : "";
   const leaveStore = () => {
-    if (hasUnclosedVisit(store, rep, activeClient)) {
+    if (hasUnclosedVisit()) {
       setShowLeavePrompt(true);
       return;
     }
     setLocation(rep ? `/select-rep?role=${encodeURIComponent(role)}` : "/select-client-store");
   };
-
-  // Browser/device Back can bypass the explicit Store button and top-left
-  // guard. Restore the Insights entry when it would leave the store so the
-  // user sees the same prompt instead of silently abandoning an open visit.
-  // Other /store-detail routes remain inside the current visit and are
-  // intentionally allowed.
-  useEffect(() => {
-    let restoringHistory = false;
-    const handlePopState = () => {
-      if (restoringHistory) {
-        restoringHistory = false;
-        return;
-      }
-      if (window.location.pathname.startsWith("/store-detail")) return;
-      if (!hasUnclosedVisit(store, rep, activeClient)) return;
-
-      restoringHistory = true;
-      window.history.forward();
-      setShowLeavePrompt(true);
-    };
-
-    window.addEventListener("popstate", handlePopState);
-    return () => window.removeEventListener("popstate", handlePopState);
-  }, [store, rep, activeClient]);
+  const endVisit = () => setLocation(getEndVisitPath({ store, rep, client: activeClient }));
 
   // Real "biggest current contributor" to the store-level SOH/Sales
   // totals - reuses the SKU dropdown's already-fetched per-SKU data, no
@@ -496,7 +473,18 @@ export default function StoreOverview() {
           <span>STORE TRENDS · {weekRangeLabel}</span>
         </div>
 
-        <section className="sf2-trendcard">
+        <section
+          className="sf2-trendcard"
+          role="button"
+          tabIndex={0}
+          onClick={() => goToTrend("soh")}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              goToTrend("soh");
+            }
+          }}
+        >
           <div className="sf2-trendtop">
             <span>SOH trend</span>
             <div className="sf2-pctrow">
@@ -523,7 +511,18 @@ export default function StoreOverview() {
           ) : <p className="loading-state" style={{ fontSize: 11, padding: "12px 0" }}>Building history...</p>}
         </section>
 
-        <section className="sf2-trendcard">
+        <section
+          className="sf2-trendcard"
+          role="button"
+          tabIndex={0}
+          onClick={() => goToTrend("sales")}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              goToTrend("sales");
+            }
+          }}
+        >
           <div className="sf2-trendtop">
             <span>Sales trend</span>
             <div className="sf2-pctrow">
@@ -557,7 +556,7 @@ export default function StoreOverview() {
       {showLeavePrompt && (
         <LeaveVisitPrompt
           onStay={() => setShowLeavePrompt(false)}
-          onEndVisit={() => setLocation(`/store-detail/exit-visit?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`)}
+          onEndVisit={endVisit}
         />
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Redirect, Switch, Route, useLocation, useSearch } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -28,6 +28,8 @@ import SupplyDetail from "@/pages/supply-detail";
 import AnalysisIndex from "@/pages/analysis-index";
 import FixIndex from "@/pages/fix-index";
 import NexusExitVisit from "@/pages/nexus-exit-visit";
+import StoreTrendDetail from "@/pages/store-trend-detail";
+import SkuTrendDetail from "@/pages/sku-trend-detail";
 import ImportData from "@/pages/import-data";
 import NexusRepProgress from "@/pages/nexus-rep-progress";
 import ManagerProgress from "@/pages/manager-progress";
@@ -36,6 +38,7 @@ import AdminLeaderboard from "@/pages/admin-leaderboard";
 import QRPage from "@/pages/qr";
 import MerchandiserPilot from "@/pages/merchandiser-pilot";
 import InventoryDashboard from "@/pages/inventory-dashboard";
+import { getEndVisitPath, getUnclosedVisit, isActiveVisitContext, LeaveVisitPrompt } from "@/lib/visit-guard";
 
 function LegacyRouteRedirect({
   to,
@@ -80,6 +83,8 @@ function Router() {
       <Route path="/store-detail/analysis" component={AnalysisIndex} />
       <Route path="/store-detail/fix" component={FixIndex} />
       <Route path="/store-detail/exit-visit" component={NexusExitVisit} />
+      <Route path="/store-detail/trend" component={StoreTrendDetail} />
+      <Route path="/store-detail/sku-trend" component={SkuTrendDetail} />
       <Route path="/import">{() => <ClientGuard><ImportData /></ClientGuard>}</Route>
       <Route path="/nexus-rep-progress">{() => <ClientGuard><NexusRepProgress /></ClientGuard>}</Route>
       <Route path="/manager-progress">{() => <ClientGuard><ManagerProgress /></ClientGuard>}</Route>
@@ -117,12 +122,52 @@ function Router() {
 
 function App() {
   const [showSplash, setShowSplash] = useState(true);
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
+  const [showLeavePrompt, setShowLeavePrompt] = useState(false);
   // Skip splash for deep-linked routes (e.g. from Perfect Store Pro) that
   // carry rep= in the query string — the page reads everything from URL params
   // directly and doesn't need the choose-access flow.
   const hasRepParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('rep');
   const skipSplash = location === '/merchandiser-pilot' || location === '/inventory' || hasRepParam;
+
+  // A browser/device Back gesture can bypass page-level buttons. Apply the
+  // open-visit rule once at the app boundary so it protects every in-store
+  // page, while still allowing navigation between /store-detail pages.
+  useEffect(() => {
+    let restoringHistory = false;
+    const handlePopState = () => {
+      if (restoringHistory) {
+        restoringHistory = false;
+        return;
+      }
+      const activeVisit = getUnclosedVisit();
+      if (!activeVisit) return;
+      const destination = new URL(window.location.href);
+      const remainsInActiveVisit = destination.pathname.startsWith("/store-detail")
+        && isActiveVisitContext(
+          destination.searchParams.get("store"),
+          destination.searchParams.get("rep")
+        );
+      if (remainsInActiveVisit) return;
+
+      restoringHistory = true;
+      window.history.forward();
+      setShowLeavePrompt(true);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, []);
+
+  const resumeEndVisit = () => {
+    const activeVisit = getUnclosedVisit();
+    if (!activeVisit) {
+      setShowLeavePrompt(false);
+      return;
+    }
+    setShowLeavePrompt(false);
+    setLocation(getEndVisitPath(activeVisit));
+  };
 
   // Mutually exclusive by construction: the role-selection UI (Router) is
   // never mounted while the splash is showing - not hidden behind it, not
@@ -133,7 +178,7 @@ function App() {
     return (
       <SplashScreen
         onComplete={() => setShowSplash(false)}
-        minDisplayTime={8000 /* TEMP for review - revert to 1100 before shipping */}
+        minDisplayTime={1100}
       />
     );
   }
@@ -144,6 +189,12 @@ function App() {
         <AccessProvider>
           <Toaster />
           <Router />
+          {showLeavePrompt && (
+            <LeaveVisitPrompt
+              onStay={() => setShowLeavePrompt(false)}
+              onEndVisit={resumeEndVisit}
+            />
+          )}
         </AccessProvider>
       </TooltipProvider>
     </QueryClientProvider>
