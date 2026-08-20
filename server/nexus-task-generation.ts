@@ -94,6 +94,14 @@ async function buildStoreCoverageMap(): Promise<Map<string, { empId: string; res
 async function buildStoreRegionMap(): Promise<Map<string, string>> {
   const rows = await db.select({ cleanedStoreName: storeAssignments.cleanedStoreName, region: storeAssignments.region }).from(storeAssignments);
   const map = new Map<string, string>();
+  // Real bug found 2026-08-20, right after adding this fallback: Nexus's
+  // own region values are UPPERCASE ("GAUTENG") but Call Cycle Master's
+  // are Title Case ("Gauteng") - storing the fallback as-is fragmented
+  // every region into two rows depending on which source supplied it.
+  // Uppercase here so region stays consistent regardless of source.
+  for (const r of rows) {
+    if (r.region) r.region = r.region.toUpperCase();
+  }
   for (const r of rows) {
     if (!r.region) continue;
     const key = String(r.cleanedStoreName).toUpperCase().trim();

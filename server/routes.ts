@@ -5180,6 +5180,17 @@ export async function registerRoutes(
       // just the completed rows' region field). Same real join-based
       // pattern as the other breakdowns, not a completed-only approximation.
       const byRegionMap = new Map<string, { completed: number; open: Set<string> }>();
+      // Real bug found 2026-08-20, right after adding the Call Cycle Master
+      // region fallback: Nexus's own region values are UPPERCASE ("GAUTENG")
+      // but Call Cycle Master's are Title Case ("Gauteng"), so every region
+      // was splitting into two separate rows depending on which source
+      // supplied it for a given task. Group by a normalized (uppercased,
+      // trimmed) key everywhere region is used as a grouping key, so casing
+      // differences between sources never fragment the same real region.
+      const normalizeRegion = (r: string | null | undefined) => {
+        const trimmed = (r || "").trim();
+        return trimmed ? trimmed.toUpperCase() : "Unknown";
+      };
 
       for (const c of completed) {
         if (!byStoreMap.has(c.storeName)) byStoreMap.set(c.storeName, { completed: 0, open: new Set() });
@@ -5190,7 +5201,7 @@ export async function registerRoutes(
           if (!byRepMap.has(c.repName)) byRepMap.set(c.repName, { completed: 0, open: new Set() });
           byRepMap.get(c.repName)!.completed++;
         }
-        const region = c.region || "Unknown";
+        const region = normalizeRegion(c.region);
         if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
         byRegionMap.get(region)!.completed++;
       }
@@ -5203,7 +5214,7 @@ export async function registerRoutes(
           if (!byRepMap.has(o.resourceName)) byRepMap.set(o.resourceName, { completed: 0, open: new Set() });
           byRepMap.get(o.resourceName)!.open.add(o.uniqueId);
         }
-        const region = o.region || "Unknown";
+        const region = normalizeRegion(o.region);
         if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
         byRegionMap.get(region)!.open.add(o.uniqueId);
       }
@@ -5285,7 +5296,7 @@ export async function registerRoutes(
       const totalPeopleByRegion = new Map<string, Set<string>>();
       const totalPeopleByRole = new Map<string, Set<string>>();
       for (const a of allAssignees) {
-        const region = a.region || "Unknown";
+        const region = normalizeRegion(a.region);
         if (!totalPeopleByRegion.has(region)) totalPeopleByRegion.set(region, new Set());
         totalPeopleByRegion.get(region)!.add(a.resourceName);
         const role = normalizeRole(a.resourceType);
@@ -5297,7 +5308,7 @@ export async function registerRoutes(
       const activePeopleByRole = new Map<string, Set<string>>();
       for (const c of completed) {
         if (!c.repName || c.repName === "Unassigned") continue;
-        const region = c.region || "Unknown";
+        const region = normalizeRegion(c.region);
         if (!activePeopleByRegion.has(region)) activePeopleByRegion.set(region, new Set());
         activePeopleByRegion.get(region)!.add(c.repName);
         const role = normalizeRole(c.resourceType);
