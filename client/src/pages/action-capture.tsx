@@ -162,7 +162,13 @@ export default function ActionCapture() {
       // then automatically return to the list this SKU came from so the
       // rep can keep working through it.
       setTimeout(() => {
-        setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}${scopeQS}`);
+        // Real bug found 2026-08-20 (Carin: "clicked back then it opened
+        // another screen") - a plain setLocation() pushes a new history
+        // entry on top of sku-detail/action-capture, so browser Back from
+        // this list lands back on the capture screen instead of wherever
+        // the rep actually came from. Replace instead, collapsing the
+        // detail/capture screens out of the history stack.
+        setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}${scopeQS}`, { replace: true });
       }, 1400);
     } catch (err: any) {
       setSubmitError(err?.message || "Failed to submit action");
