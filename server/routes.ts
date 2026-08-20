@@ -5023,7 +5023,7 @@ export async function registerRoutes(
       const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
       const week = weekRow?.week as string | undefined;
       if (!week) {
-        return res.json({ week: null, totals: { completed: 0, open: 0 }, byStore: [], byClient: [], byRep: [], byRegion: [], recent: [] });
+        return res.json({ week: null, totals: { completed: 0, open: 0 }, byStore: [], byClient: [], byRep: [], byRegion: [], byManager: [], recent: [] });
       }
 
       const clientCond = client ? sql`and t.client = ${client}` : sql``;
@@ -5121,15 +5121,33 @@ export async function registerRoutes(
       // consumes it was guessing/mislabeling instead of using real data).
       const repNames = Array.from(byRepMap.keys());
       const resourceTypeByName = new Map<string, string>();
+      const managerByName = new Map<string, string>();
       if (repNames.length > 0) {
-        const typeRows = await db.select({ resourceName: resourceRoster.resourceName, resourceType: resourceRoster.resourceType })
+        const typeRows = await db.select({ resourceName: resourceRoster.resourceName, resourceType: resourceRoster.resourceType, manager: resourceRoster.manager })
           .from(resourceRoster);
-        for (const r of typeRows) resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
+        for (const r of typeRows) {
+          resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
+          managerByName.set(r.resourceName.toUpperCase().trim(), r.manager || "");
+        }
       }
       const byRep = toSorted(byRepMap, "rep").map((r: any) => ({
         ...r,
         resourceType: resourceTypeByName.get(String(r.rep).toUpperCase().trim()) || null,
       }));
+
+      // Real "by manager" breakdown (Carin, 2026-08-19: "how do i see the
+      // adoption by... manager") - each rep's counts rolled up to their
+      // real manager field from resource_roster, same real-data pattern
+      // as byStore/byClient/byRep/byRegion.
+      const byManagerMap = new Map<string, { completed: number; open: Set<string> }>();
+      for (const [repName, counts] of Array.from(byRepMap.entries())) {
+        const manager = managerByName.get(repName.toUpperCase().trim()) || "Unknown";
+        if (!byManagerMap.has(manager)) byManagerMap.set(manager, { completed: 0, open: new Set() });
+        const entry = byManagerMap.get(manager)!;
+        entry.completed += counts.completed;
+        for (const id of Array.from(counts.open)) entry.open.add(id);
+      }
+      const byManager = toSorted(byManagerMap, "manager");
 
       res.json({
         week,
@@ -5138,6 +5156,7 @@ export async function registerRoutes(
         byClient: toSorted(byClientMap, "client"),
         byRep,
         byRegion: toSorted(byRegionMap, "region"),
+        byManager,
         recent: completed.slice(0, 50),
       });
     } catch (error) {
