@@ -19,6 +19,14 @@ export default defineConfig({
       injectRegister: null,
       manifest: false,
       workbox: {
+        // Real bug found 2026-08-20 (Carin testing fix after fix all day,
+        // each confirmed live on the server, still seeing old behavior on
+        // her phone) - a new service worker install used to wait until
+        // every tab/PWA instance closed before taking over, so a phone
+        // left open across multiple publishes kept serving a stale
+        // cached bundle indefinitely. Take over immediately instead.
+        skipWaiting: true,
+        clientsClaim: true,
         // Cache all built assets
         globPatterns: ["**/*.{js,css,html,ico,png,svg,webp,woff2}"],
         navigateFallback: "index.html",

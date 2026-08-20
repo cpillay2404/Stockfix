@@ -9,7 +9,7 @@ import XLSX from "xlsx";
 import path from "path";
 import fs from "fs";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
-import { sendTaskCompletedEmail, sendVisitSummaryEmail } from "./email";
+import { sendVisitSummaryEmail } from "./email";
 import { calculateBadge, calculateRepGamificationStats, getLeaderboard, getTeamStats, type RepGamificationStats } from "./gamification";
 import { db } from "./db";
 import { sql, eq, and, desc, type SQL } from "drizzle-orm";
@@ -3546,59 +3546,15 @@ export async function registerRoutes(
         }
       }
       
-      // Send email notification only when task transitions from Pending to completed for the first time.
-      // Check previous status to avoid duplicate emails on subsequent edits (e.g. adding photos/comments).
-      // Only an explicit actionStatus change (Pending → non-Pending) triggers an email — not feedback or
-      // reasonCode alone, which can arrive in follow-up PATCHes (photo uploads, comment edits) and would
-      // otherwise cause duplicates if two requests race on a still-Pending task.
-      const wasAlreadyActioned = task.actionStatus && task.actionStatus !== 'Pending';
-      const isTaskCompletion = !wasAlreadyActioned &&
-        !!(validated.actionStatus && validated.actionStatus !== 'Pending');
-      
-      console.log('[Task Update] isTaskCompletion:', isTaskCompletion, 'validated:', JSON.stringify(validated));
-      
-      const isCriticalSku = isPriorityTask(updated?.action);
+      // Real bug found 2026-08-20 (Carin: "its sending more than once") -
+      // this used to fire an immediate email on completing a "critical SKU"
+      // task, on top of the consolidated End Visit summary email built on
+      // 2026-08-19 specifically to replace it ("can we consolidate all
+      // captures for one store in one email"). A critical-SKU capture
+      // followed by End Visit fired both - this one immediately, then the
+      // same task again in the visit summary. sendVisitSummaryEmail (in the
+      // /visit-summary/send-email route) is now the only capture email.
 
-      if (isTaskCompletion && updated && isCriticalSku) {
-        console.log('[Task Update] Triggering email notification for critical SKU (action:', updated.action, ')...');
-        // Build base URL from request
-        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
-        const host = req.headers['x-forwarded-host'] || req.headers.host || '';
-        const baseUrl = `${protocol}://${host}`;
-        
-        // Fire and forget - don't block the response
-        sendTaskCompletedEmail({
-          repName: updated.repName,
-          client: updated.client,
-          storeName: updated.storeName,
-          banner: updated.banner,
-          region: updated.region,
-          weekEndingDate: updated.weekEndingDate,
-          category: updated.category,
-          barcode: updated.barcode,
-          articleDescription: updated.articleDescription,
-          stockClassificationThisWeek: updated.stockClassification,
-          actionColumn: updated.action,
-          actionStatus: updated.actionStatus,
-          storeSOH: updated.storeSoh,
-          supplyingDcSoh: updated.dcSoh,
-          sellOutP4Weeks: updated.p4WeekSales,
-          wfc: updated.storeWfc,
-          physicalCount: updated.physicalCount,
-          variance: updated.variance,
-          systemAdjusted: updated.systemAdjusted,
-          reasonCode: updated.reasonCode,
-          actionTakenComment: updated.actionTakenComment,
-          feedback: updated.feedback,
-          captureDate: updated.captureDate,
-          image1: updated.image1,
-          image2: updated.image2,
-          baseUrl: baseUrl,
-        }).catch(err => {
-          console.error('[Email] Error in fire-and-forget email:', err);
-        });
-      }
-      
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) {
