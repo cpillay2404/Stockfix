@@ -18,6 +18,8 @@ export default function StoresList() {
   const params = new URLSearchParams(window.location.search);
   const rep = params.get("rep") || "";
   const role = params.get("role") || "Rep";
+  const client = params.get("client") || "";
+  const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
 
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
@@ -75,7 +77,7 @@ export default function StoresList() {
       <div style={{ padding: "max(1.25rem, env(safe-area-inset-top, 0px) + 0.75rem) 20px 0" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
           <button
-            onClick={() => setLocation(`/home?rep=${encodeURIComponent(rep)}&role=${role}`)}
+            onClick={() => setLocation(`/home?rep=${encodeURIComponent(rep)}&role=${role}${clientQS}`)}
             data-testid="button-back-home"
             style={{ background: "none", border: "none", cursor: "pointer", color: "#F7F9FC", padding: 4 }}
           >
@@ -122,7 +124,7 @@ export default function StoresList() {
             return (
               <button
                 key={store}
-                onClick={() => setLocation(`/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}`)}
+                onClick={() => setLocation(`/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`)}
                 data-testid={`row-store-${store}`}
                 style={{
                   width: "100%",

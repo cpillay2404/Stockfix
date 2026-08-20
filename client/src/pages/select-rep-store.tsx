@@ -359,18 +359,33 @@ export default function SelectRepStore() {
     // block the rep from starting their visit, just means claim won't work
     // for this session.
     const empId = empIdByName[repValue];
+    let dedicatedClientQS = "";
     if (empId) {
       try {
-        await fetch("/api/auth/identify", {
+        const identifyRes = await fetch("/api/auth/identify", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ resourceEmpId: empId, resourceName: repValue }),
         });
+        // Real bug found 2026-08-20 (Carin: "why does a Sodastream
+        // dedicated rep when i log in as her show all clients... applies
+        // to merchandisers too") - the identify response already carries
+        // this person's real clientScope (now correctly resolved from
+        // store_assignments server-side, not the stale resource_roster
+        // value), but it was being fetched and thrown away here. Thread
+        // it through as the locked client for a dedicated person, same
+        // as a Client-type login already locks to their one client.
+        if (identifyRes.ok) {
+          const identifyBody = await identifyRes.json().catch(() => null);
+          if (identifyBody?.clientScope && identifyBody.clientScope !== "SYNDICATED") {
+            dedicatedClientQS = `&client=${encodeURIComponent(identifyBody.clientScope)}`;
+          }
+        }
       } catch (err) {
         console.error("Failed to identify session", err);
       }
     }
-    setLocation(`/home?rep=${encodeURIComponent(repValue)}&role=${roleLabel}&store=${encodeURIComponent(storeValue)}`);
+    setLocation(`/home?rep=${encodeURIComponent(repValue)}&role=${roleLabel}&store=${encodeURIComponent(storeValue)}${dedicatedClientQS}`);
   };
 
   const canContinue = !!storeValue && !!repValue;

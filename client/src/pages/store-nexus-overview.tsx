@@ -167,7 +167,15 @@ export default function StoreOverview() {
   // client via ?client= from select-client-store.tsx, but this page never
   // read it at all - only tracked its own dropdown state, which defaults
   // straight to "ALL" regardless of what client was actually logged in as.
-  const lockedClient = !rep ? (params.get("client") || "") : "";
+  //
+  // Real bug found 2026-08-20 (Carin: "why does a Sodastream dedicated rep
+  // when i log in as her show all clients... applies to merchandisers
+  // too") - this used to zero out the locked client for ANY rep login,
+  // even a genuinely dedicated one. select-rep-store.tsx now only ever
+  // adds &client= for a dedicated (non-SYNDICATED) person - a syndicated
+  // rep/merchandiser never gets this param at all - so it's safe to
+  // honor it regardless of whether a rep is also present.
+  const lockedClient = params.get("client") || "";
   const [clientOverride, setClientOverride] = useState("");
   // Picking a SKU stays on this screen and shows its numbers inline instead
   // of navigating away (Carin, 2026-08-13: "stay on the insights screen and
@@ -315,8 +323,13 @@ export default function StoreOverview() {
           {/* No `rep` at all means this is a client login (Carin,
               2026-08-18: client view must use these same screens, locked
               to their own client - never a dropdown that could show
-              another client's data). */}
-          {rep && (clientOptions?.clients?.length ?? 0) > 1 ? (
+              another client's data). Real bug found 2026-08-20: this only
+              checked `rep`, so a dedicated rep/merchandiser at a
+              multi-client store still saw an interactive-looking dropdown
+              that silently did nothing (activeClient always prioritizes
+              lockedClient regardless) - now also requires !lockedClient,
+              same locked-display treatment as a client login. */}
+          {rep && !lockedClient && (clientOptions?.clients?.length ?? 0) > 1 ? (
             <div className="sf2-filter sf2-filter-select">
               <span>Client</span>
               <select
