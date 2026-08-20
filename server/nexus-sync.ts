@@ -79,6 +79,15 @@ async function fetchWithTimeout(url: string): Promise<Response> {
   }
 }
 
+// Real bug found 2026-08-20 - a big client's per-SKU file can need 1000+
+// sequential pages (P&G: ~530k rows / 500 per page). One flaky page out of
+// that many used to throw and lose every already-fetched page along with
+// it, discarding an hour of real work back to zero rows (confirmed: P&G's
+// week-2026-08-19 sync "succeeded" three times in a row with 0 sku rows,
+// while a direct check against Nexus's own API proved the real data was
+// there the whole time). Each page now gets its own small retry budget,
+// and a page that still fails after retries just stops the loop and keeps
+// everything fetched before it, instead of throwing the whole result away.
 async function fetchAllPages<T = any>(clientSlug: string, week: string, stem: string): Promise<T[]> {
   const apiKey = process.env.NEXUS_API_KEY;
   if (!apiKey) throw new Error("NEXUS_API_KEY is not configured");
@@ -86,10 +95,31 @@ async function fetchAllPages<T = any>(clientSlug: string, week: string, stem: st
   let page = 0;
   while (true) {
     const url = `${NEXUS_BASE_URL}/api/dashboard-data/weeks/${encodeURIComponent(week)}/clients/${encodeURIComponent(clientSlug)}/pages/${stem}/${String(page).padStart(5, "0")}.json?code=${apiKey}`;
-    const resp = await fetchWithTimeout(url);
-    if (resp.status === 404) break;
-    if (!resp.ok) throw new Error(`Nexus returned ${resp.status} for ${stem} page ${page} (client=${clientSlug})`);
-    const data = await resp.json();
+    let resp: Response;
+    let lastErr: any = null;
+    let attempt = 0;
+    const MAX_PAGE_ATTEMPTS = 4;
+    while (true) {
+      attempt++;
+      try {
+        resp = await fetchWithTimeout(url);
+        lastErr = null;
+        break;
+      } catch (err: any) {
+        lastErr = err;
+        if (attempt >= MAX_PAGE_ATTEMPTS) break;
+      }
+    }
+    if (lastErr) {
+      logSyncProgress(`... ${clientSlug} ${stem} page ${page} failed after ${MAX_PAGE_ATTEMPTS} attempts, keeping ${rows.length} row(s) fetched so far: ${lastErr?.message || lastErr}`);
+      break;
+    }
+    if (resp!.status === 404) break;
+    if (!resp!.ok) {
+      logSyncProgress(`... ${clientSlug} ${stem} page ${page} returned ${resp!.status}, keeping ${rows.length} row(s) fetched so far`);
+      break;
+    }
+    const data = await resp!.json();
     const pageRows: T[] = data.rows || [];
     if (pageRows.length === 0) break;
     rows.push(...pageRows);
