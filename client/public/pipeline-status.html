@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>StockFix | Pipeline Status</title>
+<style>
+  :root {
+    --navy-deep: #071A2D;
+    --navy-elevated: #0D2137;
+    --navy-card: #0D2137;
+    --orange: #F58220;
+    --text-muted: #8CA3C4;
+    --line-blue: rgba(23,68,111,0.6);
+    --green: #34D399;
+    --red: #F87171;
+    --blue: #60A5FA;
+    --amber: #FBBF24;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--navy-deep);
+    color: #F7F9FC;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding-bottom: 40px;
+  }
+  header {
+    background: linear-gradient(135deg, var(--navy-elevated) 0%, var(--navy-deep) 100%);
+    border-bottom: 1px solid var(--line-blue);
+    padding: 20px 16px;
+  }
+  header h1 { margin: 0; font-size: 20px; font-weight: 700; }
+  header p { margin: 4px 0 0; font-size: 13px; color: var(--text-muted); }
+  main { padding: 16px; max-width: 1000px; margin: 0 auto; }
+  .card {
+    background: var(--navy-card);
+    border-radius: 10px;
+    padding: 16px;
+    margin-bottom: 16px;
+    border: 1px solid var(--line-blue);
+  }
+  .card h2 { margin: 0 0 12px; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .dot.green { background: var(--green); }
+  .dot.red { background: var(--red); }
+  .dot.amber { background: var(--amber); }
+  .dot.grey { background: var(--text-muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--text-muted); font-weight: 600; padding: 6px 8px; border-bottom: 1px solid var(--line-blue); text-transform: uppercase; font-size: 11px; }
+  td { padding: 8px; border-bottom: 1px solid rgba(23,68,111,0.3); }
+  .bar-track { background: rgba(255,255,255,0.08); border-radius: 6px; height: 8px; width: 140px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--orange); }
+  .bar-fill.full { background: var(--green); }
+  .missing { color: var(--red); font-size: 12px; margin-top: 6px; }
+  .btn {
+    background: var(--orange); color: #fff; border: none; border-radius: 8px;
+    padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; margin-right: 8px; margin-top: 4px;
+  }
+  .btn.secondary { background: var(--navy-elevated); border: 1px solid var(--line-blue); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .status-line { font-size: 13px; color: var(--text-muted); margin-top: 8px; }
+  .log-out { background: #010B15; border-radius: 8px; padding: 10px; font-family: monospace; font-size: 12px; margin-top: 10px; max-height: 220px; overflow-y: auto; white-space: pre-wrap; color: #8CA3C4; }
+  input[type=text] { background: var(--navy-elevated); color: #fff; border: 1px solid var(--line-blue); border-radius: 6px; padding: 8px; font-size: 13px; margin-right: 8px; }
+  .refresh-note { font-size: 11px; color: var(--text-muted); text-align: right; }
+</style>
+</head>
+<body>
+<header>
+  <h1>StockFix Pipeline Status</h1>
+  <p>Real numbers, straight from the database - refreshes automatically every 15s</p>
+</header>
+<main>
+
+  <div class="card">
+    <h2><span class="dot grey" id="sync-dot"></span> Nexus Sync Job</h2>
+    <div id="sync-status" class="status-line">Loading...</div>
+    <div class="btn-row">
+      <input type="text" id="sync-week" placeholder="week (blank = latest)" />
+      <button class="btn" onclick="triggerSync()">Trigger Sync</button>
+    </div>
+    <div class="log-out" id="sync-log" style="display:none;"></div>
+  </div>
+
+  <div class="card">
+    <h2>Inventory data (store_sku_weekly) - last 5 weeks</h2>
+    <table>
+      <thead><tr><th>Week</th><th>Clients synced</th><th>Coverage</th><th>Rows</th></tr></thead>
+      <tbody id="inventory-rows"></tbody>
+    </table>
+    <div id="missing-clients"></div>
+  </div>
+
+  <div class="card">
+    <h2>Task generation (nexus_tasks) - live weeks</h2>
+    <table>
+      <thead><tr><th>Week</th><th>Total tasks</th><th>Completed</th></tr></thead>
+      <tbody id="task-rows"></tbody>
+    </table>
+    <div class="btn-row">
+      <input type="text" id="gen-week" placeholder="week (blank = latest synced)" />
+      <button class="btn" onclick="generateTasks()">Generate Tasks</button>
+    </div>
+    <div class="btn-row">
+      <input type="text" id="wipe-week" placeholder="outgoing week to retire, e.g. 2026-08-12" />
+      <button class="btn secondary" onclick="wipeWeek()">Export + Wipe Week</button>
+    </div>
+    <div class="log-out" id="action-log" style="display:none;"></div>
+  </div>
+
+  <div class="refresh-note" id="last-refresh"></div>
+</main>
+
+<script>
+async function fetchJSON(url, opts) {
+  const res = await fetch(url, opts);
+  const body = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, body };
+}
+
+function fmtNum(n) { return (n ?? 0).toLocaleString(); }
+
+async function loadStatus() {
+  const { body } = await fetchJSON('/api/admin/pipeline-status');
+
+  const invRows = document.getElementById('inventory-rows');
+  invRows.innerHTML = '';
+  const expected = body.expectedClientCount || 24;
+  (body.inventoryByWeek || []).forEach((w) => {
+    const pct = Math.round((w.clientsSynced / expected) * 100);
+    const full = w.clientsSynced >= expected;
+    invRows.innerHTML += `<tr>
+      <td>${w.week}</td>
+      <td>${w.clientsSynced} / ${expected}</td>
+      <td><div class="bar-track"><div class="bar-fill ${full ? 'full' : ''}" style="width:${pct}%"></div></div></td>
+      <td>${fmtNum(w.rowCount)}</td>
+    </tr>`;
+  });
+  const latest = (body.inventoryByWeek || [])[0];
+  const missingDiv = document.getElementById('missing-clients');
+  if (latest && latest.missingClients && latest.missingClients.length > 0) {
+    missingDiv.innerHTML = `<div class="missing">Missing from ${latest.week}: ${latest.missingClients.join(', ')}</div>`;
+  } else {
+    missingDiv.innerHTML = '';
+  }
+
+  const taskRows = document.getElementById('task-rows');
+  taskRows.innerHTML = '';
+  (body.tasksByWeek || []).forEach((w) => {
+    taskRows.innerHTML += `<tr><td>${w.week}</td><td>${fmtNum(w.taskCount)}</td><td>${fmtNum(w.completedCount)}</td></tr>`;
+  });
+
+  const sj = body.syncJob || {};
+  const dot = document.getElementById('sync-dot');
+  const statusEl = document.getElementById('sync-status');
+  if (sj.running) {
+    dot.className = 'dot amber';
+    const started = sj.startedAt ? new Date(sj.startedAt) : null;
+    const mins = started ? Math.round((Date.now() - started.getTime()) / 60000) : '?';
+    statusEl.textContent = `Running - started ${mins} min ago`;
+  } else if (sj.lastError) {
+    dot.className = 'dot red';
+    statusEl.textContent = `Last run FAILED: ${sj.lastError}`;
+  } else if (sj.lastResult) {
+    dot.className = 'dot green';
+    statusEl.textContent = `Idle - last run: ${sj.lastResult.clientsSynced} client(s), ${fmtNum(sj.lastResult.rowsWritten)} rows, ${sj.lastResult.errors.length} error(s)`;
+  } else {
+    dot.className = 'dot grey';
+    statusEl.textContent = 'No sync run yet since this server started';
+  }
+
+  document.getElementById('last-refresh').textContent = 'Last refreshed: ' + new Date().toLocaleTimeString();
+}
+
+async function triggerSync() {
+  const week = document.getElementById('sync-week').value.trim();
+  const url = '/api/admin/nexus-summary-sync' + (week ? `?week=${encodeURIComponent(week)}` : '');
+  const { body, status } = await fetchJSON(url, { method: 'POST', headers: { 'Content-Length': '0' } });
+  const log = document.getElementById('sync-log');
+  log.style.display = 'block';
+  log.textContent = `[${status}] ` + JSON.stringify(body, null, 2);
+  loadStatus();
+}
+
+async function generateTasks() {
+  const week = document.getElementById('gen-week').value.trim();
+  const url = '/api/admin/nexus-generate-tasks' + (week ? `?week=${encodeURIComponent(week)}` : '');
+  const log = document.getElementById('action-log');
+  log.style.display = 'block';
+  log.textContent = 'Running...';
+  const { body, status } = await fetchJSON(url, { method: 'POST', headers: { 'Content-Length': '0' } });
+  log.textContent = `[${status}] ` + JSON.stringify(body, null, 2);
+  loadStatus();
+}
+
+async function wipeWeek() {
+  const week = document.getElementById('wipe-week').value.trim();
+  if (!week) { alert('Enter the outgoing week to retire, e.g. 2026-08-12'); return; }
+  if (!confirm(`This will export week ${week}'s tasks to SharePoint, then permanently remove them from the live table if that export succeeds. Continue?`)) return;
+  const log = document.getElementById('action-log');
+  log.style.display = 'block';
+  log.textContent = 'Exporting and wiping...';
+  const { body, status } = await fetchJSON(`/api/admin/nexus-wipe-week?week=${encodeURIComponent(week)}`, { method: 'POST', headers: { 'Content-Length': '0' } });
+  log.textContent = `[${status}] ` + JSON.stringify(body, null, 2);
+  loadStatus();
+}
+
+loadStatus();
+setInterval(loadStatus, 15000);
+</script>
+</body>
+</html>
