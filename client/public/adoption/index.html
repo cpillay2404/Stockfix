@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="_ds/nocturne-70a65e7a-5b99-48b7-a280-915a2464fb8b/styles.css">
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://stock-fix.replit.app">
+<script src="_ds/nocturne-70a65e7a-5b99-48b7-a280-915a2464fb8b/_ds_bundle.js"></script>
+<style>
+  :root {
+    --color-bg:#000C21; --color-surface:#061530; --color-text:#f3f7fc;
+    --color-accent:#ec6d25; --color-accent-200:#f8c3a1; --color-accent-300:#f2955c;
+    --color-accent-400:#ee7f3c; --color-accent-600:#cf5a18; --color-accent-700:#a94711;
+    --color-neutral-100:#f3f7fc; --color-neutral-200:#e2ebf5; --color-neutral-300:#c9d7e6;
+    --color-neutral-400:#9dc4ec; --color-neutral-500:#5f80a6; --color-neutral-600:#4f6c8e;
+    --color-neutral-700:#3d5f85; --color-neutral-800:#1c3f6b; --color-neutral-900:#122d4f;
+    --font-heading:'Poppins', system-ui, sans-serif; --font-body:'Poppins', system-ui, sans-serif;
+    --radius-md:10px; --radius-lg:16px;
+  }
+  body { margin:0; background:var(--color-bg); color:var(--color-text); font-family:'Poppins', system-ui, sans-serif; }
+  a { color:var(--color-accent-300); text-decoration:none; }
+  a:hover { color:var(--color-accent-200); }
+  ::-webkit-scrollbar { width:9px; height:9px; }
+  ::-webkit-scrollbar-thumb { background:rgba(157,196,236,0.25); border-radius:6px; }
+  ::-webkit-scrollbar-track { background:transparent; }
+  .nx-row:hover { background: color-mix(in srgb, var(--color-accent) 7%, transparent); }
+  select.nx-in option { background:#0f2c4f; color:#e9e9ed; }
+  @keyframes nx-pulse { 0%,100% { opacity:.3 } 50% { opacity:1 } }
+</style>
+</helmet>
+<div style="display:flex; min-height:100vh; background:var(--color-bg); font-family:var(--font-body); font-size:13px; color:var(--color-text);">
+
+  <aside style="width:258px; flex:none; position:sticky; top:0; align-self:flex-start; height:100vh; display:flex; flex-direction:column; border-right:1px solid var(--color-neutral-800); background:#0a1c3a;">
+    <div style="display:flex; align-items:center; gap:12px; padding:26px 22px 22px;">
+      <div style="width:38px; height:38px; flex:none; border-radius:11px; border:1.5px solid var(--color-accent); background:#08172f; display:flex; align-items:center; justify-content:center; box-shadow:0 0 18px rgba(236,109,37,0.35);">
+        <i class="ph ph-wrench" style="font-size:20px; color:var(--color-accent);"></i>
+      </div>
+      <div>
+        <div style="font-family:var(--font-heading); font-size:19px; font-weight:700; letter-spacing:-0.015em; line-height:1.1;">Stock<span style="color:var(--color-accent);">Fix</span></div>
+        <div style="font-size:10px; color:var(--color-neutral-500); margin-top:2px;">Inventory Action &amp; Feedback</div>
+      </div>
+    </div>
+
+    <nav style="display:flex; flex-direction:column; gap:4px; padding:0 14px 20px;">
+      <sc-for list="{{ navItems }}" as="nv" hint-placeholder-count="2">
+        <div onClick="{{ nv.go }}" style="display:flex; align-items:center; gap:12px; padding:11px 13px; border-radius:var(--radius-md); cursor:pointer; font-size:14px; font-weight:500; border-left:2px solid {{ nv.mark }}; background:{{ nv.bg }}; color:{{ nv.fg }};" style-hover="background:color-mix(in srgb, var(--color-accent) 9%, transparent);">
+          <i class="{{ nv.icon }}" style="font-size:20px; color:{{ nv.iconColor }};"></i>
+          <span>{{ nv.label }}</span>
+        </div>
+      </sc-for>
+    </nav>
+
+    <div style="margin-top:auto; flex:none; padding:16px 22px 26px; border-top:1px solid var(--color-neutral-800); font-size:10.5px; color:var(--color-neutral-500); line-height:1.6;">
+      <div style="display:flex; align-items:center; gap:7px; margin-bottom:8px;">
+        <span style="width:7px; height:7px; border-radius:50%; background:var(--color-accent); animation:nx-pulse 2.4s ease-in-out infinite;"></span>
+        <span style="color:var(--color-neutral-300);">{{ statusLine }}</span>
+      </div>
+      <div style="margin-bottom:8px;">Live query · no cache</div>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <svg viewBox="0 0 24 26" width="18" height="20" fill="none" style="flex:none; display:block;">
+          <path d="M12 1.2 22.4 7.1v11.8L12 24.8 1.6 18.9V7.1Z" stroke="#9dc4ec" stroke-width="1.3" stroke-linejoin="round"></path>
+          <path d="M12 13v11.8M12 13 1.6 7.1M12 13l10.4-5.9" stroke="#6fb2ff" stroke-width="1.3" stroke-linejoin="round"></path>
+        </svg>
+        <span>Powered by <span style="color:var(--color-neutral-300); font-weight:600;">Meridian Nexus</span></span>
+      </div>
+    </div>
+  </aside>
+
+  <main style="flex:1; min-width:0; padding-bottom:64px;">
+
+    <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:28px 34px 20px; flex-wrap:wrap;">
+      <div style="min-width:280px;">
+        <div style="font-size:10.5px; letter-spacing:0.12em; text-transform:uppercase; color:var(--color-accent-300); margin-bottom:6px;">StockFix adoption</div>
+        <div style="font-family:var(--font-heading); font-size:27px; font-weight:600; letter-spacing:-0.015em; line-height:1.15;">{{ pageTitle }}</div>
+        <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:4px;">{{ pageSub }}</div>
+      </div>
+      <button onClick="{{ onRefresh }}" style="display:flex; align-items:center; gap:7px; background:transparent; border:1px solid rgba(236,109,37,0.45); color:var(--color-accent-300); border-radius:var(--radius-md); padding:8px 15px; font-size:11.5px; font-weight:600; font-family:inherit; cursor:pointer;" style-hover="background:rgba(236,109,37,0.14); color:#f8c3a1;"><i class="ph ph-arrows-clockwise" style="font-size:14px;"></i>Refresh</button>
+    </div>
+
+    <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:0 34px 20px;">
+      <select class="nx-in" value="{{ fClient }}" onChange="{{ onClient }}" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:7px 10px; font-size:12px; font-family:inherit; min-width:170px;">
+        <option value="">All clients</option>
+        <sc-for list="{{ clientOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+      </select>
+      <select class="nx-in" value="{{ fRegion }}" onChange="{{ onRegion }}" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:7px 10px; font-size:12px; font-family:inherit; min-width:150px;">
+        <option value="">All regions</option>
+        <sc-for list="{{ regionOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">{{ o }}</option></sc-for>
+      </select>
+      <select class="nx-in" value="{{ fManager }}" onChange="{{ onManager }}" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:7px 10px; font-size:12px; font-family:inherit; min-width:170px;">
+        <option value="">All managers</option>
+        <sc-for list="{{ managerOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">{{ o }}</option></sc-for>
+      </select>
+      <select class="nx-in" value="{{ fStore }}" onChange="{{ onStore }}" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:7px 10px; font-size:12px; font-family:inherit; min-width:210px;">
+        <option value="">{{ storePlaceholder }}</option>
+        <sc-for list="{{ storeOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o.value }}">{{ o.label }}</option></sc-for>
+      </select>
+      <select class="nx-in" value="{{ fType }}" onChange="{{ onType }}" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:7px 10px; font-size:12px; font-family:inherit; min-width:170px;">
+        <option value="">All resource types</option>
+        <sc-for list="{{ typeOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">{{ o }}</option></sc-for>
+      </select>
+      <button onClick="{{ onReset }}" style="background:transparent; border:1px solid var(--color-neutral-800); color:var(--color-neutral-400); border-radius:var(--radius-md); padding:7px 13px; font-size:11.5px; font-family:inherit; cursor:pointer;" style-hover="border-color:var(--color-accent-700); color:var(--color-accent-300);">Reset</button>
+      <div style="margin-left:auto; font-size:11px; color:var(--color-neutral-500);">{{ filterSummary }}</div>
+    </div>
+
+    <sc-if value="{{ loadError }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:0 34px 20px; padding:16px 18px; border:1px solid var(--color-neutral-800); border-radius:var(--radius-md); background:var(--color-surface); font-size:12.5px; color:var(--color-neutral-300);">{{ loadError }}</div>
+    </sc-if>
+
+    <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; padding:0 34px 4px;">
+      <div style="background:var(--color-surface); border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); padding:18px 20px 20px;">
+        <div style="display:flex; align-items:center; gap:10px; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--color-neutral-500);">
+          <i class="ph ph-user-focus" style="font-size:22px; color:var(--color-accent);"></i><span>Rep adoption %</span>
+        </div>
+        <div style="font-family:var(--font-heading); font-size:40px; font-weight:600; line-height:1.05; margin-top:8px; color:var(--color-accent-300);">{{ adoptionPct }}</div>
+        <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:5px;">{{ adoptionSub }}</div>
+      </div>
+      <div style="background:var(--color-surface); border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); padding:18px 20px 20px;">
+        <div style="display:flex; align-items:center; gap:10px; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--color-neutral-500);">
+          <i class="ph ph-users-three" style="font-size:22px; color:var(--color-accent);"></i><span>Merchandiser adoption %</span>
+        </div>
+        <div style="font-family:var(--font-heading); font-size:40px; font-weight:600; line-height:1.05; margin-top:8px; color:var(--color-accent-300);">{{ merchPct }}</div>
+        <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:5px;">{{ merchSub }}</div>
+      </div>
+      <div style="background:var(--color-surface); border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); padding:18px 20px 20px;">
+        <div style="display:flex; align-items:center; gap:10px; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--color-neutral-500);">
+          <i class="ph ph-storefront" style="font-size:22px; color:var(--color-accent);"></i><span>Store coverage</span>
+        </div>
+        <div style="font-family:var(--font-heading); font-size:40px; font-weight:600; line-height:1.05; margin-top:8px;">{{ coveragePct }}</div>
+        <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:5px;">{{ coverageSub }}</div>
+      </div>
+      <div style="background:var(--color-surface); border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); padding:18px 20px 20px;">
+        <div style="display:flex; align-items:center; gap:10px; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--color-neutral-500);">
+          <i class="ph ph-moon" style="font-size:22px; color:var(--color-accent);"></i><span>Dormant resources</span>
+        </div>
+        <div style="font-family:var(--font-heading); font-size:40px; font-weight:600; line-height:1.05; margin-top:8px;">{{ dormantCount }}</div>
+        <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:5px;">no captures this cycle</div>
+      </div>
+      <div style="background:var(--color-surface); border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); padding:18px 20px 20px;">
+        <div style="display:flex; align-items:center; gap:10px; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--color-neutral-500);">
+          <i class="ph ph-camera" style="font-size:22px; color:var(--color-accent);"></i><span>Captures logged</span>
+        </div>
+        <div style="font-family:var(--font-heading); font-size:40px; font-weight:600; line-height:1.05; margin-top:8px;">{{ completedLabel }}</div>
+        <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:5px;">{{ openSub }}</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:40px; padding:32px 34px 0; align-items:start;">
+
+      <div style="display:flex; flex-direction:column; gap:34px; min-width:0;">
+        <div>
+          <div style="font-family:var(--font-heading); font-size:16px; font-weight:600; margin-bottom:3px;">Adoption by resource type</div>
+          <div style="font-size:11.5px; color:var(--color-neutral-500); margin-bottom:18px;">Labels come from the roster's resourceType, not from names</div>
+          <div style="display:flex; flex-direction:column; gap:18px;">
+            <sc-for list="{{ typeRows }}" as="t" hint-placeholder-count="3">
+              <div style="display:flex; flex-direction:column; gap:7px;">
+                <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
+                  <span style="font-size:13px; font-weight:500;">{{ t.label }}</span>
+                  <span style="font-size:11px; color:var(--color-neutral-500);">{{ t.detail }}</span>
+                </div>
+                <div style="height:8px; border-radius:4px; background:#1c3f6b; overflow:hidden;">
+                  <div style="height:100%; width:{{ t.w }}; background:var(--color-accent); border-radius:4px;"></div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:14px;">
+            <div>
+              <div style="font-family:var(--font-heading); font-size:16px; font-weight:600;">Resource leaderboard</div>
+              <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:3px;">{{ repCountLabel }}</div>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <sc-for list="{{ segTabs }}" as="t" hint-placeholder-count="3">
+                <button onClick="{{ t.go }}" style="background:{{ t.bg }}; border:1px solid {{ t.bd }}; color:{{ t.fg }}; padding:5px 11px; border-radius:var(--radius-md); font-size:11px; font-family:inherit; cursor:pointer;">{{ t.label }}</button>
+              </sc-for>
+            </div>
+          </div>
+          <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+            <thead><tr>
+              <th style="text-align:left; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800);">Resource</th>
+              <th style="text-align:left; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800);">Type</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:90px;">Captures</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:74px;">Open</th>
+            </tr></thead>
+            <tbody>
+              <sc-for list="{{ repRows }}" as="r" hint-placeholder-count="8">
+                <tr class="nx-row">
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b;">
+                    <span style="display:inline-flex; align-items:center; gap:8px;">
+                      <span style="width:6px; height:6px; border-radius:50%; background:{{ r.dot }};"></span>
+                      <span style="text-transform:capitalize;">{{ r.rep }}</span>
+                    </span>
+                  </td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; color:var(--color-neutral-400);">{{ r.resourceType }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:{{ r.countColor }};">{{ r.completed }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; color:var(--color-neutral-400);">{{ r.open }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <sc-if value="{{ noReps }}" hint-placeholder-val="{{ false }}">
+            <div style="padding:18px 8px; font-size:12px; color:var(--color-neutral-400); border-bottom:1px solid #1c3f6b;">{{ noRepsLabel }}</div>
+          </sc-if>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:10px;">
+            <span style="font-size:11px; color:var(--color-neutral-500);">{{ repFootnote }}</span>
+            <button onClick="{{ exportReps }}" disabled="{{ noReps }}" style="display:flex; align-items:center; gap:7px; background:transparent; border:1px solid {{ exportRepBorder }}; color:{{ exportRepColor }}; border-radius:var(--radius-md); padding:6px 13px; font-size:11px; font-weight:600; font-family:inherit; cursor:{{ exportRepCursor }}; opacity:{{ exportRepOpacity }};"><i class="ph ph-download-simple" style="font-size:14px;"></i>{{ exportRepLabel }}</button>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:34px; min-width:0;">
+        <div>
+          <div style="font-family:var(--font-heading); font-size:16px; font-weight:600; margin-bottom:3px;">Adoption by region</div>
+          <div style="font-size:11.5px; color:var(--color-neutral-500); margin-bottom:16px;">Adoption from the API — active people over rostered people per region</div>
+          <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+            <thead><tr>
+              <th style="text-align:left; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800);">Region</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:88px;">Captured</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:74px;">Open</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:92px;">Rep adoption</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:92px;">Merch adoption</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:84px;">Adoption</th>
+            </tr></thead>
+            <tbody>
+              <sc-for list="{{ regionRows }}" as="c" hint-placeholder-count="6">
+                <tr class="nx-row">
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b;">{{ c.label }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading);">{{ c.completed }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; color:var(--color-neutral-400);">{{ c.open }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:var(--color-neutral-200);">{{ c.repsCell }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:var(--color-neutral-200);">{{ c.merchCell }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:{{ c.rateColor }};">{{ c.rate }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+
+        <div>
+          <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:14px;">
+            <div>
+              <div style="font-family:var(--font-heading); font-size:16px; font-weight:600;">Store coverage</div>
+              <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:3px;">{{ storeCountLabel }}</div>
+            </div>
+            <input type="text" onInput="{{ onStoreQuery }}" placeholder="Filter stores…" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:6px 10px; font-size:12px; font-family:inherit; width:170px;" />
+          </div>
+          <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+            <thead><tr>
+              <th style="text-align:left; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800);">Store</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:88px;">Captured</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:74px;">Open</th>
+              <th style="text-align:left; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:110px;">State</th>
+            </tr></thead>
+            <tbody>
+              <sc-for list="{{ storeRows }}" as="s" hint-placeholder-count="8">
+                <tr class="nx-row">
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b;">{{ s.store }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading);">{{ s.completed }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; color:var(--color-neutral-400);">{{ s.open }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b;"><span style="display:inline-block; padding:1px 9px; border-radius:20px; font-size:10.5px; font-weight:600; color:{{ s.stateFg }}; background:{{ s.stateBg }}; border:1px solid {{ s.stateBd }};">{{ s.state }}</span></td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:10px;">
+            <span style="font-size:11px; color:var(--color-neutral-500);">{{ storeFootnote }}</span>
+            <button onClick="{{ exportStores }}" style="display:flex; align-items:center; gap:7px; background:transparent; border:1px solid rgba(236,109,37,0.45); color:var(--color-accent-300); border-radius:var(--radius-md); padding:6px 13px; font-size:11px; font-weight:600; font-family:inherit; cursor:pointer;" style-hover="background:rgba(236,109,37,0.14); color:#f8c3a1;"><i class="ph ph-download-simple" style="font-size:14px;"></i>{{ exportStoreLabel }}</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    </sc-if>
+
+    <sc-if value="{{ isCaptures }}" hint-placeholder-val="{{ false }}">
+      <div style="padding:0 34px;">
+        <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:12px; margin-bottom:26px;">
+          <sc-for list="{{ captureStats }}" as="c" hint-placeholder-count="4">
+            <div style="background:var(--color-surface); border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); padding:16px 18px 18px;">
+              <div style="display:flex; align-items:center; gap:10px; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--color-neutral-500);">
+                <i class="{{ c.icon }}" style="font-size:20px; color:var(--color-accent);"></i><span>{{ c.label }}</span>
+              </div>
+              <div style="font-family:var(--font-heading); font-size:32px; font-weight:600; line-height:1.05; margin-top:8px;">{{ c.value }}</div>
+              <div style="font-size:11px; color:var(--color-neutral-500); margin-top:4px;">{{ c.sub }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap;">
+          <div>
+            <div style="font-family:var(--font-heading); font-size:16px; font-weight:600;">Capture feed</div>
+            <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:3px;">{{ captureCountLabel }}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:8px;">
+            <input type="text" onInput="{{ onCaptureQuery }}" placeholder="Search store, rep, category…" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:7px 11px; font-size:12px; font-family:inherit; width:250px;" />
+            <button onClick="{{ exportCaptures }}" style="display:flex; align-items:center; gap:7px; background:transparent; border:1px solid rgba(236,109,37,0.45); color:var(--color-accent-300); border-radius:var(--radius-md); padding:7px 13px; font-size:11.5px; font-weight:600; font-family:inherit; cursor:pointer;" style-hover="background:rgba(236,109,37,0.14); color:#f8c3a1;"><i class="ph ph-download-simple" style="font-size:14px;"></i>{{ exportCaptureLabel }}</button>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:12px;">
+          <sc-for list="{{ captureRows }}" as="r" hint-placeholder-count="6">
+            <div style="border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); background:var(--color-surface); padding:15px 17px; display:flex; flex-direction:column; gap:9px;">
+              <div style="display:flex; align-items:baseline; justify-content:space-between; gap:12px;">
+                <span style="font-size:13px; font-weight:600; line-height:1.3;">{{ r.title }}</span>
+                <span style="font-size:10.5px; color:var(--color-neutral-500); white-space:nowrap;">{{ r.meta }}</span>
+              </div>
+              <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(96px,1fr)); gap:8px;">
+                <sc-for list="{{ r.facts }}" as="f" hint-placeholder-count="3">
+                  <div>
+                    <div style="font-size:8.5px; letter-spacing:0.08em; text-transform:uppercase; color:var(--color-neutral-500);">{{ f.label }}</div>
+                    <div style="font-size:11.5px; color:var(--color-neutral-200); margin-top:2px; line-height:1.35;">{{ f.value }}</div>
+                  </div>
+                </sc-for>
+              </div>
+              <sc-if value="{{ r.hasNote }}" hint-placeholder-val="{{ false }}">
+                <div style="font-size:11.5px; color:var(--color-neutral-300); line-height:1.5; border-left:2px solid var(--color-accent-700); padding-left:9px;">{{ r.note }}</div>
+              </sc-if>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <sc-for list="{{ r.marks }}" as="m" hint-placeholder-count="2">
+                  <span style="padding:2px 9px; border-radius:20px; font-size:10px; color:var(--color-accent-300); border:1px solid rgba(236,109,37,0.35); background:rgba(236,109,37,0.08);">{{ m.label }}</span>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <sc-if value="{{ noCaptures }}" hint-placeholder-val="{{ false }}">
+          <div style="padding:20px 0; font-size:12.5px; color:var(--color-neutral-400);">No captures match this selection.</div>
+        </sc-if>
+        <div style="font-size:11px; color:var(--color-neutral-500); padding-top:14px;">{{ captureFootnote }}</div>
+      </div>
+    </sc-if>
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;apiBase&quot;:{&quot;editor&quot;:&quot;text&quot;,&quot;default&quot;:&quot;https://stock-fix.replit.app&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;refreshSeconds&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:0,&quot;min&quot;:0,&quot;max&quot;:300,&quot;step&quot;:15,&quot;unit&quot;:&quot;s&quot;,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Data&quot;},&quot;heavyUseAt&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:5,&quot;min&quot;:2,&quot;max&quot;:20,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Adoption&quot;},&quot;showRecent&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Adoption&quot;}}">
+const n = (v) => Number(v || 0).toLocaleString('en-ZA');
+const pct = (a, b) => (b ? (a / b) * 100 : 0);
+const p1 = (v) => v.toFixed(1) + '%';
+const w = (v) => v.toFixed(2) + '%';
+// keep tiny-but-nonzero rates from rounding to a misleading 0.0%
+const sharp = (v) => (v > 0 && v < 0.1 ? '<0.1%' : p1(v));
+const pick = (o, keys) => { for (const k of keys) { if (o[k] != null && o[k] !== '') return String(o[k]); } return ''; };
+const REGION_KEYS = ['region', 'regionName', 'Region'];
+const MANAGER_KEYS = ['manager', 'managerName', 'managerFullName', 'reportsTo', 'Manager'];
+
+class Component extends DCLogic {
+  state = { data: null, loading: true, err: '', page: 'overview', client: '', store: '', rtype: '', region: '', manager: '',
+    seg: 'active', storeQuery: '', captureQuery: '', clients: [], stores: [], at: null };
+
+  get base() { return (this.props.apiBase || 'https://stock-fix.replit.app').replace(/\/+$/, ''); }
+
+  componentDidMount() {
+    this.load();
+    this.json(this.base + '/api/roster/all-clients').then(r => this.setState({ clients: this.opts(r) })).catch(() => {});
+    const secs = Number(this.props.refreshSeconds ?? 0);
+    if (secs > 0) this.timer = setInterval(() => this.load(), secs * 1000);
+  }
+  componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
+
+  async json(url) {
+    const res = await fetch(url, { headers: { accept: 'application/json' } });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+  opts(list) {
+    if (!Array.isArray(list)) return [];
+    return list.map(x => {
+      if (x == null) return null;
+      if (typeof x === 'string') return { value: x, label: x };
+      const v = x.client ?? x.store ?? x.name ?? x.value ?? x.id;
+      return v == null ? null : { value: String(v), label: String(x.label ?? x.name ?? v) };
+    }).filter(Boolean);
+  }
+
+  load() {
+    this.setState({ loading: true });
+    const q = [];
+    if (this.state.client) q.push('client=' + encodeURIComponent(this.state.client));
+    if (this.state.store) q.push('store=' + encodeURIComponent(this.state.store));
+    this.json(this.base + '/api/live-dashboard' + (q.length ? '?' + q.join('&') : ''))
+      .then(data => { this._sig = null; this.setState({ data, err: '', loading: false, at: new Date() }); })
+      .catch(e => this.setState({ err: 'Could not reach /api/live-dashboard — ' + (e.message || e), loading: false }));
+  }
+
+  csv(name, cols, rows) {
+    const esc = v => { const s = v == null ? '' : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const lines = [cols.map(c => esc(c.label)).join(',')];
+    rows.forEach(r => lines.push(cols.map(c => esc(r[c.key])).join(',')));
+    const url = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = name + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  }
+
+  set(patch) { this._sig = null; this.setState(patch); }
+
+  model() {
+    const s = this.state;
+    const d = s.data || {};
+    const sig = [s.rtype, s.region, s.manager, s.at && s.at.getTime()].join('§');
+    if (this._sig === sig && this._m) return this._m;
+    const heavyAt = Math.max(2, Number(this.props.heavyUseAt ?? 5));
+    const raw = Array.isArray(d.byRep) ? d.byRep : [];
+    const reps = raw.map(r => ({
+      rep: String(r.rep ?? '—'), completed: Number(r.completed || 0), open: Number(r.open || 0),
+      resourceType: String(r.resourceType || 'Unspecified'),
+      region: pick(r, REGION_KEYS), manager: pick(r, MANAGER_KEYS),
+    })).filter(r => (!s.rtype || r.resourceType === s.rtype) && (!s.region || r.region === s.region) && (!s.manager || r.manager === s.manager));
+
+    const recentAll = Array.isArray(d.recent) ? d.recent : [];
+    const recent = recentAll.filter(r => (!s.region || pick(r, REGION_KEYS) === s.region) && (!s.manager || pick(r, MANAGER_KEYS) === s.manager));
+
+    // region / manager narrow which stores count, when the payload carries those fields
+    const scoped = !!(s.region || s.manager);
+    const scopedStores = scoped ? new Set(recent.map(r => String(r.store || '')).filter(Boolean)) : null;
+    const stores = (Array.isArray(d.byStore) ? d.byStore : [])
+      .map(x => ({ store: String(x.store ?? '—'), completed: Number(x.completed || 0), open: Number(x.open || 0) }))
+      .filter(x => !scopedStores || scopedStores.size === 0 || scopedStores.has(x.store));
+
+    const byType = new Map();
+    reps.forEach(r => {
+      let e = byType.get(r.resourceType);
+      if (!e) { e = { label: r.resourceType, total: 0, active: 0, captures: 0 }; byType.set(r.resourceType, e); }
+      e.total++; e.captures += r.completed; if (r.completed > 0) e.active++;
+    });
+    const uniq = (arr) => [...new Set(arr.filter(Boolean))].sort();
+    const m = {
+      d, reps, stores, recent, heavyAt,
+      active: reps.filter(r => r.completed > 0),
+      heavy: reps.filter(r => r.completed >= heavyAt),
+      light: reps.filter(r => r.completed > 0 && r.completed < heavyAt),
+      dormant: reps.filter(r => r.completed === 0),
+      touched: stores.filter(x => x.completed > 0),
+      types: [...byType.values()].sort((a, b) => b.total - a.total),
+      allTypes: uniq(raw.map(r => String(r.resourceType || 'Unspecified'))),
+      allRegions: uniq(
+        (Array.isArray(d.byRegion) ? d.byRegion : []).map(x => pick(x, REGION_KEYS) || String(x.name ?? x.label ?? ''))
+          .concat(raw.map(r => pick(r, REGION_KEYS)))
+          .concat(recentAll.map(r => pick(r, REGION_KEYS)))
+      ),
+      allManagers: uniq(raw.map(r => pick(r, MANAGER_KEYS)).concat(recentAll.map(r => pick(r, MANAGER_KEYS)))),
+    };
+    this._sig = sig; this._m = m;
+    return m;
+  }
+
+  renderVals() {
+    const s = this.state;
+    const PAGES = [
+      { k: 'overview', label: 'Overview', icon: 'ph ph-squares-four', title: 'Overview', sub: 'Week ' + ((s.data && s.data.week) || '—') + ' · computed fresh on every request' },
+      { k: 'captures', label: 'Captures', icon: 'ph ph-camera', title: 'Captures', sub: 'Every completed capture in scope, with the detail each one carries' },
+    ];
+    const page = PAGES.find(p => p.k === s.page) || PAGES[0];
+    const base = {
+      navItems: PAGES.map(p => ({
+        label: p.label, icon: p.icon, go: () => this.set({ page: p.k }),
+        bg: p.k === s.page ? 'color-mix(in srgb, var(--color-accent) 14%, transparent)' : 'transparent',
+        mark: p.k === s.page ? 'var(--color-accent)' : 'transparent',
+        fg: p.k === s.page ? 'var(--color-text)' : 'var(--color-neutral-300)',
+        iconColor: p.k === s.page ? 'var(--color-accent)' : 'var(--color-neutral-400)',
+      })),
+      pageTitle: page.title, pageSub: page.sub,
+      isOverview: s.page === 'overview', isCaptures: s.page === 'captures',
+      onCaptureQuery: e => this.set({ captureQuery: e.target.value }),
+      week: (s.data && s.data.week) || '—',
+      statusLine: s.loading ? 'Fetching…' : s.at ? 'Live · ' + s.at.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : 'Idle',
+      loadError: s.err || false,
+      fClient: s.client, fStore: s.store, fType: s.rtype, fRegion: s.region, fManager: s.manager,
+      onClient: e => { const v = e.target.value; this._sig = null; this.setState({ client: v, store: '', stores: [] }, () => { this.load(); if (v) this.json(this.base + '/api/roster/stores-for-client?client=' + encodeURIComponent(v)).then(r => this.setState({ stores: this.opts(r) })).catch(() => {}); }); },
+      onStore: e => { this._sig = null; this.setState({ store: e.target.value }, () => this.load()); },
+      onType: e => this.set({ rtype: e.target.value }),
+      onRegion: e => this.set({ region: e.target.value }),
+      onManager: e => this.set({ manager: e.target.value }),
+      onReset: () => { this._sig = null; this.setState({ client: '', store: '', rtype: '', region: '', manager: '', stores: [] }, () => this.load()); },
+      onStoreQuery: e => this.set({ storeQuery: e.target.value }),
+      onRefresh: () => this.load(),
+      showRecent: this.props.showRecent !== false,
+    };
+    if (!s.data) return Object.assign(base, {
+      clientOptions: s.clients, storeOptions: [], typeOptions: [], regionOptions: [], managerOptions: [],
+      storePlaceholder: 'All stores', filterSummary: s.err ? '' : 'Loading live dashboard…',
+      mixLegend: [], repRows: [], clientRows: [], storeRows: [], typeRows: [], recentRows: [], segTabs: [],
+      adoptionPct: '—', adoptionSub: '', merchPct: '—', merchSub: '', coveragePct: '—', coverageSub: '', dormantCount: '—', completedLabel: '—', openSub: '',
+      repCountLabel: '', repFootnote: '', storeCountLabel: '', storeFootnote: '', exportRepLabel: 'Export', exportStoreLabel: 'Export',
+      exportReps: () => {}, exportStores: () => {},
+      captureStats: [], captureRows: [], captureCountLabel: '', captureFootnote: '', noCaptures: false,
+      exportCaptureLabel: 'Export', exportCaptures: () => {},
+    });
+
+    const m = this.model();
+    const totals = m.d.totals || {};
+    const completed = Number(totals.completed || 0), open = Number(totals.open || 0);
+    const scope = completed + open;
+    const t = m.reps.length;
+    const activeF = ['client', 'store', 'rtype', 'region', 'manager'].filter(k => s[k]);
+    const roles = Array.isArray(m.d.adoptionByRole) ? m.d.adoptionByRole : [];
+    const roleCard = (role) => {
+      const want = role.toLowerCase();
+      // role labels vary in case/wording across sources — match loosely
+      const match = (v) => { const t = String(v || '').toLowerCase(); return t === want || t.includes(want); };
+      const e = roles.find(x => match(x.role)) || roles.find(x => match(x.resourceType));
+      const plural = role + (role.endsWith('s') ? '' : 's');
+      if (e) return { pct: sharp(Number(e.adoptionPct || 0)), sub: n(e.activePeople || 0) + ' of ' + n(e.totalPeople || 0) + ' ' + plural + ' active' };
+      const cohort = m.reps.filter(r => match(r.resourceType));
+      if (!cohort.length) {
+        const seen = roles.length ? roles.map(x => x.role).filter(Boolean) : m.allTypes;
+        return { pct: '—', sub: seen.length ? 'no "' + role + '" in: ' + seen.slice(0, 4).join(', ') : 'no ' + want + 's in scope' };
+      }
+      const act = cohort.filter(r => r.completed > 0).length;
+      return { pct: sharp(pct(act, cohort.length)), sub: n(act) + ' of ' + n(cohort.length) + ' ' + plural + ' active' };
+    };
+
+    const out = Object.assign(base, {
+      clientOptions: s.clients.length ? s.clients : this.opts((m.d.byClient || []).map(c => c.client)),
+      storeOptions: s.stores.length ? s.stores.slice(0, 400) : s.client ? [] : this.opts(m.stores.slice(0, 150).map(x => x.store)),
+      storePlaceholder: s.client && !s.stores.length ? 'All stores for this client' : 'All stores',
+      typeOptions: m.allTypes, regionOptions: m.allRegions, managerOptions: m.allManagers,
+      filterSummary: activeF.length ? activeF.length + ' filter' + (activeF.length > 1 ? 's' : '') + ' applied' : 'Full network — no filters',
+      adoptionPct: roleCard('Rep').pct,
+      adoptionSub: roleCard('Rep').sub,
+      merchPct: roleCard('Merchandiser').pct,
+      merchSub: roleCard('Merchandiser').sub,
+      coveragePct: m.stores.length ? sharp(pct(m.touched.length, m.stores.length)) : '—',
+      coverageSub: m.stores.length ? n(m.touched.length) + ' of ' + n(m.stores.length) + ' stores touched' : 'no stores in scope',
+      dormantCount: n(m.dormant.length),
+      completedLabel: n(completed),
+      openSub: n(open) + ' open · ' + sharp(pct(completed, scope || 1)) + ' of scope',
+      mixLegend: [
+        { color: 'var(--color-accent)', label: 'Habitual · ' + m.heavyAt + '+ captures', value: n(m.heavy.length) },
+        { color: '#6fb2ff', label: 'Trialling · 1–' + (m.heavyAt - 1), value: n(m.light.length) },
+        { color: '#3d5f85', label: 'Dormant · none', value: n(m.dormant.length) },
+      ],
+      typeRows: m.types.slice(0, 8).map(x => ({
+        label: x.label, detail: n(x.active) + ' of ' + n(x.total) + ' active · ' + n(x.captures) + ' captures',
+        w: w(pct(x.active, x.total)),
+      })),
+    });
+
+    const seg = s.seg === 'active' && m.active.length === 0 && m.reps.length > 0 ? 'all' : s.seg;
+    const pool = seg === 'active' ? m.active : seg === 'dormant' ? m.dormant : m.reps;
+    // API returns byRep pre-sorted by total workload; keep that order (completed + open desc)
+    const repList = pool.slice().sort((a, b) => (b.completed + b.open) - (a.completed + a.open) || b.completed - a.completed);
+    out.segTabs = [
+      { k: 'active', label: 'Active (' + n(m.active.length) + ')' },
+      { k: 'dormant', label: 'Dormant (' + n(m.dormant.length) + ')' },
+      { k: 'all', label: 'All (' + n(m.reps.length) + ')' },
+    ].map(x => ({
+      label: x.label, go: () => this.set({ seg: x.k }),
+      bg: seg === x.k ? 'color-mix(in srgb, var(--color-accent) 14%, transparent)' : 'transparent',
+      bd: seg === x.k ? 'var(--color-accent-600)' : 'var(--color-neutral-800)',
+      fg: seg === x.k ? 'var(--color-text)' : 'var(--color-neutral-400)',
+    }));
+    out.noReps = repList.length === 0;
+    out.noRepsLabel = m.reps.length === 0
+      ? 'No resources match these filters.'
+      : seg === 'active' ? 'No resources have captured this cycle — switch to Dormant or All.'
+      : seg === 'dormant' ? 'No dormant resources — everyone has captured.' : 'Nothing to show.';
+    out.exportRepBorder = repList.length ? 'rgba(236,109,37,0.45)' : 'var(--color-neutral-800)';
+    out.exportRepColor = repList.length ? 'var(--color-accent-300)' : 'var(--color-neutral-600)';
+    out.exportRepCursor = repList.length ? 'pointer' : 'not-allowed';
+    out.exportRepOpacity = repList.length ? 1 : 0.5;
+    out.repCountLabel = n(repList.length) + ' resources in this view';
+    out.repFootnote = repList.length > 25 ? 'Showing the top 25 of ' + n(repList.length) : '';
+    out.exportRepLabel = 'Export ' + n(repList.length);
+    out.exportReps = () => this.csv('stockfix-resource-adoption',
+      [{ key: 'rep', label: 'Resource' }, { key: 'resourceType', label: 'Resource type' }, { key: 'region', label: 'Region' }, { key: 'manager', label: 'Manager' }, { key: 'completed', label: 'Captures' }, { key: 'open', label: 'Open' }],
+      repList);
+    out.repRows = repList.slice(0, 25).map(r => ({
+      rep: r.rep, resourceType: r.resourceType, completed: n(r.completed), open: n(r.open),
+      dot: r.completed >= m.heavyAt ? 'var(--color-accent)' : r.completed > 0 ? '#6fb2ff' : 'var(--color-neutral-600)',
+      countColor: r.completed > 0 ? 'var(--color-accent-300)' : 'var(--color-neutral-600)',
+    }));
+
+    const regionAgg = new Map();
+    const titleCase = (v) => String(v).toLowerCase().replace(/\b[a-z]/g, c => c.toUpperCase());
+    // the roster carries the same region in mixed case ("Gauteng" / "GAUTENG") — fold them together
+    const UNKNOWN = /^(unknown|unspecified|n\/?a|none|null|other|—|-)$/i;
+    const ensureRegion = (k) => {
+      const key = String(k).trim().toUpperCase();
+      if (!key || UNKNOWN.test(key)) return { reps: [0, 0], merch: [0, 0] }; // discard bucket
+      let e = regionAgg.get(key);
+      if (!e) { e = { label: titleCase(k), completed: 0, open: 0, reps: [0, 0], merch: [0, 0] }; regionAgg.set(key, e); }
+      return e;
+    };
+    const addRole = (e, roleName, active, total) => {
+      const t = String(roleName || '').toLowerCase();
+      const slot = t.includes('merch') ? e.merch : t.includes('rep') ? e.reps : null;
+      if (!slot) return;
+      slot[0] += Number(active || 0); slot[1] += Number(total || 0);
+    };
+    const apiRegions = Array.isArray(m.d.byRegion) ? m.d.byRegion : null;
+    if (apiRegions) {
+      apiRegions.forEach(x => {
+        const k = pick(x, REGION_KEYS) || String(x.name ?? x.label ?? '—');
+        if (s.region && k !== s.region) return;
+        const e = ensureRegion(k);
+        e.completed += Number(x.completed || 0);
+        e.open += Number(x.open || 0);
+        if (x.totalPeople != null) e.totalPeople = (e.totalPeople || 0) + Number(x.totalPeople);
+        if (x.activePeople != null) e.activePeople = (e.activePeople || 0) + Number(x.activePeople);
+        if (x.adoptionPct != null) e.adoptionPct = Number(x.adoptionPct);
+        // per-region role objects: row.reps / row.merchandisers
+        const roleObj = { reps: x.reps, merch: x.merchandisers || x.merch };
+        ['reps', 'merch'].forEach(slot => {
+          const r = roleObj[slot];
+          if (!r) return;
+          if (r.adoptionPct != null) e[slot + 'Pct'] = Number(r.adoptionPct);
+          e[slot][0] += Number(r.activePeople || 0);
+          e[slot][1] += Number(r.totalPeople || 0);
+        });
+        const nested = x.byRole || x.roles || x.adoptionByRole;
+        if (Array.isArray(nested)) nested.forEach(r => addRole(e, r.role || r.resourceType, r.activePeople, r.totalPeople));
+      });
+    } else {
+      // fallback only when the endpoint doesn't return byRegion
+      m.allRegions.forEach(k => { if (!s.region || k === s.region) ensureRegion(k); });
+      let fromReps = false;
+      m.reps.forEach(r => {
+        if (!r.region) return;
+        fromReps = true;
+        const e = ensureRegion(r.region);
+        e.completed += r.completed; e.open += r.open;
+      });
+      if (!fromReps) m.recent.forEach(r => { const k = pick(r, REGION_KEYS); if (k) ensureRegion(k).completed += 1; });
+    }
+    // no nested role data on byRegion → derive the split from byRep
+    if (![...regionAgg.values()].some(e => e.reps[1] || e.merch[1] || e.repsPct != null || e.merchPct != null)) {
+      m.reps.forEach(r => {
+        if (!r.region) return;
+        addRole(ensureRegion(r.region), r.resourceType, r.completed > 0 ? 1 : 0, 1);
+      });
+    }
+    const regionVals = [...regionAgg.values()];
+    const regionCaptureTotal = regionVals.reduce((t, e) => t + e.completed, 0);
+    out.regionRows = regionVals.map(e => {
+      // adoptionPct comes from the API; fall back to a share only when it's absent
+      const hasAdoption = e.adoptionPct != null;
+      const val = hasAdoption ? Number(e.adoptionPct) : pct(e.completed, regionCaptureTotal);
+      return { label: e.label, completed: n(e.completed), open: n(e.open), completedRaw: e.completed,
+        people: e.totalPeople != null ? n(e.activePeople || 0) + ' of ' + n(e.totalPeople) : '—',
+        repsCell: e.repsPct != null ? sharp(e.repsPct) : e.reps[1] ? sharp(pct(e.reps[0], e.reps[1])) : '—',
+        merchCell: e.merchPct != null ? sharp(e.merchPct) : e.merch[1] ? sharp(pct(e.merch[0], e.merch[1])) : '—',
+        rate: hasAdoption || regionCaptureTotal ? sharp(val) : '—',
+        rateColor: val >= 50 ? 'var(--color-accent-300)' : val > 0 ? 'var(--color-text)' : 'var(--color-neutral-500)' };
+    }).sort((a, b) => b.completedRaw - a.completedRaw || a.label.localeCompare(b.label)).slice(0, 20);
+    if (!out.regionRows.length) out.regionRows = [{ label: 'Region not returned by the endpoint', completed: '—', open: '—', people: '—', repsCell: '—', merchCell: '—', rate: '—', rateColor: 'var(--color-neutral-500)', completedRaw: 0 }];
+
+    const q = s.storeQuery.trim().toLowerCase();
+    const storeList = (q ? m.stores.filter(x => x.store.toLowerCase().includes(q)) : m.stores)
+      .slice().sort((a, b) => b.completed - a.completed || b.open - a.open || a.store.localeCompare(b.store));
+    out.storeCountLabel = n(storeList.length) + ' stores in scope';
+    out.storeFootnote = storeList.length > 12 ? 'Showing the top 12 of ' + n(storeList.length) : '';
+    out.exportStoreLabel = 'Export ' + n(storeList.length);
+    out.exportStores = () => this.csv('stockfix-store-coverage',
+      [{ key: 'store', label: 'Store' }, { key: 'completed', label: 'Captured' }, { key: 'open', label: 'Open' }],
+      storeList);
+    out.storeRows = storeList.slice(0, 12).map(x => {
+      const untouched = x.completed === 0, done = !untouched && x.open === 0;
+      return { store: x.store, completed: n(x.completed), open: n(x.open),
+        state: untouched ? 'Untouched' : done ? 'Complete' : 'In progress',
+        stateFg: done ? '#f2955c' : untouched ? 'var(--color-neutral-500)' : '#9dc4ec',
+        stateBg: done ? 'rgba(236,109,37,0.14)' : untouched ? 'transparent' : 'rgba(157,196,236,0.1)',
+        stateBd: done ? 'rgba(236,109,37,0.45)' : untouched ? 'var(--color-neutral-800)' : 'rgba(157,196,236,0.28)' };
+    });
+
+    const IMG_KEYS = ['image1', 'image2', 'image3', 'image4'];
+    const cq = s.captureQuery.trim().toLowerCase();
+    const capAll = cq
+      ? m.recent.filter(r => [r.store, r.banner, r.rep, r.category, r.action, pick(r, REGION_KEYS)].filter(Boolean).join(' ').toLowerCase().includes(cq))
+      : m.recent;
+    const withPhoto = m.recent.filter(r => IMG_KEYS.some(k => r[k])).length;
+    const withFeedback = m.recent.filter(r => r.feedback || r.actionTakenComment).length;
+    const withReason = m.recent.filter(r => r.reasonCode).length;
+    out.captureStats = [
+      { icon: 'ph ph-camera', label: 'Captures in feed', value: n(m.recent.length), sub: 'returned by the endpoint' },
+      { icon: 'ph ph-image', label: 'With photos', value: n(withPhoto), sub: sharp(pct(withPhoto, m.recent.length || 1)) + ' of the feed' },
+      { icon: 'ph ph-chat-teardrop-text', label: 'With feedback', value: n(withFeedback), sub: sharp(pct(withFeedback, m.recent.length || 1)) + ' carry a comment' },
+      { icon: 'ph ph-warning-circle', label: 'With reason code', value: n(withReason), sub: sharp(pct(withReason, m.recent.length || 1)) + ' of the feed' },
+    ];
+    out.captureCountLabel = n(capAll.length) + (cq ? ' matching captures' : ' captures in scope');
+    out.noCaptures = capAll.length === 0;
+    out.captureFootnote = capAll.length > 36 ? 'Showing the first 36 of ' + n(capAll.length) + ' — export for the full list.' : '';
+    out.exportCaptureLabel = 'Export ' + n(capAll.length);
+    out.exportCaptures = () => this.csv('stockfix-captures',
+      [{ key: 'store', label: 'Store' }, { key: 'banner', label: 'Banner' }, { key: 'region', label: 'Region' }, { key: 'rep', label: 'Rep' },
+       { key: 'category', label: 'Category' }, { key: 'action', label: 'Action' }, { key: 'dcSoh', label: 'DC SOH' }, { key: 'storeSoh', label: 'Store SOH' },
+       { key: 'reasonCode', label: 'Reason code' }, { key: 'feedback', label: 'Feedback' }, { key: 'actionTakenComment', label: 'Action comment' }, { key: 'photos', label: 'Photos' }],
+      capAll.map(r => ({ store: r.store, banner: r.banner, region: pick(r, REGION_KEYS), rep: r.rep, category: r.category, action: r.action,
+        dcSoh: r.dcSoh, storeSoh: r.storeSoh, reasonCode: r.reasonCode, feedback: r.feedback, actionTakenComment: r.actionTakenComment,
+        photos: IMG_KEYS.filter(k => r[k]).length })));
+    out.captureRows = capAll.slice(0, 36).map(r => {
+      const marks = [];
+      const imgs = IMG_KEYS.filter(k => r[k]).length;
+      if (imgs) marks.push({ label: imgs + (imgs === 1 ? ' photo' : ' photos') });
+      if (r.reasonCode) marks.push({ label: 'reason: ' + r.reasonCode });
+      if (r.feedback) marks.push({ label: 'feedback' });
+      if (r.actionTakenComment) marks.push({ label: 'comment' });
+      const facts = [];
+      if (r.category) facts.push({ label: 'Category', value: String(r.category) });
+      if (r.action) facts.push({ label: 'Action', value: String(r.action) });
+      if (r.dcSoh != null) facts.push({ label: 'DC SOH', value: String(r.dcSoh) });
+      if (r.storeSoh != null) facts.push({ label: 'Store SOH', value: String(r.storeSoh) });
+      const note = [r.feedback, r.actionTakenComment].filter(Boolean).join(' — ');
+      return {
+        title: [r.banner, r.store].filter(Boolean).join(' — ') || 'Capture',
+        meta: [r.rep, pick(r, REGION_KEYS)].filter(Boolean).join(' · '),
+        facts, marks, hasNote: !!note, note,
+      };
+    });
+
+    return out;
+  }
+}
+
+</script>
+</body>
+</html>
