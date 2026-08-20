@@ -203,11 +203,11 @@ async function resolveEmailRecipients(params: { repName?: string | null; client?
   return { recipients, ccRecipients };
 }
 
-async function sendViaMailerSend(params: { subject: string; body: string; recipients: string[]; ccRecipients: string[] }): Promise<void> {
+async function sendViaMailerSend(params: { subject: string; body: string; recipients: string[]; ccRecipients: string[] }): Promise<boolean> {
   const apiKey = getSanitizedApiKey();
   if (!apiKey) {
     console.error('[Email] No MailerSend API key found');
-    return;
+    return false;
   }
   const fromEmail = 'noreply@stockfixapp.online';
 
@@ -239,8 +239,10 @@ async function sendViaMailerSend(params: { subject: string; body: string; recipi
 
   if (response.ok) {
     console.log('[Email] Successfully sent to all recipients');
+    return true;
   } else {
     console.error('[Email] MailerSend API error:', response.status, responseText);
+    return false;
   }
 }
 
@@ -341,7 +343,7 @@ interface VisitSummaryEmailData {
 // the old system's narrow priority patterns). Fires once per End Visit tap,
 // listing everything captured at that store, using the same recipient
 // resolution as the existing per-task email.
-export async function sendVisitSummaryEmail(data: VisitSummaryEmailData): Promise<void> {
+export async function sendVisitSummaryEmail(data: VisitSummaryEmailData): Promise<boolean> {
   console.log('[Email] sendVisitSummaryEmail called');
 
   const subject = `StockFix Visit Summary | ${safeString(data.client)} | ${safeString(data.storeName)} | ${data.completedCount} captured`;
@@ -385,8 +387,9 @@ Captures
 
   try {
     const { recipients, ccRecipients } = await resolveEmailRecipients({ repName: data.repName, client: data.client, region: data.region });
-    await sendViaMailerSend({ subject, body, recipients, ccRecipients });
+    return await sendViaMailerSend({ subject, body, recipients, ccRecipients });
   } catch (error: any) {
     console.error('[Email] Failed to send visit summary email:', error.message || error);
+    return false;
   }
 }

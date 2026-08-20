@@ -34,6 +34,7 @@ export default function NexusExitVisit() {
   const { clearAll } = useAccess();
   const endVisitRequestStarted = useRef(false);
   const [isEndingVisit, setIsEndingVisit] = useState(false);
+  const [sendError, setSendError] = useState("");
   const params = new URLSearchParams(window.location.search);
   const store = params.get("store") || "";
   const rep = params.get("rep") || "";
@@ -55,6 +56,7 @@ export default function NexusExitVisit() {
     if (endVisitRequestStarted.current) return;
     endVisitRequestStarted.current = true;
     setIsEndingVisit(true);
+    setSendError("");
 
     // Wait for the consolidated visit-summary request before navigating away,
     // so the browser cannot cancel it during logout.
@@ -64,10 +66,18 @@ export default function NexusExitVisit() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ store, rep, client }),
       });
-      if (response.ok) clearActiveVisit();
-    } finally {
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || "The visit summary could not be emailed.");
+      }
+      clearActiveVisit();
       clearAll();
       setLocation("/");
+    } catch (error: any) {
+      console.error("Failed to send visit summary email:", error);
+      setSendError(error.message || "The visit summary could not be emailed. Please try again.");
+      endVisitRequestStarted.current = false;
+      setIsEndingVisit(false);
     }
   };
 
@@ -148,8 +158,13 @@ export default function NexusExitVisit() {
           }}
         >
           <LogOut size={18} />
-          {isEndingVisit ? "Sending visit summary…" : "End Visit"}
+          {isEndingVisit ? "Sending visit summary…" : "End Visit & Send Summary"}
         </button>
+        {sendError && (
+          <p role="alert" style={{ margin: "12px 0 0", color: "#FCA5A5", fontSize: 14, lineHeight: 1.4 }}>
+            {sendError}
+          </p>
+        )}
       </main>
     </div>
   );
