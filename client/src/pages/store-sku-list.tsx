@@ -5,6 +5,7 @@ import { ArrowLeft, ChevronDown, ChevronRight, Store as StoreIcon, CheckCircle2 
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2LoadingState from "@/components/sf2-loading-state";
 import "./StoreOverview.css";
+import { buildSkuDetailUrl } from "@/lib/action-capture-navigation";
 
 interface SkuRow {
   barcode: string;
@@ -162,11 +163,16 @@ export default function StoreSkuList() {
   // showing "All Clients" merged rows - sku-detail has no merged mode, so
   // the row's own tagged client wins over the page-level "ALL" state.
   const goToSku = (barcode: string, rowClient?: string) => {
-    const qs = rowClient ? `&client=${encodeURIComponent(rowClient)}` : clientQS;
     const returnTo = `${window.location.pathname}${window.location.search}`;
-    setLocation(
-      `/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}${scopeQS}&returnTo=${encodeURIComponent(returnTo)}`
-    );
+    setLocation(buildSkuDetailUrl({
+      store,
+      rep,
+      classification,
+      barcode,
+      client: rowClient || client,
+      scope,
+      returnTo,
+    }));
   };
 
   if (isLoading) {

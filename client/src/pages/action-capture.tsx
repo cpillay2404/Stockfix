@@ -5,6 +5,10 @@ import { Wrench, Minus, Plus, Camera, AlertTriangle, X, CheckCircle2 } from "luc
 import { BrandLogo } from "@/components/brand-logo";
 import "./StoreOverview.css";
 import { markVisitHasCaptures } from "@/lib/visit-guard";
+import {
+  getCaptureReturnNavigation,
+  getCaptureReturnUrl,
+} from "@/lib/action-capture-navigation";
 
 interface SkuRow {
   barcode: string;
@@ -80,9 +84,12 @@ export default function ActionCapture() {
   // SKU can still legitimately appear - looking like it wasn't captured.
   const scope = params.get("scope") || "";
   const scopeQS = scope ? `&scope=${encodeURIComponent(scope)}` : "";
-  const requestedReturnTo = params.get("returnTo") || "";
-  const defaultReturnTo = `/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${encodeURIComponent(classification)}${clientQS}${scopeQS}`;
-  const returnTo = requestedReturnTo.startsWith("/store-detail/") ? requestedReturnTo : defaultReturnTo;
+  const returnNavigation = getCaptureReturnNavigation(
+    getCaptureReturnUrl(
+      { store, rep, classification, client, scope },
+      params.get("returnTo") || undefined,
+    ),
+  );
 
   const { data } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
@@ -108,7 +115,7 @@ export default function ActionCapture() {
   const [submitError, setSubmitError] = useState("");
   const [varianceDismissed, setVarianceDismissed] = useState(false);
 
-  const onBack = () => setLocation(returnTo, { replace: true });
+  const onBack = () => setLocation(returnNavigation.destination, returnNavigation.options);
 
   const variance = physicalCount - systemCount;
   const hasVariance = variance !== 0;
@@ -197,7 +204,7 @@ export default function ActionCapture() {
       // of browser-history entries. That keeps direct links and app launches
       // inside the store flow instead of accidentally reaching the splash.
       setTimeout(() => {
-        setLocation(returnTo, { replace: true });
+        setLocation(returnNavigation.destination, returnNavigation.options);
       }, 1400);
     } catch (err: any) {
       setSubmitError(err?.message || "Failed to submit action");

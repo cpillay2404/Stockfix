@@ -5,6 +5,11 @@ import { BrandLogo } from "@/components/brand-logo";
 import { BarTrend } from "./store-nexus-overview";
 import Sf2LoadingState from "@/components/sf2-loading-state";
 import "./StoreOverview.css";
+import {
+  buildActionCaptureUrl,
+  getCaptureReturnNavigation,
+  getCaptureReturnUrl,
+} from "@/lib/action-capture-navigation";
 
 interface SkuRow {
   barcode: string;
@@ -77,9 +82,11 @@ export default function SkuDetail() {
   // appear (different universe) - looking like the capture didn't work.
   const scope = params.get("scope") || "";
   const scopeQS = scope ? `&scope=${encodeURIComponent(scope)}` : "";
-  const requestedReturnTo = params.get("returnTo") || "";
-  const defaultReturnTo = `/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${encodeURIComponent(classification)}${clientQS}${scopeQS}`;
-  const returnTo = requestedReturnTo.startsWith("/store-detail/") ? requestedReturnTo : defaultReturnTo;
+  const returnTo = getCaptureReturnUrl(
+    { store, rep, classification, client, scope },
+    params.get("returnTo") || undefined,
+  );
+  const returnNavigation = getCaptureReturnNavigation(returnTo);
 
   const { data, isLoading, error } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
@@ -111,7 +118,7 @@ export default function SkuDetail() {
     enabled: !!store && !!barcode,
   });
 
-  const onBack = () => setLocation(returnTo, { replace: true });
+  const onBack = () => setLocation(returnNavigation.destination, returnNavigation.options);
   const goToSkuTrend = (type: "soh" | "sales") => {
     const currentSkuPath = `${window.location.pathname}${window.location.search}`;
     setLocation(
@@ -250,7 +257,15 @@ export default function SkuDetail() {
 
           <button
             className="sf2-fixbutton"
-            onClick={() => setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${clientQS}${scopeQS}&returnTo=${encodeURIComponent(returnTo)}`)}
+            onClick={() => setLocation(buildActionCaptureUrl({
+              store,
+              rep,
+              classification,
+              barcode,
+              client,
+              scope,
+              returnTo,
+            }))}
           >
             <Wrench size={16} />
             FIX

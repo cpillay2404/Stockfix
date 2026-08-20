@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Wrench, X } from "lucide-react";
+import { buildActionCaptureUrl } from "@/lib/action-capture-navigation";
 
 interface SkuRow {
   barcode: string;
@@ -165,7 +166,14 @@ export default function Sf2SkuInlineCard({ store, rep, barcode, client, onClear 
           className="sf2-fixbutton"
           onClick={() => {
             const returnTo = `${window.location.pathname}${window.location.search}`;
-            setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${row.sourceStem || "risk"}&barcode=${encodeURIComponent(barcode)}${clientQS}&returnTo=${encodeURIComponent(returnTo)}`);
+            setLocation(buildActionCaptureUrl({
+              store,
+              rep,
+              classification: row.sourceStem || "risk",
+              barcode,
+              client,
+              returnTo,
+            }));
           }}
         >
           <Wrench size={16} />
