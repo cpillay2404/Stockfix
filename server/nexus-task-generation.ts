@@ -308,10 +308,19 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
       noAssignmentStores.add(`${opts.client}_${opts.storeName}`); // real call-cycle gap, not guessed at
       return;
     }
-    // Fall back to Call Cycle Master's region whenever Nexus's own is blank
-    // (see buildStoreRegionMap) - never overrides a real Nexus value.
-    if (!opts.region) {
-      opts.region = regionByStore.get(String(opts.storeName).toUpperCase().trim()) || opts.region;
+    // Real change 2026-08-20 (Carin: "can you use the call cycle please") -
+    // Call Cycle Master's region now wins whenever there's a match, not just
+    // as a blank-fallback. Confirmed it's not only more complete than
+    // Nexus's own store master (see buildStoreRegionMap) but a cleaner,
+    // more precise taxonomy - Nexus lumps a wide swath of real towns
+    // (Umtata, George, Oudtshoorn, Beaufort West...) into one generic
+    // "Eastern Cape" catch-all, while Call Cycle Master already splits
+    // them into the real sales regions the team actually uses (e.g. "SWD"
+    // for the Garden Route). Only falls back to Nexus's own region if Call
+    // Cycle Master has no entry at all for that store.
+    const ccmRegion = regionByStore.get(String(opts.storeName).toUpperCase().trim());
+    if (ccmRegion) {
+      opts.region = ccmRegion;
     }
 
     const uniqueId = `NEXUS_${week}_${opts.client}_${opts.storeName}_${sourceStem}_${opts.barcode}`.replace(/\s+/g, "_");

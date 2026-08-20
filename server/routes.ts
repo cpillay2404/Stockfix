@@ -5295,6 +5295,12 @@ export async function registerRoutes(
 
       const totalPeopleByRegion = new Map<string, Set<string>>();
       const totalPeopleByRole = new Map<string, Set<string>>();
+      // Real gap found 2026-08-20 (Carin: "i need this to be % adoption do
+      // we have data in the json to support it" - a per-region table with
+      // separate Reps/Merch/Adoption columns had nothing to read, since
+      // adoption was only ever split by region OR by role, never both
+      // together). Same total/active tracking, keyed by region+role pair.
+      const totalPeopleByRegionRole = new Map<string, Set<string>>();
       for (const a of allAssignees) {
         const region = normalizeRegion(a.region);
         if (!totalPeopleByRegion.has(region)) totalPeopleByRegion.set(region, new Set());
@@ -5302,10 +5308,14 @@ export async function registerRoutes(
         const role = normalizeRole(a.resourceType);
         if (!totalPeopleByRole.has(role)) totalPeopleByRole.set(role, new Set());
         totalPeopleByRole.get(role)!.add(a.resourceName);
+        const rrKey = `${region}::${role}`;
+        if (!totalPeopleByRegionRole.has(rrKey)) totalPeopleByRegionRole.set(rrKey, new Set());
+        totalPeopleByRegionRole.get(rrKey)!.add(a.resourceName);
       }
 
       const activePeopleByRegion = new Map<string, Set<string>>();
       const activePeopleByRole = new Map<string, Set<string>>();
+      const activePeopleByRegionRole = new Map<string, Set<string>>();
       for (const c of completed) {
         if (!c.repName || c.repName === "Unassigned") continue;
         const region = normalizeRegion(c.region);
@@ -5314,14 +5324,30 @@ export async function registerRoutes(
         const role = normalizeRole(c.resourceType);
         if (!activePeopleByRole.has(role)) activePeopleByRole.set(role, new Set());
         activePeopleByRole.get(role)!.add(c.repName);
+        const rrKey = `${region}::${role}`;
+        if (!activePeopleByRegionRole.has(rrKey)) activePeopleByRegionRole.set(rrKey, new Set());
+        activePeopleByRegionRole.get(rrKey)!.add(c.repName);
       }
 
       const adoptionPct = (active: number, total: number) => total > 0 ? Math.round((active / total) * 1000) / 10 : 0;
 
+      const roleAdoptionFor = (region: string, role: string) => {
+        const total = totalPeopleByRegionRole.get(`${region}::${role}`)?.size || 0;
+        const active = activePeopleByRegionRole.get(`${region}::${role}`)?.size || 0;
+        return { totalPeople: total, activePeople: active, adoptionPct: adoptionPct(active, total) };
+      };
+
       const byRegionWithAdoption = toSorted(byRegionMap, "region").map((r: any) => {
         const totalPeople = totalPeopleByRegion.get(r.region)?.size || 0;
         const activePeople = activePeopleByRegion.get(r.region)?.size || 0;
-        return { ...r, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
+        return {
+          ...r,
+          totalPeople,
+          activePeople,
+          adoptionPct: adoptionPct(activePeople, totalPeople),
+          reps: roleAdoptionFor(r.region, "Rep"),
+          merchandisers: roleAdoptionFor(r.region, "Merchandiser"),
+        };
       });
 
       const roleNames = new Set([...Array.from(totalPeopleByRole.keys()), ...Array.from(activePeopleByRole.keys())]);
