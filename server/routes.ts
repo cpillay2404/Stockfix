@@ -5178,13 +5178,26 @@ export async function registerRoutes(
       `);
       const allAssignees = (allAssigneesResult.rows || allAssigneesResult) as any[];
 
+      // Real resourceType values are things like "SYNDICATED REP",
+      // "P&G DEDICATED MERCHANDISER", "FIELDMARKETER" (Carin, 2026-08-20:
+      // KPI cards read "no reps/merchandisers in scope" because nothing
+      // matched an exact "Rep"/"Merchandiser" string) - bucket by
+      // substring instead of relying on an exact value.
+      const normalizeRole = (raw: string | null | undefined): string => {
+        const upper = (raw || "").toUpperCase();
+        if (upper.includes("MERCHANDISER")) return "Merchandiser";
+        if (upper.includes("REP")) return "Rep";
+        if (!upper) return "Unknown";
+        return "Other";
+      };
+
       const totalPeopleByRegion = new Map<string, Set<string>>();
       const totalPeopleByRole = new Map<string, Set<string>>();
       for (const a of allAssignees) {
         const region = a.region || "Unknown";
         if (!totalPeopleByRegion.has(region)) totalPeopleByRegion.set(region, new Set());
         totalPeopleByRegion.get(region)!.add(a.resourceName);
-        const role = a.resourceType || "Unknown";
+        const role = normalizeRole(a.resourceType);
         if (!totalPeopleByRole.has(role)) totalPeopleByRole.set(role, new Set());
         totalPeopleByRole.get(role)!.add(a.resourceName);
       }
@@ -5196,7 +5209,7 @@ export async function registerRoutes(
         const region = c.region || "Unknown";
         if (!activePeopleByRegion.has(region)) activePeopleByRegion.set(region, new Set());
         activePeopleByRegion.get(region)!.add(c.repName);
-        const role = c.resourceType || "Unknown";
+        const role = normalizeRole(c.resourceType);
         if (!activePeopleByRole.has(role)) activePeopleByRole.set(role, new Set());
         activePeopleByRole.get(role)!.add(c.repName);
       }
