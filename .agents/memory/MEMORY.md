@@ -8,3 +8,4 @@
 - [Deployment artifact freshness](deployment-artifact-freshness.md) — production runs `dist/index.cjs`; rebuild and verify backend route markers before publishing source newer than `dist`.
 - [Retired Store Overview links](retired-store-overview-links.md) — older Store Overview URLs must silently redirect to the current Nexus workflow, never expose retired UI or 404.
 - [Visit continuity guard](visit-continuity-guard.md) — open visits follow their saved capture context across client filters and navigation; exit summaries must never use the current screen by default.
+- [Resource client scope](resource-client-scope.md) — named dedicated resource types lock to their own client; syndicated resources use eligible store clients; Client browsing remains open.
