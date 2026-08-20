@@ -1456,7 +1456,8 @@ export async function registerRoutes(
       const clientCond = client && client !== "ALL" ? sql`and client = ${client}` : sql``;
 
       const completedResult = await db.execute(sql`
-        select barcode, article_description, feedback, reason_code, action_taken_comment, capture_date, image1, banner, region, client
+        select barcode, article_description, feedback, reason_code, action_taken_comment, capture_date,
+               image1, image2, image3, image4, banner, region, client
         from nexus_tasks
         where upper(trim(store_name)) = ${store.toUpperCase().trim()}
           and upper(trim(rep_name)) = ${rep.toUpperCase().trim()}
@@ -1487,8 +1488,11 @@ export async function registerRoutes(
 
       const photosCount = completed.filter((c) => c.image1).length;
 
-      // Fire and forget - don't block the End Visit navigation on email delivery.
-      sendVisitSummaryEmail({
+      const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+      const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+      const baseUrl = `${protocol}://${host}`;
+
+      await sendVisitSummaryEmail({
         repName: rep || null,
         client: client && client !== "ALL" ? client : (completed[0]?.client ?? null),
         storeName: store,
@@ -1503,9 +1507,12 @@ export async function registerRoutes(
           reasonCode: c.reason_code,
           actionTakenComment: c.action_taken_comment,
           feedback: c.feedback,
+          image1: c.image1,
+          image2: c.image2,
+          image3: c.image3,
+          image4: c.image4,
         })),
-      }).catch((err) => {
-        console.error('[Email] Error in fire-and-forget visit summary email:', err);
+        baseUrl,
       });
 
       res.json({ ok: true });
@@ -3547,7 +3554,7 @@ export async function registerRoutes(
       console.log('[Task Update] isTaskCompletion:', isTaskCompletion, 'validated:', JSON.stringify(validated));
       
       const isCriticalSku = isPriorityTask(updated?.action);
-      
+
       if (isTaskCompletion && updated && isCriticalSku) {
         console.log('[Task Update] Triggering email notification for critical SKU (action:', updated.action, ')...');
         // Build base URL from request

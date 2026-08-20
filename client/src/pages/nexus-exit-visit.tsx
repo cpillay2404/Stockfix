@@ -47,17 +47,19 @@ export default function NexusExitVisit() {
   });
 
   const handleBack = () => setLocation(`/store-detail/fix?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
-  const handleLogout = () => {
-    // Fire-and-forget consolidated visit-summary email (Carin, 2026-08-19:
-    // "can we consolidate all captures for one store in one email") - not
-    // awaited so it never delays logout/navigation.
-    fetch("/api/nexus-tasks/visit-summary/send-email", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ store, rep, client }),
-    }).catch(() => {});
-    clearAll();
-    setLocation("/");
+  const handleLogout = async () => {
+    // Wait for the consolidated visit-summary request before navigating away,
+    // so the browser cannot cancel it during logout.
+    try {
+      await fetch("/api/nexus-tasks/visit-summary/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ store, rep, client }),
+      });
+    } finally {
+      clearAll();
+      setLocation("/");
+    }
   };
 
   if (isLoading) return <Sf2LoadingState />;
