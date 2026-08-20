@@ -414,6 +414,13 @@ export const storeAssignments = pgTable("store_assignments", {
   resourceName: text("resource_name").notNull(),
   cleanedStoreName: text("cleaned_store_name").notNull(),
   banner: text("banner"),
+  // Carin, 2026-08-20: Nexus's own store master is badly incomplete for
+  // smaller/convenience formats (Usave 11.7% complete, liquor shops
+  // 38-54%, vs 97-100% for big established chains) - the Call Cycle
+  // Master file itself is 100% complete on region, since Carin maintains
+  // it directly. Used as the real region source/fallback wherever Nexus's
+  // own region comes back blank, instead of trusting Nexus's gap.
+  region: text("region"),
   clientScope: text("client_scope").notNull().default("SYNDICATED"),
   importedAt: timestamp("imported_at").defaultNow().notNull(),
 }, (table) => ({

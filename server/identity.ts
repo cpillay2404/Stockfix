@@ -231,6 +231,7 @@ export async function importStoreAssignments(rows: Array<{
   resourceName: string;
   cleanedStoreName: string;
   banner?: string;
+  region?: string;
   clientScope?: string;
 }>): Promise<{ imported: number; skipped: number }> {
   let skipped = 0;
@@ -242,6 +243,7 @@ export async function importStoreAssignments(rows: Array<{
       resourceName: String(raw.resourceName ?? "").trim(),
       cleanedStoreName: String(raw.cleanedStoreName ?? "").trim(),
       banner: raw.banner ?? null,
+      region: raw.region ?? null,
       clientScope: raw.clientScope?.trim() || "SYNDICATED",
     });
     if (!parsed.success || !parsed.data.resourceEmpId || !parsed.data.cleanedStoreName) {

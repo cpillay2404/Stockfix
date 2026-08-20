@@ -36,7 +36,7 @@ import {
 import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRoster, storeAssignments } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
-import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus } from "./nexus-sync";
+import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
 
@@ -1297,6 +1297,57 @@ export async function registerRoutes(
 
   app.get("/api/admin/nexus-summary-sync/status", async (req, res) => {
     res.json(getSyncJobStatus());
+  });
+
+  // Real gap found 2026-08-20 (Carin: "a portal for me so i can see how
+  // everything is flowing") - one endpoint that answers "where are we"
+  // with real numbers instead of a curl-and-guess cycle. Backs the
+  // /pipeline-status.html page below.
+  app.get("/api/admin/pipeline-status", async (req, res) => {
+    try {
+      const skuWeeksResult = await db.execute(sql`
+        select week_ending, count(distinct client) as client_count, count(*) as row_count
+        from store_sku_weekly
+        group by week_ending
+        order by week_ending desc
+        limit 5
+      `);
+      const skuWeeks = (skuWeeksResult.rows || skuWeeksResult) as any[];
+
+      const taskWeeksResult = await db.execute(sql`
+        select week_ending_date, count(*) as task_count,
+          count(*) filter (where action_status = 'Completed') as completed_count
+        from nexus_tasks
+        group by week_ending_date
+        order by week_ending_date desc
+      `);
+      const taskWeeks = (taskWeeksResult.rows || taskWeeksResult) as any[];
+
+      const latestSkuWeek = skuWeeks[0]?.week_ending as string | undefined;
+      const clientsInLatestWeek = latestSkuWeek
+        ? await db.execute(sql`select distinct client from store_sku_weekly where week_ending = ${latestSkuWeek} order by client`).then((r: any) => (r.rows || r).map((x: any) => x.client))
+        : [];
+      const missingClients = NEXUS_CLIENTS.filter((c) => !clientsInLatestWeek.includes(c));
+
+      res.json({
+        expectedClientCount: NEXUS_CLIENTS.length,
+        inventoryByWeek: skuWeeks.map((w) => ({
+          week: w.week_ending,
+          clientsSynced: Number(w.client_count),
+          rowCount: Number(w.row_count),
+          missingClients: w.week_ending === latestSkuWeek ? missingClients : undefined,
+        })),
+        tasksByWeek: taskWeeks.map((w) => ({
+          week: w.week_ending_date,
+          taskCount: Number(w.task_count),
+          completedCount: Number(w.completed_count),
+        })),
+        syncJob: getSyncJobStatus(),
+      });
+    } catch (error: any) {
+      console.error("Error building pipeline status:", error);
+      res.status(500).json({ error: error?.message || "Failed to load pipeline status" });
+    }
   });
 
   // Plain-text tail of the sync heartbeat log, viewable straight in a
