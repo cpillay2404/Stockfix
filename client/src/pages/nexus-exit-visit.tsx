@@ -1,5 +1,6 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock, Camera, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2LoadingState from "@/components/sf2-loading-state";
@@ -30,6 +31,8 @@ interface VisitSummaryResponse {
 export default function NexusExitVisit() {
   const [, setLocation] = useLocation();
   const { clearAll } = useAccess();
+  const endVisitRequestStarted = useRef(false);
+  const [isEndingVisit, setIsEndingVisit] = useState(false);
   const params = new URLSearchParams(window.location.search);
   const store = params.get("store") || "";
   const rep = params.get("rep") || "";
@@ -48,6 +51,10 @@ export default function NexusExitVisit() {
 
   const handleBack = () => setLocation(`/store-detail/fix?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
   const handleLogout = async () => {
+    if (endVisitRequestStarted.current) return;
+    endVisitRequestStarted.current = true;
+    setIsEndingVisit(true);
+
     // Wait for the consolidated visit-summary request before navigating away,
     // so the browser cannot cancel it during logout.
     try {
@@ -118,6 +125,8 @@ export default function NexusExitVisit() {
 
         <button
           onClick={handleLogout}
+          disabled={isEndingVisit}
+          aria-busy={isEndingVisit}
           style={{
             width: "100%",
             marginTop: 20,
@@ -128,7 +137,8 @@ export default function NexusExitVisit() {
             color: "#FFFFFF",
             fontSize: 16,
             fontWeight: 700,
-            cursor: "pointer",
+            cursor: isEndingVisit ? "wait" : "pointer",
+            opacity: isEndingVisit ? 0.7 : 1,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -136,7 +146,7 @@ export default function NexusExitVisit() {
           }}
         >
           <LogOut size={18} />
-          End Visit
+          {isEndingVisit ? "Sending visit summary…" : "End Visit"}
         </button>
       </main>
     </div>
