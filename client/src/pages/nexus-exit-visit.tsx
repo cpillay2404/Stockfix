@@ -5,6 +5,7 @@ import { ArrowLeft, CheckCircle2, Clock, Camera, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2LoadingState from "@/components/sf2-loading-state";
 import { useAccess } from "@/context/AccessContext";
+import { clearActiveVisit } from "@/lib/visit-guard";
 import "./StoreOverview.css";
 
 interface VisitSummaryResponse {
@@ -49,7 +50,7 @@ export default function NexusExitVisit() {
     enabled: !!store,
   });
 
-  const handleBack = () => setLocation(`/store-detail/fix?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
+  const handleBack = () => window.history.back();
   const handleLogout = async () => {
     if (endVisitRequestStarted.current) return;
     endVisitRequestStarted.current = true;
@@ -58,11 +59,12 @@ export default function NexusExitVisit() {
     // Wait for the consolidated visit-summary request before navigating away,
     // so the browser cannot cancel it during logout.
     try {
-      await fetch("/api/nexus-tasks/visit-summary/send-email", {
+      const response = await fetch("/api/nexus-tasks/visit-summary/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ store, rep, client }),
       });
+      if (response.ok) clearActiveVisit();
     } finally {
       clearAll();
       setLocation("/");

@@ -163,7 +163,10 @@ export default function Sf2SkuInlineCard({ store, rep, barcode, client, onClear 
       {row.classification.toUpperCase() !== "OPTIMAL" && (
         <button
           className="sf2-fixbutton"
-          onClick={() => setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${row.sourceStem || "risk"}&barcode=${encodeURIComponent(barcode)}${clientQS}`)}
+          onClick={() => {
+            const returnTo = `${window.location.pathname}${window.location.search}`;
+            setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${row.sourceStem || "risk"}&barcode=${encodeURIComponent(barcode)}${clientQS}&returnTo=${encodeURIComponent(returnTo)}&returnSteps=1`);
+          }}
         >
           <Wrench size={16} />
           FIX
