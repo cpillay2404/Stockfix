@@ -12,7 +12,7 @@
   <rect x="118" y="490" width="560" height="5" rx="2" fill="#ff8a00"/>
   <text x="118" y="555" fill="#8fa7c0" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">Screens captured from the running application</text>
   <text x="118" y="600" fill="#8fa7c0" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">August 2026</text>
-  <text x="1480" y="910" fill="#8fa7c0" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="end">33 routed screens documented</text>
+  <text x="1480" y="910" fill="#8fa7c0" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="end">29 user-facing screens documented</text>
   <text x="1480" y="950" fill="#ff8a00" font-family="DejaVu Sans,Arial,sans-serif" font-size="20px" font-weight="700" text-anchor="end">Meridian Group</text>
 
 </svg>

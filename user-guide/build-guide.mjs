@@ -37,10 +37,6 @@ const pages = [
   ["26-qr.jpg", "QR access", "Utility", "Use the QR route to open the configured StockFix access link."],
   ["27-merchandiser-pilot.jpg", "Merchandiser Pilot", "Pilot workflow", "Pilot dashboard route; this capture shows its data-loading state."],
   ["28-inventory-dashboard.jpg", "Inventory Hub", "Admin workflow", "Use the inventory dashboard to review stock-health measures and problem areas."],
-  ["29-legacy-insights.jpg", "Legacy insights", "Older retained route", "Older store-overview route retained for compatibility. The current Nexus Insights flow is documented earlier."],
-  ["30-legacy-availability.jpg", "Legacy availability", "Older retained route", "Older availability breakdown route retained for compatibility."],
-  ["31-legacy-line-list.jpg", "Legacy line list", "Older retained route", "Older filtered line-list route retained for compatibility."],
-  ["32-legacy-sku.jpg", "Legacy SKU detail", "Older retained route", "Older SKU record route retained for compatibility."],
   ["33-not-found.jpg", "Not found", "System route", "Fallback screen for an unrecognised route."],
 ];
 
@@ -72,7 +68,7 @@ const cover = baseSvg(`
   <rect x="118" y="490" width="560" height="5" rx="2" fill="#ff8a00"/>
   ${text("Screens captured from the running application", 118, 555, 22, "#8fa7c0", 400)}
   ${text("August 2026", 118, 600, 22, "#8fa7c0", 400)}
-  ${text("33 routed screens documented", 1480, 910, 22, "#8fa7c0", 400, "end")}
+  ${text("29 user-facing screens documented", 1480, 910, 22, "#8fa7c0", 400, "end")}
   ${text("Meridian Group", 1480, 950, 20, "#ff8a00", 700, "end")}
 `);
 
@@ -121,12 +117,12 @@ const routeIndex = baseSvg(`
   ${text("01–20  Access, store visit, issue investigation, and analysis", 100, 230, 21, "#d8e5f3", 400)}
   ${text("Reporting and administration", 80, 310, 25, "#3fa7ff", 700)}
   ${text("21–28  Manager access, import, progress, QR, pilot, and Inventory Hub", 100, 355, 21, "#d8e5f3", 400)}
-  ${text("Older retained routes", 80, 435, 25, "#ffb15b", 700)}
-  ${text("29–32  Legacy insights, availability, line list, and SKU detail", 100, 480, 21, "#d8e5f3", 400)}
+  ${text("Previous links", 80, 435, 25, "#ffb15b", 700)}
+  ${text("Older /store-overview/insights links redirect to the current Nexus workflow.", 100, 480, 21, "#d8e5f3", 400)}
   ${text("System route", 80, 560, 25, "#aebfd1", 700)}
-  ${text("33  Not found fallback", 100, 605, 21, "#d8e5f3", 400)}
+  ${text("29  Not found fallback", 100, 605, 21, "#d8e5f3", 400)}
   <rect x="80" y="700" width="1440" height="100" rx="14" fill="#0a2139" stroke="#1d4568" stroke-width="2"/>
-  ${text("Legacy = older screens still available in the application, not removed.", 120, 760, 23, "#ffb15b", 700)}
+  ${text("Older Store Overview links are redirected so retired pages are never shown to end users.", 120, 760, 23, "#ffb15b", 700)}
 `);
 
 const screenshotPage = (entry, index, total) => {

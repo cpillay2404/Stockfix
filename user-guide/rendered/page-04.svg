@@ -8,11 +8,11 @@
   <text x="100" y="230" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">01–20  Access, store visit, issue investigation, and analysis</text>
   <text x="80" y="310" fill="#3fa7ff" font-family="DejaVu Sans,Arial,sans-serif" font-size="25px" font-weight="700" text-anchor="start">Reporting and administration</text>
   <text x="100" y="355" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">21–28  Manager access, import, progress, QR, pilot, and Inventory Hub</text>
-  <text x="80" y="435" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="25px" font-weight="700" text-anchor="start">Older retained routes</text>
-  <text x="100" y="480" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">29–32  Legacy insights, availability, line list, and SKU detail</text>
+  <text x="80" y="435" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="25px" font-weight="700" text-anchor="start">Previous links</text>
+  <text x="100" y="480" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">Older /store-overview/insights links redirect to the current Nexus workflow.</text>
   <text x="80" y="560" fill="#aebfd1" font-family="DejaVu Sans,Arial,sans-serif" font-size="25px" font-weight="700" text-anchor="start">System route</text>
-  <text x="100" y="605" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">33  Not found fallback</text>
+  <text x="100" y="605" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">29  Not found fallback</text>
   <rect x="80" y="700" width="1440" height="100" rx="14" fill="#0a2139" stroke="#1d4568" stroke-width="2"/>
-  <text x="120" y="760" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="23px" font-weight="700" text-anchor="start">Legacy = older screens still available in the application, not removed.</text>
+  <text x="120" y="760" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="23px" font-weight="700" text-anchor="start">Older Store Overview links are redirected so retired pages are never shown to end users.</text>
 
 </svg>
