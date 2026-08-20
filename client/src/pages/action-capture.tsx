@@ -51,11 +51,18 @@ export default function ActionCapture() {
   const barcode = params.get("barcode") || "";
   const client = params.get("client") || "";
   const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
+  // Real bug found 2026-08-20 (Carin: "takes me back to the overstocks
+  // screen and then it wants me to capture the task again") - scope=fix
+  // was getting dropped here, so a capture from Fix's narrow overstock
+  // list landed back on Insights' bigger blanket list, where the same
+  // SKU can still legitimately appear - looking like it wasn't captured.
+  const scope = params.get("scope") || "";
+  const scopeQS = scope ? `&scope=${encodeURIComponent(scope)}` : "";
 
   const { data } = useQuery<SkuListResponse>({
-    queryKey: ["nexus-sku-list", store, rep, classification, client],
+    queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}`);
+      const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}${scopeQS}`);
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
@@ -155,7 +162,7 @@ export default function ActionCapture() {
       // then automatically return to the list this SKU came from so the
       // rep can keep working through it.
       setTimeout(() => {
-        setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}`);
+        setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}${scopeQS}`);
       }, 1400);
     } catch (err: any) {
       setSubmitError(err?.message || "Failed to submit action");

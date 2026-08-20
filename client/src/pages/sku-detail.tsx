@@ -68,11 +68,20 @@ export default function SkuDetail() {
   const barcode = params.get("barcode") || "";
   const client = params.get("client") || "";
   const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
+  // Real bug found 2026-08-20 (Carin: "takes me back to the overstocks
+  // screen and then it wants me to capture the task again") - scope=fix
+  // (the narrow Fix-scoped list vs Insights' blanket list, only relevant
+  // for overstock) was getting dropped on the way through sku-detail and
+  // action-capture, so a capture made from Fix's list would land back on
+  // the bigger blanket list, where the same SKU can still legitimately
+  // appear (different universe) - looking like the capture didn't work.
+  const scope = params.get("scope") || "";
+  const scopeQS = scope ? `&scope=${encodeURIComponent(scope)}` : "";
 
   const { data, isLoading, error } = useQuery<SkuListResponse>({
-    queryKey: ["nexus-sku-list", store, rep, classification, client],
+    queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}`);
+      const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}${scopeQS}`);
       if (!res.ok) throw new Error("Failed to fetch SKU list");
       return res.json();
     },
@@ -210,7 +219,7 @@ export default function SkuDetail() {
 
           <button
             className="sf2-fixbutton"
-            onClick={() => setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${clientQS}`)}
+            onClick={() => setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${clientQS}${scopeQS}`)}
           >
             <Wrench size={16} />
             FIX
