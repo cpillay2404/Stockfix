@@ -43,6 +43,23 @@ const ACTIONS_TAKEN = [
   "Unable to action (store closed / access issue)",
 ];
 
+function notifyParentOfCapturedTask(uniqueId: string) {
+  if (window.parent === window) return;
+
+  let targetOrigin = "*";
+  try {
+    if (document.referrer) targetOrigin = new URL(document.referrer).origin;
+  } catch {
+    // A missing or malformed referrer must not prevent a successful capture
+    // from being handed back to the embedding PerfectStorePro app.
+  }
+
+  window.parent.postMessage(
+    { type: "stockfix-task-captured", uniqueId },
+    targetOrigin
+  );
+}
+
 export default function ActionCapture() {
   const [, setLocation] = useLocation();
   const params = new URLSearchParams(window.location.search);
@@ -114,15 +131,7 @@ export default function ActionCapture() {
       if (!resolveRes.ok) {
         throw new Error("Couldn't find a task for this SKU/issue this week");
       }
-      const { uniqueId, repName } = await resolveRes.json();
-
-      if (repName === "Unassigned") {
-        // Best-effort claim - store/client scoping already confirmed a real
-        // task exists; if this session isn't identified the claim silently
-        // no-ops server-side and the task stays Unassigned, but feedback
-        // still saves via the PATCH below either way.
-        await fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}/claim`, { method: "POST" }).catch(() => {});
-      }
+      const { uniqueId } = await resolveRes.json();
 
       const capturedPhotos = photos.filter((p): p is { file: File; previewUrl: string } => p !== null);
       const uploadedPaths: string[] = [];
@@ -159,6 +168,7 @@ export default function ActionCapture() {
       if (!patchRes.ok) {
         throw new Error("Failed to save this action");
       }
+      notifyParentOfCapturedTask(uniqueId);
       markVisitHasCaptures(store, rep, client);
       setSubmitted(true);
       // Return to the saved source URL rather than jumping a presumed number
