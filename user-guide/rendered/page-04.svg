@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <rect width="1600" height="1000" fill="#06152a"/>
+  
+  <text x="80" y="90" fill="#f3f7fb" font-family="DejaVu Sans,Arial,sans-serif" font-size="46px" font-weight="700" text-anchor="start">Route index</text>
+  <text x="80" y="135" fill="#ff8a00" font-family="DejaVu Sans,Arial,sans-serif" font-size="23px" font-weight="700" text-anchor="start">Every captured screen in this guide</text>
+  <text x="80" y="185" fill="#35d39a" font-family="DejaVu Sans,Arial,sans-serif" font-size="25px" font-weight="700" text-anchor="start">Current Nexus workflow</text>
+  <text x="100" y="230" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">01–20  Access, store visit, issue investigation, and analysis</text>
+  <text x="80" y="310" fill="#3fa7ff" font-family="DejaVu Sans,Arial,sans-serif" font-size="25px" font-weight="700" text-anchor="start">Reporting and administration</text>
+  <text x="100" y="355" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">21–28  Manager access, import, progress, QR, pilot, and Inventory Hub</text>
+  <text x="80" y="435" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="25px" font-weight="700" text-anchor="start">Older retained routes</text>
+  <text x="100" y="480" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">29–32  Legacy insights, availability, line list, and SKU detail</text>
+  <text x="80" y="560" fill="#aebfd1" font-family="DejaVu Sans,Arial,sans-serif" font-size="25px" font-weight="700" text-anchor="start">System route</text>
+  <text x="100" y="605" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">33  Not found fallback</text>
+  <rect x="80" y="700" width="1440" height="100" rx="14" fill="#0a2139" stroke="#1d4568" stroke-width="2"/>
+  <text x="120" y="760" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="23px" font-weight="700" text-anchor="start">Legacy = older screens still available in the application, not removed.</text>
+
+</svg>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <rect width="1600" height="1000" fill="#06152a"/>
+  
+  <text x="80" y="100" fill="#f3f7fb" font-family="DejaVu Sans,Arial,sans-serif" font-size="46px" font-weight="700" text-anchor="start">End Visit and visit-summary email</text>
+  <text x="80" y="145" fill="#ff8a00" font-family="DejaVu Sans,Arial,sans-serif" font-size="23px" font-weight="700" text-anchor="start">The required close-out step</text>
+  <rect x="80" y="200" width="690" height="650" rx="18" fill="#0a2139" stroke="#1d4568" stroke-width="2"/>
+  <text x="125" y="265" fill="#f3f7fb" font-family="DejaVu Sans,Arial,sans-serif" font-size="27px" font-weight="700" text-anchor="start">Before ending a visit</text>
+  <text x="125" y="325" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">• Finish or review captured tasks</text>
+  <text x="125" y="375" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">• Confirm feedback and photos are present</text>
+  <text x="125" y="425" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">• Open End Visit &amp; Send Summary</text>
+  <text x="125" y="475" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">• Wait for the send request to finish</text>
+  <text x="125" y="525" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">• Retry from the summary page if delivery fails</text>
+  <rect x="850" y="200" width="670" height="650" rx="18" fill="#0a2139" stroke="#1d4568" stroke-width="2"/>
+  <text x="895" y="265" fill="#f3f7fb" font-family="DejaVu Sans,Arial,sans-serif" font-size="27px" font-weight="700" text-anchor="start">What the email contains</text>
+  <text x="895" y="335" fill="#35d39a" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="700" text-anchor="start">Store, client, and representative</text>
+  <text x="895" y="395" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">All completed tasks for the store and rep</text>
+  <text x="895" y="455" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">Feedback captured during the visit</text>
+  <text x="895" y="515" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">Uploaded image links (image1 through image4)</text>
+  <text x="895" y="575" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">Recipients resolved for the rep, manager, client, and region</text>
+  <text x="895" y="690" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="700" text-anchor="start">Duplicate clicks are blocked while sending.</text>
+  <text x="895" y="735" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="700" text-anchor="start">The visit is cleared only after a successful send.</text>
+
+</svg>

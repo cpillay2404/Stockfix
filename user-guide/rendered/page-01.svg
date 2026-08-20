@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <rect width="1600" height="1000" fill="#06152a"/>
+  
+  <circle cx="1360" cy="170" r="220" fill="#0b2742" opacity=".75"/>
+  <circle cx="1360" cy="170" r="150" fill="none" stroke="#1c79c2" stroke-width="2" opacity=".5"/>
+  <circle cx="1360" cy="170" r="90" fill="none" stroke="#ff8a00" stroke-width="2" opacity=".55"/>
+  <text x="110" y="230" fill="#f3f7fb" font-family="DejaVu Sans,Arial,sans-serif" font-size="92px" font-weight="700" text-anchor="start">Stock</text>
+  <text x="405" y="230" fill="#ff8a00" font-family="DejaVu Sans,Arial,sans-serif" font-size="92px" font-weight="700" text-anchor="start">Fix</text>
+  <text x="116" y="320" fill="#9db5ce" font-family="DejaVu Sans,Arial,sans-serif" font-size="44px" font-weight="400" text-anchor="start">User Guide</text>
+  <text x="118" y="400" fill="#d8e5f3" font-family="DejaVu Sans,Arial,sans-serif" font-size="26px" font-weight="400" text-anchor="start">Store visit, action capture, reporting, and admin workflows</text>
+  <rect x="118" y="490" width="560" height="5" rx="2" fill="#ff8a00"/>
+  <text x="118" y="555" fill="#8fa7c0" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">Screens captured from the running application</text>
+  <text x="118" y="600" fill="#8fa7c0" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="start">August 2026</text>
+  <text x="1480" y="910" fill="#8fa7c0" font-family="DejaVu Sans,Arial,sans-serif" font-size="22px" font-weight="400" text-anchor="end">33 routed screens documented</text>
+  <text x="1480" y="950" fill="#ff8a00" font-family="DejaVu Sans,Arial,sans-serif" font-size="20px" font-weight="700" text-anchor="end">Meridian Group</text>
+
+</svg>

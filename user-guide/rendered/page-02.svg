@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1600" height="1000" viewBox="0 0 1600 1000">
+  <rect width="1600" height="1000" fill="#06152a"/>
+  
+  <text x="80" y="100" fill="#f3f7fb" font-family="DejaVu Sans,Arial,sans-serif" font-size="46px" font-weight="700" text-anchor="start">How to use StockFix</text>
+  <text x="80" y="145" fill="#ff8a00" font-family="DejaVu Sans,Arial,sans-serif" font-size="23px" font-weight="700" text-anchor="start">Current workflow at a glance</text>
+  <rect x="80" y="200" width="1440" height="630" rx="18" fill="#0a2139" stroke="#1d4568" stroke-width="2"/>
+  <text x="140" y="300" fill="#ff8a00" font-family="DejaVu Sans,Arial,sans-serif" font-size="52px" font-weight="700" text-anchor="start">1</text>
+  <text x="220" y="292" fill="#f3f7fb" font-family="DejaVu Sans,Arial,sans-serif" font-size="28px" font-weight="700" text-anchor="start">Choose access, client, store, and representative</text>
+  <text x="220" y="335" fill="#9db5ce" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">Start a visit from Stores, then open Insights for the selected store.</text>
+  <text x="140" y="455" fill="#3fa7ff" font-family="DejaVu Sans,Arial,sans-serif" font-size="52px" font-weight="700" text-anchor="start">2</text>
+  <text x="220" y="447" fill="#f3f7fb" font-family="DejaVu Sans,Arial,sans-serif" font-size="28px" font-weight="700" text-anchor="start">Investigate an issue and capture the fix</text>
+  <text x="220" y="490" fill="#9db5ce" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">Follow an issue list to SKU detail, choose a path, and save captures immediately.</text>
+  <text x="140" y="610" fill="#35d39a" font-family="DejaVu Sans,Arial,sans-serif" font-size="52px" font-weight="700" text-anchor="start">3</text>
+  <text x="220" y="602" fill="#f3f7fb" font-family="DejaVu Sans,Arial,sans-serif" font-size="28px" font-weight="700" text-anchor="start">End the visit and send the summary</text>
+  <text x="220" y="645" fill="#9db5ce" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">The summary email includes completed tasks, feedback, and links to uploaded photos.</text>
+  <text x="220" y="735" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="700" text-anchor="start">Important: captures are saved as you work, but the email is sent only from End Visit &amp; Send Summary.</text>
+  <text x="220" y="775" fill="#ffb15b" font-family="DejaVu Sans,Arial,sans-serif" font-size="21px" font-weight="400" text-anchor="start">If you try to leave after capturing work, choose End Visit &amp; Send Summary or Keep Working in This Store.</text>
+
+</svg>
