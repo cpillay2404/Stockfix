@@ -5192,6 +5192,16 @@ export async function registerRoutes(
         return trimmed ? trimmed.toUpperCase() : "Unknown";
       };
 
+      // Real gap found 2026-08-20 - the actual "StockFix Adoption" dashboard
+      // (Live Dashboard.dc.html, wired directly against this endpoint)
+      // computes its own region/manager filtering entirely client-side from
+      // byRep, expecting each rep row to already carry a `region` and
+      // `manager` field - it never reads the backend-computed
+      // adoptionByRole/byRegion.reps/byManager.adoptionPct fields at all.
+      // Track a representative region per rep (last one seen is fine - used
+      // for filtering, not as an exact single-region claim for reps who
+      // cover more than one) alongside the existing counts.
+      const repRegion = new Map<string, string>();
       for (const c of completed) {
         if (!byStoreMap.has(c.storeName)) byStoreMap.set(c.storeName, { completed: 0, open: new Set() });
         byStoreMap.get(c.storeName)!.completed++;
@@ -5200,6 +5210,7 @@ export async function registerRoutes(
         if (c.repName && c.repName !== "Unassigned") {
           if (!byRepMap.has(c.repName)) byRepMap.set(c.repName, { completed: 0, open: new Set() });
           byRepMap.get(c.repName)!.completed++;
+          if (c.region) repRegion.set(c.repName, normalizeRegion(c.region));
         }
         const region = normalizeRegion(c.region);
         if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
@@ -5213,6 +5224,7 @@ export async function registerRoutes(
         if (o.resourceName) {
           if (!byRepMap.has(o.resourceName)) byRepMap.set(o.resourceName, { completed: 0, open: new Set() });
           byRepMap.get(o.resourceName)!.open.add(o.uniqueId);
+          if (o.region && !repRegion.has(o.resourceName)) repRegion.set(o.resourceName, normalizeRegion(o.region));
         }
         const region = normalizeRegion(o.region);
         if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
@@ -5242,6 +5254,8 @@ export async function registerRoutes(
       const byRep = toSorted(byRepMap, "rep").map((r: any) => ({
         ...r,
         resourceType: resourceTypeByName.get(String(r.rep).toUpperCase().trim()) || null,
+        region: repRegion.get(r.rep) || null,
+        manager: managerByName.get(String(r.rep).toUpperCase().trim()) || null,
       }));
 
       // Real "by manager" breakdown (Carin, 2026-08-19: "how do i see the
@@ -5382,7 +5396,18 @@ export async function registerRoutes(
         byRegion: byRegionWithAdoption,
         byManager: byManagerWithAdoption,
         adoptionByRole,
-        recent: completed.slice(0, 50),
+        // Real gap found 2026-08-20 - the actual Adoption dashboard reads
+        // r.store/r.rep directly (not nexus_tasks' own storeName/repName
+        // column names) and filters by manager via pick(r, MANAGER_KEYS),
+        // which doesn't include `lineManager` either. Add these as aliases
+        // rather than renaming the real columns everywhere else that
+        // already depends on storeName/repName.
+        recent: completed.slice(0, 50).map((c) => ({
+          ...c,
+          store: c.storeName,
+          rep: c.repName,
+          manager: managerByName.get(String(c.repName).toUpperCase().trim()) || c.lineManager || null,
+        })),
       });
     } catch (error) {
       console.error("Error fetching live dashboard:", error);
