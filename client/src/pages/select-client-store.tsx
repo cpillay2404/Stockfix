@@ -139,6 +139,12 @@ export default function SelectClientStore() {
     }
   }, [accessMode, setAccessMode, setClientLocked]);
 
+  useEffect(() => {
+    // A client session must not inherit the rep identity cookie from a
+    // previous visit on the same device.
+    void fetch("/api/auth/sign-out", { method: "POST" });
+  }, []);
+
   // Intercept the device/browser back button so it returns to home
   // instead of landing on whatever was previously in browser history
   // (e.g. Store Overview from a prior rep session).

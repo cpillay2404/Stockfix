@@ -165,13 +165,13 @@ export async function findRosterMatch(resourceEmpId: string, resourceName: strin
   if (row.resourceType?.toUpperCase().includes("SYNDICATED")) {
     return { ...row, clientScope: "SYNDICATED" };
   }
-  const realScope = await resolveRealClientScope(row.resourceEmpId);
-  if (realScope) {
-    return { ...row, clientScope: realScope };
-  }
   const typeScope = clientScopeFromResourceType(row.resourceType);
   if (typeScope) {
     return { ...row, clientScope: typeScope };
+  }
+  const realScope = await resolveRealClientScope(row.resourceEmpId);
+  if (realScope) {
+    return { ...row, clientScope: realScope };
   }
   return row;
 }

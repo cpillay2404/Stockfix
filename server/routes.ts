@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertTaskSchema } from "@shared/schema";
@@ -482,10 +482,37 @@ if (!fs.existsSync('public/images')) fs.mkdirSync('public/images', { recursive: 
 // responsible for those, so they shouldn't appear in their combined view.
 async function getDedicatedClientsAtStore(store: string): Promise<Set<string>> {
   const rows = await db
-    .select({ clientScope: storeAssignments.clientScope })
+    .select({
+      clientScope: storeAssignments.clientScope,
+      resourceType: resourceRoster.resourceType,
+    })
     .from(storeAssignments)
-    .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${store.toUpperCase().trim()} and ${storeAssignments.clientScope} != 'SYNDICATED'`);
-  return new Set(rows.map((r) => r.clientScope).filter((c): c is string => !!c));
+    .leftJoin(
+      resourceRoster,
+      sql`upper(trim(${storeAssignments.resourceEmpId})) = upper(trim(${resourceRoster.resourceEmpId}))`
+    )
+    .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${store.toUpperCase().trim()}`);
+
+  const clients = rows.flatMap((row) => {
+    if (row.clientScope && row.clientScope.toUpperCase() !== "SYNDICATED") {
+      return [row.clientScope];
+    }
+    const typeScope = clientScopeFromResourceType(row.resourceType);
+    return typeScope ? [typeScope] : [];
+  });
+  return new Set(clients);
+}
+
+async function getEligibleSyndicatedClientsAtStore(store: string): Promise<string[]> {
+  const rows = await db
+    .selectDistinct({ client: storeWeeklySummary.client })
+    .from(storeWeeklySummary)
+    .where(sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = ${store.toUpperCase().trim()}`)
+    .orderBy(storeWeeklySummary.client);
+  const dedicatedClients = await getDedicatedClientsAtStore(store);
+  return rows
+    .map((row) => row.client)
+    .filter((client) => !dedicatedClients.has(client));
 }
 
 interface RepClientScope {
@@ -494,7 +521,50 @@ interface RepClientScope {
   locked: boolean;
 }
 
-async function getRepClientScopeForStore(store: string, repName: string): Promise<RepClientScope> {
+interface VerifiedRepContext {
+  repName: string;
+  resourceEmpId?: string;
+  error?: string;
+}
+
+async function resolveVerifiedRepContext(
+  req: Request,
+  store: string,
+  requestedRepName: string
+): Promise<VerifiedRepContext> {
+  if (!req.identity && !requestedRepName) return { repName: "" };
+  if (!req.identity) {
+    return { repName: "", error: "Please identify yourself before opening a rep store view" };
+  }
+
+  const normalizedIdentity = req.identity.resourceName.toUpperCase().trim();
+  if (requestedRepName && requestedRepName.toUpperCase().trim() !== normalizedIdentity) {
+    return { repName: "", error: "The requested rep does not match this signed-in session" };
+  }
+
+  const [assignment] = await db
+    .select({ resourceEmpId: storeAssignments.resourceEmpId })
+    .from(storeAssignments)
+    .where(sql`
+      upper(trim(${storeAssignments.cleanedStoreName})) = ${store.toUpperCase().trim()}
+      and upper(trim(${storeAssignments.resourceEmpId})) = ${req.identity.resourceEmpId.toUpperCase().trim()}
+    `)
+    .limit(1);
+  if (!assignment) {
+    return { repName: "", error: "This store is not assigned to the signed-in rep" };
+  }
+
+  return {
+    repName: req.identity.resourceName,
+    resourceEmpId: req.identity.resourceEmpId,
+  };
+}
+
+async function getRepClientScopeForStore(
+  store: string,
+  repName: string,
+  resourceEmpId?: string
+): Promise<RepClientScope> {
   if (!repName) {
     return { clientScope: "SYNDICATED", resourceType: "", locked: false };
   }
@@ -506,7 +576,9 @@ async function getRepClientScopeForStore(store: string, repName: string): Promis
       clientScope: resourceRoster.clientScope,
     })
     .from(resourceRoster)
-    .where(sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
+    .where(resourceEmpId
+      ? sql`upper(trim(${resourceRoster.resourceEmpId})) = ${resourceEmpId.toUpperCase().trim()}`
+      : sql`upper(trim(${resourceRoster.resourceName})) = ${repName.toUpperCase().trim()}`)
     .limit(1);
 
   if (!rosterRow) {
@@ -533,10 +605,10 @@ async function getRepClientScopeForStore(store: string, repName: string): Promis
   const isSyndicatedResource = resourceType.toUpperCase().includes("SYNDICATED");
   if (!isSyndicatedResource) {
     const typeScope = clientScopeFromResourceType(resourceType);
-    const resolvedScope = dedicatedScopes.length === 1
-      ? dedicatedScopes[0]
-      : typeScope
-        || (rosterRow.clientScope && rosterRow.clientScope !== "SYNDICATED"
+    const resolvedScope = typeScope
+      || (dedicatedScopes.length === 1
+        ? dedicatedScopes[0]
+        : rosterRow.clientScope && rosterRow.clientScope !== "SYNDICATED"
           ? rosterRow.clientScope.trim()
           : dedicatedScopes[0]);
     if (resolvedScope) {
@@ -984,6 +1056,13 @@ export async function registerRoutes(
     }
   });
 
+  // Client access is a separate flow. Clear a previous rep identity before
+  // entering it so that an old rep session cannot influence client routes.
+  app.post("/api/auth/sign-out", (_req, res) => {
+    res.clearCookie(IDENTITY_COOKIE_NAME, { httpOnly: true, sameSite: "lax" });
+    res.json({ ok: true });
+  });
+
   // POST admin roster import - accepts the same JSON array shape
   // store_coverage.json already produces (Call Cycle Master + P&G tabs,
   // dedicated-overrides-syndicated resolved). Upserts by resourceEmpId, so a
@@ -1131,12 +1210,15 @@ export async function registerRoutes(
   app.get("/api/roster/clients-for-store", async (req, res) => {
     try {
       const store = String(req.query.store || "").trim();
-      const repName = String(req.query.rep || "").trim();
+      const requestedRepName = String(req.query.rep || "").trim();
       if (!store) {
         return res.status(400).json({ error: "store query param is required" });
       }
+      const repContext = await resolveVerifiedRepContext(req, store, requestedRepName);
+      if (repContext.error) return res.status(401).json({ error: repContext.error });
+      const repName = repContext.repName;
 
-      const repScope = await getRepClientScopeForStore(store, repName);
+      const repScope = await getRepClientScopeForStore(store, repName, repContext.resourceEmpId);
 
       if (repScope.locked) {
         return res.json({
@@ -1146,15 +1228,7 @@ export async function registerRoutes(
         });
       }
 
-      const rows = await db
-        .selectDistinct({ client: storeWeeklySummary.client })
-        .from(storeWeeklySummary)
-        .where(sql`upper(trim(${storeWeeklySummary.cleanedStoreName})) = ${store.toUpperCase().trim()}`)
-        .orderBy(storeWeeklySummary.client);
-      const dedicatedClients = await getDedicatedClientsAtStore(store);
-      const clients = rows
-        .map((row) => row.client)
-        .filter((client) => !dedicatedClients.has(client));
+      const clients = await getEligibleSyndicatedClientsAtStore(store);
       res.json({
         clients,
         locked: false,
@@ -1714,11 +1788,13 @@ export async function registerRoutes(
   app.get("/api/roster/store-overview", async (req, res) => {
     try {
       const store = String(req.query.store || "").trim();
-      const repName = String(req.query.rep || "").trim();
+      const requestedRepName = String(req.query.rep || "").trim();
       if (!store) {
         return res.status(400).json({ error: "store query param is required" });
       }
-      const repScope = await getRepClientScopeForStore(store, repName);
+      const repContext = await resolveVerifiedRepContext(req, store, requestedRepName);
+      if (repContext.error) return res.status(401).json({ error: repContext.error });
+      const repScope = await getRepClientScopeForStore(store, repContext.repName, repContext.resourceEmpId);
       let clientScope = repScope.clientScope;
 
       // Explicit client override from the Client filter on Store Overview -
@@ -1732,7 +1808,14 @@ export async function registerRoutes(
       // explicitly picked.
       const explicitClient = String(req.query.client || "").trim();
       if (explicitClient && explicitClient !== "ALL" && !repScope.locked) {
-        clientScope = explicitClient;
+        const eligibleClients = await getEligibleSyndicatedClientsAtStore(store);
+        const selectedClient = eligibleClients.find(
+          (client) => client.toUpperCase() === explicitClient.toUpperCase()
+        );
+        if (!selectedClient) {
+          return res.status(403).json({ error: "Client is not available for this syndicated store view" });
+        }
+        clientScope = selectedClient;
       }
 
       // Fast path: resolve the real client and pull trend/deltas from our
@@ -1764,7 +1847,13 @@ export async function registerRoutes(
         const relevantRows = clientScope === "SYNDICATED"
           ? summaryRows
           : summaryRows.filter((r) => r.client === clientScope);
-        const rowsToUse = relevantRows.length > 0 ? relevantRows : summaryRows;
+        // A locked client must never fall back to another client's summary
+        // row. If it has not synced yet, keep its known client and let the
+        // client-specific live lookup decide whether there is data.
+        const rowsToUse = relevantRows;
+        if (clientScope !== "SYNDICATED" && rowsToUse.length === 0) {
+          knownClient = clientScope;
+        }
 
         const latestWeek = rowsToUse[0]?.weekEnding;
         resolvedWeek = latestWeek;
@@ -1837,6 +1926,12 @@ export async function registerRoutes(
       if (!overview) {
         return res.status(404).json({ error: "No live Nexus data found for this store" });
       }
+      if (
+        clientScope !== "SYNDICATED"
+        && overview.resolvedClient.toUpperCase() !== clientScope.toUpperCase()
+      ) {
+        return res.status(404).json({ error: "No Nexus data found for this client's store view" });
+      }
       // overview.overstockCount already comes straight off store_weekly_summary
       // (fetchStoreOverviewFast's best.overstockCount) - Insights' "all
       // overstocks" blanket number, untouched by any per-client logic.
@@ -1875,7 +1970,7 @@ export async function registerRoutes(
   app.get("/api/roster/sku-list", async (req, res) => {
     try {
       const store = String(req.query.store || "").trim();
-      const repName = String(req.query.rep || "").trim();
+      const requestedRepName = String(req.query.rep || "").trim();
       const classification = String(req.query.classification || "oos").trim();
       if (!store) {
         return res.status(400).json({ error: "store query param is required" });
@@ -1883,8 +1978,10 @@ export async function registerRoutes(
       if (!["oos", "low", "overstock", "risk", "distribution", "cover", "negsoh"].includes(classification)) {
         return res.status(400).json({ error: "classification must be 'oos', 'low', 'overstock', 'risk', 'distribution', 'cover', or 'negsoh'" });
       }
+      const repContext = await resolveVerifiedRepContext(req, store, requestedRepName);
+      if (repContext.error) return res.status(401).json({ error: repContext.error });
 
-      const repScope = await getRepClientScopeForStore(store, repName);
+      const repScope = await getRepClientScopeForStore(store, repContext.repName, repContext.resourceEmpId);
       let clientScope = repScope.clientScope;
 
       // Explicit client override from the Client filter on Store Overview -
@@ -1896,7 +1993,14 @@ export async function registerRoutes(
       // 11 OOS for one client, drilling in showed 0 for a different one).
       const explicitClient = String(req.query.client || "").trim();
       if (explicitClient && explicitClient !== "ALL" && !repScope.locked) {
-        clientScope = explicitClient;
+        const eligibleClients = await getEligibleSyndicatedClientsAtStore(store);
+        const selectedClient = eligibleClients.find(
+          (client) => client.toUpperCase() === explicitClient.toUpperCase()
+        );
+        if (!selectedClient) {
+          return res.status(403).json({ error: "Client is not available for this syndicated store view" });
+        }
+        clientScope = selectedClient;
       }
 
       // Security fix 2026-08-16: "All Clients" must only fan out across
@@ -2139,13 +2243,15 @@ export async function registerRoutes(
   app.get("/api/roster/sku-history", scopeToClient, async (req, res) => {
     try {
       const store = String(req.query.store || "").trim();
-      const repName = String(req.query.rep || "").trim();
+      const requestedRepName = String(req.query.rep || "").trim();
       const barcode = String(req.query.barcode || "").trim();
       if (!store || !barcode) {
         return res.status(400).json({ error: "store and barcode query params are required" });
       }
+      const repContext = await resolveVerifiedRepContext(req, store, requestedRepName);
+      if (repContext.error) return res.status(401).json({ error: repContext.error });
 
-      const repScope = await getRepClientScopeForStore(store, repName);
+      const repScope = await getRepClientScopeForStore(store, repContext.repName, repContext.resourceEmpId);
       let clientScope = repScope.clientScope;
 
       // Same explicit override as sku-list/store-overview - see comment there.
@@ -2155,7 +2261,14 @@ export async function registerRoutes(
       // zero rows and the trend stayed stuck on "Building history..." forever.
       const explicitClient = String(req.query.client || "").trim();
       if (explicitClient && explicitClient !== "ALL" && !repScope.locked) {
-        clientScope = explicitClient;
+        const eligibleClients = await getEligibleSyndicatedClientsAtStore(store);
+        const selectedClient = eligibleClients.find(
+          (client) => client.toUpperCase() === explicitClient.toUpperCase()
+        );
+        if (!selectedClient) {
+          return res.status(403).json({ error: "Client is not available for this syndicated store view" });
+        }
+        clientScope = selectedClient;
       }
 
       const summaryRows = await db

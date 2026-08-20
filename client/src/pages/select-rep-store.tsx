@@ -353,20 +353,21 @@ export default function SelectRepStore() {
   const handleContinue = async () => {
     if (!repValue) return;
     setSelectedRep(repValue);
-    // Identify this session so the claim step later actually attributes
-    // captures to a real person instead of leaving them "Unassigned" -
-    // best-effort: a failure here (e.g. a data timing edge case) shouldn't
-    // block the rep from starting their visit, just means claim won't work
-    // for this session.
+    // Identify this session before opening a rep store view. The server uses
+    // this verified identity to enforce the rep's actual store and client
+    // scope, rather than trusting query-string values.
     const empId = empIdByName[repValue];
     let dedicatedClientQS = "";
-    if (empId) {
-      try {
-        const identifyRes = await fetch("/api/auth/identify", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ resourceEmpId: empId, resourceName: repValue }),
-        });
+    if (!empId) {
+      window.alert("We couldn't verify your employee ID. Please select your name again.");
+      return;
+    }
+    try {
+      const identifyRes = await fetch("/api/auth/identify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ resourceEmpId: empId, resourceName: repValue }),
+      });
         // Real bug found 2026-08-20 (Carin: "why does a Sodastream
         // dedicated rep when i log in as her show all clients... applies
         // to merchandisers too") - the identify response already carries
@@ -375,15 +376,18 @@ export default function SelectRepStore() {
         // value), but it was being fetched and thrown away here. Thread
         // it through as the locked client for a dedicated person, same
         // as a Client-type login already locks to their one client.
-        if (identifyRes.ok) {
-          const identifyBody = await identifyRes.json().catch(() => null);
-          if (identifyBody?.clientScope && identifyBody.clientScope !== "SYNDICATED") {
-            dedicatedClientQS = `&client=${encodeURIComponent(identifyBody.clientScope)}`;
-          }
-        }
-      } catch (err) {
-        console.error("Failed to identify session", err);
+      if (!identifyRes.ok) {
+        window.alert("We couldn't verify your session. Please try again.");
+        return;
       }
+      const identifyBody = await identifyRes.json().catch(() => null);
+      if (identifyBody?.clientScope && identifyBody.clientScope !== "SYNDICATED") {
+        dedicatedClientQS = `&client=${encodeURIComponent(identifyBody.clientScope)}`;
+      }
+    } catch (err) {
+      console.error("Failed to identify session", err);
+      window.alert("We couldn't verify your session. Please check your connection and try again.");
+      return;
     }
     setLocation(`/home?rep=${encodeURIComponent(repValue)}&role=${roleLabel}&store=${encodeURIComponent(storeValue)}${dedicatedClientQS}`);
   };
