@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, ArrowLeft, Store as StoreIcon } from "lucide-react";
@@ -237,6 +237,30 @@ export default function StoreOverview() {
     }
     setLocation(rep ? `/select-rep?role=${encodeURIComponent(role)}` : "/select-client-store");
   };
+
+  // Browser/device Back can bypass the explicit Store button and top-left
+  // guard. Restore the Insights entry when it would leave the store so the
+  // user sees the same prompt instead of silently abandoning an open visit.
+  // Other /store-detail routes remain inside the current visit and are
+  // intentionally allowed.
+  useEffect(() => {
+    let restoringHistory = false;
+    const handlePopState = () => {
+      if (restoringHistory) {
+        restoringHistory = false;
+        return;
+      }
+      if (window.location.pathname.startsWith("/store-detail")) return;
+      if (!hasUnclosedVisit(store, rep, activeClient)) return;
+
+      restoringHistory = true;
+      window.history.forward();
+      setShowLeavePrompt(true);
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [store, rep, activeClient]);
 
   // Real "biggest current contributor" to the store-level SOH/Sales
   // totals - reuses the SKU dropdown's already-fetched per-SKU data, no

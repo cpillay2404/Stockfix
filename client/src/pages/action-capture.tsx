@@ -62,8 +62,6 @@ export default function ActionCapture() {
   const requestedReturnTo = params.get("returnTo") || "";
   const defaultReturnTo = `/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${encodeURIComponent(classification)}${clientQS}${scopeQS}`;
   const returnTo = requestedReturnTo.startsWith("/store-detail/") ? requestedReturnTo : defaultReturnTo;
-  const requestedReturnSteps = Number(params.get("returnSteps"));
-  const returnSteps = requestedReturnSteps === 1 || requestedReturnSteps === 2 ? requestedReturnSteps : 2;
 
   const { data } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
@@ -89,7 +87,7 @@ export default function ActionCapture() {
   const [submitError, setSubmitError] = useState("");
   const [varianceDismissed, setVarianceDismissed] = useState(false);
 
-  const onBack = () => window.history.back();
+  const onBack = () => setLocation(returnTo, { replace: true });
 
   const variance = physicalCount - systemCount;
   const hasVariance = variance !== 0;
@@ -163,20 +161,11 @@ export default function ActionCapture() {
       }
       markVisitHasCaptures(store, rep, client);
       setSubmitted(true);
-      // Real gap found 2026-08-18 (Carin: "no toast or to say its logged...
-      // theres no end visit or log out or fuck all") - submitting just sat
-      // on a dead "Action Submitted" screen with nowhere to go. Confirm,
-      // then automatically return to the list this SKU came from so the
-      // rep can keep working through it.
+      // Return to the saved source URL rather than jumping a presumed number
+      // of browser-history entries. That keeps direct links and app launches
+      // inside the store flow instead of accidentally reaching the splash.
       setTimeout(() => {
-        // A capture can be opened directly from an overview (one history
-        // step) or through SKU detail (two steps). Return to the real page
-        // in either case, without leaving a completed SKU in Back history.
-        if (window.history.length > returnSteps) {
-          window.history.go(-returnSteps);
-        } else {
-          setLocation(returnTo, { replace: true });
-        }
+        setLocation(returnTo, { replace: true });
       }, 1400);
     } catch (err: any) {
       setSubmitError(err?.message || "Failed to submit action");
