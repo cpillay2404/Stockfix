@@ -43,20 +43,24 @@ const ACTIONS_TAKEN = [
   "Unable to action (store closed / access issue)",
 ];
 
-function notifyParentOfCapturedTask(uniqueId: string) {
-  if (window.parent === window) return;
+const PARENT_APP_ORIGIN = "https://perfectstorepro.replit.app";
 
-  let targetOrigin = "*";
+function isEmbeddedInParentApp() {
+  if (window.parent === window) return false;
+  if (!document.referrer) return true;
   try {
-    if (document.referrer) targetOrigin = new URL(document.referrer).origin;
+    return new URL(document.referrer).origin === PARENT_APP_ORIGIN;
   } catch {
-    // A missing or malformed referrer must not prevent a successful capture
-    // from being handed back to the embedding PerfectStorePro app.
+    return false;
   }
+}
+
+function notifyParentOfCapturedTask(uniqueId: string) {
+  if (!isEmbeddedInParentApp()) return;
 
   window.parent.postMessage(
     { type: "stockfix-task-captured", uniqueId },
-    targetOrigin
+    PARENT_APP_ORIGIN
   );
 }
 
@@ -131,7 +135,25 @@ export default function ActionCapture() {
       if (!resolveRes.ok) {
         throw new Error("Couldn't find a task for this SKU/issue this week");
       }
-      const { uniqueId } = await resolveRes.json();
+      const { uniqueId, repName } = await resolveRes.json();
+
+      const embeddedInParentApp = isEmbeddedInParentApp();
+      if (repName === "Unassigned" && !embeddedInParentApp) {
+        // Direct StockFix sessions use the rep/merchandiser identity selected
+        // in StockFix. Embedded sessions leave identity assignment to the
+        // authenticated parent application.
+        const claimRes = await fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}/claim`, { method: "POST" });
+        if (!claimRes.ok) {
+          let detail = "";
+          try {
+            const body = await claimRes.json();
+            detail = typeof body?.error === "string" ? body.error : "";
+          } catch {
+            // Keep the user-facing error generic if the server did not return JSON.
+          }
+          throw new Error(detail || "Your StockFix identity could not be confirmed. Please go back and select your name again.");
+        }
+      }
 
       const capturedPhotos = photos.filter((p): p is { file: File; previewUrl: string } => p !== null);
       const uploadedPaths: string[] = [];
