@@ -85,6 +85,23 @@ async function buildStoreCoverageMap(): Promise<Map<string, { empId: string; res
   return map;
 }
 
+// Real gap found 2026-08-20 (Carin: "cant you take it from the call cycle
+// for stock fix") - Nexus's own store master is badly incomplete for
+// smaller/convenience formats (confirmed: Usave 11.7% complete, liquor
+// shops 38-54%, vs 97-100% for big established chains), while the Call
+// Cycle Master file Carin maintains directly is 100% complete on region.
+// Used as a fallback wherever Nexus's own region comes back blank.
+async function buildStoreRegionMap(): Promise<Map<string, string>> {
+  const rows = await db.select({ cleanedStoreName: storeAssignments.cleanedStoreName, region: storeAssignments.region }).from(storeAssignments);
+  const map = new Map<string, string>();
+  for (const r of rows) {
+    if (!r.region) continue;
+    const key = String(r.cleanedStoreName).toUpperCase().trim();
+    if (!map.has(key)) map.set(key, r.region);
+  }
+  return map;
+}
+
 // Generalized 2026-08-18 - this only ever special-cased "P&G" (real bug
 // found the same day: a Duracell-dedicated rep was showing up assigned to
 // Sodastream tasks, because every non-P&G client fell straight through to
@@ -267,6 +284,7 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
   const flaggedGaps = await db.select().from(distributionGaps).where(eq(distributionGaps.weekEnding, week));
 
   const coverage = await buildStoreCoverageMap();
+  const regionByStore = await buildStoreRegionMap();
   const insertRows: InsertNexusTask[] = [];
   const assigneeRows: { taskUniqueId: string; resourceEmpId: string; resourceName: string }[] = [];
   const noAssignmentStores = new Set<string>();
@@ -281,6 +299,11 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
     if (assignees.length === 0) {
       noAssignmentStores.add(`${opts.client}_${opts.storeName}`); // real call-cycle gap, not guessed at
       return;
+    }
+    // Fall back to Call Cycle Master's region whenever Nexus's own is blank
+    // (see buildStoreRegionMap) - never overrides a real Nexus value.
+    if (!opts.region) {
+      opts.region = regionByStore.get(String(opts.storeName).toUpperCase().trim()) || opts.region;
     }
 
     const uniqueId = `NEXUS_${week}_${opts.client}_${opts.storeName}_${sourceStem}_${opts.barcode}`.replace(/\s+/g, "_");
