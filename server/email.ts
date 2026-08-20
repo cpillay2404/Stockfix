@@ -325,6 +325,10 @@ interface VisitSummaryEmailData {
     reasonCode?: string | null;
     actionTakenComment?: string | null;
     feedback?: string | null;
+    image1?: string | null;
+    image2?: string | null;
+    image3?: string | null;
+    image4?: string | null;
   }>;
   baseUrl?: string;
 }
@@ -343,11 +347,18 @@ export async function sendVisitSummaryEmail(data: VisitSummaryEmailData): Promis
   const subject = `StockFix Visit Summary | ${safeString(data.client)} | ${safeString(data.storeName)} | ${data.completedCount} captured`;
 
   const captureLines = data.captures.length > 0
-    ? data.captures.map((c, i) => `
+    ? data.captures.map((c, i) => {
+        const imageLinks = [c.image1, c.image2, c.image3, c.image4]
+          .filter((image): image is string => Boolean(image))
+          .map((image, imageIndex) => `   Image ${imageIndex + 1}: ${formatImageUrl(image, data.baseUrl)}`)
+          .join('\n');
+        return `
 ${i + 1}. ${safeString(c.articleDescription)} (${safeString(c.barcode)})
    Reason: ${safeString(c.reasonCode)}
    Action: ${safeString(c.actionTakenComment)}
-   Feedback: ${safeString(c.feedback)}`).join('\n')
+   Feedback: ${safeString(c.feedback)}
+${imageLinks || '   Images: None'}`;
+      }).join('\n')
     : 'No captures recorded.';
 
   const body = `
