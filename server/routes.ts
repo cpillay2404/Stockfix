@@ -1411,7 +1411,7 @@ export async function registerRoutes(
       }
 
       const port = process.env.PORT || "5000";
-      const exportResp = await fetch(`http://127.0.0.1:${port}/api/nexus-tasks/save-to-sharepoint`, { method: "POST" });
+      const exportResp = await fetch(`http://127.0.0.1:${port}/api/nexus-tasks/save-to-sharepoint?week=${encodeURIComponent(week)}`, { method: "POST" });
       const exportBody = await exportResp.json().catch(() => ({}));
       if (!exportResp.ok || !exportBody.ok) {
         return res.status(409).json({
@@ -3118,8 +3118,20 @@ export async function registerRoutes(
   //     carry that attribution for an unanswered task).
   app.post("/api/nexus-tasks/save-to-sharepoint", async (req, res) => {
     try {
-      const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
-      const week = weekRow?.week as string | undefined;
+      // Real gap found 2026-08-20 - this always exported the current MAX
+      // week, which is exactly right for the normal one-old-week-at-a-time
+      // scheduler flow, but breaks the moment two weeks briefly coexist in
+      // nexus_tasks (Carin's own correct order: export old -> generate new
+      // -> wipe old means the new week is already present when it's time
+      // to export/wipe the old one, so "max" now points at the NEW week
+      // instead). Explicit ?week= lets a caller (like nexus-wipe-week)
+      // export a specific outgoing week instead of always guessing "max".
+      const requestedWeek = req.query.week ? String(req.query.week) : undefined;
+      let week: string | undefined = requestedWeek;
+      if (!week) {
+        const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+        week = weekRow?.week as string | undefined;
+      }
       if (!week) {
         return res.status(404).json({ ok: false, error: "No nexus_tasks found" });
       }
