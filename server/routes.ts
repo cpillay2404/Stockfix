@@ -5256,7 +5256,6 @@ export async function registerRoutes(
         entry.completed += counts.completed;
         for (const id of Array.from(counts.open)) entry.open.add(id);
       }
-      const byManager = toSorted(byManagerMap, "manager");
 
       // Real "adoption" (Carin, 2026-08-20: "% of people that at least
       // submitted one task... if they captured at least one task its
@@ -5301,6 +5300,10 @@ export async function registerRoutes(
       // adoption was only ever split by region OR by role, never both
       // together). Same total/active tracking, keyed by region+role pair.
       const totalPeopleByRegionRole = new Map<string, Set<string>>();
+      // Carin, 2026-08-20: "and manager data?" - same adoption treatment
+      // for managers as region/role, rolled up via the same manager field
+      // used by byManagerMap above.
+      const totalPeopleByManager = new Map<string, Set<string>>();
       for (const a of allAssignees) {
         const region = normalizeRegion(a.region);
         if (!totalPeopleByRegion.has(region)) totalPeopleByRegion.set(region, new Set());
@@ -5311,11 +5314,15 @@ export async function registerRoutes(
         const rrKey = `${region}::${role}`;
         if (!totalPeopleByRegionRole.has(rrKey)) totalPeopleByRegionRole.set(rrKey, new Set());
         totalPeopleByRegionRole.get(rrKey)!.add(a.resourceName);
+        const manager = managerByName.get(String(a.resourceName).toUpperCase().trim()) || "Unknown";
+        if (!totalPeopleByManager.has(manager)) totalPeopleByManager.set(manager, new Set());
+        totalPeopleByManager.get(manager)!.add(a.resourceName);
       }
 
       const activePeopleByRegion = new Map<string, Set<string>>();
       const activePeopleByRole = new Map<string, Set<string>>();
       const activePeopleByRegionRole = new Map<string, Set<string>>();
+      const activePeopleByManager = new Map<string, Set<string>>();
       for (const c of completed) {
         if (!c.repName || c.repName === "Unassigned") continue;
         const region = normalizeRegion(c.region);
@@ -5327,6 +5334,9 @@ export async function registerRoutes(
         const rrKey = `${region}::${role}`;
         if (!activePeopleByRegionRole.has(rrKey)) activePeopleByRegionRole.set(rrKey, new Set());
         activePeopleByRegionRole.get(rrKey)!.add(c.repName);
+        const manager = managerByName.get(String(c.repName).toUpperCase().trim()) || "Unknown";
+        if (!activePeopleByManager.has(manager)) activePeopleByManager.set(manager, new Set());
+        activePeopleByManager.get(manager)!.add(c.repName);
       }
 
       const adoptionPct = (active: number, total: number) => total > 0 ? Math.round((active / total) * 1000) / 10 : 0;
@@ -5357,6 +5367,12 @@ export async function registerRoutes(
         return { role, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
       }).sort((a, b) => b.totalPeople - a.totalPeople);
 
+      const byManagerWithAdoption = toSorted(byManagerMap, "manager").map((m: any) => {
+        const totalPeople = totalPeopleByManager.get(m.manager)?.size || 0;
+        const activePeople = activePeopleByManager.get(m.manager)?.size || 0;
+        return { ...m, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
+      });
+
       res.json({
         week,
         totals: { completed: completed.length, open: openTaskIds.size },
@@ -5364,7 +5380,7 @@ export async function registerRoutes(
         byClient: toSorted(byClientMap, "client"),
         byRep,
         byRegion: byRegionWithAdoption,
-        byManager,
+        byManager: byManagerWithAdoption,
         adoptionByRole,
         recent: completed.slice(0, 50),
       });
