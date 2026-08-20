@@ -5149,14 +5149,75 @@ export async function registerRoutes(
       }
       const byManager = toSorted(byManagerMap, "manager");
 
+      // Real "adoption" (Carin, 2026-08-20: "% of people that at least
+      // submitted one task... if they captured at least one task its
+      // adoption right") - NOT completed/open task counts, and NOT each
+      // region's share of total captures (both were being shown before and
+      // are meaningless as an adoption rate: a region with 3 captures out
+      // of 42,531 open tasks looked "75% of captures" while every other
+      // region with real people who haven't captured yet showed nothing).
+      // Real formula: distinct people who captured >=1 task this week,
+      // divided by the distinct people who were actually assigned >=1 task
+      // this week (the full nexus_task_assignees pool for the week,
+      // regardless of whether that specific task is now completed - a
+      // person keeps counting in the denominator even after their task is
+      // done, since claimTask() never deletes their assignee row).
+      const allAssigneesResult = await db.execute(sql`
+        select distinct t.region, a.resource_name as "resourceName", r.resource_type as "resourceType"
+        from nexus_task_assignees a
+        join nexus_tasks t on t.unique_id = a.task_unique_id
+        left join resource_roster r on r.resource_emp_id = a.resource_emp_id
+        where t.week_ending_date = ${week} ${clientCond} ${storeCond}
+      `);
+      const allAssignees = (allAssigneesResult.rows || allAssigneesResult) as any[];
+
+      const totalPeopleByRegion = new Map<string, Set<string>>();
+      const totalPeopleByRole = new Map<string, Set<string>>();
+      for (const a of allAssignees) {
+        const region = a.region || "Unknown";
+        if (!totalPeopleByRegion.has(region)) totalPeopleByRegion.set(region, new Set());
+        totalPeopleByRegion.get(region)!.add(a.resourceName);
+        const role = a.resourceType || "Unknown";
+        if (!totalPeopleByRole.has(role)) totalPeopleByRole.set(role, new Set());
+        totalPeopleByRole.get(role)!.add(a.resourceName);
+      }
+
+      const activePeopleByRegion = new Map<string, Set<string>>();
+      const activePeopleByRole = new Map<string, Set<string>>();
+      for (const c of completed) {
+        if (!c.repName || c.repName === "Unassigned") continue;
+        const region = c.region || "Unknown";
+        if (!activePeopleByRegion.has(region)) activePeopleByRegion.set(region, new Set());
+        activePeopleByRegion.get(region)!.add(c.repName);
+        const role = c.resourceType || "Unknown";
+        if (!activePeopleByRole.has(role)) activePeopleByRole.set(role, new Set());
+        activePeopleByRole.get(role)!.add(c.repName);
+      }
+
+      const adoptionPct = (active: number, total: number) => total > 0 ? Math.round((active / total) * 1000) / 10 : 0;
+
+      const byRegionWithAdoption = toSorted(byRegionMap, "region").map((r: any) => {
+        const totalPeople = totalPeopleByRegion.get(r.region)?.size || 0;
+        const activePeople = activePeopleByRegion.get(r.region)?.size || 0;
+        return { ...r, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
+      });
+
+      const roleNames = new Set([...Array.from(totalPeopleByRole.keys()), ...Array.from(activePeopleByRole.keys())]);
+      const adoptionByRole = Array.from(roleNames).map((role) => {
+        const totalPeople = totalPeopleByRole.get(role)?.size || 0;
+        const activePeople = activePeopleByRole.get(role)?.size || 0;
+        return { role, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
+      }).sort((a, b) => b.totalPeople - a.totalPeople);
+
       res.json({
         week,
         totals: { completed: completed.length, open: openTaskIds.size },
         byStore: toSorted(byStoreMap, "store"),
         byClient: toSorted(byClientMap, "client"),
         byRep,
-        byRegion: toSorted(byRegionMap, "region"),
+        byRegion: byRegionWithAdoption,
         byManager,
+        adoptionByRole,
         recent: completed.slice(0, 50),
       });
     } catch (error) {
