@@ -46,6 +46,35 @@ const NEXUS_CLIENTS = [
 // of store_sku_weekly (~704MB/week, ~9.2GB total) fits comfortably.
 const RETAIN_WEEKS = 13;
 
+// Real gap found 2026-08-20 (Carin: "im worried how this is going to work
+// every week") - the manual trigger route used to await the whole sync
+// inside one HTTP request, so every trigger was a single long-held
+// connection the platform would eventually 504 regardless of whether the
+// sync itself was fine - forcing a manual poll-and-wait cycle every time.
+// This lets the route respond instantly and hand back status separately,
+// via GET /api/admin/nexus-summary-sync/status, instead.
+interface SyncJobStatus {
+  running: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  lastResult: SyncResult | null;
+  lastError: string | null;
+}
+let syncJob: SyncJobStatus = { running: false, startedAt: null, finishedAt: null, lastResult: null, lastError: null };
+
+export function isSyncRunning(): boolean {
+  return syncJob.running;
+}
+export function markSyncStarted(): void {
+  syncJob = { running: true, startedAt: new Date().toISOString(), finishedAt: null, lastResult: null, lastError: null };
+}
+export function markSyncFinished(result: SyncResult | null, error?: string): void {
+  syncJob = { ...syncJob, running: false, finishedAt: new Date().toISOString(), lastResult: result, lastError: error || null };
+}
+export function getSyncJobStatus(): SyncJobStatus {
+  return { ...syncJob };
+}
+
 export async function fetchLatestWeek(): Promise<string> {
   const apiKey = process.env.NEXUS_API_KEY;
   if (!apiKey) throw new Error("NEXUS_API_KEY is not configured");
@@ -80,50 +109,67 @@ async function fetchWithTimeout(url: string): Promise<Response> {
 }
 
 // Real bug found 2026-08-20 - a big client's per-SKU file can need 1000+
-// sequential pages (P&G: ~530k rows / 500 per page). One flaky page out of
-// that many used to throw and lose every already-fetched page along with
-// it, discarding an hour of real work back to zero rows (confirmed: P&G's
+// pages (P&G: ~530k rows / 500 per page). One flaky page out of that many
+// used to throw and lose every already-fetched page along with it,
+// discarding an hour of real work back to zero rows (confirmed: P&G's
 // week-2026-08-19 sync "succeeded" three times in a row with 0 sku rows,
 // while a direct check against Nexus's own API proved the real data was
-// there the whole time). Each page now gets its own small retry budget,
-// and a page that still fails after retries just stops the loop and keeps
+// there the whole time). Each page gets its own small retry budget, and a
+// page that still fails after retries just stops the loop and keeps
 // everything fetched before it, instead of throwing the whole result away.
+//
+// Also real, found the same day (Carin: "im worried how this is going to
+// work every week") - fetching 1000+ pages one at a time was the actual
+// reason P&G alone took 30-70 minutes every single run, forcing a manual
+// wait-and-poll cycle each week. Pages are fetched CONCURRENCY at a time
+// instead of strictly sequentially now - a full batch is awaited together,
+// then walked in page order so the first 404/empty/failed page in that
+// batch still stops the whole fetch at the right place (Nexus's pages are
+// contiguous with no gaps, so out-of-order completion within one batch
+// never mixes up the true stopping point).
+const PAGE_FETCH_CONCURRENCY = 10;
+
 async function fetchAllPages<T = any>(clientSlug: string, week: string, stem: string): Promise<T[]> {
   const apiKey = process.env.NEXUS_API_KEY;
   if (!apiKey) throw new Error("NEXUS_API_KEY is not configured");
   const rows: T[] = [];
-  let page = 0;
-  while (true) {
+
+  async function fetchPage(page: number): Promise<{ ok: boolean; done: boolean; rows: T[] }> {
     const url = `${NEXUS_BASE_URL}/api/dashboard-data/weeks/${encodeURIComponent(week)}/clients/${encodeURIComponent(clientSlug)}/pages/${stem}/${String(page).padStart(5, "0")}.json?code=${apiKey}`;
-    let resp: Response;
-    let lastErr: any = null;
-    let attempt = 0;
     const MAX_PAGE_ATTEMPTS = 4;
-    while (true) {
-      attempt++;
+    let lastErr: any = null;
+    for (let attempt = 1; attempt <= MAX_PAGE_ATTEMPTS; attempt++) {
       try {
-        resp = await fetchWithTimeout(url);
-        lastErr = null;
-        break;
+        const resp = await fetchWithTimeout(url);
+        if (resp.status === 404) return { ok: true, done: true, rows: [] };
+        if (!resp.ok) {
+          logSyncProgress(`... ${clientSlug} ${stem} page ${page} returned ${resp.status}`);
+          return { ok: false, done: true, rows: [] };
+        }
+        const data = await resp.json();
+        const pageRows: T[] = data.rows || [];
+        return { ok: true, done: pageRows.length === 0, rows: pageRows };
       } catch (err: any) {
         lastErr = err;
-        if (attempt >= MAX_PAGE_ATTEMPTS) break;
       }
     }
-    if (lastErr) {
-      logSyncProgress(`... ${clientSlug} ${stem} page ${page} failed after ${MAX_PAGE_ATTEMPTS} attempts, keeping ${rows.length} row(s) fetched so far: ${lastErr?.message || lastErr}`);
-      break;
+    logSyncProgress(`... ${clientSlug} ${stem} page ${page} failed after ${MAX_PAGE_ATTEMPTS} attempts, keeping ${rows.length} row(s) fetched so far: ${lastErr?.message || lastErr}`);
+    return { ok: false, done: true, rows: [] };
+  }
+
+  let page = 0;
+  let finished = false;
+  while (!finished) {
+    const batch = Array.from({ length: PAGE_FETCH_CONCURRENCY }, (_, i) => page + i);
+    const results = await Promise.all(batch.map(fetchPage));
+    for (const result of results) {
+      if (result.done) {
+        finished = true;
+        break;
+      }
+      rows.push(...result.rows);
+      page++;
     }
-    if (resp!.status === 404) break;
-    if (!resp!.ok) {
-      logSyncProgress(`... ${clientSlug} ${stem} page ${page} returned ${resp!.status}, keeping ${rows.length} row(s) fetched so far`);
-      break;
-    }
-    const data = await resp!.json();
-    const pageRows: T[] = data.rows || [];
-    if (pageRows.length === 0) break;
-    rows.push(...pageRows);
-    page++;
   }
   return rows;
 }
