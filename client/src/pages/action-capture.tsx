@@ -1,8 +1,10 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Wrench, Minus, Plus, Camera, AlertTriangle, X, CheckCircle2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import "./StoreOverview.css";
+import { markVisitHasCaptures } from "@/lib/visit-guard";
 
 interface SkuRow {
   barcode: string;
@@ -42,6 +44,7 @@ const ACTIONS_TAKEN = [
 ];
 
 export default function ActionCapture() {
+  const [, setLocation] = useLocation();
   const params = new URLSearchParams(window.location.search);
   const store = params.get("store") || "";
   const rep = params.get("rep") || "";
@@ -56,6 +59,11 @@ export default function ActionCapture() {
   // SKU can still legitimately appear - looking like it wasn't captured.
   const scope = params.get("scope") || "";
   const scopeQS = scope ? `&scope=${encodeURIComponent(scope)}` : "";
+  const requestedReturnTo = params.get("returnTo") || "";
+  const defaultReturnTo = `/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${encodeURIComponent(classification)}${clientQS}${scopeQS}`;
+  const returnTo = requestedReturnTo.startsWith("/store-detail/") ? requestedReturnTo : defaultReturnTo;
+  const requestedReturnSteps = Number(params.get("returnSteps"));
+  const returnSteps = requestedReturnSteps === 1 || requestedReturnSteps === 2 ? requestedReturnSteps : 2;
 
   const { data } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
@@ -153,6 +161,7 @@ export default function ActionCapture() {
       if (!patchRes.ok) {
         throw new Error("Failed to save this action");
       }
+      markVisitHasCaptures(store, rep, client);
       setSubmitted(true);
       // Real gap found 2026-08-18 (Carin: "no toast or to say its logged...
       // theres no end visit or log out or fuck all") - submitting just sat
@@ -160,19 +169,14 @@ export default function ActionCapture() {
       // then automatically return to the list this SKU came from so the
       // rep can keep working through it.
       setTimeout(() => {
-        // Real bug found 2026-08-20, twice ("clicked back then it opened
-        // another screen", then "clicking back takes me to a sku to go and
-        // capture again") - a plain setLocation() pushes/replaces a NEW
-        // list entry on top of sku-detail/action-capture, so browser Back
-        // from that list still lands on one of those stale in-between
-        // screens instead of wherever the rep actually came from before
-        // this SKU. The real fix: don't create a new entry at all - go
-        // back the exact 2 real steps (past action-capture, past
-        // sku-detail) to the list entry that was already there, still
-        // pushed normally when the rep first tapped into this SKU. Popping
-        // back to it remounts the list route, which re-fetches fresh data
-        // (this SKU now marked done) same as a normal navigation would.
-        window.history.go(-2);
+        // A capture can be opened directly from an overview (one history
+        // step) or through SKU detail (two steps). Return to the real page
+        // in either case, without leaving a completed SKU in Back history.
+        if (window.history.length > returnSteps) {
+          window.history.go(-returnSteps);
+        } else {
+          setLocation(returnTo, { replace: true });
+        }
       }, 1400);
     } catch (err: any) {
       setSubmitError(err?.message || "Failed to submit action");

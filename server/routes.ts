@@ -1514,7 +1514,7 @@ export async function registerRoutes(
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
       const baseUrl = `${protocol}://${host}`;
 
-      await sendVisitSummaryEmail({
+      const emailSent = await sendVisitSummaryEmail({
         repName: rep || null,
         client: client && client !== "ALL" ? client : (completed[0]?.client ?? null),
         storeName: store,
@@ -1536,6 +1536,10 @@ export async function registerRoutes(
         })),
         baseUrl,
       });
+
+      if (!emailSent) {
+        return res.status(502).json({ error: "The visit summary could not be emailed. Please try again." });
+      }
 
       res.json({ ok: true });
     } catch (error) {

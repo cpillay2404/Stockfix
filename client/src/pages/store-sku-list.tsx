@@ -142,14 +142,20 @@ export default function StoreSkuList() {
     enabled: !!store,
   });
 
-  const onBack = () => window.history.back();
+  const onBack = () => {
+    setLocation(
+      `/store-detail?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`,
+      { replace: true }
+    );
+  };
   // A SKU always belongs to one real client, even when this list is
   // showing "All Clients" merged rows - sku-detail has no merged mode, so
   // the row's own tagged client wins over the page-level "ALL" state.
   const goToSku = (barcode: string, rowClient?: string) => {
     const qs = rowClient ? `&client=${encodeURIComponent(rowClient)}` : clientQS;
+    const returnTo = `${window.location.pathname}${window.location.search}`;
     setLocation(
-      `/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}${scopeQS}`
+      `/store-detail/sku?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${qs}${scopeQS}&returnTo=${encodeURIComponent(returnTo)}&returnSteps=2`
     );
   };
 

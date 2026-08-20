@@ -1,9 +1,11 @@
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useRef, useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock, Camera, LogOut } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2LoadingState from "@/components/sf2-loading-state";
 import { useAccess } from "@/context/AccessContext";
+import { clearActiveVisit } from "@/lib/visit-guard";
 import "./StoreOverview.css";
 
 interface VisitSummaryResponse {
@@ -30,6 +32,9 @@ interface VisitSummaryResponse {
 export default function NexusExitVisit() {
   const [, setLocation] = useLocation();
   const { clearAll } = useAccess();
+  const endVisitRequestStarted = useRef(false);
+  const [isEndingVisit, setIsEndingVisit] = useState(false);
+  const [sendError, setSendError] = useState("");
   const params = new URLSearchParams(window.location.search);
   const store = params.get("store") || "";
   const rep = params.get("rep") || "";
@@ -46,19 +51,33 @@ export default function NexusExitVisit() {
     enabled: !!store,
   });
 
-  const handleBack = () => setLocation(`/store-detail/fix?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
+  const handleBack = () => window.history.back();
   const handleLogout = async () => {
+    if (endVisitRequestStarted.current) return;
+    endVisitRequestStarted.current = true;
+    setIsEndingVisit(true);
+    setSendError("");
+
     // Wait for the consolidated visit-summary request before navigating away,
     // so the browser cannot cancel it during logout.
     try {
-      await fetch("/api/nexus-tasks/visit-summary/send-email", {
+      const response = await fetch("/api/nexus-tasks/visit-summary/send-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ store, rep, client }),
       });
-    } finally {
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.error || "The visit summary could not be emailed.");
+      }
+      clearActiveVisit();
       clearAll();
       setLocation("/");
+    } catch (error: any) {
+      console.error("Failed to send visit summary email:", error);
+      setSendError(error.message || "The visit summary could not be emailed. Please try again.");
+      endVisitRequestStarted.current = false;
+      setIsEndingVisit(false);
     }
   };
 
@@ -118,6 +137,8 @@ export default function NexusExitVisit() {
 
         <button
           onClick={handleLogout}
+          disabled={isEndingVisit}
+          aria-busy={isEndingVisit}
           style={{
             width: "100%",
             marginTop: 20,
@@ -128,7 +149,8 @@ export default function NexusExitVisit() {
             color: "#FFFFFF",
             fontSize: 16,
             fontWeight: 700,
-            cursor: "pointer",
+            cursor: isEndingVisit ? "wait" : "pointer",
+            opacity: isEndingVisit ? 0.7 : 1,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -136,8 +158,13 @@ export default function NexusExitVisit() {
           }}
         >
           <LogOut size={18} />
-          End Visit
+          {isEndingVisit ? "Sending visit summary…" : "End Visit & Send Summary"}
         </button>
+        {sendError && (
+          <p role="alert" style={{ margin: "12px 0 0", color: "#FCA5A5", fontSize: 14, lineHeight: 1.4 }}>
+            {sendError}
+          </p>
+        )}
       </main>
     </div>
   );

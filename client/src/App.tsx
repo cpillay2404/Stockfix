@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Switch, Route, useLocation } from "wouter";
+import { Redirect, Switch, Route, useLocation, useSearch } from "wouter";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -36,10 +36,24 @@ import AdminLeaderboard from "@/pages/admin-leaderboard";
 import QRPage from "@/pages/qr";
 import MerchandiserPilot from "@/pages/merchandiser-pilot";
 import InventoryDashboard from "@/pages/inventory-dashboard";
-import InsightsOverview from "@/pages/insights-overview";
-import InsightsAvailability from "@/pages/insights-availability";
-import InsightsLineList from "@/pages/insights-line-list";
-import InsightsSku from "@/pages/insights-sku";
+
+function LegacyRouteRedirect({
+  to,
+  params = {},
+}: {
+  to: string;
+  params?: Record<string, string | undefined>;
+}) {
+  const search = useSearch();
+  const query = new URLSearchParams(search);
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value) query.set(key, value);
+  });
+
+  const queryString = query.toString();
+  return <Redirect to={`${to}${queryString ? `?${queryString}` : ""}`} />;
+}
 
 function Router() {
   return (
@@ -73,10 +87,29 @@ function Router() {
       <Route path="/qr" component={QRPage} />
       <Route path="/merchandiser-pilot" component={MerchandiserPilot} />
       <Route path="/inventory" component={InventoryDashboard} />
-      <Route path="/store-overview/insights" component={InsightsOverview} />
-      <Route path="/store-overview/insights/availability" component={InsightsAvailability} />
-      <Route path="/store-overview/insights/line-list/:classification" component={InsightsLineList} />
-      <Route path="/store-overview/insights/sku/:barcode" component={InsightsSku} />
+      {/* Retain old deep links without exposing the retired screens. */}
+      <Route path="/store-overview/insights">
+        {() => <LegacyRouteRedirect to="/store-detail" />}
+      </Route>
+      <Route path="/store-overview/insights/availability">
+        {() => <LegacyRouteRedirect to="/store-detail/instock" />}
+      </Route>
+      <Route path="/store-overview/insights/line-list/:classification">
+        {(params) => (
+          <LegacyRouteRedirect
+            to="/store-detail/list"
+            params={{ classification: params.classification }}
+          />
+        )}
+      </Route>
+      <Route path="/store-overview/insights/sku/:barcode">
+        {(params) => (
+          <LegacyRouteRedirect
+            to="/store-detail/sku"
+            params={{ barcode: params.barcode, classification: "all" }}
+          />
+        )}
+      </Route>
       <Route component={NotFound} />
     </Switch>
   );

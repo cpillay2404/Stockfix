@@ -6,3 +6,46 @@ id = "7UvugXiwoyi1cLlu_TMv-"
 uri = "file://screenshots/StockFix_Navigation_Guide.pptx"
 type = "slides"
 title = "StockFix Navigation Guide (Updated)"
+logical_id = "24887421-40ad-458b-a30f-d8e49172a1c0"
+
+[[outputs]]
+id = "5wGEaSCPZb9hlo_DZgfne"
+uri = "file://user-guide/StockFix_User_Guide.pdf"
+type = "pdf"
+title = "Download StockFix User Guide"
+description = "Updated 33-page PDF. Retired Store Overview links are documented as redirects and do not expose the old pages."
+logical_id = "30ab0cf6-ad57-4969-96cd-36a2cd5b8ff3"
+content_hash = "sha256:2ff730a3e79a09bf35b1a15f0cffc025ceb44dc0c4baf291a2666b23faa2450c"
+size = 6986711
+mtime_ms = 1787214585319
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6b64c0b6-1b82-459a-a9e8-670c28da60d4/30ab0cf6-ad57-4969-96cd-36a2cd5b8ff3/6c543235-9e8a-4051-b81d-545d3e7b337e"
+storage_version_token = "1787214694119218"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "gKQgWbTF2sqIY2VC11SWs"
+uri = "file://StockFix_User_Guide.pdf"
+type = "pdf"
+title = "Download StockFix User Guide"
+description = "Updated 33-page PDF. Retired Store Overview links redirect to the current workflow and are not shown."
+logical_id = "b46c8dc3-2da5-452c-a41d-765ca44203d2"
+content_hash = "sha256:2ff730a3e79a09bf35b1a15f0cffc025ceb44dc0c4baf291a2666b23faa2450c"
+size = 6986711
+mtime_ms = 1787214753044
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6b64c0b6-1b82-459a-a9e8-670c28da60d4/b46c8dc3-2da5-452c-a41d-765ca44203d2/f303d8f7-4afc-4ff2-a372-e102db9e4b99"
+storage_version_token = "1787214757282715"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "aM-nWEKUNWUG0Sxl074Mt"
+uri = "file://attached_assets/StockFix_User_Guide.pdf"
+type = "pdf"
+title = "StockFix User Guide PDF"
+description = "Download the updated 33-page StockFix user guide."
+logical_id = "9e419d49-b5e7-4288-b164-87e2a727c1c7"
+content_hash = "sha256:2ff730a3e79a09bf35b1a15f0cffc025ceb44dc0c4baf291a2666b23faa2450c"
+size = 6986711
+mtime_ms = 1787214765870
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6b64c0b6-1b82-459a-a9e8-670c28da60d4/9e419d49-b5e7-4288-b164-87e2a727c1c7/f4315c8c-b411-49e3-8c9d-1cc8de5c1391"
+storage_version_token = "1787214770552594"
+content_type = "application/pdf"

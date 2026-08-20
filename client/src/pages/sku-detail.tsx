@@ -77,6 +77,10 @@ export default function SkuDetail() {
   // appear (different universe) - looking like the capture didn't work.
   const scope = params.get("scope") || "";
   const scopeQS = scope ? `&scope=${encodeURIComponent(scope)}` : "";
+  const returnTo = params.get("returnTo") || "";
+  const returnToQS = returnTo.startsWith("/store-detail/") ? `&returnTo=${encodeURIComponent(returnTo)}` : "";
+  const requestedReturnSteps = Number(params.get("returnSteps"));
+  const returnSteps = requestedReturnSteps === 1 || requestedReturnSteps === 2 ? requestedReturnSteps : 2;
 
   const { data, isLoading, error } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
@@ -219,7 +223,7 @@ export default function SkuDetail() {
 
           <button
             className="sf2-fixbutton"
-            onClick={() => setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${clientQS}${scopeQS}`)}
+            onClick={() => setLocation(`/store-detail/action-capture?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}&barcode=${encodeURIComponent(barcode)}${clientQS}${scopeQS}${returnToQS}&returnSteps=${returnSteps}`)}
           >
             <Wrench size={16} />
             FIX

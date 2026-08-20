@@ -6,6 +6,7 @@ import { BrandLogo } from "@/components/brand-logo";
 import Sf2BottomNav from "@/components/sf2-bottom-nav";
 import Sf2SkuInlineCard from "@/components/sf2-sku-inline-card";
 import Sf2LoadingState from "@/components/sf2-loading-state";
+import { hasUnclosedVisit, LeaveVisitPrompt } from "@/lib/visit-guard";
 import "./StoreOverview.css";
 
 interface OverviewResponse {
@@ -156,6 +157,7 @@ interface SkuOption {
 
 export default function StoreOverview() {
   const [, setLocation] = useLocation();
+  const [showLeavePrompt, setShowLeavePrompt] = useState(false);
   const params = new URLSearchParams(window.location.search);
   const store = params.get("store") || "";
   const rep = params.get("rep") || "";
@@ -220,6 +222,13 @@ export default function StoreOverview() {
   // re-resolving its own (real bug found 2026-08-13: overview showed 11 OOS
   // for one client, drilling in showed 0 for another).
   const clientQS = activeClient ? `&client=${encodeURIComponent(activeClient)}` : "";
+  const leaveStore = () => {
+    if (hasUnclosedVisit(store, rep, activeClient)) {
+      setShowLeavePrompt(true);
+      return;
+    }
+    setLocation(rep ? `/select-rep?role=${encodeURIComponent(role)}` : "/select-client-store");
+  };
 
   // Real "biggest current contributor" to the store-level SOH/Sales
   // totals - reuses the SKU dropdown's already-fetched per-SKU data, no
@@ -280,7 +289,7 @@ export default function StoreOverview() {
               off of. */}
           <button
             className="icon-btn"
-            onClick={() => setLocation(rep ? `/select-rep?role=${encodeURIComponent(role)}` : "/select-client-store")}
+            onClick={leaveStore}
           >
             <ArrowLeft size={20} />
           </button>
@@ -508,6 +517,12 @@ export default function StoreOverview() {
       </main>
 
       <Sf2BottomNav active="insights" store={store} rep={rep} clientQS={clientQS} />
+      {showLeavePrompt && (
+        <LeaveVisitPrompt
+          onStay={() => setShowLeavePrompt(false)}
+          onEndVisit={() => setLocation(`/store-detail/exit-visit?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`)}
+        />
+      )}
     </div>
   );
 }
