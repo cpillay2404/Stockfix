@@ -76,6 +76,7 @@ const SHORTAGE_ACTIONS_TAKEN = [
 ];
 const EXCESS_ACTIONS_TAKEN = [
   "Recommended for markdown / transfer",
+  "Removed / disposed of expired stock",
   "Escalated to supervisor / manager",
   "Logged query with DC / supplier",
   "System stock corrected / discrepancy logged",
