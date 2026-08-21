@@ -1,10 +1,64 @@
+import { useEffect, useState } from "react";
+import { toDataURL } from "qrcode";
+
+const STOCKFIX_APP_URL = "https://stock-fix.replit.app";
+
 export default function QRPage() {
+  const [qrCode, setQrCode] = useState("");
+  const [loadFailed, setLoadFailed] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    toDataURL(STOCKFIX_APP_URL, {
+      width: 800,
+      margin: 4,
+      errorCorrectionLevel: "H",
+      color: { dark: "#003B71", light: "#FFFFFF" },
+    })
+      .then((dataUrl) => {
+        if (active) setQrCode(dataUrl);
+      })
+      .catch(() => {
+        if (active) setLoadFailed(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: '#fff' }}>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 33 33" shapeRendering="crispEdges" width="400" height="400">
-        <path fill="#FFFFFF" d="M0 0h33v33H0z"/>
-        <path stroke="#003B71" d="M2 2.5h7m2 0h1m1 0h1m2 0h1m4 0h1m2 0h7M2 3.5h1m5 0h1m1 0h1m3 0h2m3 0h4m1 0h1m5 0h1M2 4.5h1m1 0h3m1 0h1m4 0h2m2 0h1m2 0h1m1 0h1m1 0h1m1 0h3m1 0h1M2 5.5h1m1 0h3m1 0h1m3 0h1m1 0h2m2 0h1m5 0h1m1 0h3m1 0h1M2 6.5h1m1 0h3m1 0h1m1 0h1m1 0h4m2 0h4m2 0h1m1 0h3m1 0h1M2 7.5h1m5 0h1m2 0h1m4 0h3m1 0h2m2 0h1m5 0h1M2 8.5h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7M12 9.5h2m3 0h1m1 0h1m1 0h2M2 10.5h1m1 0h1m1 0h1m1 0h1m5 0h1m3 0h2m1 0h2m3 0h1m2 0h1M3 11.5h5m4 0h2m1 0h1m1 0h3m2 0h3m2 0h1m2 0h1M2 12.5h1m2 0h1m2 0h1m5 0h1m1 0h3m1 0h1m1 0h1m2 0h1m2 0h3M2 13.5h4m5 0h1m3 0h2m1 0h4m2 0h2m3 0h1M4 14.5h1m1 0h3m2 0h2m3 0h2m1 0h1m3 0h2m2 0h1m1 0h2M2 15.5h2m3 0h1m5 0h1m2 0h2m1 0h2m1 0h3m2 0h1m2 0h1M8 16.5h1m2 0h1m1 0h1m1 0h1m4 0h1m2 0h3m1 0h1m1 0h2M2 17.5h2m1 0h1m3 0h1m4 0h1m2 0h1m1 0h1m1 0h4m1 0h2m1 0h1M3 18.5h1m1 0h1m1 0h2m4 0h2m3 0h2m2 0h3m2 0h1m1 0h2M3 19.5h1m3 0h1m1 0h1m5 0h1m1 0h4m1 0h3m2 0h2m1 0h1M2 20.5h1m2 0h1m1 0h3m2 0h1m1 0h1m1 0h3m1 0h1m1 0h1m3 0h1m2 0h2M3 21.5h1m2 0h2m2 0h1m2 0h1m1 0h2m1 0h2m7 0h1m1 0h1M2 22.5h1m1 0h7m1 0h1m1 0h1m1 0h2m2 0h1m1 0h5M10 23.5h2m4 0h2m4 0h1m3 0h1m1 0h3M2 24.5h7m3 0h1m2 0h1m3 0h1m1 0h2m1 0h1m1 0h2m1 0h2M2 25.5h1m5 0h1m3 0h2m3 0h1m4 0h1m3 0h2m2 0h1M2 26.5h1m1 0h3m1 0h1m1 0h3m1 0h1m3 0h1m3 0h5M2 27.5h1m1 0h3m1 0h1m2 0h1m2 0h2m1 0h3m1 0h2m3 0h1m1 0h1M2 28.5h1m1 0h3m1 0h1m1 0h1m3 0h1m1 0h3m1 0h2m1 0h1m1 0h3m2 0h1M2 29.5h1m5 0h1m2 0h1m3 0h1m2 0h7m1 0h1m2 0h1M2 30.5h7m1 0h1m1 0h2m1 0h1m1 0h1m2 0h1m1 0h1m1 0h1m1 0h2m1 0h2"/>
-      </svg>
-    </div>
+    <main style={{
+      display: "flex",
+      flexDirection: "column",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: 16,
+      minHeight: "100vh",
+      padding: 24,
+      boxSizing: "border-box",
+      background: "#fff",
+      color: "#003B71",
+      fontFamily: "Arial, sans-serif",
+      textAlign: "center",
+    }}>
+      <h1 style={{ margin: 0, fontSize: 28 }}>StockFix</h1>
+      <p style={{ margin: 0 }}>Scan to open the current StockFix app</p>
+      {qrCode ? (
+        <img
+          src={qrCode}
+          width={400}
+          height={400}
+          alt={`QR code for ${STOCKFIX_APP_URL}`}
+          style={{ maxWidth: "100%", height: "auto" }}
+        />
+      ) : (
+        <p>{loadFailed ? "Open the current app using the link below." : "Generating QR code…"}</p>
+      )}
+      <a href={STOCKFIX_APP_URL} style={{ color: "#003B71", fontWeight: 700 }}>
+        {STOCKFIX_APP_URL}
+      </a>
+    </main>
   );
 }

@@ -49,3 +49,17 @@ mtime_ms = 1787214765870
 storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6b64c0b6-1b82-459a-a9e8-670c28da60d4/9e419d49-b5e7-4288-b164-87e2a727c1c7/f4315c8c-b411-49e3-8c9d-1cc8de5c1391"
 storage_version_token = "1787214770552594"
 content_type = "application/pdf"
+
+[[outputs]]
+id = "_W91i5YMhTPP4BmUCXrUn"
+uri = "file://attached_assets/stockfix-current-link-qr.png"
+type = "image"
+title = "StockFix current app QR code"
+description = "Use this QR code for https://stock-fix.replit.app in staff communications and replacement posters."
+logical_id = "f68e9385-0f9f-4e26-af89-859ac5efa781"
+content_hash = "sha256:cf0f37da0d6f2f9d11b99d7a6992f6cb3c4d6076319d0e122e08a7b68d6f92de"
+size = 9815
+mtime_ms = 1787301032183
+storage_uri = "gcs://replit-rams-assets-janeway/rams/assets/repl:6b64c0b6-1b82-459a-a9e8-670c28da60d4/f68e9385-0f9f-4e26-af89-859ac5efa781/22d30110-dccf-441d-8430-13fd75114b42"
+storage_version_token = "1787301032551135"
+content_type = "image/png"
