@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { db } from "./db";
 import { resourceRoster, insertResourceRosterSchema, storeAssignments, insertStoreAssignmentSchema } from "@shared/schema";
-import { clientScopeFromResourceType } from "@shared/resource-client-scope";
+import { clientScopeFromResourceType, isSyndicatedResourceType } from "@shared/resource-client-scope";
 import { sql } from "drizzle-orm";
 
 export { clientScopeFromResourceType } from "@shared/resource-client-scope";
@@ -104,7 +104,7 @@ export function requireIdentity(req: Request, _res: Response, next: NextFunction
  */
 export function scopeToClient(req: Request, _res: Response, next: NextFunction) {
   const identity = req.identity;
-  const isSyndicatedResource = identity?.resourceType?.toUpperCase().includes("SYNDICATED");
+  const isSyndicatedResource = isSyndicatedResourceType(identity?.resourceType);
   if (identity && !isSyndicatedResource && identity.clientScope && identity.clientScope !== "SYNDICATED") {
     (req.query as Record<string, unknown>).client = identity.clientScope;
   }
@@ -145,12 +145,12 @@ export async function findRosterMatch(resourceEmpId: string, resourceName: strin
     .where(sql`upper(trim(${resourceRoster.resourceEmpId})) = ${empId} and upper(trim(${resourceRoster.resourceName})) = ${name}`)
     .limit(1);
   if (!row) return row;
-  if (row.resourceType?.toUpperCase().includes("SYNDICATED")) {
-    return { ...row, clientScope: "SYNDICATED" };
-  }
   const typeScope = clientScopeFromResourceType(row.resourceType);
   if (typeScope) {
     return { ...row, clientScope: typeScope };
+  }
+  if (isSyndicatedResourceType(row.resourceType)) {
+    return { ...row, clientScope: "SYNDICATED" };
   }
   const realScope = await resolveRealClientScope(row.resourceEmpId);
   if (realScope) {
@@ -200,6 +200,12 @@ function dedupeByEmpId<T extends { resourceEmpId: string; clientScope: string }>
   return Array.from(byId.values());
 }
 
+type ValidRosterInsert = typeof resourceRoster.$inferInsert & {
+  resourceEmpId: string;
+  resourceName: string;
+  clientScope: string;
+};
+
 export async function importRosterRows(rows: Array<{
   resourceEmpId: string;
   resourceName: string;
@@ -212,7 +218,7 @@ export async function importRosterRows(rows: Array<{
 }>): Promise<{ imported: number; skipped: number; errors: string[] }> {
   let skipped = 0;
   const errors: string[] = [];
-  const parsedRows: Array<typeof insertResourceRosterSchema._type> = [];
+  const parsedRows: ValidRosterInsert[] = [];
 
   for (const raw of rows) {
     const parsed = insertResourceRosterSchema.safeParse({
@@ -234,7 +240,12 @@ export async function importRosterRows(rows: Array<{
       errors.push(`Skipped row (missing resourceEmpId/resourceName): ${JSON.stringify(raw).slice(0, 200)}`);
       continue;
     }
-    parsedRows.push(parsed.data);
+    parsedRows.push({
+      ...parsed.data,
+      resourceEmpId: parsed.data.resourceEmpId,
+      resourceName: parsed.data.resourceName,
+      clientScope: parsed.data.clientScope || "SYNDICATED",
+    });
   }
 
   const deduped = dedupeByEmpId(parsedRows);

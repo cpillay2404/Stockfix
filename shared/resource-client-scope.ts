@@ -7,10 +7,11 @@ export interface ClientScopedResource {
 
 export function clientScopeFromResourceType(resourceType: string | null | undefined): string | null {
   const normalized = (resourceType || "").trim().toUpperCase();
-  if (!normalized || normalized.includes("SYNDICATED")) {
-    return null;
-  }
+  if (!normalized) return null;
+  // Fieldmarketer is always P&G-only. This check intentionally precedes
+  // SYNDICATED because imported labels can contain both terms.
   if (normalized.includes("FIELDMARKETER")) return "P&G";
+  if (normalized.includes("SYNDICATED")) return null;
   if (!normalized.includes("DEDICATED")) return null;
 
   const candidate = normalized
@@ -25,6 +26,19 @@ export function clientScopeFromResourceType(resourceType: string | null | undefi
 
 function normalized(value: string | null | undefined): string {
   return (value || "").trim().toUpperCase();
+}
+
+export function isSyndicatedResourceType(resourceType: string | null | undefined): boolean {
+  return !clientScopeFromResourceType(resourceType) && normalized(resourceType).includes("SYNDICATED");
+}
+
+export function dedicatedClientScopesAtStore(resources: Pick<ClientScopedResource, "clientScope" | "resourceType">[]): Set<string> {
+  return new Set(
+    resources.flatMap((resource) => {
+      const effectiveScope = clientScopeFromResourceType(resource.resourceType) || normalized(resource.clientScope);
+      return effectiveScope && effectiveScope !== "SYNDICATED" ? [effectiveScope] : [];
+    }),
+  );
 }
 
 /**

@@ -36,6 +36,7 @@ import {
 import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRoster, storeAssignments } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, clientScopeFromResourceType, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
+import { dedicatedClientScopesAtStore, isSyndicatedResourceType } from "@shared/resource-client-scope";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
@@ -560,14 +561,7 @@ async function getDedicatedClientsAtStore(store: string): Promise<Set<string>> {
     )
     .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${store.toUpperCase().trim()}`);
 
-  const clients = rows.flatMap((row) => {
-    if (row.clientScope && row.clientScope.toUpperCase() !== "SYNDICATED") {
-      return [row.clientScope];
-    }
-    const typeScope = clientScopeFromResourceType(row.resourceType);
-    return typeScope ? [typeScope] : [];
-  });
-  return new Set(clients);
+  return dedicatedClientScopesAtStore(rows);
 }
 
 async function getEligibleSyndicatedClientsAtStore(store: string): Promise<string[]> {
@@ -579,7 +573,7 @@ async function getEligibleSyndicatedClientsAtStore(store: string): Promise<strin
   const dedicatedClients = await getDedicatedClientsAtStore(store);
   return rows
     .map((row) => row.client)
-    .filter((client) => !dedicatedClients.has(client));
+    .filter((client) => !dedicatedClients.has(client.trim().toUpperCase()));
 }
 
 interface RepClientScope {
@@ -669,9 +663,9 @@ async function getRepClientScopeForStore(
   // syndicated resources can filter across the store, while dedicated and
   // semi-dedicated resources stay on their actual assigned client.
   const resourceType = (rosterRow.resourceType || "").trim();
-  const isSyndicatedResource = resourceType.toUpperCase().includes("SYNDICATED");
+  const typeScope = clientScopeFromResourceType(resourceType);
+  const isSyndicatedResource = isSyndicatedResourceType(resourceType);
   if (!isSyndicatedResource) {
-    const typeScope = clientScopeFromResourceType(resourceType);
     const resolvedScope = typeScope
       || (dedicatedScopes.length === 1
         ? dedicatedScopes[0]
