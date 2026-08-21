@@ -5,7 +5,10 @@
 PerfectStorePro must generate a short-lived HMAC-SHA256 token with the shared
 `STOCKFIX_CAPTURE_TOKEN_SECRET`, then pass it to StockFix as the
 `captureToken` query parameter when opening the StockFix iframe. StockFix
-sends it back only in the `X-StockFix-Capture-Token` request header.
+sends it back only in the `X-StockFix-Capture-Token` request header. The
+StockFix iframe also sends `X-StockFix-Embedded: perfectstorepro`; when that
+header is present, StockFix rejects the capture unless the signed token is
+valid.
 
 The token is:
 
@@ -23,11 +26,14 @@ The JSON payload must contain:
   "store": "Scoped store name",
   "client": "Scoped client name",
   "nonce": "unique random value",
+  "iat": 1769999400,
   "exp": 1770000000
 }
 ```
 
-`exp` is a Unix timestamp in seconds and should expire within a few minutes.
+`iat` and `exp` are Unix timestamps in seconds. StockFix accepts a token for a
+maximum of ten minutes, so `exp` must be after `iat` and no more than 600
+seconds later. Tokens issued more than one minute in the future are rejected.
 StockFix accepts the token only for its exact store and client scope. Never
 place the shared secret in browser code.
 

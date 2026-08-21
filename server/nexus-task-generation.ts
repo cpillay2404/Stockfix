@@ -11,7 +11,8 @@
 // generated rows can never mix into that table's completion reporting).
 import { db } from "./db";
 import { storeSkuWeekly, storeAssignments, resourceRoster, nexusTasks, nexusTaskAssignees, distributionGaps, clientOverstockRules, type InsertNexusTask } from "@shared/schema";
-import { sql, eq } from "drizzle-orm";
+import { resolveEligibleResourceCoverage, type ClientScopedResource } from "@shared/resource-client-scope";
+import { sql, eq, and } from "drizzle-orm";
 import { AT_RISK_WFC_THRESHOLD_WEEKS } from "./nexus";
 
 // Design decisions (revised 2026-08-17, see project_stockfix_flag_vs_task_decision
@@ -73,13 +74,27 @@ import { AT_RISK_WFC_THRESHOLD_WEEKS } from "./nexus";
 //     (like those review sheets already do) would catch more stores. Not
 //     done tonight given time - stores that don't exact-match will show as
 //     storesWithNoAssignment, same as a genuine gap.
-async function buildStoreCoverageMap(): Promise<Map<string, { empId: string; resourceName: string; clientScope: string }[]>> {
-  const rows = await db.select().from(storeAssignments);
-  const map = new Map<string, { empId: string; resourceName: string; clientScope: string }[]>();
+type TaskCoverageResource = ClientScopedResource;
+
+async function buildStoreCoverageMap(): Promise<Map<string, TaskCoverageResource[]>> {
+  const rows = await db
+    .select({
+      cleanedStoreName: storeAssignments.cleanedStoreName,
+      empId: storeAssignments.resourceEmpId,
+      resourceName: storeAssignments.resourceName,
+      clientScope: storeAssignments.clientScope,
+      resourceType: resourceRoster.resourceType,
+    })
+    .from(storeAssignments)
+    .leftJoin(
+      resourceRoster,
+      sql`upper(trim(${storeAssignments.resourceEmpId})) = upper(trim(${resourceRoster.resourceEmpId}))`,
+    );
+  const map = new Map<string, TaskCoverageResource[]>();
   for (const r of rows) {
-    const key = String(r.cleanedStoreName).toUpperCase().trim();
+    const key = r.cleanedStoreName.toUpperCase().trim();
     const list = map.get(key) || [];
-    list.push({ empId: r.resourceEmpId, resourceName: r.resourceName, clientScope: r.clientScope });
+    list.push({ empId: r.empId, resourceName: r.resourceName, clientScope: r.clientScope, resourceType: r.resourceType });
     map.set(key, list);
   }
   return map;
@@ -119,14 +134,12 @@ async function buildStoreRegionMap(): Promise<Map<string, string>> {
 // rebuild, so dedicated-overrides-syndicated must apply to all of them,
 // not just P&G.
 function resolveAssignees(
-  coverage: Map<string, { empId: string; resourceName: string; clientScope: string }[]>,
+  coverage: Map<string, TaskCoverageResource[]>,
   storeName: string,
   client: string
 ): { empId: string; resourceName: string }[] {
   const entries = coverage.get(String(storeName).toUpperCase().trim()) || [];
-  const dedicated = entries.filter((e) => e.clientScope === client);
-  if (dedicated.length > 0) return dedicated;
-  return entries.filter((e) => e.clientScope === "SYNDICATED");
+  return resolveEligibleResourceCoverage(entries, client);
 }
 
 // Real, uncapped Overstock count for one store - queries store_sku_weekly
@@ -483,6 +496,28 @@ export async function wipeTasksForWeek(week: string): Promise<number> {
   return (result as any).rowCount ?? 0;
 }
 
+export async function resolveOnDemandCoverage(storeName: string, client: string): Promise<{ empId: string; resourceName: string }[]> {
+  const rows = await db
+    .select({
+      empId: storeAssignments.resourceEmpId,
+      resourceName: storeAssignments.resourceName,
+      clientScope: storeAssignments.clientScope,
+      resourceType: resourceRoster.resourceType,
+    })
+    .from(storeAssignments)
+    .leftJoin(
+      resourceRoster,
+      sql`upper(trim(${storeAssignments.resourceEmpId})) = upper(trim(${resourceRoster.resourceEmpId}))`,
+    )
+    .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${storeName.toUpperCase().trim()}`);
+  return resolveEligibleResourceCoverage(rows, client);
+}
+
+export async function isEligibleForOnDemandTask(storeName: string, client: string, resourceEmpId: string): Promise<boolean> {
+  const coverage = await resolveOnDemandCoverage(storeName, client);
+  return coverage.some((resource) => resource.empId.trim().toUpperCase() === resourceEmpId.trim().toUpperCase());
+}
+
 // Called by GET /api/nexus-tasks/resolve when the weekly batch didn't
 // generate a task for this exact SKU/issue (e.g. an Overstock SKU outside
 // the capped top-5, or any SKU flagged after the batch ran) - Carin,
@@ -502,23 +537,13 @@ export async function createTaskOnDemand(params: {
   const sourceStem = params.classification === "cover" ? "risk" : params.classification;
   const normalizedStore = params.store.trim().toUpperCase();
 
-  // Same generalization as resolveAssignees above - not just P&G.
-  async function resolveCoverageForStore(storeName: string, client: string): Promise<{ empId: string; resourceName: string }[]> {
-    const rows = await db.select().from(storeAssignments)
-      .where(sql`upper(trim(${storeAssignments.cleanedStoreName})) = ${storeName.toUpperCase().trim()}`);
-    const entries = rows.map((r) => ({ empId: r.resourceEmpId, resourceName: r.resourceName, clientScope: r.clientScope }));
-    const dedicated = entries.filter((e) => e.clientScope === client);
-    if (dedicated.length > 0) return dedicated;
-    return entries.filter((e) => e.clientScope === "SYNDICATED");
-  }
-
   async function insertOnDemand(week: string, opts: {
     client: string; storeName: string; banner?: string | null; region?: string | null;
     barcode: string; articleDescription?: string | null; category?: string | null;
     dcSoh?: unknown; storeSoh?: unknown; sellOutP4?: unknown; cover?: unknown;
     classification?: string | null; missedUnits?: number | null;
   }, actionText: string): Promise<{ uniqueId: string } | null> {
-    const assignees = await resolveCoverageForStore(opts.storeName, opts.client);
+    const assignees = await resolveOnDemandCoverage(opts.storeName, opts.client);
     if (assignees.length === 0) return null; // real call-cycle gap, not guessed at
 
     const uniqueId = `NEXUS_${week}_${opts.client}_${opts.storeName}_${sourceStem}_${opts.barcode}`.replace(/\s+/g, "_");

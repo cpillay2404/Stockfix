@@ -37,7 +37,7 @@ import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRost
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, clientScopeFromResourceType, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
-import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore } from "./nexus-task-generation";
+import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
 import {
   hasStockFixApiKeyConfiguration,
@@ -64,8 +64,17 @@ type NexusCaptureTaskScope = {
 };
 
 function authorizeNexusCaptureScope(req: Request, scope: Pick<NexusCaptureTaskScope, "storeName" | "client">) {
-  const embeddedToken = verifyPerfectStoreCaptureToken(readCaptureTokenHeader(req.headers));
-  if (embeddedToken) {
+  const captureTokenHeader = readCaptureTokenHeader(req.headers);
+  const embeddedHeader = req.headers["x-stockfix-embedded"];
+  const embeddedRequest = embeddedHeader !== undefined;
+  if (embeddedRequest || captureTokenHeader !== undefined) {
+    if (embeddedHeader !== undefined && embeddedHeader !== "perfectstorepro") {
+      return { ok: false as const, status: 401, error: "Invalid embedded capture request" };
+    }
+    const embeddedToken = verifyPerfectStoreCaptureToken(captureTokenHeader);
+    if (!embeddedToken) {
+      return { ok: false as const, status: 401, error: "A valid PerfectStore capture token is required for embedded capture" };
+    }
     if (!sameScopedValue(embeddedToken.store, scope.storeName) || !sameScopedValue(embeddedToken.client, scope.client)) {
       return { ok: false as const, status: 403, error: "Capture token is not scoped to this task" };
     }
@@ -3963,6 +3972,12 @@ export async function registerRoutes(
       // top-5) - create it on the spot instead of dead-ending the rep,
       // per Carin 2026-08-18: "yes we must record it even if that
       // overstock is not in the preset table."
+      if (requestAccess.mode === "direct") {
+        const eligibleForCreation = await isEligibleForOnDemandTask(store, client, req.identity!.resourceEmpId);
+        if (!eligibleForCreation) {
+          return res.status(403).json({ error: "This store and client are not assigned to the verified StockFix identity" });
+        }
+      }
       const created = await createTaskOnDemand({ client, store, classification, barcode });
       if (!created) {
         return res.status(404).json({ error: "No task found for this SKU/issue" });

@@ -77,7 +77,13 @@ export default function ActionCapture() {
   const barcode = params.get("barcode") || "";
   const client = params.get("client") || "";
   const captureToken = params.get("captureToken") || "";
-  const captureTokenHeaders = captureToken ? { "X-StockFix-Capture-Token": captureToken } : {};
+  const embeddedInParentApp = isEmbeddedInParentApp();
+  const captureTokenHeaders: Record<string, string> = embeddedInParentApp
+    ? {
+        "X-StockFix-Embedded": "perfectstorepro",
+        ...(captureToken ? { "X-StockFix-Capture-Token": captureToken } : {}),
+      }
+    : {};
   const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
   // Real bug found 2026-08-20 (Carin: "takes me back to the overstocks
   // screen and then it wants me to capture the task again") - scope=fix
@@ -139,15 +145,14 @@ export default function ActionCapture() {
     setSubmitting(true);
     try {
       const resolveRes = await fetch(
-        `/api/nexus-tasks/resolve?store=${encodeURIComponent(store)}&client=${encodeURIComponent(client)}&classification=${encodeURIComponent(classification)}&barcode=${encodeURIComponent(barcode)}`
-        , { headers: captureTokenHeaders }
+        `/api/nexus-tasks/resolve?store=${encodeURIComponent(store)}&client=${encodeURIComponent(client)}&classification=${encodeURIComponent(classification)}&barcode=${encodeURIComponent(barcode)}`,
+        { headers: captureTokenHeaders },
       );
       if (!resolveRes.ok) {
         throw new Error("Couldn't find a task for this SKU/issue this week");
       }
       const { uniqueId, repName } = await resolveRes.json();
 
-      const embeddedInParentApp = isEmbeddedInParentApp();
       if (repName.trim().toUpperCase() === "UNASSIGNED" && !embeddedInParentApp) {
         // Direct StockFix sessions use the rep/merchandiser identity selected
         // in StockFix. Embedded sessions leave identity assignment to the

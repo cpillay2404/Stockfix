@@ -2,7 +2,10 @@ import type { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { db } from "./db";
 import { resourceRoster, insertResourceRosterSchema, storeAssignments, insertStoreAssignmentSchema } from "@shared/schema";
+import { clientScopeFromResourceType } from "@shared/resource-client-scope";
 import { sql } from "drizzle-orm";
+
+export { clientScopeFromResourceType } from "@shared/resource-client-scope";
 
 // ─── Identity layer ─────────────────────────────────────────────────────────
 // Lightweight "no secret to remember" identity check: a field rep proves who
@@ -22,26 +25,6 @@ export interface IdentityPayload {
   resourceType: string | null;
   clientScope: string;
   exp: number;
-}
-
-export function clientScopeFromResourceType(resourceType: string | null | undefined): string | null {
-  const normalized = (resourceType || "").trim().toUpperCase();
-  if (!normalized || normalized.includes("SYNDICATED")) {
-    return null;
-  }
-  // Fieldmarketers are a P&G-only resource type in the roster, even though
-  // the type label does not include the client name.
-  if (normalized.includes("FIELDMARKETER")) return "P&G";
-  if (!normalized.includes("DEDICATED")) return null;
-
-  const candidate = normalized
-    .replace(/\bSEMI\b/g, "")
-    .replace(/\bDEDICATED\b/g, "")
-    .replace(/\bREP\b/g, "")
-    .replace(/\bMERCHANDISER\b/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return candidate || null;
 }
 
 function base64url(input: Buffer | string): string {

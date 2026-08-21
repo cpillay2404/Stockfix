@@ -7,8 +7,12 @@ export interface PerfectStoreCaptureToken {
   store: string;
   client: string;
   nonce: string;
+  iat: number;
   exp: number;
 }
+
+const MAX_CAPTURE_TOKEN_TTL_SECONDS = 10 * 60;
+const CLOCK_SKEW_SECONDS = 60;
 
 function getTokenSecret(): string | null {
   return process.env.STOCKFIX_CAPTURE_TOKEN_SECRET || null;
@@ -44,9 +48,14 @@ export function verifyPerfectStoreCaptureToken(token: string | undefined): Perfe
       || !isNonEmptyString(parsed.store)
       || !isNonEmptyString(parsed.client)
       || !isNonEmptyString(parsed.nonce)
+      || typeof parsed.iat !== "number"
+      || !Number.isFinite(parsed.iat)
       || typeof parsed.exp !== "number"
       || !Number.isFinite(parsed.exp)
+      || parsed.iat > Math.floor(Date.now() / 1000) + CLOCK_SKEW_SECONDS
       || parsed.exp <= Math.floor(Date.now() / 1000)
+      || parsed.exp <= parsed.iat
+      || parsed.exp - parsed.iat > MAX_CAPTURE_TOKEN_TTL_SECONDS
     ) {
       return null;
     }
@@ -64,7 +73,10 @@ export function readCaptureTokenHeader(headers: Record<string, string | string[]
 
 export function verifyStockFixApiKey(value: string | string[] | undefined): boolean {
   const expected = process.env.STOCKFIX_API_KEY;
-  return typeof value === "string" && Boolean(expected) && safeEqual(value, expected);
+  if (typeof value !== "string" || typeof expected !== "string" || !expected) {
+    return false;
+  }
+  return safeEqual(value, expected);
 }
 
 export function hasStockFixApiKeyConfiguration(): boolean {
