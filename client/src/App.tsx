@@ -39,7 +39,10 @@ import QRPage from "@/pages/qr";
 import MerchandiserPilot from "@/pages/merchandiser-pilot";
 import InventoryDashboard from "@/pages/inventory-dashboard";
 import { getEndVisitPath, getUnclosedVisit, isActiveVisitContext, LeaveVisitPrompt } from "@/lib/visit-guard";
-import { installEmbeddedRosterFetchGuard } from "@/lib/stockfix-embedded";
+import {
+  getStockFixEmbeddedCaptureContext,
+  installEmbeddedRosterFetchGuard,
+} from "@/lib/stockfix-embedded";
 
 if (typeof window !== "undefined") {
   installEmbeddedRosterFetchGuard();
@@ -129,11 +132,15 @@ function App() {
   const [showSplash, setShowSplash] = useState(true);
   const [location, setLocation] = useLocation();
   const [showLeavePrompt, setShowLeavePrompt] = useState(false);
-  // Skip splash for deep-linked routes (e.g. from Perfect Store Pro) that
-  // carry rep= in the query string — the page reads everything from URL params
-  // directly and doesn't need the choose-access flow.
+  // Skip splash for direct deep links and signed PerfectStorePro embeds. The
+  // latter carries route context in its token rather than duplicating it in
+  // query parameters.
   const hasRepParam = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('rep');
-  const skipSplash = location === '/merchandiser-pilot' || location === '/inventory' || hasRepParam;
+  const hasEmbeddedCaptureContext = Boolean(getStockFixEmbeddedCaptureContext());
+  const skipSplash = location === '/merchandiser-pilot'
+    || location === '/inventory'
+    || hasRepParam
+    || hasEmbeddedCaptureContext;
 
   // A browser/device Back gesture can bypass page-level buttons. Apply the
   // open-visit rule once at the app boundary so it protects every in-store

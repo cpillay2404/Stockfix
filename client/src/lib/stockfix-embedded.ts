@@ -2,6 +2,12 @@ export const PERFECT_STORE_PRO_ORIGIN = "https://perfectstorepro.replit.app";
 const CAPTURE_TOKEN_SESSION_KEY = "stockfix.perfectstorepro.capture-token";
 const ROSTER_FETCH_GUARD_KEY = "__stockFixEmbeddedRosterFetchGuardInstalled";
 
+export interface StockFixEmbeddedCaptureContext {
+  store: string;
+  client: string;
+  repName: string;
+}
+
 export function isEmbeddedInPerfectStorePro(): boolean {
   if (typeof window === "undefined") return false;
   return window.parent !== window && Boolean(getStockFixEmbeddedCaptureToken());
@@ -18,6 +24,42 @@ export function getStockFixEmbeddedCaptureToken(): string {
   }
 
   return window.sessionStorage.getItem(CAPTURE_TOKEN_SESSION_KEY) || "";
+}
+
+// The server remains the authority for token verification. This decoded
+// context only lets the iframe render its initial route when PerfectStorePro
+// intentionally passes a token without duplicating store/client/rep in the
+// URL. It is unavailable to direct top-level URLs by design.
+export function getStockFixEmbeddedCaptureContext(): StockFixEmbeddedCaptureContext | null {
+  if (!isEmbeddedInPerfectStorePro()) return null;
+  const token = getStockFixEmbeddedCaptureToken();
+  const payloadSegment = token.split(".")[0];
+  if (!payloadSegment) return null;
+
+  try {
+    const base64 = payloadSegment
+      .replace(/-/g, "+")
+      .replace(/_/g, "/")
+      .padEnd(Math.ceil(payloadSegment.length / 4) * 4, "=");
+    const payload = JSON.parse(atob(base64)) as Partial<StockFixEmbeddedCaptureContext>;
+    if (
+      typeof payload.store !== "string"
+      || !payload.store.trim()
+      || typeof payload.client !== "string"
+      || !payload.client.trim()
+      || typeof payload.repName !== "string"
+      || !payload.repName.trim()
+    ) {
+      return null;
+    }
+    return {
+      store: payload.store.trim(),
+      client: payload.client.trim(),
+      repName: payload.repName.trim(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function getStockFixEmbeddedHeaders(): Record<string, string> {

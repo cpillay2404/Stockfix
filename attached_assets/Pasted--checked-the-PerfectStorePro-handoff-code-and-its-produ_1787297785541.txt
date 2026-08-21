@@ -1,0 +1,31 @@
+ checked the PerfectStorePro handoff code and its production activity.
+
+Confirmed on the PerfectStorePro side:
+
+It creates a fresh signed capture token from /api/perfectstore/stockfix/capture-context.
+
+The iframe is rendered as a real <iframe>, not a popup or top-level navigation.
+
+Its source is built directly as:
+
+https://stock-fix.replit.app/store-detail?captureToken=<fresh signed token>
+
+There is no PerfectStorePro proxy, redirect, or launcher between the iframe and StockFix.
+
+The latest production activity shows the secure capture-context endpoint returning 200 when the StockFix session was opened.
+
+So the iframe launch and query-token handoff are working.
+
+Important distinction: PerfectStorePro cannot add X-StockFix-Embedded or X-StockFix-Capture-Token to the iframe navigation itself. Those headers must be added by the StockFix frontend, when it reads captureToken from its own iframe URL and calls its same-origin /api/... routes.
+
+Therefore, if either header is missing from StockFix’s /api/roster/store-overview request, the defect is in the published StockFix client bundle—it is either not reading the query token, not recognizing that it is embedded, or not attaching the headers to its fetch wrapper.
+
+Send this to the StockFix agent:
+
+PerfectStorePro’s side is confirmed: a genuine iframe is loaded directly at /store-detail?captureToken=<fresh token>, with no redirect or proxy. The secure capture-context endpoint returns 200.
+
+Please inspect the StockFix production browser request from inside that iframe. If X-StockFix-Embedded: perfectstorepro or X-StockFix-Capture-Token is absent on /api/roster/store-overview, the published StockFix frontend is not propagating the query token into its same-origin API client.
+
+Please verify the deployed /store-detail bundle reads captureToken on first load and attaches both headers to every relevant same-origin API request, especially /api/roster/store-overview and /api/nexus-tasks/pending. The task-only fallback must then catch the resulting P&G client-unavailable 403 and call /api/nexus-tasks/pending.
+
+The current “Couldn’t load live data” screen is consistent with StockFix treating the request as normal direct access rather than a signed embedded P&G session.

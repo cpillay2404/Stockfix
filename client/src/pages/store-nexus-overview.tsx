@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { getStockFixEmbeddedHeaders } from "@/lib/stockfix-embedded";
+import {
+  getStockFixEmbeddedCaptureContext,
+  getStockFixEmbeddedHeaders,
+} from "@/lib/stockfix-embedded";
 import { getEmbeddedTaskFallbackRequest } from "@/lib/embedded-task-fallback";
 import { buildActionCaptureUrl } from "@/lib/action-capture-navigation";
 import { ChevronDown, ChevronRight, ArrowLeft, Store as StoreIcon } from "lucide-react";
@@ -200,8 +203,9 @@ export default function StoreOverview() {
   const [, setLocation] = useLocation();
   const [showLeavePrompt, setShowLeavePrompt] = useState(false);
   const params = new URLSearchParams(window.location.search);
-  const store = params.get("store") || "";
-  const rep = params.get("rep") || "";
+  const embeddedCaptureContext = getStockFixEmbeddedCaptureContext();
+  const store = params.get("store") || embeddedCaptureContext?.store || "";
+  const rep = params.get("rep") || embeddedCaptureContext?.repName || "";
   const role = params.get("role") || "Rep";
   // Real bug found 2026-08-19 (Carin: "selected aspen, selected a store...
   // I could see all clients") - a client login (no rep) passes its picked
@@ -216,7 +220,7 @@ export default function StoreOverview() {
   // adds &client= for a dedicated (non-SYNDICATED) person - a syndicated
   // rep/merchandiser never gets this param at all - so it's safe to
   // honor it regardless of whether a rep is also present.
-  const lockedClient = params.get("client") || "";
+  const lockedClient = params.get("client") || embeddedCaptureContext?.client || "";
   const [clientOverride, setClientOverride] = useState("");
   const captureHeaders = getStockFixEmbeddedHeaders();
   const repQuery = captureHeaders["X-StockFix-Embedded"]

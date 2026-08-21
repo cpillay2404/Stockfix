@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getStockFixEmbeddedCaptureContext,
   getStockFixEmbeddedHeaders,
   installEmbeddedRosterFetchGuard,
   preserveEmbeddedCaptureToken,
@@ -53,6 +54,19 @@ test("keeps the signed iframe token available after internal navigation removes 
   );
 });
 
+test("derives initial store context from a token in a genuine iframe", () => {
+  const payload = Buffer
+    .from(JSON.stringify({ store: "CHECKERS HYPER FX GATEWAY", client: "P&G", repName: "Demo Rep" }))
+    .toString("base64url");
+  installEmbeddedWindow(`?captureToken=${payload}.signature`);
+
+  assert.deepEqual(getStockFixEmbeddedCaptureContext(), {
+    store: "CHECKERS HYPER FX GATEWAY",
+    client: "P&G",
+    repName: "Demo Rep",
+  });
+});
+
 test("keeps the signed token through overview, list, SKU, capture, and return navigation", () => {
   const { mockWindow } = installEmbeddedWindow();
   const context = {
@@ -91,6 +105,7 @@ test("does not turn a top-level URL token into an embedded request", async () =>
   const { mockWindow, fetchCalls } = installEmbeddedWindow("?captureToken=signed-token", false);
 
   assert.deepEqual(getStockFixEmbeddedHeaders(), {});
+  assert.equal(getStockFixEmbeddedCaptureContext(), null);
   assert.equal(
     preserveEmbeddedCaptureToken("/store-detail/list?store=Demo"),
     "/store-detail/list?store=Demo",
