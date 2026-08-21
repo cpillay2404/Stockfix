@@ -384,6 +384,23 @@ export default function SelectRepStore() {
       if (identifyBody?.clientScope && identifyBody.clientScope !== "SYNDICATED") {
         dedicatedClientQS = `&client=${encodeURIComponent(identifyBody.clientScope)}`;
       }
+      // Real gap found 2026-08-21 (Carin: "user is unassigned in the
+      // capture feed... going forward how are we going to fix this") -
+      // identity relied ENTIRELY on the httpOnly sf_identity cookie
+      // surviving to a later request (claim/PATCH), which can be flaky on
+      // mobile browsers/PWAs. The server already prefers a Bearer token
+      // over the cookie (see identity.ts's getToken) but nothing on the
+      // frontend ever used it. Storing it in localStorage and sending it
+      // explicitly is a reliable backup that doesn't depend on cookie
+      // behavior at all - if the cookie fails, this still works.
+      if (identifyBody?.token) {
+        try {
+          localStorage.setItem("stockfix_identity_token", identifyBody.token);
+        } catch {
+          // localStorage can throw in some restricted/private-browsing
+          // contexts - the cookie is still the fallback in that case.
+        }
+      }
     } catch (err) {
       console.error("Failed to identify session", err);
       window.alert("We couldn't verify your session. Please check your connection and try again.");

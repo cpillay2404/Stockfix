@@ -107,7 +107,7 @@ function authorizeNexusCaptureScope(req: Request, scope: Pick<NexusCaptureTaskSc
     if (!sameScopedValue(embeddedToken.store, scope.storeName) || !sameScopedValue(embeddedToken.client, scope.client)) {
       return { ok: false as const, status: 403, error: "Capture token is not scoped to this task" };
     }
-    return { ok: true as const, mode: "embedded" as const };
+    return { ok: true as const, mode: "embedded" as const, repName: embeddedToken.repName };
   }
 
   const identity = req.identity;
@@ -4138,6 +4138,16 @@ export async function registerRoutes(
       }
 
       const updates: any = { ...validated, updatedAt: new Date() };
+      // PerfectStorePro's capture token already carries the real rep's name
+      // on every embedded request (Carin, 2026-08-21: "linda captured through
+      // perfect store pro, why didnt his name come through") - attribute it
+      // directly here instead of relying solely on PerfectStorePro's server
+      // making a separate follow-up call to /api/tasks/:uniqueId/attribution,
+      // which may never happen. Only overwrite a genuinely unassigned task so
+      // this never clobbers a real existing attribution.
+      if (access.mode === "embedded" && access.repName && isUnassigned(existing.repName)) {
+        updates.repName = access.repName;
+      }
       if ((validated.actionStatus && validated.actionStatus !== "Pending") || validated.feedback || validated.reasonCode) {
         if (!existing.actionDate) {
           updates.actionDate = new Date().toISOString().split("T")[0];
