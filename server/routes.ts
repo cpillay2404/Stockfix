@@ -5686,8 +5686,16 @@ export async function registerRoutes(
       // openRows/allAssignees are both derived from this single result set
       // in JS instead of hitting the database twice for largely the same
       // rows.
+      // Real perf gap found 2026-08-21 (Carin: "why is the dashboard so
+      // slow" - confirmed 37s+ per request via EXPLAIN ANALYZE) - the
+      // `distinct` here forced Postgres to sort all ~277k joined rows
+      // (spilling to disk), for a near-zero payoff: nexus_task_assignees is
+      // unique on (task_unique_id, resource_emp_id), so this join is already
+      // one row per assignee with only a handful of true duplicates. Every
+      // consumer below folds these rows into a Set/Map anyway, so dropping
+      // `distinct` changes no result while removing the expensive sort.
       const assigneeJoinResult = await db.execute(sql`
-        select distinct t.unique_id as "uniqueId", t.store_name as "storeName", t.client, t.region,
+        select t.unique_id as "uniqueId", t.store_name as "storeName", t.client, t.region,
           t.action_status as "actionStatus", a.resource_name as "resourceName", r.resource_type as "resourceType"
         from nexus_task_assignees a
         join nexus_tasks t on t.unique_id = a.task_unique_id
