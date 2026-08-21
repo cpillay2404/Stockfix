@@ -11,6 +11,21 @@ export interface PerfectStoreCaptureToken {
   exp: number;
 }
 
+export type PerfectStoreCaptureTokenFailure =
+  | "missing-secret"
+  | "missing-token-header"
+  | "malformed-token"
+  | "invalid-signature"
+  | "malformed-payload"
+  | "invalid-claims"
+  | "issued-in-future"
+  | "expired-token"
+  | "invalid-token-lifetime";
+
+export type PerfectStoreCaptureTokenVerification =
+  | { token: PerfectStoreCaptureToken; failure: null }
+  | { token: null; failure: PerfectStoreCaptureTokenFailure };
+
 const MAX_CAPTURE_TOKEN_TTL_SECONDS = 10 * 60;
 const CLOCK_SKEW_SECONDS = 60;
 
@@ -29,15 +44,22 @@ function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-export function verifyPerfectStoreCaptureToken(token: string | undefined): PerfectStoreCaptureToken | null {
+export function inspectPerfectStoreCaptureToken(
+  token: string | undefined,
+): PerfectStoreCaptureTokenVerification {
   const secret = getTokenSecret();
-  if (!secret || !token) return null;
+  if (!secret) return { token: null, failure: "missing-secret" };
+  if (!token) return { token: null, failure: "missing-token-header" };
 
   const [body, signature, ...extra] = token.split(".");
-  if (!body || !signature || extra.length > 0) return null;
+  if (!body || !signature || extra.length > 0) {
+    return { token: null, failure: "malformed-token" };
+  }
 
   const expected = crypto.createHmac("sha256", secret).update(body).digest("base64url");
-  if (!safeEqual(signature, expected)) return null;
+  if (!safeEqual(signature, expected)) {
+    return { token: null, failure: "invalid-signature" };
+  }
 
   try {
     const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as Partial<PerfectStoreCaptureToken>;
@@ -52,18 +74,29 @@ export function verifyPerfectStoreCaptureToken(token: string | undefined): Perfe
       || !Number.isFinite(parsed.iat)
       || typeof parsed.exp !== "number"
       || !Number.isFinite(parsed.exp)
-      || parsed.iat > Math.floor(Date.now() / 1000) + CLOCK_SKEW_SECONDS
-      || parsed.exp <= Math.floor(Date.now() / 1000)
-      || parsed.exp <= parsed.iat
-      || parsed.exp - parsed.iat > MAX_CAPTURE_TOKEN_TTL_SECONDS
     ) {
-      return null;
+      return { token: null, failure: "invalid-claims" };
     }
 
-    return parsed as PerfectStoreCaptureToken;
+    const now = Math.floor(Date.now() / 1000);
+    if (parsed.iat > now + CLOCK_SKEW_SECONDS) {
+      return { token: null, failure: "issued-in-future" };
+    }
+    if (parsed.exp <= now) {
+      return { token: null, failure: "expired-token" };
+    }
+    if (parsed.exp <= parsed.iat || parsed.exp - parsed.iat > MAX_CAPTURE_TOKEN_TTL_SECONDS) {
+      return { token: null, failure: "invalid-token-lifetime" };
+    }
+
+    return { token: parsed as PerfectStoreCaptureToken, failure: null };
   } catch {
-    return null;
+    return { token: null, failure: "malformed-payload" };
   }
+}
+
+export function verifyPerfectStoreCaptureToken(token: string | undefined): PerfectStoreCaptureToken | null {
+  return inspectPerfectStoreCaptureToken(token).token;
 }
 
 export function readCaptureTokenHeader(headers: Record<string, string | string[] | undefined>): string | undefined {

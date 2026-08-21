@@ -42,6 +42,7 @@ import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, 
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
 import {
   hasStockFixApiKeyConfiguration,
+  inspectPerfectStoreCaptureToken,
   isUnassigned,
   readCaptureTokenHeader,
   sameScopedValue,
@@ -64,6 +65,31 @@ type NexusCaptureTaskScope = {
   repName: string;
 };
 
+function captureTokenHeaderStatus(req: Request): "missing" | "empty" | "multiple" | "present" {
+  const header = req.headers["x-stockfix-capture-token"];
+  if (Array.isArray(header)) return "multiple";
+  if (typeof header !== "string") return "missing";
+  return header.trim() ? "present" : "empty";
+}
+
+function logEmbeddedTokenRejection(
+  area: "capture" | "roster",
+  req: Request,
+  reason: string,
+) {
+  const embeddedHeader = req.headers["x-stockfix-embedded"];
+  console.warn("[StockFix embedded token rejected]", {
+    area,
+    embeddedHeader: embeddedHeader === "perfectstorepro"
+      ? "expected"
+      : embeddedHeader === undefined
+        ? "missing"
+        : "unexpected",
+    captureTokenHeader: captureTokenHeaderStatus(req),
+    reason,
+  });
+}
+
 function authorizeNexusCaptureScope(req: Request, scope: Pick<NexusCaptureTaskScope, "storeName" | "client">) {
   const captureTokenHeader = readCaptureTokenHeader(req.headers);
   const embeddedHeader = req.headers["x-stockfix-embedded"];
@@ -72,10 +98,12 @@ function authorizeNexusCaptureScope(req: Request, scope: Pick<NexusCaptureTaskSc
     if (embeddedHeader !== undefined && embeddedHeader !== "perfectstorepro") {
       return { ok: false as const, status: 401, error: "Invalid embedded capture request" };
     }
-    const embeddedToken = verifyPerfectStoreCaptureToken(captureTokenHeader);
-    if (!embeddedToken) {
+    const embeddedVerification = inspectPerfectStoreCaptureToken(captureTokenHeader);
+    if (!embeddedVerification.token) {
+      logEmbeddedTokenRejection("capture", req, embeddedVerification.failure);
       return { ok: false as const, status: 401, error: "A valid PerfectStore capture token is required for embedded capture" };
     }
+    const embeddedToken = embeddedVerification.token;
     if (!sameScopedValue(embeddedToken.store, scope.storeName) || !sameScopedValue(embeddedToken.client, scope.client)) {
       return { ok: false as const, status: 403, error: "Capture token is not scoped to this task" };
     }
@@ -103,10 +131,12 @@ function authorizeEmbeddedRosterRequest(
   if (embeddedHeader !== "perfectstorepro") {
     return { ok: false as const, status: 401, error: "Invalid embedded capture request" };
   }
-  const token = verifyPerfectStoreCaptureToken(captureTokenHeader);
-  if (!token) {
+  const tokenVerification = inspectPerfectStoreCaptureToken(captureTokenHeader);
+  if (!tokenVerification.token) {
+    logEmbeddedTokenRejection("roster", req, tokenVerification.failure);
     return { ok: false as const, status: 401, error: "A valid PerfectStore capture token is required for embedded store access" };
   }
+  const token = tokenVerification.token;
   if (requestedStore && !sameScopedValue(token.store, requestedStore)) {
     return { ok: false as const, status: 403, error: "Capture token is not scoped to this store" };
   }
