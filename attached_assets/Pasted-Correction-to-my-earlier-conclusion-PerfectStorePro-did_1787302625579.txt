@@ -1,0 +1,36 @@
+Correction to my earlier conclusion: PerfectStorePro did receive and process the callback.
+
+The production log sequence is:
+
+08:51:54  POST /api/perfectstore/stockfix/capture-context → 200
+08:52:06  POST /api/perfectstore/stockfix/attribution → 404
+
+So:
+
+The secure iframe launched.
+StockFix sent a callback that PerfectStorePro accepted.
+PerfectStorePro called its attribution route.
+The route returned 404 before calling StockFix’s server-to-server PATCH.
+Why Linda’s name did not pull through
+PerfectStorePro deliberately verifies that the captured task ID exists in its own authorized StockFix task cache before assigning a rep.
+
+For this capture, the callback task ID was not found in that cache, so PerfectStorePro safely stopped with:
+
+StockFix task not found
+
+That is why Linda was not assigned. It is not an iframe link problem, origin-validation problem, callback-delivery problem, or API-key problem.
+
+What needs fixing
+The new StockFix task-only fallback is loading tasks from nexus_tasks, but the task ID being captured is not available in the StockFix task data that PerfectStorePro uses to validate attribution.
+
+The two task sources must be aligned:
+
+Option 1 — StockFix: Ensure fallback tasks from nexus_tasks are also exposed through the task feed that PerfectStorePro caches.
+Option 2 — PerfectStorePro: When attributing a callback, securely retrieve the exact task from StockFix server-to-server, then verify its exact store, P&G client, and signed rep scope before assigning it.
+PerfectStorePro must not simply trust unknown callback IDs, because that would weaken the security controls.
+
+Send this to the StockFix agent:
+
+We now have live evidence that the callback arrives correctly. PerfectStorePro received POST /api/perfectstore/stockfix/attribution, but returned 404 before its server-to-server PATCH because the callback uniqueId was not present in PerfectStorePro’s verified StockFix task cache.
+
+Please identify the exact uniqueId saved by the task-only fallback and confirm it is returned by the StockFix task feed used for PerfectStorePro integration. The fallback currently appears to read from nexus_tasks, while PerfectStorePro’s attribution cache does not contain the same task. This is a task-source alignment problem, not a callback or API-key problem
