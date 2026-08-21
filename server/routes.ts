@@ -1581,8 +1581,32 @@ export async function registerRoutes(
   // everything is flowing") - one endpoint that answers "where are we"
   // with real numbers instead of a curl-and-guess cycle. Backs the
   // /pipeline-status.html page below.
+  //
+  // Real incident found 2026-08-21 (Carin: "my P&G people just stopped") -
+  // the page's own 15s auto-refresh, left open in a browser tab, piled up
+  // duplicate copies of this query (store_sku_weekly has no cheap way to
+  // serve count(distinct client) per week) faster than they could finish,
+  // exhausting the database connection pool for everything else, including
+  // unrelated capture completions. A client-side overlap guard alone isn't
+  // enough - multiple tabs/devices can still pile up requests. Single-flight
+  // any concurrent calls onto one in-progress query, and cache the result
+  // for a short window so this endpoint can never cost more than one real
+  // query per 20 seconds, no matter how many tabs are polling it.
+  let pipelineStatusCache: { at: number; body: any } | null = null;
+  let pipelineStatusInFlight: Promise<any> | null = null;
+  const PIPELINE_STATUS_CACHE_MS = 20_000;
   app.get("/api/admin/pipeline-status", async (req, res) => {
-    try {
+    if (pipelineStatusCache && Date.now() - pipelineStatusCache.at < PIPELINE_STATUS_CACHE_MS) {
+      return res.json(pipelineStatusCache.body);
+    }
+    if (pipelineStatusInFlight) {
+      try {
+        return res.json(await pipelineStatusInFlight);
+      } catch (error: any) {
+        return res.status(500).json({ error: error?.message || "Failed to load pipeline status" });
+      }
+    }
+    pipelineStatusInFlight = (async () => {
       const skuWeeksResult = await db.execute(sql`
         select week_ending, count(distinct client) as client_count, count(*) as row_count
         from store_sku_weekly
@@ -1607,7 +1631,7 @@ export async function registerRoutes(
         : [];
       const missingClients = NEXUS_CLIENTS.filter((c) => !clientsInLatestWeek.includes(c));
 
-      res.json({
+      return {
         expectedClientCount: NEXUS_CLIENTS.length,
         inventoryByWeek: skuWeeks.map((w) => ({
           week: w.week_ending,
@@ -1621,10 +1645,17 @@ export async function registerRoutes(
           completedCount: Number(w.completed_count),
         })),
         syncJob: getSyncJobStatus(),
-      });
+      };
+    })();
+    try {
+      const body = await pipelineStatusInFlight;
+      pipelineStatusCache = { at: Date.now(), body };
+      res.json(body);
     } catch (error: any) {
       console.error("Error building pipeline status:", error);
       res.status(500).json({ error: error?.message || "Failed to load pipeline status" });
+    } finally {
+      pipelineStatusInFlight = null;
     }
   });
 
