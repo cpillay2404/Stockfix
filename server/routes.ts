@@ -4280,6 +4280,20 @@ export async function registerRoutes(
       // this never clobbers a real existing attribution.
       if (access.mode === "embedded" && access.repName && isUnassigned(existing.repName)) {
         updates.repName = access.repName;
+        // Real gap found 2026-08-21 (Athenkosi Mbovu's capture at 10:59 -
+        // repName attributed correctly but resourceType/lineManager stayed
+        // blank) - this only ever wrote repName, unlike claimTask() which
+        // sets all three from the roster together. Mirror that here so
+        // Perfect Store Pro attributions carry the same real data a direct
+        // claim would.
+        const [rosterMatch] = await db.select({ resourceType: resourceRoster.resourceType, manager: resourceRoster.manager })
+          .from(resourceRoster)
+          .where(sql`upper(trim(${resourceRoster.resourceName})) = ${access.repName.toUpperCase().trim()}`)
+          .limit(1);
+        if (rosterMatch) {
+          updates.resourceType = rosterMatch.resourceType || "";
+          updates.lineManager = rosterMatch.manager || "";
+        }
       }
       if ((validated.actionStatus && validated.actionStatus !== "Pending") || validated.feedback || validated.reasonCode) {
         if (!existing.actionDate) {
