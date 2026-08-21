@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { getStockFixEmbeddedHeaders } from "@/lib/stockfix-embedded";
 import { ArrowLeft, ChevronDown, ChevronRight, Store as StoreIcon, CheckCircle2 } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2LoadingState from "@/components/sf2-loading-state";
@@ -95,6 +96,10 @@ export default function StoreSkuList() {
   // silently drop back to the blanket list.
   const scope = params.get("scope") || "";
   const scopeQS = scope ? `&scope=${encodeURIComponent(scope)}` : "";
+  const captureHeaders = getStockFixEmbeddedHeaders();
+  const repQuery = captureHeaders["X-StockFix-Embedded"]
+    ? ""
+    : `&rep=${encodeURIComponent(rep)}`;
 
   // Real bug fixed 2026-08-18 (Carin: "client filter not working here,
   // clicking but nothing happening") - these were plain static buttons with
@@ -103,7 +108,7 @@ export default function StoreSkuList() {
   const { data: clientOptions } = useQuery<ClientOptions>({
     queryKey: ["clients-for-store", store, rep],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/clients-for-store?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}`);
+       const res = await fetch(`/api/roster/clients-for-store?store=${encodeURIComponent(store)}${repQuery}`, { headers: captureHeaders });
       if (!res.ok) throw new Error("Failed to fetch clients");
       return res.json();
     },
@@ -116,7 +121,7 @@ export default function StoreSkuList() {
   const { data: skuOptions } = useQuery<{ rows: { barcode: string; articleDescription: string; client?: string }[] }>({
     queryKey: ["nexus-sku-list", store, rep, "cover", activeClient],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=cover&client=${encodeURIComponent(activeClient)}`);
+       const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}${repQuery}&classification=cover&client=${encodeURIComponent(activeClient)}`, { headers: captureHeaders });
       if (!res.ok) throw new Error("Failed to fetch SKU list");
       return res.json();
     },
@@ -132,7 +137,8 @@ export default function StoreSkuList() {
     queryKey: ["nexus-sku-list", store, rep, classification, activeClient, scope],
     queryFn: async () => {
       const res = await fetch(
-        `/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}${scopeQS}`
+        `/api/roster/sku-list?store=${encodeURIComponent(store)}${repQuery}&classification=${classification}${clientQS}${scopeQS}`,
+        { headers: captureHeaders }
       );
       if (!res.ok) throw new Error("Failed to fetch SKU list");
       return res.json();
@@ -143,7 +149,7 @@ export default function StoreSkuList() {
   const { data: overview } = useQuery<OverviewResponse>({
     queryKey: ["nexus-store-overview", store, rep, activeClient],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}${clientQS}`);
+       const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}${repQuery}${clientQS}`, { headers: captureHeaders });
       if (!res.ok) throw new Error("Failed to fetch store overview");
       return res.json();
     },

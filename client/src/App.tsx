@@ -39,6 +39,11 @@ import QRPage from "@/pages/qr";
 import MerchandiserPilot from "@/pages/merchandiser-pilot";
 import InventoryDashboard from "@/pages/inventory-dashboard";
 import { getEndVisitPath, getUnclosedVisit, isActiveVisitContext, LeaveVisitPrompt } from "@/lib/visit-guard";
+import { installEmbeddedRosterFetchGuard } from "@/lib/stockfix-embedded";
+
+if (typeof window !== "undefined") {
+  installEmbeddedRosterFetchGuard();
+}
 
 function LegacyRouteRedirect({
   to,

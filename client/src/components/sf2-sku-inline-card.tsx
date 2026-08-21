@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Wrench, X } from "lucide-react";
 import { buildActionCaptureUrl } from "@/lib/action-capture-navigation";
+import { getStockFixEmbeddedHeaders } from "@/lib/stockfix-embedded";
 
 interface SkuRow {
   barcode: string;
@@ -70,11 +71,18 @@ interface Props {
 export default function Sf2SkuInlineCard({ store, rep, barcode, client, onClear }: Props) {
   const [, setLocation] = useLocation();
   const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
+  const captureHeaders = getStockFixEmbeddedHeaders();
+  const repQuery = captureHeaders["X-StockFix-Embedded"]
+    ? ""
+    : `&rep=${encodeURIComponent(rep)}`;
 
   const { data } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, "cover", client],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=cover${clientQS || "&client=ALL"}`);
+      const res = await fetch(
+        `/api/roster/sku-list?store=${encodeURIComponent(store)}${repQuery}&classification=cover${clientQS || "&client=ALL"}`,
+        { headers: captureHeaders },
+      );
       if (!res.ok) throw new Error("Failed to fetch SKU list");
       return res.json();
     },
@@ -84,7 +92,10 @@ export default function Sf2SkuInlineCard({ store, rep, barcode, client, onClear 
   const historyQuery = useQuery<SkuHistoryResponse>({
     queryKey: ["nexus-sku-history", store, rep, barcode, client],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/sku-history?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&barcode=${encodeURIComponent(barcode)}${clientQS}`);
+      const res = await fetch(
+        `/api/roster/sku-history?store=${encodeURIComponent(store)}${repQuery}&barcode=${encodeURIComponent(barcode)}${clientQS}`,
+        { headers: captureHeaders },
+      );
       if (!res.ok) throw new Error("Failed to fetch SKU history");
       return res.json();
     },

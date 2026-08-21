@@ -90,6 +90,38 @@ function authorizeNexusCaptureScope(req: Request, scope: Pick<NexusCaptureTaskSc
   return { ok: true as const, mode: "direct" as const };
 }
 
+function authorizeEmbeddedRosterRequest(
+  req: Request,
+  requestedStore: string,
+  requestedClient?: string,
+) {
+  const captureTokenHeader = readCaptureTokenHeader(req.headers);
+  const embeddedHeader = req.headers["x-stockfix-embedded"];
+  if (embeddedHeader === undefined && captureTokenHeader === undefined) {
+    return { ok: true as const, mode: "direct" as const };
+  }
+  if (embeddedHeader !== "perfectstorepro") {
+    return { ok: false as const, status: 401, error: "Invalid embedded capture request" };
+  }
+  const token = verifyPerfectStoreCaptureToken(captureTokenHeader);
+  if (!token) {
+    return { ok: false as const, status: 401, error: "A valid PerfectStore capture token is required for embedded store access" };
+  }
+  if (requestedStore && !sameScopedValue(token.store, requestedStore)) {
+    return { ok: false as const, status: 403, error: "Capture token is not scoped to this store" };
+  }
+  if (requestedClient && requestedClient !== "ALL" && !sameScopedValue(token.client, requestedClient)) {
+    return { ok: false as const, status: 403, error: "Capture token is not scoped to this client" };
+  }
+  return {
+    ok: true as const,
+    mode: "embedded" as const,
+    storeName: token.store,
+    client: token.client,
+    repName: token.repName,
+  };
+}
+
 async function authorizeNexusCaptureTask(req: Request, task: NexusCaptureTaskScope, requireClaimedDirectTask: boolean) {
   const scopeAccess = authorizeNexusCaptureScope(req, task);
   if (!scopeAccess.ok || scopeAccess.mode === "embedded") {
@@ -1270,10 +1302,20 @@ export async function registerRoutes(
   // syndicated rep's store can have real data for several clients at once).
   app.get("/api/roster/clients-for-store", async (req, res) => {
     try {
-      const store = String(req.query.store || "").trim();
+      const requestedStore = String(req.query.store || "").trim();
       const requestedRepName = String(req.query.rep || "").trim();
+      const embeddedAccess = authorizeEmbeddedRosterRequest(req, requestedStore);
+      if (!embeddedAccess.ok) return res.status(embeddedAccess.status).json({ error: embeddedAccess.error });
+      const store = embeddedAccess.mode === "embedded" ? embeddedAccess.storeName : requestedStore;
       if (!store) {
         return res.status(400).json({ error: "store query param is required" });
+      }
+      if (embeddedAccess.mode === "embedded") {
+        return res.json({
+          clients: [embeddedAccess.client],
+          locked: true,
+          resourceType: "PERFECTSTOREPRO EMBEDDED",
+        });
       }
       const repContext = await resolveVerifiedRepContext(req, store, requestedRepName);
       if (repContext.error) return res.status(401).json({ error: repContext.error });
@@ -1848,14 +1890,22 @@ export async function registerRoutes(
   // the "loudest" match. Always resolve the person's real scope instead.
   app.get("/api/roster/store-overview", async (req, res) => {
     try {
-      const store = String(req.query.store || "").trim();
+      const requestedStore = String(req.query.store || "").trim();
       const requestedRepName = String(req.query.rep || "").trim();
+      const explicitClient = String(req.query.client || "").trim();
+      const embeddedAccess = authorizeEmbeddedRosterRequest(req, requestedStore, explicitClient);
+      if (!embeddedAccess.ok) return res.status(embeddedAccess.status).json({ error: embeddedAccess.error });
+      const store = embeddedAccess.mode === "embedded" ? embeddedAccess.storeName : requestedStore;
       if (!store) {
         return res.status(400).json({ error: "store query param is required" });
       }
-      const repContext = await resolveVerifiedRepContext(req, store, requestedRepName);
-      if (repContext.error) return res.status(401).json({ error: repContext.error });
-      const repScope = await getRepClientScopeForStore(store, repContext.repName, repContext.resourceEmpId);
+      const repContext = embeddedAccess.mode === "embedded"
+        ? { repName: embeddedAccess.repName, resourceEmpId: undefined }
+        : await resolveVerifiedRepContext(req, store, requestedRepName);
+      if ("error" in repContext && repContext.error) return res.status(401).json({ error: repContext.error });
+      const repScope = embeddedAccess.mode === "embedded"
+        ? { clientScope: embeddedAccess.client, resourceType: "PERFECTSTOREPRO EMBEDDED", locked: true }
+        : await getRepClientScopeForStore(store, repContext.repName, repContext.resourceEmpId);
       let clientScope = repScope.clientScope;
 
       // Explicit client override from the Client filter on Store Overview -
@@ -1867,7 +1917,6 @@ export async function registerRoutes(
       // "show every real client's data combined," per Carin's 2026-08-13
       // instruction: default to All, only filter down once a client is
       // explicitly picked.
-      const explicitClient = String(req.query.client || "").trim();
       if (explicitClient && explicitClient !== "ALL" && !repScope.locked) {
         const eligibleClients = await getEligibleSyndicatedClientsAtStore(store);
         const selectedClient = eligibleClients.find(
@@ -2030,19 +2079,26 @@ export async function registerRoutes(
   // views of a store the rep already opened.
   app.get("/api/roster/sku-list", async (req, res) => {
     try {
-      const store = String(req.query.store || "").trim();
+      const requestedStore = String(req.query.store || "").trim();
       const requestedRepName = String(req.query.rep || "").trim();
       const classification = String(req.query.classification || "oos").trim();
+      const explicitClient = String(req.query.client || "").trim();
+      const embeddedAccess = authorizeEmbeddedRosterRequest(req, requestedStore, explicitClient);
+      if (!embeddedAccess.ok) return res.status(embeddedAccess.status).json({ error: embeddedAccess.error });
+      const store = embeddedAccess.mode === "embedded" ? embeddedAccess.storeName : requestedStore;
       if (!store) {
         return res.status(400).json({ error: "store query param is required" });
       }
       if (!["oos", "low", "overstock", "risk", "distribution", "cover", "negsoh"].includes(classification)) {
         return res.status(400).json({ error: "classification must be 'oos', 'low', 'overstock', 'risk', 'distribution', 'cover', or 'negsoh'" });
       }
-      const repContext = await resolveVerifiedRepContext(req, store, requestedRepName);
-      if (repContext.error) return res.status(401).json({ error: repContext.error });
-
-      const repScope = await getRepClientScopeForStore(store, repContext.repName, repContext.resourceEmpId);
+      const repContext = embeddedAccess.mode === "embedded"
+        ? { repName: embeddedAccess.repName, resourceEmpId: undefined }
+        : await resolveVerifiedRepContext(req, store, requestedRepName);
+      if ("error" in repContext && repContext.error) return res.status(401).json({ error: repContext.error });
+      const repScope = embeddedAccess.mode === "embedded"
+        ? { clientScope: embeddedAccess.client, resourceType: "PERFECTSTOREPRO EMBEDDED", locked: true }
+        : await getRepClientScopeForStore(store, repContext.repName, repContext.resourceEmpId);
       let clientScope = repScope.clientScope;
 
       // Explicit client override from the Client filter on Store Overview -
@@ -2052,7 +2108,6 @@ export async function registerRoutes(
       // storeWeeklySummary, with no relation to the overview's own pick or
       // the user's selection (real bug found 2026-08-13: overview showed
       // 11 OOS for one client, drilling in showed 0 for a different one).
-      const explicitClient = String(req.query.client || "").trim();
       if (explicitClient && explicitClient !== "ALL" && !repScope.locked) {
         const eligibleClients = await getEligibleSyndicatedClientsAtStore(store);
         const selectedClient = eligibleClients.find(
@@ -2301,18 +2356,25 @@ export async function registerRoutes(
   // Real per-SKU history across the real weeks Nexus has ranged this SKU
   // at this store - see fetchSkuHistory's comment for why this is slower
   // (13 live calls) than everything else and only called on-demand.
-  app.get("/api/roster/sku-history", scopeToClient, async (req, res) => {
+  app.get("/api/roster/sku-history", async (req, res) => {
     try {
-      const store = String(req.query.store || "").trim();
+      const requestedStore = String(req.query.store || "").trim();
       const requestedRepName = String(req.query.rep || "").trim();
       const barcode = String(req.query.barcode || "").trim();
+      const explicitClient = String(req.query.client || "").trim();
+      const embeddedAccess = authorizeEmbeddedRosterRequest(req, requestedStore, explicitClient);
+      if (!embeddedAccess.ok) return res.status(embeddedAccess.status).json({ error: embeddedAccess.error });
+      const store = embeddedAccess.mode === "embedded" ? embeddedAccess.storeName : requestedStore;
       if (!store || !barcode) {
         return res.status(400).json({ error: "store and barcode query params are required" });
       }
-      const repContext = await resolveVerifiedRepContext(req, store, requestedRepName);
-      if (repContext.error) return res.status(401).json({ error: repContext.error });
-
-      const repScope = await getRepClientScopeForStore(store, repContext.repName, repContext.resourceEmpId);
+      const repContext = embeddedAccess.mode === "embedded"
+        ? { repName: embeddedAccess.repName, resourceEmpId: undefined }
+        : await resolveVerifiedRepContext(req, store, requestedRepName);
+      if ("error" in repContext && repContext.error) return res.status(401).json({ error: repContext.error });
+      const repScope = embeddedAccess.mode === "embedded"
+        ? { clientScope: embeddedAccess.client, resourceType: "PERFECTSTOREPRO EMBEDDED", locked: true }
+        : await getRepClientScopeForStore(store, repContext.repName, repContext.resourceEmpId);
       let clientScope = repScope.clientScope;
 
       // Same explicit override as sku-list/store-overview - see comment there.
@@ -2320,7 +2382,6 @@ export async function registerRoutes(
       // from the "All Clients" merged list got clientScope literally set to
       // the string "ALL" - not a real client, so the history query matched
       // zero rows and the trend stayed stuck on "Building history..." forever.
-      const explicitClient = String(req.query.client || "").trim();
       if (explicitClient && explicitClient !== "ALL" && !repScope.locked) {
         const eligibleClients = await getEligibleSyndicatedClientsAtStore(store);
         const selectedClient = eligibleClients.find(

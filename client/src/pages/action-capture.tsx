@@ -9,6 +9,11 @@ import {
   getCaptureReturnNavigation,
   getCaptureReturnUrl,
 } from "@/lib/action-capture-navigation";
+import {
+  getStockFixEmbeddedHeaders,
+  isEmbeddedInPerfectStorePro,
+  PERFECT_STORE_PRO_ORIGIN,
+} from "@/lib/stockfix-embedded";
 
 interface SkuRow {
   barcode: string;
@@ -47,24 +52,12 @@ const ACTIONS_TAKEN = [
   "Unable to action (store closed / access issue)",
 ];
 
-const PARENT_APP_ORIGIN = "https://perfectstorepro.replit.app";
-
-function isEmbeddedInParentApp() {
-  if (window.parent === window) return false;
-  if (!document.referrer) return true;
-  try {
-    return new URL(document.referrer).origin === PARENT_APP_ORIGIN;
-  } catch {
-    return false;
-  }
-}
-
 function notifyParentOfCapturedTask(uniqueId: string) {
-  if (!isEmbeddedInParentApp()) return;
+  if (!isEmbeddedInPerfectStorePro()) return;
 
   window.parent.postMessage(
     { type: "stockfix-task-captured", uniqueId },
-    PARENT_APP_ORIGIN
+    PERFECT_STORE_PRO_ORIGIN
   );
 }
 
@@ -76,14 +69,11 @@ export default function ActionCapture() {
   const classification = params.get("classification") || "oos";
   const barcode = params.get("barcode") || "";
   const client = params.get("client") || "";
-  const captureToken = params.get("captureToken") || "";
-  const embeddedInParentApp = isEmbeddedInParentApp();
-  const captureTokenHeaders: Record<string, string> = embeddedInParentApp
-    ? {
-        "X-StockFix-Embedded": "perfectstorepro",
-        ...(captureToken ? { "X-StockFix-Capture-Token": captureToken } : {}),
-      }
-    : {};
+  const embeddedInParentApp = isEmbeddedInPerfectStorePro();
+  const captureTokenHeaders = getStockFixEmbeddedHeaders();
+  const repQuery = captureTokenHeaders["X-StockFix-Embedded"]
+    ? ""
+    : `&rep=${encodeURIComponent(rep)}`;
   const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
   // Real bug found 2026-08-20 (Carin: "takes me back to the overstocks
   // screen and then it wants me to capture the task again") - scope=fix
@@ -102,7 +92,10 @@ export default function ActionCapture() {
   const { data } = useQuery<SkuListResponse>({
     queryKey: ["nexus-sku-list", store, rep, classification, client, scope],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=${classification}${clientQS}${scopeQS}`);
+      const res = await fetch(
+        `/api/roster/sku-list?store=${encodeURIComponent(store)}${repQuery}&classification=${classification}${clientQS}${scopeQS}`,
+        { headers: captureTokenHeaders },
+      );
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },

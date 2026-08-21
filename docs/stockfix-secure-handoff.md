@@ -37,6 +37,20 @@ seconds later. Tokens issued more than one minute in the future are rejected.
 StockFix accepts the token only for its exact store and client scope. Never
 place the shared secret in browser code.
 
+## Embedded store bootstrap
+
+When the StockFix iframe opens Store Detail, it sends the same
+`X-StockFix-Embedded: perfectstorepro` and `X-StockFix-Capture-Token` headers
+to `/api/roster/clients-for-store`, `/api/roster/store-overview`, and
+`/api/roster/sku-list` / `/api/roster/sku-history` endpoints. For these
+embedded requests, StockFix derives the
+rep name, store, and client exclusively from the verified token. The parent
+must not supply a `rep` query parameter; any such query value is ignored.
+
+The requested store must match the token store. A requested client must either
+match the token client or be `ALL`, which still resolves to the token client
+for an embedded session. Mismatches are rejected with `403`.
+
 ## Capture completion callback
 
 After StockFix has successfully saved a capture, it sends the parent:

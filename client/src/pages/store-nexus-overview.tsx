@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { getStockFixEmbeddedHeaders } from "@/lib/stockfix-embedded";
 import { ChevronDown, ChevronRight, ArrowLeft, Store as StoreIcon } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2BottomNav from "@/components/sf2-bottom-nav";
@@ -183,6 +184,10 @@ export default function StoreOverview() {
   // honor it regardless of whether a rep is also present.
   const lockedClient = params.get("client") || "";
   const [clientOverride, setClientOverride] = useState("");
+  const captureHeaders = getStockFixEmbeddedHeaders();
+  const repQuery = captureHeaders["X-StockFix-Embedded"]
+    ? ""
+    : `&rep=${encodeURIComponent(rep)}`;
   // Picking a SKU stays on this screen and shows its numbers inline instead
   // of navigating away (Carin, 2026-08-13: "stay on the insights screen and
   // only change the numbers based on the selection").
@@ -191,7 +196,7 @@ export default function StoreOverview() {
   const { data: clientOptions } = useQuery<ClientOptions>({
     queryKey: ["clients-for-store", store, rep],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/clients-for-store?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}`);
+       const res = await fetch(`/api/roster/clients-for-store?store=${encodeURIComponent(store)}${repQuery}`, { headers: captureHeaders });
       if (!res.ok) throw new Error("Failed to fetch clients");
       return res.json();
     },
@@ -209,7 +214,7 @@ export default function StoreOverview() {
   const { data, isLoading, error } = useQuery<OverviewResponse>({
     queryKey: ["nexus-store-overview", store, rep, activeClient],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&client=${encodeURIComponent(activeClient)}`);
+       const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}${repQuery}&client=${encodeURIComponent(activeClient)}`, { headers: captureHeaders });
       if (!res.ok) throw new Error("Failed to fetch store overview");
       return res.json();
     },
@@ -225,7 +230,7 @@ export default function StoreOverview() {
   const { data: skuOptions } = useQuery<{ rows: SkuOption[] }>({
     queryKey: ["nexus-sku-list", store, rep, "cover", activeClient],
     queryFn: async () => {
-      const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=cover&client=${encodeURIComponent(activeClient)}`);
+       const res = await fetch(`/api/roster/sku-list?store=${encodeURIComponent(store)}${repQuery}&classification=cover&client=${encodeURIComponent(activeClient)}`, { headers: captureHeaders });
       if (!res.ok) throw new Error("Failed to fetch SKU list");
       return res.json();
     },

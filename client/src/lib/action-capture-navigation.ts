@@ -1,3 +1,5 @@
+import { preserveEmbeddedCaptureToken } from "@/lib/stockfix-embedded";
+
 export interface StoreFlowContext {
   store: string;
   rep: string;
@@ -34,7 +36,7 @@ export function buildStoreIssueListUrl({
   scope,
 }: StoreFlowContext): string {
   const params = createSearchParams({ store, rep, classification, client, scope });
-  return `/store-detail/list?${params.toString()}`;
+  return preserveEmbeddedCaptureToken(`/store-detail/list?${params.toString()}`);
 }
 
 export function buildSkuDetailUrl({
@@ -55,7 +57,7 @@ export function buildSkuDetailUrl({
     scope,
     returnTo,
   });
-  return `/store-detail/sku?${params.toString()}`;
+  return preserveEmbeddedCaptureToken(`/store-detail/sku?${params.toString()}`);
 }
 
 export function buildActionCaptureUrl({
@@ -76,7 +78,7 @@ export function buildActionCaptureUrl({
     scope,
     returnTo,
   });
-  return `/store-detail/action-capture?${params.toString()}`;
+  return preserveEmbeddedCaptureToken(`/store-detail/action-capture?${params.toString()}`);
 }
 
 function isStoreFlowUrl(url: string): boolean {
@@ -90,7 +92,7 @@ export function getCaptureReturnUrl(
   requestedReturnTo?: string,
 ): string {
   if (requestedReturnTo && isStoreFlowUrl(requestedReturnTo)) {
-    return requestedReturnTo;
+    return preserveEmbeddedCaptureToken(requestedReturnTo);
   }
 
   return buildStoreIssueListUrl(context);
