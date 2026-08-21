@@ -39,6 +39,14 @@ import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, im
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
+import {
+  hasStockFixApiKeyConfiguration,
+  isUnassigned,
+  readCaptureTokenHeader,
+  sameScopedValue,
+  verifyPerfectStoreCaptureToken,
+  verifyStockFixApiKey,
+} from "./stockfix-handoff";
 
 function safeParseFloat(val: string | number | null | undefined): number {
   if (val === null || val === undefined) return 0;
@@ -46,6 +54,56 @@ function safeParseFloat(val: string | number | null | undefined): number {
   const cleaned = val.replace(',', '.');
   const num = parseFloat(cleaned);
   return isNaN(num) ? 0 : num;
+}
+
+type NexusCaptureTaskScope = {
+  uniqueId: string;
+  storeName: string;
+  client: string;
+  repName: string;
+};
+
+function authorizeNexusCaptureScope(req: Request, scope: Pick<NexusCaptureTaskScope, "storeName" | "client">) {
+  const embeddedToken = verifyPerfectStoreCaptureToken(readCaptureTokenHeader(req.headers));
+  if (embeddedToken) {
+    if (!sameScopedValue(embeddedToken.store, scope.storeName) || !sameScopedValue(embeddedToken.client, scope.client)) {
+      return { ok: false as const, status: 403, error: "Capture token is not scoped to this task" };
+    }
+    return { ok: true as const, mode: "embedded" as const };
+  }
+
+  const identity = req.identity;
+  if (!identity?.resourceEmpId || !identity.resourceName) {
+    return { ok: false as const, status: 401, error: "A verified StockFix identity or PerfectStore capture token is required" };
+  }
+
+  return { ok: true as const, mode: "direct" as const };
+}
+
+async function authorizeNexusCaptureTask(req: Request, task: NexusCaptureTaskScope, requireClaimedDirectTask: boolean) {
+  const scopeAccess = authorizeNexusCaptureScope(req, task);
+  if (!scopeAccess.ok || scopeAccess.mode === "embedded") {
+    return scopeAccess;
+  }
+
+  const identity = req.identity!;
+  const [assignment] = await db
+    .select({ id: nexusTaskAssignees.id })
+    .from(nexusTaskAssignees)
+    .where(and(
+      eq(nexusTaskAssignees.taskUniqueId, task.uniqueId),
+      eq(nexusTaskAssignees.resourceEmpId, identity.resourceEmpId),
+    ))
+    .limit(1);
+  if (!assignment) {
+    return { ok: false as const, status: 403, error: "This task is not assigned to the verified StockFix identity" };
+  }
+
+  if (requireClaimedDirectTask && !sameScopedValue(task.repName, identity.resourceName)) {
+    return { ok: false as const, status: 409, error: "Claim this task with the verified StockFix identity before completing it" };
+  }
+
+  return { ok: true as const, mode: "direct" as const };
 }
 import { tasks } from "@shared/schema";
 
@@ -3868,22 +3926,36 @@ export async function registerRoutes(
       const client = (req.query.client as string) || "";
       const classification = (req.query.classification as string) || "";
       const barcode = (req.query.barcode as string) || "";
-      if (!store || !barcode || !classification) {
+      if (!store || !client || !barcode || !classification) {
         return res.status(400).json({ error: "store, client, classification and barcode are required" });
+      }
+      const requestAccess = authorizeNexusCaptureScope(req, { storeName: store, client });
+      if (!requestAccess.ok) {
+        return res.status(requestAccess.status).json({ error: requestAccess.error });
       }
       const sourceStem = classification === "cover" ? "risk" : classification;
 
       const result = await db.execute(sql`
-        select unique_id, rep_name, action_status
+        select unique_id, rep_name, action_status, store_name, client
         from nexus_tasks
         where barcode = ${barcode}
           and upper(trim(store_name)) = upper(trim(${store}))
+          and upper(trim(client)) = upper(trim(${client}))
           and unique_id like ${'%\\_' + sourceStem + '\\_' + barcode}
         order by week_ending_date desc
         limit 1
       `);
       const rows = (result.rows || result) as any[];
       if (rows.length > 0) {
+        const access = await authorizeNexusCaptureTask(req, {
+          uniqueId: rows[0].unique_id,
+          repName: rows[0].rep_name,
+          storeName: rows[0].store_name,
+          client: rows[0].client,
+        }, false);
+        if (!access.ok) {
+          return res.status(access.status).json({ error: access.error });
+        }
         return res.json({ uniqueId: rows[0].unique_id, repName: rows[0].rep_name, actionStatus: rows[0].action_status });
       }
 
@@ -3894,6 +3966,14 @@ export async function registerRoutes(
       const created = await createTaskOnDemand({ client, store, classification, barcode });
       if (!created) {
         return res.status(404).json({ error: "No task found for this SKU/issue" });
+      }
+      const [createdTask] = await db.select().from(nexusTasks).where(eq(nexusTasks.uniqueId, created.uniqueId)).limit(1);
+      if (!createdTask) {
+        return res.status(404).json({ error: "No task found for this SKU/issue" });
+      }
+      const access = await authorizeNexusCaptureTask(req, createdTask, false);
+      if (!access.ok) {
+        return res.status(access.status).json({ error: access.error });
       }
       return res.json({ uniqueId: created.uniqueId, repName: "Unassigned", actionStatus: "Pending" });
     } catch (error) {
@@ -3916,7 +3996,7 @@ export async function registerRoutes(
       }
       const result = await claimTask(req.params.uniqueId, req.identity.resourceEmpId);
       if (!result.ok) {
-        return res.status(400).json({ error: result.error });
+        return res.status(result.conflict ? 409 : 403).json({ error: result.error });
       }
       res.json({ ok: true });
     } catch (error) {
@@ -3952,6 +4032,10 @@ export async function registerRoutes(
       if (!existing) {
         return res.status(404).json({ error: "Task not found" });
       }
+      const access = await authorizeNexusCaptureTask(req, existing, true);
+      if (!access.ok) {
+        return res.status(access.status).json({ error: access.error });
+      }
 
       const updates: any = { ...validated, updatedAt: new Date() };
       if ((validated.actionStatus && validated.actionStatus !== "Pending") || validated.feedback || validated.reasonCode) {
@@ -3971,6 +4055,69 @@ export async function registerRoutes(
       }
       console.error("Error updating Nexus task:", error);
       res.status(500).json({ error: "Failed to update task" });
+    }
+  });
+
+  // PATCH /api/tasks/:uniqueId/attribution — the only route PerfectStorePro's
+  // server may use to attach its authenticated rep to a StockFix Nexus task.
+  // It is deliberately separate from browser capture routes: callers need the
+  // dedicated server-to-server API key and can only set attribution.
+  app.patch("/api/tasks/:uniqueId/attribution", async (req, res) => {
+    if (!hasStockFixApiKeyConfiguration()) {
+      return res.status(503).json({ error: "StockFix attribution is not configured" });
+    }
+    if (!verifyStockFixApiKey(req.headers["x-api-key"])) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    try {
+      const { repName } = z.object({
+        repName: z.string().trim().min(1).max(200),
+      }).parse(req.body);
+
+      const [existing] = await db
+        .select({ uniqueId: nexusTasks.uniqueId, repName: nexusTasks.repName })
+        .from(nexusTasks)
+        .where(eq(nexusTasks.uniqueId, req.params.uniqueId))
+        .limit(1);
+      if (!existing) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      if (sameScopedValue(existing.repName, repName)) {
+        return res.json({ ok: true, idempotent: true, uniqueId: existing.uniqueId, repName: existing.repName });
+      }
+      if (!isUnassigned(existing.repName)) {
+        return res.status(409).json({ error: "Task is already attributed to another rep" });
+      }
+
+      const [attributed] = await db
+        .update(nexusTasks)
+        .set({ repName, updatedAt: new Date() })
+        .where(and(
+          eq(nexusTasks.uniqueId, existing.uniqueId),
+          sql`upper(trim(${nexusTasks.repName})) in ('', 'UNASSIGNED')`,
+        ))
+        .returning({ uniqueId: nexusTasks.uniqueId, repName: nexusTasks.repName });
+      if (attributed) {
+        return res.json({ ok: true, idempotent: false, ...attributed });
+      }
+
+      const [current] = await db
+        .select({ uniqueId: nexusTasks.uniqueId, repName: nexusTasks.repName })
+        .from(nexusTasks)
+        .where(eq(nexusTasks.uniqueId, existing.uniqueId))
+        .limit(1);
+      if (current && sameScopedValue(current.repName, repName)) {
+        return res.json({ ok: true, idempotent: true, ...current });
+      }
+      return res.status(409).json({ error: "Task is already attributed to another rep" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: error.errors });
+      }
+      console.error("Error attributing PerfectStore capture:", error);
+      return res.status(500).json({ error: "Failed to attribute task" });
     }
   });
 

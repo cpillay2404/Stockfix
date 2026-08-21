@@ -423,17 +423,54 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
 // when someone captures a Nexus-generated task - whoever gets there first
 // wins the credit, looked up from the real Call Cycle roster so the
 // lineManager is correct too, not just the repName.
-export async function claimTask(uniqueId: string, capturedByEmpId: string): Promise<{ ok: boolean; error?: string }> {
+export async function claimTask(uniqueId: string, capturedByEmpId: string): Promise<{ ok: boolean; error?: string; conflict?: boolean }> {
   const [resource] = await db.select().from(resourceRoster).where(eq(resourceRoster.resourceEmpId, capturedByEmpId)).limit(1);
   if (!resource) {
     return { ok: false, error: "Unknown resourceEmpId - not found in roster" };
   }
-  await db.execute(sql`
-    update nexus_tasks set rep_name = ${resource.resourceName}, line_manager = ${resource.manager || ""},
-      resource_type = ${resource.resourceType || ""}
-    where unique_id = ${uniqueId} and rep_name = 'Unassigned'
-  `);
-  return { ok: true };
+  const [task] = await db.select({ uniqueId: nexusTasks.uniqueId, repName: nexusTasks.repName })
+    .from(nexusTasks)
+    .where(eq(nexusTasks.uniqueId, uniqueId))
+    .limit(1);
+  if (!task) {
+    return { ok: false, error: "Task not found" };
+  }
+
+  const [eligible] = await db.select({ id: nexusTaskAssignees.id })
+    .from(nexusTaskAssignees)
+    .where(and(
+      eq(nexusTaskAssignees.taskUniqueId, uniqueId),
+      eq(nexusTaskAssignees.resourceEmpId, capturedByEmpId),
+    ))
+    .limit(1);
+  if (!eligible) {
+    return { ok: false, error: "This task is not assigned to the verified StockFix identity" };
+  }
+
+  if ((task.repName || "").trim().toUpperCase() === resource.resourceName.trim().toUpperCase()) {
+    return { ok: true };
+  }
+  if ((task.repName || "").trim().toUpperCase() !== "UNASSIGNED" && (task.repName || "").trim() !== "") {
+    return { ok: false, conflict: true, error: "This task has already been claimed by another rep" };
+  }
+
+  const [claimed] = await db.update(nexusTasks)
+    .set({
+      repName: resource.resourceName,
+      lineManager: resource.manager || "",
+      resourceType: resource.resourceType || "",
+      updatedAt: new Date(),
+    })
+    .where(and(
+      eq(nexusTasks.uniqueId, uniqueId),
+      sql`upper(trim(${nexusTasks.repName})) in ('', 'UNASSIGNED')`,
+    ))
+    .returning({ uniqueId: nexusTasks.uniqueId });
+  if (claimed) {
+    return { ok: true };
+  }
+
+  return { ok: false, conflict: true, error: "This task has already been claimed by another rep" };
 }
 
 // Deletes all Nexus-generated tasks for a given week - only call this AFTER
