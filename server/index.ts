@@ -132,7 +132,13 @@ app.use((req, res, next) => {
       log(`serving on port ${port}`);
       startWeeklyEmailScheduler();
       startPilotBackupScheduler();
-      startNexusWeeklyScheduler();
+      // TEMPORARILY PAUSED 2026-08-21 (Carin: "inventory is running now
+      // please make sure it doesnt touch the tasks for today") - the
+      // inventory pipeline itself can't touch nexus_tasks, but this
+      // automatic scheduler could if Nexus reports a new week mid-run.
+      // Re-enable once today's inventory refresh is confirmed done and
+      // it's safe for the normal weekly cycle to pick up a new week.
+      // startNexusWeeklyScheduler();
 
       // ONE-TIME STARTUP SCRIPT: Fix mis-parsed week ending dates (2026-03-12 → 2026-03-11)
       // Excel serial numbers were off by one day during import
