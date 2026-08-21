@@ -2,10 +2,14 @@ export interface EmbeddedTaskFallbackRequest {
   url: string;
 }
 
+export const SYNDICATED_CLIENT_UNAVAILABLE_ERROR =
+  "Client is not available for this syndicated store view";
+
 interface EmbeddedTaskFallbackOptions {
   store: string;
   isEmbedded: boolean;
   liveOverviewStatus?: number;
+  liveOverviewError?: string;
 }
 
 // A signed embed must never recover from a missing client-specific inventory
@@ -15,10 +19,18 @@ export function getEmbeddedTaskFallbackRequest({
   store,
   isEmbedded,
   liveOverviewStatus,
+  liveOverviewError,
 }: EmbeddedTaskFallbackOptions): EmbeddedTaskFallbackRequest | null {
+  const unavailableLiveOverview =
+    liveOverviewStatus === 404
+    || (
+      liveOverviewStatus === 403
+      && liveOverviewError === SYNDICATED_CLIENT_UNAVAILABLE_ERROR
+    );
+
   if (
     !isEmbedded
-    || liveOverviewStatus !== 404
+    || !unavailableLiveOverview
     || !store
   ) {
     return null;

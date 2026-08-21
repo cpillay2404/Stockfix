@@ -112,7 +112,7 @@ function authorizeNexusCaptureScope(req: Request, scope: Pick<NexusCaptureTaskSc
     if (!sameScopedValue(embeddedToken.store, scope.storeName) || !sameScopedValue(embeddedToken.client, scope.client)) {
       return { ok: false as const, status: 403, error: "Capture token is not scoped to this task" };
     }
-    return { ok: true as const, mode: "embedded" as const };
+    return { ok: true as const, mode: "embedded" as const, repName: embeddedToken.repName };
   }
 
   const identity = req.identity;
@@ -159,7 +159,13 @@ function authorizeEmbeddedRosterRequest(
 
 async function authorizeNexusCaptureTask(req: Request, task: NexusCaptureTaskScope, requireClaimedDirectTask: boolean) {
   const scopeAccess = authorizeNexusCaptureScope(req, task);
-  if (!scopeAccess.ok || scopeAccess.mode === "embedded") {
+  if (!scopeAccess.ok) {
+    return scopeAccess;
+  }
+  if (scopeAccess.mode === "embedded") {
+    if (!isUnassigned(task.repName) && !sameScopedValue(scopeAccess.repName, task.repName)) {
+      return { ok: false as const, status: 403, error: "Capture token is not scoped to this task's rep" };
+    }
     return scopeAccess;
   }
 
@@ -4040,6 +4046,12 @@ export async function registerRoutes(
         from nexus_tasks
         where upper(trim(store_name)) = upper(trim(${embeddedAccess.storeName}))
           and upper(trim(client)) = upper(trim(${embeddedAccess.client}))
+          and (
+            rep_name is null
+            or trim(rep_name) = ''
+            or upper(trim(rep_name)) = 'UNASSIGNED'
+            or upper(trim(rep_name)) = upper(trim(${embeddedAccess.repName}))
+          )
           and action_status != 'Completed'
         order by week_ending_date desc, action_status, article_description
       `);

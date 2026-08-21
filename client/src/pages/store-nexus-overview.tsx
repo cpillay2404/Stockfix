@@ -62,12 +62,16 @@ interface PendingTaskResponse {
   tasks: PendingTask[];
 }
 
-type RequestError = Error & { status?: number };
+type RequestError = Error & { status?: number; responseError?: string };
 
 async function getResponseOrThrow(response: Response) {
   if (response.ok) return response.json();
   const error = new Error("Failed to fetch store overview") as RequestError;
   error.status = response.status;
+  const payload = await response.json().catch(() => null);
+  if (typeof payload?.error === "string") {
+    error.responseError = payload.error;
+  }
   throw error;
 }
 
@@ -254,6 +258,7 @@ export default function StoreOverview() {
     store,
     isEmbedded: Boolean(captureHeaders["X-StockFix-Embedded"]),
     liveOverviewStatus: (error as RequestError | null)?.status,
+    liveOverviewError: (error as RequestError | null)?.responseError,
   });
   const { data: pendingTaskData, isLoading: pendingTasksLoading } = useQuery<PendingTaskResponse>({
     queryKey: ["embedded-pending-tasks", store, activeClient],
