@@ -75,6 +75,7 @@ const SHORTAGE_ACTIONS_TAKEN = [
   "Unable to action (store closed / access issue)",
 ];
 const EXCESS_ACTIONS_TAKEN = [
+  "Recommended for markdown / transfer",
   "Escalated to supervisor / manager",
   "Logged query with DC / supplier",
   "System stock corrected / discrepancy logged",
