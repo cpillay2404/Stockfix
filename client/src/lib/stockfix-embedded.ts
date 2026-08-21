@@ -10,7 +10,11 @@ export interface StockFixEmbeddedCaptureContext {
 
 export function isEmbeddedInPerfectStorePro(): boolean {
   if (typeof window === "undefined") return false;
-  return window.parent !== window && Boolean(getStockFixEmbeddedCaptureToken());
+  return (
+    window.parent !== window
+    && window.parent === window.top
+    && Boolean(getStockFixEmbeddedCaptureToken())
+  );
 }
 
 export function getStockFixEmbeddedCaptureToken(): string {
@@ -70,6 +74,15 @@ export function getStockFixEmbeddedHeaders(): Record<string, string> {
     "X-StockFix-Embedded": "perfectstorepro",
     "X-StockFix-Capture-Token": captureToken,
   };
+}
+
+export function notifyStockFixTaskCaptured(uniqueId: string): void {
+  if (!uniqueId || !isEmbeddedInPerfectStorePro()) return;
+
+  window.parent.postMessage(
+    { type: "stockfix-task-captured", uniqueId },
+    PERFECT_STORE_PRO_ORIGIN,
+  );
 }
 
 export function preserveEmbeddedCaptureToken(url: string): string {

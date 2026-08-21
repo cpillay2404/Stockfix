@@ -4,7 +4,9 @@ import {
   getStockFixEmbeddedCaptureContext,
   getStockFixEmbeddedHeaders,
   installEmbeddedRosterFetchGuard,
+  notifyStockFixTaskCaptured,
   preserveEmbeddedCaptureToken,
+  PERFECT_STORE_PRO_ORIGIN,
 } from "./stockfix-embedded";
 import {
   buildActionCaptureUrl,
@@ -13,11 +15,22 @@ import {
   getCaptureReturnUrl,
 } from "./action-capture-navigation";
 
-function installEmbeddedWindow(search = "?captureToken=signed-token", inIframe = true) {
+function installEmbeddedWindow(
+  search = "?captureToken=signed-token",
+  frameMode: "direct" | "nested" | "top-level" = "direct",
+) {
   const values = new Map<string, string>();
   const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
+  const parentMessages: Array<{ message: unknown; targetOrigin: string }> = [];
+  const topWindow = {};
+  const parentWindow = {
+    postMessage: (message: unknown, targetOrigin: string) => {
+      parentMessages.push({ message, targetOrigin });
+    },
+  };
   const mockWindow = {
-    parent: {} as object,
+    parent: parentWindow as object,
+    top: topWindow as object,
     location: {
       search,
       origin: "https://stockfix.test",
@@ -31,14 +44,21 @@ function installEmbeddedWindow(search = "?captureToken=signed-token", inIframe =
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     },
   };
-  mockWindow.parent = inIframe ? {} : mockWindow;
+  if (frameMode === "top-level") {
+    mockWindow.parent = mockWindow;
+    mockWindow.top = mockWindow;
+  } else if (frameMode === "nested") {
+    mockWindow.top = topWindow;
+  } else {
+    mockWindow.top = parentWindow;
+  }
 
   Object.assign(globalThis, {
     window: mockWindow,
     document: { referrer: "https://proxy.example.test/embed" },
   });
 
-  return { mockWindow, fetchCalls };
+  return { mockWindow, fetchCalls, parentMessages };
 }
 
 test("keeps the signed iframe token available after internal navigation removes it from the URL", () => {
@@ -52,6 +72,18 @@ test("keeps the signed iframe token available after internal navigation removes 
     preserveEmbeddedCaptureToken("/store-detail/list?store=Demo"),
     "/store-detail/list?store=Demo&captureToken=signed-token",
   );
+});
+
+test("posts only the exact task callback from a direct StockFix iframe", () => {
+  const { parentMessages } = installEmbeddedWindow();
+  const uniqueId = "CHECKERS-HYPER-FX-GATEWAY-6001234567890-2026-08-19";
+
+  notifyStockFixTaskCaptured(uniqueId);
+
+  assert.deepEqual(parentMessages, [{
+    message: { type: "stockfix-task-captured", uniqueId },
+    targetOrigin: PERFECT_STORE_PRO_ORIGIN,
+  }]);
 });
 
 test("derives initial store context from a token in a genuine iframe", () => {
@@ -102,7 +134,10 @@ test("adds embedded proof to roster requests and removes an untrusted rep query"
 });
 
 test("does not turn a top-level URL token into an embedded request", async () => {
-  const { mockWindow, fetchCalls } = installEmbeddedWindow("?captureToken=signed-token", false);
+  const { mockWindow, fetchCalls, parentMessages } = installEmbeddedWindow(
+    "?captureToken=signed-token",
+    "top-level",
+  );
 
   assert.deepEqual(getStockFixEmbeddedHeaders(), {});
   assert.equal(getStockFixEmbeddedCaptureContext(), null);
@@ -117,4 +152,15 @@ test("does not turn a top-level URL token into an embedded request", async () =>
   assert.equal(fetchCalls.length, 1);
   assert.equal(String(fetchCalls[0].input), "/api/roster/sku-list?store=Demo&rep=Direct%20Rep");
   assert.equal(new Headers(fetchCalls[0].init?.headers).get("X-StockFix-Embedded"), null);
+
+  notifyStockFixTaskCaptured("top-level-task");
+  assert.deepEqual(parentMessages, []);
+});
+
+test("does not post a callback from a nested StockFix window", () => {
+  const { parentMessages } = installEmbeddedWindow("?captureToken=signed-token", "nested");
+
+  notifyStockFixTaskCaptured("nested-task");
+
+  assert.deepEqual(parentMessages, []);
 });

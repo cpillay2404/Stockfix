@@ -12,7 +12,7 @@ import {
 import {
   getStockFixEmbeddedHeaders,
   isEmbeddedInPerfectStorePro,
-  PERFECT_STORE_PRO_ORIGIN,
+  notifyStockFixTaskCaptured,
 } from "@/lib/stockfix-embedded";
 
 interface SkuRow {
@@ -51,15 +51,6 @@ const ACTIONS_TAKEN = [
   "Follow-up required (awaiting delivery / revisit)",
   "Unable to action (store closed / access issue)",
 ];
-
-function notifyParentOfCapturedTask(uniqueId: string) {
-  if (!isEmbeddedInPerfectStorePro()) return;
-
-  window.parent.postMessage(
-    { type: "stockfix-task-captured", uniqueId },
-    PERFECT_STORE_PRO_ORIGIN
-  );
-}
 
 export default function ActionCapture() {
   const [, setLocation] = useLocation();
@@ -227,7 +218,7 @@ export default function ActionCapture() {
       if (!patchRes.ok) {
         throw new Error("Failed to save this action");
       }
-      notifyParentOfCapturedTask(uniqueId);
+      notifyStockFixTaskCaptured(uniqueId);
       markVisitHasCaptures(store, rep, client);
       setSubmitted(true);
       // Return to the saved source URL rather than jumping a presumed number
