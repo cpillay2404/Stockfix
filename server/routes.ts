@@ -1846,7 +1846,9 @@ export async function registerRoutes(
 
     const completedResult = await db.execute(sql`
       select barcode, article_description, feedback, reason_code, action_taken_comment, capture_date,
-             image1, image2, image3, image4, banner, region, client
+             image1, image2, image3, image4, banner, region, client,
+             category, stock_classification, action, store_soh, dc_soh, p4_week_sales, store_wfc,
+             physical_count, variance, system_adjusted, week_ending
       from nexus_tasks
       where upper(trim(store_name)) = ${store.toUpperCase().trim()}
         and upper(trim(rep_name)) = ${rep.toUpperCase().trim()}
@@ -1896,6 +1898,18 @@ export async function registerRoutes(
       captures: completed.map((c) => ({
         barcode: c.barcode,
         articleDescription: c.article_description,
+        category: c.category,
+        stockClassification: c.stock_classification,
+        action: c.action,
+        storeSoh: c.store_soh,
+        dcSoh: c.dc_soh,
+        p4WeekSales: c.p4_week_sales,
+        storeWfc: c.store_wfc,
+        physicalCount: c.physical_count,
+        variance: c.variance,
+        systemAdjusted: c.system_adjusted,
+        captureDate: c.capture_date,
+        weekEnding: c.week_ending,
         reasonCode: c.reason_code,
         actionTakenComment: c.action_taken_comment,
         feedback: c.feedback,

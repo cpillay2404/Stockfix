@@ -324,6 +324,18 @@ interface VisitSummaryEmailData {
   captures: Array<{
     barcode: string;
     articleDescription: string;
+    category?: string | null;
+    stockClassification?: string | null;
+    action?: string | null;
+    storeSoh?: string | null;
+    dcSoh?: string | null;
+    p4WeekSales?: string | null;
+    storeWfc?: string | null;
+    physicalCount?: string | null;
+    variance?: string | null;
+    systemAdjusted?: string | null;
+    captureDate?: string | null;
+    weekEnding?: string | null;
     reasonCode?: string | null;
     actionTakenComment?: string | null;
     feedback?: string | null;
@@ -348,6 +360,10 @@ export async function sendVisitSummaryEmail(data: VisitSummaryEmailData): Promis
 
   const subject = `StockFix Visit Summary | ${safeString(data.client)} | ${safeString(data.storeName)} | ${data.completedCount} captured`;
 
+  // Carin, 2026-08-21: "the mail needs to have more detail" - wants the
+  // same depth the old per-task email had (Product Details/Inventory
+  // Data/Rep Feedback sections), per capture, inside this consolidated
+  // digest instead of the old 4-line summary.
   const captureLines = data.captures.length > 0
     ? data.captures.map((c, i) => {
         const imageLinks = [c.image1, c.image2, c.image3, c.image4]
@@ -356,8 +372,14 @@ export async function sendVisitSummaryEmail(data: VisitSummaryEmailData): Promis
           .join('\n');
         return `
 ${i + 1}. ${safeString(c.articleDescription)} (${safeString(c.barcode)})
+   Week Ending: ${safeString(c.weekEnding)}   Capture Date: ${safeString(c.captureDate)}
+   Category: ${safeString(c.category)}
+   Stock Classification: ${safeString(c.stockClassification)}
+   Action Required: ${safeString(c.action)}
+   Store SOH: ${safeString(c.storeSoh)}   Supplying DC SOH: ${safeString(c.dcSoh)}   Sell Out (P4 Weeks): ${safeString(c.p4WeekSales)}   WFC: ${formatWfc(c.storeWfc)}
+   Physical Count: ${safeString(c.physicalCount)}   Variance: ${safeString(c.variance)}   System Adjusted: ${formatSystemAdjusted(c.systemAdjusted)}
    Reason: ${safeString(c.reasonCode)}
-   Action: ${safeString(c.actionTakenComment)}
+   Action Taken: ${safeString(c.actionTakenComment)}
    Feedback: ${safeString(c.feedback)}
 ${imageLinks || '   Images: None'}`;
       }).join('\n')
