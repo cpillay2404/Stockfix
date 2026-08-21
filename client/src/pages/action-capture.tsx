@@ -46,7 +46,7 @@ const SHORTAGE_REASON_CODES = [
 const EXCESS_REASON_CODES = [
   "Slow-moving / excess stock",
   "On shelf but slow moving",
-  "On shelf",
+  "Stock on Shelf - Not selling",
   "Not ranged / discontinued",
   "Promo / display not set up",
   "Damaged / expired / returns",
