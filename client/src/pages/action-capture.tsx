@@ -25,22 +25,44 @@ interface SkuListResponse {
   rows: SkuRow[];
 }
 
-const REASON_CODES = [
+// Real gap found 2026-08-21 (Carin: "the drop downs when the users are
+// capturing lets fix that") - every classification showed the exact same
+// full list, letting reps pick options that contradict the situation
+// (e.g. "On shelf but slow moving" on a genuine Out of Stock task - if
+// it's on the shelf, it isn't out of stock). Confirmed in real data: that
+// exact contradiction was the single most-used reason code today. Filter
+// each list to what actually makes sense for the task's classification.
+const SHORTAGE_REASON_CODES = [
   "Awaiting delivery (order placed / not received)",
   "No stock available (DC / supplier)",
   "Store out of stock (not ordered / missed order)",
   "Stock in backroom (not on shelf)",
   "Shelf space constraint / planogram issue",
-  "Slow-moving / excess stock",
-  "On shelf but slow moving",
-  "Damaged / expired / returns",
   "Not ranged / discontinued",
   "Store operational issue (closed / access / revamp)",
   "System / data issue (incorrect master data / mapping)",
   "Promo / display not set up",
 ];
+const EXCESS_REASON_CODES = [
+  "Slow-moving / excess stock",
+  "On shelf but slow moving",
+  "Not ranged / discontinued",
+  "Promo / display not set up",
+  "Damaged / expired / returns",
+  "System / data issue (incorrect master data / mapping)",
+];
+const DATA_ISSUE_REASON_CODES = [
+  "System / data issue (incorrect master data / mapping)",
+  "Damaged / expired / returns",
+  "Store operational issue (closed / access / revamp)",
+];
+const reasonCodesFor = (classification: string): string[] => {
+  if (classification === "overstock") return EXCESS_REASON_CODES;
+  if (classification === "negsoh") return DATA_ISSUE_REASON_CODES;
+  return SHORTAGE_REASON_CODES;
+};
 
-const ACTIONS_TAKEN = [
+const SHORTAGE_ACTIONS_TAKEN = [
   "Order placed",
   "Escalated to supervisor / manager",
   "Logged query with DC / supplier",
@@ -51,6 +73,18 @@ const ACTIONS_TAKEN = [
   "Follow-up required (awaiting delivery / revisit)",
   "Unable to action (store closed / access issue)",
 ];
+const EXCESS_ACTIONS_TAKEN = [
+  "Escalated to supervisor / manager",
+  "Logged query with DC / supplier",
+  "System stock corrected / discrepancy logged",
+  "Promo / display action completed",
+  "Follow-up required (awaiting delivery / revisit)",
+  "Unable to action (store closed / access issue)",
+];
+const actionsTakenFor = (classification: string): string[] => {
+  if (classification === "overstock") return EXCESS_ACTIONS_TAKEN;
+  return SHORTAGE_ACTIONS_TAKEN;
+};
 
 export default function ActionCapture() {
   const [, setLocation] = useLocation();
@@ -321,7 +355,7 @@ export default function ActionCapture() {
             <label>Reason code <span className="req">*</span></label>
             <select value={reasonCode} onChange={(e) => setReasonCode(e.target.value)} className="sf2-ac-select">
               <option value="">Select reason code...</option>
-              {REASON_CODES.map((r) => <option key={r} value={r}>{r}</option>)}
+              {reasonCodesFor(classification).map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
 
@@ -329,7 +363,7 @@ export default function ActionCapture() {
             <label>Action taken <span className="req">*</span></label>
             <select value={actionTaken} onChange={(e) => setActionTaken(e.target.value)} className="sf2-ac-select">
               <option value="">Select action taken...</option>
-              {ACTIONS_TAKEN.map((a) => <option key={a} value={a}>{a}</option>)}
+              {actionsTakenFor(classification).map((a) => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
 
