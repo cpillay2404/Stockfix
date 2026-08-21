@@ -69,6 +69,24 @@ export default function ActionCapture() {
   const repQuery = captureTokenHeaders["X-StockFix-Embedded"]
     ? ""
     : `&rep=${encodeURIComponent(rep)}`;
+  // Real gap found 2026-08-21 (Carin: "user is unassigned in the capture
+  // feed... going forward how are we going to fix this") - identity relied
+  // ENTIRELY on the httpOnly sf_identity cookie surviving to this later
+  // request, which can be flaky on mobile browsers/PWAs. select-rep-
+  // store.tsx now also stores the identify token in localStorage; sending
+  // it explicitly as a Bearer header is a reliable backup that doesn't
+  // depend on cookie behavior - the server already prefers it over the
+  // cookie. Only applies to direct StockFix sessions, never embedded ones
+  // (which use their own separate capture-token header entirely).
+  const identityHeaders: Record<string, string> = { ...captureTokenHeaders };
+  if (!embeddedInParentApp) {
+    try {
+      const storedToken = localStorage.getItem("stockfix_identity_token");
+      if (storedToken) identityHeaders["Authorization"] = `Bearer ${storedToken}`;
+    } catch {
+      // localStorage can throw in some restricted/private-browsing contexts.
+    }
+  }
   const clientQS = client ? `&client=${encodeURIComponent(client)}` : "";
   // Real bug found 2026-08-20 (Carin: "takes me back to the overstocks
   // screen and then it wants me to capture the task again") - scope=fix
@@ -158,7 +176,7 @@ export default function ActionCapture() {
       if (!isEmbeddedTaskFallback) {
         const resolveRes = await fetch(
           `/api/nexus-tasks/resolve?store=${encodeURIComponent(store)}&client=${encodeURIComponent(client)}&classification=${encodeURIComponent(classification)}&barcode=${encodeURIComponent(barcode)}`,
-          { headers: captureTokenHeaders },
+          { headers: identityHeaders },
         );
         if (!resolveRes.ok) {
           throw new Error("Couldn't find a task for this SKU/issue this week");
@@ -170,7 +188,7 @@ export default function ActionCapture() {
         // Direct StockFix sessions use the rep/merchandiser identity selected
         // in StockFix. Embedded sessions leave identity assignment to the
         // authenticated parent application.
-        const claimRes = await fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}/claim`, { method: "POST" });
+        const claimRes = await fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}/claim`, { method: "POST", headers: identityHeaders });
         if (!claimRes.ok) {
           let detail = "";
           try {
@@ -200,7 +218,7 @@ export default function ActionCapture() {
 
       const patchRes = await fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", ...captureTokenHeaders },
+        headers: { "Content-Type": "application/json", ...identityHeaders },
         body: JSON.stringify({
           actionStatus: "Completed",
           reasonCode,
