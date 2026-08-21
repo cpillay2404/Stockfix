@@ -1901,24 +1901,37 @@ export async function registerRoutes(
     });
   }
 
-  // Embedded/PerfectStorePro completions have no "End Visit" tap to hang the
-  // email off, so debounce it instead: each embedded completion at the same
-  // store+rep+client resets a timer, and the digest fires once activity
-  // stops - mirrors the same "one email per visit" intent as the native flow
-  // without needing an explicit end-of-visit signal from PerfectStorePro.
-  const EMBEDDED_VISIT_EMAIL_DEBOUNCE_MS = 3 * 60 * 1000;
-  const embeddedVisitEmailTimers = new Map<string, NodeJS.Timeout>();
-  function scheduleEmbeddedVisitSummaryEmail(store: string, rep: string, client: string, baseUrl: string) {
+  // Every completion auto-fires this, debounced, instead of relying on an
+  // explicit end-of-visit signal (embedded/PerfectStorePro has no "End
+  // Visit" tap at all; direct StockFix sessions have one, but Carin found
+  // 2026-08-21 that reps often just don't tap it - Sir Fruit's contacts
+  // "not getting anything" traced to exactly that, not a config problem).
+  // Each completion at the same store+rep+client resets a timer, and the
+  // digest fires once activity stops - same "one email per visit" intent as
+  // the original manual "End Visit" flow, just no longer dependent on it.
+  const VISIT_EMAIL_DEBOUNCE_MS = 3 * 60 * 1000;
+  const visitEmailTimers = new Map<string, NodeJS.Timeout>();
+  function scheduleVisitSummaryEmail(store: string, rep: string, client: string, baseUrl: string) {
     if (!store || !rep || isUnassigned(rep)) return;
     const key = `${store.toUpperCase().trim()}|${rep.toUpperCase().trim()}|${(client || "").toUpperCase().trim()}`;
-    const existingTimer = embeddedVisitEmailTimers.get(key);
+    const existingTimer = visitEmailTimers.get(key);
     if (existingTimer) clearTimeout(existingTimer);
-    embeddedVisitEmailTimers.set(key, setTimeout(() => {
-      embeddedVisitEmailTimers.delete(key);
+    visitEmailTimers.set(key, setTimeout(() => {
+      visitEmailTimers.delete(key);
       triggerVisitSummaryEmail(store, rep, client, baseUrl).catch((error) => {
-        console.error("Error sending embedded visit summary email:", error);
+        console.error("Error sending auto-fired visit summary email:", error);
       });
-    }, EMBEDDED_VISIT_EMAIL_DEBOUNCE_MS));
+    }, VISIT_EMAIL_DEBOUNCE_MS));
+  }
+  // Cancels a pending auto-fire so an explicit "End Visit" tap can't also
+  // trigger a duplicate debounced email a few minutes later for the same visit.
+  function cancelScheduledVisitSummaryEmail(store: string, rep: string, client: string) {
+    const key = `${store.toUpperCase().trim()}|${(rep || "").toUpperCase().trim()}|${(client || "").toUpperCase().trim()}`;
+    const existingTimer = visitEmailTimers.get(key);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+      visitEmailTimers.delete(key);
+    }
   }
 
   // POST /api/nexus-tasks/visit-summary/send-email — fires once when the
@@ -1935,6 +1948,8 @@ export async function registerRoutes(
       const rep = String(req.body?.rep || "").trim();
       const client = String(req.body?.client || "").trim();
       if (!store) return res.status(400).json({ error: "store is required" });
+
+      cancelScheduledVisitSummaryEmail(store, rep, client);
 
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
@@ -4256,10 +4271,16 @@ export async function registerRoutes(
 
       const [updated] = await db.update(nexusTasks).set(updates).where(eq(nexusTasks.uniqueId, req.params.uniqueId)).returning();
 
-      if (access.mode === "embedded" && validated.actionStatus === "Completed") {
+      // Real gap found 2026-08-21 (Sir Fruit's contacts: "they say they not
+      // getting anything" - confirmed the CC config was correct and the
+      // email mechanism worked when fired manually, but nothing had ever
+      // fired because the rep never tapped "End Visit"). Auto-fire for
+      // direct StockFix completions too, not just embedded ones, so the
+      // email no longer depends on a rep remembering that manual step.
+      if (validated.actionStatus === "Completed") {
         const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
         const host = req.headers['x-forwarded-host'] || req.headers.host || '';
-        scheduleEmbeddedVisitSummaryEmail(updated.storeName, updated.repName, updated.client, `${protocol}://${host}`);
+        scheduleVisitSummaryEmail(updated.storeName, updated.repName, updated.client, `${protocol}://${host}`);
       }
 
       res.json(updated);
