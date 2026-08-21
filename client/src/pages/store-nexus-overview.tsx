@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { getStockFixEmbeddedHeaders } from "@/lib/stockfix-embedded";
+import { getEmbeddedTaskFallbackRequest } from "@/lib/embedded-task-fallback";
+import { buildActionCaptureUrl } from "@/lib/action-capture-navigation";
 import { ChevronDown, ChevronRight, ArrowLeft, Store as StoreIcon } from "lucide-react";
 import { BrandLogo } from "@/components/brand-logo";
 import Sf2BottomNav from "@/components/sf2-bottom-nav";
@@ -39,6 +41,34 @@ interface ClientOptions {
   clients: string[];
   locked?: boolean;
   resourceType?: string;
+}
+
+interface PendingTask {
+  uniqueId: string;
+  barcode: string;
+  articleDescription: string;
+  action: string;
+  classification: string;
+  stockClassification: string;
+  storeSoh: number;
+  dcSoh: number | null;
+  client: string;
+  actionStatus: string;
+}
+
+interface PendingTaskResponse {
+  storeName: string;
+  client: string;
+  tasks: PendingTask[];
+}
+
+type RequestError = Error & { status?: number };
+
+async function getResponseOrThrow(response: Response) {
+  if (response.ok) return response.json();
+  const error = new Error("Failed to fetch store overview") as RequestError;
+  error.status = response.status;
+  throw error;
 }
 
 function greeting(): string {
@@ -215,10 +245,24 @@ export default function StoreOverview() {
     queryKey: ["nexus-store-overview", store, rep, activeClient],
     queryFn: async () => {
        const res = await fetch(`/api/roster/store-overview?store=${encodeURIComponent(store)}${repQuery}&client=${encodeURIComponent(activeClient)}`, { headers: captureHeaders });
-      if (!res.ok) throw new Error("Failed to fetch store overview");
-      return res.json();
+       return getResponseOrThrow(res);
     },
     enabled: !!store,
+  });
+
+  const fallbackRequest = getEmbeddedTaskFallbackRequest({
+    store,
+    isEmbedded: Boolean(captureHeaders["X-StockFix-Embedded"]),
+    liveOverviewStatus: (error as RequestError | null)?.status,
+  });
+  const { data: pendingTaskData, isLoading: pendingTasksLoading } = useQuery<PendingTaskResponse>({
+    queryKey: ["embedded-pending-tasks", store, activeClient],
+    queryFn: async () => {
+      const res = await fetch(fallbackRequest!.url, { headers: captureHeaders });
+      if (!res.ok) throw new Error("Failed to fetch pending task capture list");
+      return res.json();
+    },
+    enabled: Boolean(fallbackRequest),
   });
 
   // "All Clients" now has a real merged SKU list (every real client's rows,
@@ -278,6 +322,67 @@ export default function StoreOverview() {
   if (isLoading) {
     return <Sf2LoadingState />;
   }
+  if (fallbackRequest) {
+    const returnTo = `${window.location.pathname}${window.location.search}`;
+    return (
+      <div className="stockfix2-page">
+        <header className="sf2-topbar">
+          <div className="sf2-topbar-left">
+            <BrandLogo size={20} />
+          </div>
+          <div className="sf2-topbar-right">
+            <span className="sf2-sync"><span className="sf2-sync-dot" />Task capture</span>
+          </div>
+        </header>
+        <main className="sf2-content">
+          <section className="sf2-storecard">
+            <div className="sf2-storeicon"><StoreIcon size={18} /></div>
+            <div className="sf2-storeinfo">
+              <div className="sf2-storename">{store.toUpperCase()}</div>
+              <div className="sf2-storemeta">{pendingTaskData?.client || "Signed client"} · secure task capture</div>
+            </div>
+          </section>
+          <section className="sf2-list">
+            <h1 className="sf2-listtitle">Tasks ready to capture</h1>
+            <p className="sf2-subtitle">
+              Live inventory is unavailable for this store. Only tasks for the signed client are shown.
+            </p>
+            {pendingTasksLoading ? (
+              <Sf2LoadingState />
+            ) : pendingTaskData?.tasks.length ? (
+              pendingTaskData.tasks.map((task) => (
+                <button
+                  className="sf2-listrow"
+                  key={task.uniqueId}
+                  onClick={() => setLocation(buildActionCaptureUrl({
+                    store,
+                    rep,
+                    client: pendingTaskData.client,
+                    classification: task.classification,
+                    barcode: task.barcode,
+                    scope: "embedded-task-fallback",
+                    returnTo,
+                  }) + `&taskId=${encodeURIComponent(task.uniqueId)}`)}
+                >
+                  <div>
+                    <div className="sf2-listrow-title">{task.articleDescription}</div>
+                    <div className="sf2-listrow-meta">
+                      {task.barcode} · {task.stockClassification || task.classification}
+                    </div>
+                    {task.action && <div className="sf2-listrow-meta">{task.action}</div>}
+                  </div>
+                  <ChevronRight size={18} />
+                </button>
+              ))
+            ) : (
+              <p className="sf2-subtitle">There are no open tasks for this signed client at this store.</p>
+            )}
+          </section>
+        </main>
+      </div>
+    );
+  }
+
   if (error || !data) {
     return <div className="stockfix2-page"><p className="error-state">Couldn't load live data for this store right now. Task capture still works normally.</p></div>;
   }

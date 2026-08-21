@@ -90,6 +90,11 @@ function logEmbeddedTokenRejection(
   });
 }
 
+function getNexusTaskClassification(uniqueId: string): string | null {
+  const match = uniqueId.match(/_(oos|low|risk|overstock|distribution|negsoh)_/i);
+  return match?.[1]?.toLowerCase() || null;
+}
+
 function authorizeNexusCaptureScope(req: Request, scope: Pick<NexusCaptureTaskScope, "storeName" | "client">) {
   const captureTokenHeader = readCaptureTokenHeader(req.headers);
   const embeddedHeader = req.headers["x-stockfix-embedded"];
@@ -4014,6 +4019,57 @@ export async function registerRoutes(
   // nexus-task-generation.ts built it). Matches on barcode + normalized
   // store/client + the classification's sourceStem suffix on uniqueId,
   // for the most recent week that SKU/issue has a task.
+  app.get("/api/nexus-tasks/pending", async (req, res) => {
+    try {
+      const requestedStore = String(req.query.store || "").trim();
+      const requestedClient = String(req.query.client || "").trim();
+      const embeddedAccess = authorizeEmbeddedRosterRequest(req, requestedStore, requestedClient);
+      if (!embeddedAccess.ok) {
+        return res.status(embeddedAccess.status).json({ error: embeddedAccess.error });
+      }
+      if (embeddedAccess.mode !== "embedded") {
+        return res.status(401).json({ error: "A valid PerfectStore capture token is required for the embedded task feed" });
+      }
+      // The requested client may be empty or ALL while the overview UI is
+      // bootstrapping. The response always uses the verified token claim, so
+      // those sentinels cannot widen the embedded task feed.
+
+      const result = await db.execute(sql`
+        select unique_id, barcode, article_description, action, stock_classification,
+               store_soh, dc_soh, client, action_status
+        from nexus_tasks
+        where upper(trim(store_name)) = upper(trim(${embeddedAccess.storeName}))
+          and upper(trim(client)) = upper(trim(${embeddedAccess.client}))
+          and action_status != 'Completed'
+        order by week_ending_date desc, action_status, article_description
+      `);
+      const rows = (result.rows || result) as any[];
+      const tasks = rows
+        .map((row) => ({
+          uniqueId: row.unique_id,
+          barcode: row.barcode,
+          articleDescription: row.article_description,
+          action: row.action,
+          classification: getNexusTaskClassification(row.unique_id),
+          stockClassification: row.stock_classification,
+          storeSoh: Number(row.store_soh) || 0,
+          dcSoh: row.dc_soh == null ? null : Number(row.dc_soh),
+          client: row.client,
+          actionStatus: row.action_status,
+        }))
+        .filter((task) => task.classification);
+
+      res.json({
+        storeName: embeddedAccess.storeName,
+        client: embeddedAccess.client,
+        tasks,
+      });
+    } catch (error) {
+      console.error("Error fetching embedded pending tasks:", error);
+      res.status(500).json({ error: "Failed to fetch the embedded task feed" });
+    }
+  });
+
   app.get("/api/nexus-tasks/resolve", async (req, res) => {
     try {
       const store = (req.query.store as string) || "";

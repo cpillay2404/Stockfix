@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Wrench, Minus, Plus, Camera, AlertTriangle, X, CheckCircle2 } from "lucide-react";
@@ -70,6 +70,10 @@ export default function ActionCapture() {
   const barcode = params.get("barcode") || "";
   const client = params.get("client") || "";
   const embeddedInParentApp = isEmbeddedInPerfectStorePro();
+  const fallbackTaskId = params.get("taskId") || "";
+  const isEmbeddedTaskFallback = embeddedInParentApp
+    && params.get("scope") === "embedded-task-fallback"
+    && Boolean(fallbackTaskId);
   const captureTokenHeaders = getStockFixEmbeddedHeaders();
   const repQuery = captureTokenHeaders["X-StockFix-Embedded"]
     ? ""
@@ -99,12 +103,33 @@ export default function ActionCapture() {
       if (!res.ok) throw new Error("Failed to fetch");
       return res.json();
     },
-    enabled: !!store,
+    enabled: !!store && !isEmbeddedTaskFallback,
   });
+  const { data: fallbackTasks } = useQuery<{
+    tasks: Array<{ uniqueId: string; articleDescription: string; storeSoh: number }>;
+  }>({
+    queryKey: ["embedded-pending-tasks", store, client],
+    queryFn: async () => {
+      const res = await fetch(
+        `/api/nexus-tasks/pending?store=${encodeURIComponent(store)}`,
+        { headers: captureTokenHeaders },
+      );
+      if (!res.ok) throw new Error("Failed to fetch task details");
+      return res.json();
+    },
+    enabled: isEmbeddedTaskFallback,
+  });
+  const fallbackTask = fallbackTasks?.tasks.find((task) => task.uniqueId === fallbackTaskId);
   const row = data?.rows.find((r) => r.barcode === barcode);
-  const systemCount = row?.storeSoh ?? 0;
-
+  const systemCount = row?.storeSoh ?? fallbackTask?.storeSoh ?? 0;
+  const [fallbackCountInitialized, setFallbackCountInitialized] = useState(false);
   const [physicalCount, setPhysicalCount] = useState(systemCount);
+  useEffect(() => {
+    if (isEmbeddedTaskFallback && fallbackTask && !fallbackCountInitialized) {
+      setPhysicalCount(fallbackTask.storeSoh);
+      setFallbackCountInitialized(true);
+    }
+  }, [fallbackCountInitialized, fallbackTask, isEmbeddedTaskFallback]);
   const [stockAdjusted, setStockAdjusted] = useState<"yes" | "no" | "">("");
   const [reasonCode, setReasonCode] = useState("");
   const [actionTaken, setActionTaken] = useState("");
@@ -137,14 +162,18 @@ export default function ActionCapture() {
     setSubmitError("");
     setSubmitting(true);
     try {
-      const resolveRes = await fetch(
-        `/api/nexus-tasks/resolve?store=${encodeURIComponent(store)}&client=${encodeURIComponent(client)}&classification=${encodeURIComponent(classification)}&barcode=${encodeURIComponent(barcode)}`,
-        { headers: captureTokenHeaders },
-      );
-      if (!resolveRes.ok) {
-        throw new Error("Couldn't find a task for this SKU/issue this week");
+      let uniqueId = fallbackTaskId;
+      let repName = "Unassigned";
+      if (!isEmbeddedTaskFallback) {
+        const resolveRes = await fetch(
+          `/api/nexus-tasks/resolve?store=${encodeURIComponent(store)}&client=${encodeURIComponent(client)}&classification=${encodeURIComponent(classification)}&barcode=${encodeURIComponent(barcode)}`,
+          { headers: captureTokenHeaders },
+        );
+        if (!resolveRes.ok) {
+          throw new Error("Couldn't find a task for this SKU/issue this week");
+        }
+        ({ uniqueId, repName } = await resolveRes.json());
       }
-      const { uniqueId, repName } = await resolveRes.json();
 
       if (repName.trim().toUpperCase() === "UNASSIGNED" && !embeddedInParentApp) {
         // Direct StockFix sessions use the rep/merchandiser identity selected
@@ -228,7 +257,7 @@ export default function ActionCapture() {
           <div className="sf2-ac-head">
             <div>
               <div className="sf2-ac-label">ACTION CAPTURE</div>
-              <div className="sf2-ac-title">{row?.articleDescription || barcode}</div>
+              <div className="sf2-ac-title">{row?.articleDescription || fallbackTask?.articleDescription || barcode}</div>
             </div>
             {hasVariance && (
               <span className="sf2-ac-variancebadge">
