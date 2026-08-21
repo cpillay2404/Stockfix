@@ -12,11 +12,11 @@ import {
   getCaptureReturnUrl,
 } from "./action-capture-navigation";
 
-function installEmbeddedWindow(search = "?captureToken=signed-token") {
+function installEmbeddedWindow(search = "?captureToken=signed-token", inIframe = true) {
   const values = new Map<string, string>();
   const fetchCalls: Array<{ input: RequestInfo | URL; init?: RequestInit }> = [];
   const mockWindow = {
-    parent: {},
+    parent: {} as object,
     location: {
       search,
       origin: "https://stockfix.test",
@@ -30,10 +30,11 @@ function installEmbeddedWindow(search = "?captureToken=signed-token") {
       return new Response(JSON.stringify({ ok: true }), { status: 200 });
     },
   };
+  mockWindow.parent = inIframe ? {} : mockWindow;
 
   Object.assign(globalThis, {
     window: mockWindow,
-    document: { referrer: "https://perfectstorepro.replit.app/embed" },
+    document: { referrer: "https://proxy.example.test/embed" },
   });
 
   return { mockWindow, fetchCalls };
@@ -84,4 +85,21 @@ test("adds embedded proof to roster requests and removes an untrusted rep query"
   const headers = new Headers(fetchCalls[0].init?.headers);
   assert.equal(headers.get("X-StockFix-Embedded"), "perfectstorepro");
   assert.equal(headers.get("X-StockFix-Capture-Token"), "signed-token");
+});
+
+test("does not turn a top-level URL token into an embedded request", async () => {
+  const { mockWindow, fetchCalls } = installEmbeddedWindow("?captureToken=signed-token", false);
+
+  assert.deepEqual(getStockFixEmbeddedHeaders(), {});
+  assert.equal(
+    preserveEmbeddedCaptureToken("/store-detail/list?store=Demo"),
+    "/store-detail/list?store=Demo",
+  );
+
+  installEmbeddedRosterFetchGuard();
+  await mockWindow.fetch("/api/roster/sku-list?store=Demo&rep=Direct%20Rep");
+
+  assert.equal(fetchCalls.length, 1);
+  assert.equal(String(fetchCalls[0].input), "/api/roster/sku-list?store=Demo&rep=Direct%20Rep");
+  assert.equal(new Headers(fetchCalls[0].init?.headers).get("X-StockFix-Embedded"), null);
 });

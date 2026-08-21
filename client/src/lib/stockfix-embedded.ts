@@ -4,19 +4,14 @@ const ROSTER_FETCH_GUARD_KEY = "__stockFixEmbeddedRosterFetchGuardInstalled";
 
 export function isEmbeddedInPerfectStorePro(): boolean {
   if (typeof window === "undefined") return false;
-  if (window.parent === window) return false;
-  if (!document.referrer) return true;
-  try {
-    return new URL(document.referrer).origin === PERFECT_STORE_PRO_ORIGIN;
-  } catch {
-    return false;
-  }
+  return window.parent !== window && Boolean(getStockFixEmbeddedCaptureToken());
 }
 
 export function getStockFixEmbeddedCaptureToken(): string {
-  if (!isEmbeddedInPerfectStorePro()) return "";
+  if (typeof window === "undefined") return "";
 
-  const queryToken = new URLSearchParams(window.location.search).get("captureToken") || "";
+  const queryToken =
+    new URLSearchParams(window.location.search).get("captureToken")?.trim() || "";
   if (queryToken) {
     window.sessionStorage.setItem(CAPTURE_TOKEN_SESSION_KEY, queryToken);
     return queryToken;
@@ -28,13 +23,15 @@ export function getStockFixEmbeddedCaptureToken(): string {
 export function getStockFixEmbeddedHeaders(): Record<string, string> {
   if (!isEmbeddedInPerfectStorePro()) return {};
   const captureToken = getStockFixEmbeddedCaptureToken();
+  if (!captureToken) return {};
   return {
     "X-StockFix-Embedded": "perfectstorepro",
-    ...(captureToken ? { "X-StockFix-Capture-Token": captureToken } : {}),
+    "X-StockFix-Capture-Token": captureToken,
   };
 }
 
 export function preserveEmbeddedCaptureToken(url: string): string {
+  if (!isEmbeddedInPerfectStorePro()) return url;
   const captureToken = getStockFixEmbeddedCaptureToken();
   if (!captureToken || !url.startsWith("/store-detail")) return url;
 
