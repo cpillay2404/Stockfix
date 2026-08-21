@@ -333,7 +333,7 @@
             </thead>
             <tbody>
               <sc-for list="{{ captureTableRows }}" as="r" hint-placeholder-count="8">
-                <tr class="nx-row" style="border-bottom:1px solid var(--color-neutral-800);">
+                <tr class="nx-row" style="border-bottom:1px solid var(--color-neutral-800); vertical-align:top;">
                   <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.weekEnding }}</td>
                   <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.actionDate }}</td>
                   <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-200);">{{ r.client }}</td>
@@ -344,11 +344,11 @@
                   <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-400); font-family:monospace;">{{ r.barcode }}</td>
                   <td style="padding:9px 12px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--color-neutral-200);">{{ r.articleDescription }}</td>
                   <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.classification }}</td>
-                  <td style="padding:9px 12px; max-width:220px; white-space:normal; line-height:1.4; color:var(--color-neutral-200);">{{ r.action }}</td>
+                  <td title="{{ r.action }}" style="padding:9px 12px; max-width:260px; line-height:1.4; color:var(--color-neutral-200); display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden;">{{ r.action }}</td>
                   <td style="padding:9px 12px; white-space:nowrap; font-weight:600; color:{{ r.statusColor }};">{{ r.status }}</td>
                   <td style="padding:9px 12px; white-space:nowrap; color:var(--color-neutral-300);">{{ r.reasonCode }}</td>
                   <td style="padding:9px 12px; text-align:right; white-space:nowrap; color:var(--color-neutral-200); font-family:monospace;">{{ r.soh }}</td>
-                  <td style="padding:9px 12px; max-width:200px; white-space:normal; line-height:1.4; color:var(--color-neutral-300);">{{ r.comment }}</td>
+                  <td title="{{ r.comment }}" style="padding:9px 12px; max-width:220px; line-height:1.4; color:var(--color-neutral-300); display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:2; overflow:hidden;">{{ r.comment }}</td>
                   <td style="padding:9px 12px; text-align:center;">
                     <sc-if value="{{ r.hasPhoto }}" hint-placeholder-val="{{ false }}">
                       <a href="{{ r.photoHref }}" target="_blank" rel="noopener" style="color:var(--color-accent-300);"><i class="ph ph-image"></i></a>
