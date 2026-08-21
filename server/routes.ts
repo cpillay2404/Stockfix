@@ -5563,16 +5563,25 @@ export async function registerRoutes(
         image4: toFullImageUrl(c.image4),
       }));
 
-      // Distinct task count, not per-assignee rows - a task with several
-      // eligible people must count once here, same reasoning already used
-      // in /api/task-progress/manager and /api/gamification/leaderboard.
-      const openResult = await db.execute(sql`
-        select distinct t.unique_id as "uniqueId", t.store_name as "storeName", t.client, t.region, a.resource_name as "resourceName"
+      // Real perf gap found 2026-08-21 (Carin: "why is taking so long to
+      // fetch" - confirmed 16s+ per request) - this used to be TWO separate
+      // queries (this one, and allAssigneesResult further down) each
+      // scanning the same ~277k-row nexus_task_assignees<->nexus_tasks join
+      // for the week. One combined query now carries everything either
+      // consumer needs (action status + resource type included), and
+      // openRows/allAssignees are both derived from this single result set
+      // in JS instead of hitting the database twice for largely the same
+      // rows.
+      const assigneeJoinResult = await db.execute(sql`
+        select distinct t.unique_id as "uniqueId", t.store_name as "storeName", t.client, t.region,
+          t.action_status as "actionStatus", a.resource_name as "resourceName", r.resource_type as "resourceType"
         from nexus_task_assignees a
         join nexus_tasks t on t.unique_id = a.task_unique_id
-        where t.week_ending_date = ${week} and t.action_status != 'Completed' ${clientCond} ${storeCond}
+        left join resource_roster r on r.resource_emp_id = a.resource_emp_id
+        where t.week_ending_date = ${week} ${clientCond} ${storeCond}
       `);
-      const openRows = (openResult.rows || openResult) as any[];
+      const assigneeJoinRows = (assigneeJoinResult.rows || assigneeJoinResult) as any[];
+      const openRows = assigneeJoinRows.filter((r) => r.actionStatus !== "Completed");
       const openTaskIds = new Set(openRows.map((r) => r.uniqueId));
 
       const byStoreMap = new Map<string, { completed: number; open: Set<string> }>();
@@ -5689,14 +5698,7 @@ export async function registerRoutes(
       // regardless of whether that specific task is now completed - a
       // person keeps counting in the denominator even after their task is
       // done, since claimTask() never deletes their assignee row).
-      const allAssigneesResult = await db.execute(sql`
-        select distinct t.region, a.resource_name as "resourceName", r.resource_type as "resourceType"
-        from nexus_task_assignees a
-        join nexus_tasks t on t.unique_id = a.task_unique_id
-        left join resource_roster r on r.resource_emp_id = a.resource_emp_id
-        where t.week_ending_date = ${week} ${clientCond} ${storeCond}
-      `);
-      const allAssignees = (allAssigneesResult.rows || allAssigneesResult) as any[];
+      const allAssignees = assigneeJoinRows;
 
       // Real resourceType values are things like "SYNDICATED REP",
       // "P&G DEDICATED MERCHANDISER", "FIELDMARKETER" (Carin, 2026-08-20:
