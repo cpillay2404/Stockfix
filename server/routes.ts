@@ -1835,6 +1835,92 @@ export async function registerRoutes(
     }
   });
 
+  // Shared by both the StockFix-native "End Visit" tap and embedded
+  // PerfectStorePro completions (Carin, 2026-08-21: "why didnt the email
+  // fire when he captured Stock Fix" - PerfectStorePro's flow never hits
+  // the StockFix "End Visit" screen, so it never called this). Same
+  // consolidated-digest query either way, per Carin 2026-08-19: "can we
+  // consolidate all captures for one store in one email."
+  async function triggerVisitSummaryEmail(store: string, rep: string, client: string, baseUrl: string): Promise<boolean> {
+    const clientCond = client && client !== "ALL" ? sql`and client = ${client}` : sql``;
+
+    const completedResult = await db.execute(sql`
+      select barcode, article_description, feedback, reason_code, action_taken_comment, capture_date,
+             image1, image2, image3, image4, banner, region, client
+      from nexus_tasks
+      where upper(trim(store_name)) = ${store.toUpperCase().trim()}
+        and upper(trim(rep_name)) = ${rep.toUpperCase().trim()}
+        and action_status = 'Completed'
+        ${clientCond}
+      order by capture_date desc nulls last
+      limit 50
+    `);
+    const completed = (completedResult.rows || completedResult) as any[];
+
+    let openCount = 0;
+    if (rep) {
+      const [rosterRow] = await db.select({ resourceEmpId: resourceRoster.resourceEmpId })
+        .from(resourceRoster).where(sql`upper(trim(${resourceRoster.resourceName})) = ${rep.toUpperCase().trim()}`).limit(1);
+      if (rosterRow) {
+        const openResult = await db.execute(sql`
+          select count(distinct t.unique_id)::int as c
+          from nexus_task_assignees a
+          join nexus_tasks t on t.unique_id = a.task_unique_id
+          where upper(trim(t.store_name)) = ${store.toUpperCase().trim()}
+            and a.resource_emp_id = ${rosterRow.resourceEmpId}
+            and t.action_status != 'Completed'
+            ${clientCond}
+        `);
+        openCount = ((openResult.rows || openResult) as any[])[0]?.c || 0;
+      }
+    }
+
+    const photosCount = completed.filter((c) => c.image1).length;
+
+    return await sendVisitSummaryEmail({
+      repName: rep || null,
+      client: client && client !== "ALL" ? client : (completed[0]?.client ?? null),
+      storeName: store,
+      banner: completed[0]?.banner ?? null,
+      region: completed[0]?.region ?? null,
+      completedCount: completed.length,
+      openCount,
+      photosCount,
+      captures: completed.map((c) => ({
+        barcode: c.barcode,
+        articleDescription: c.article_description,
+        reasonCode: c.reason_code,
+        actionTakenComment: c.action_taken_comment,
+        feedback: c.feedback,
+        image1: c.image1,
+        image2: c.image2,
+        image3: c.image3,
+        image4: c.image4,
+      })),
+      baseUrl,
+    });
+  }
+
+  // Embedded/PerfectStorePro completions have no "End Visit" tap to hang the
+  // email off, so debounce it instead: each embedded completion at the same
+  // store+rep+client resets a timer, and the digest fires once activity
+  // stops - mirrors the same "one email per visit" intent as the native flow
+  // without needing an explicit end-of-visit signal from PerfectStorePro.
+  const EMBEDDED_VISIT_EMAIL_DEBOUNCE_MS = 3 * 60 * 1000;
+  const embeddedVisitEmailTimers = new Map<string, NodeJS.Timeout>();
+  function scheduleEmbeddedVisitSummaryEmail(store: string, rep: string, client: string, baseUrl: string) {
+    if (!store || !rep || isUnassigned(rep)) return;
+    const key = `${store.toUpperCase().trim()}|${rep.toUpperCase().trim()}|${(client || "").toUpperCase().trim()}`;
+    const existingTimer = embeddedVisitEmailTimers.get(key);
+    if (existingTimer) clearTimeout(existingTimer);
+    embeddedVisitEmailTimers.set(key, setTimeout(() => {
+      embeddedVisitEmailTimers.delete(key);
+      triggerVisitSummaryEmail(store, rep, client, baseUrl).catch((error) => {
+        console.error("Error sending embedded visit summary email:", error);
+      });
+    }, EMBEDDED_VISIT_EMAIL_DEBOUNCE_MS));
+  }
+
   // POST /api/nexus-tasks/visit-summary/send-email — fires once when the
   // rep taps "End Visit" (Carin, 2026-08-19: "can we consolidate all
   // captures for one store in one email" - replaces the old per-task
@@ -1850,68 +1936,11 @@ export async function registerRoutes(
       const client = String(req.body?.client || "").trim();
       if (!store) return res.status(400).json({ error: "store is required" });
 
-      const clientCond = client && client !== "ALL" ? sql`and client = ${client}` : sql``;
-
-      const completedResult = await db.execute(sql`
-        select barcode, article_description, feedback, reason_code, action_taken_comment, capture_date,
-               image1, image2, image3, image4, banner, region, client
-        from nexus_tasks
-        where upper(trim(store_name)) = ${store.toUpperCase().trim()}
-          and upper(trim(rep_name)) = ${rep.toUpperCase().trim()}
-          and action_status = 'Completed'
-          ${clientCond}
-        order by capture_date desc nulls last
-        limit 50
-      `);
-      const completed = (completedResult.rows || completedResult) as any[];
-
-      let openCount = 0;
-      if (rep) {
-        const [rosterRow] = await db.select({ resourceEmpId: resourceRoster.resourceEmpId })
-          .from(resourceRoster).where(sql`upper(trim(${resourceRoster.resourceName})) = ${rep.toUpperCase().trim()}`).limit(1);
-        if (rosterRow) {
-          const openResult = await db.execute(sql`
-            select count(distinct t.unique_id)::int as c
-            from nexus_task_assignees a
-            join nexus_tasks t on t.unique_id = a.task_unique_id
-            where upper(trim(t.store_name)) = ${store.toUpperCase().trim()}
-              and a.resource_emp_id = ${rosterRow.resourceEmpId}
-              and t.action_status != 'Completed'
-              ${clientCond}
-          `);
-          openCount = ((openResult.rows || openResult) as any[])[0]?.c || 0;
-        }
-      }
-
-      const photosCount = completed.filter((c) => c.image1).length;
-
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
       const baseUrl = `${protocol}://${host}`;
 
-      const emailSent = await sendVisitSummaryEmail({
-        repName: rep || null,
-        client: client && client !== "ALL" ? client : (completed[0]?.client ?? null),
-        storeName: store,
-        banner: completed[0]?.banner ?? null,
-        region: completed[0]?.region ?? null,
-        completedCount: completed.length,
-        openCount,
-        photosCount,
-        captures: completed.map((c) => ({
-          barcode: c.barcode,
-          articleDescription: c.article_description,
-          reasonCode: c.reason_code,
-          actionTakenComment: c.action_taken_comment,
-          feedback: c.feedback,
-          image1: c.image1,
-          image2: c.image2,
-          image3: c.image3,
-          image4: c.image4,
-        })),
-        baseUrl,
-      });
-
+      const emailSent = await triggerVisitSummaryEmail(store, rep, client, baseUrl);
       if (!emailSent) {
         return res.status(502).json({ error: "The visit summary could not be emailed. Please try again." });
       }
@@ -4226,6 +4255,13 @@ export async function registerRoutes(
       }
 
       const [updated] = await db.update(nexusTasks).set(updates).where(eq(nexusTasks.uniqueId, req.params.uniqueId)).returning();
+
+      if (access.mode === "embedded" && validated.actionStatus === "Completed") {
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+        const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+        scheduleEmbeddedVisitSummaryEmail(updated.storeName, updated.repName, updated.client, `${protocol}://${host}`);
+      }
+
       res.json(updated);
     } catch (error) {
       if (error instanceof z.ZodError) {
