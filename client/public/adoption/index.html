@@ -249,6 +249,33 @@
         </div>
 
         <div>
+          <div style="font-family:var(--font-heading); font-size:16px; font-weight:600; margin-bottom:3px;">Adoption by division</div>
+          <div style="font-size:11.5px; color:var(--color-neutral-500); margin-bottom:16px;">Inland / Central / Coastal, per the National Reporting Hierarchy</div>
+          <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
+            <thead><tr>
+              <th style="text-align:left; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800);">Division</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:88px;">Captured</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:74px;">Open</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:92px;">Rep adoption</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:92px;">Merch adoption</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:84px;">Adoption</th>
+            </tr></thead>
+            <tbody>
+              <sc-for list="{{ divisionRows }}" as="c" hint-placeholder-count="3">
+                <tr class="nx-row">
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; font-weight:600;">{{ c.label }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading);">{{ c.completed }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; color:var(--color-neutral-400);">{{ c.open }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:var(--color-neutral-200);">{{ c.repsCell }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:var(--color-neutral-200);">{{ c.merchCell }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:{{ c.rateColor }};">{{ c.rate }}</td>
+                </tr>
+              </sc-for>
+            </tbody>
+          </table>
+        </div>
+
+        <div>
           <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:14px;">
             <div>
               <div style="font-family:var(--font-heading); font-size:16px; font-weight:600;">Store coverage</div>
@@ -682,6 +709,40 @@ class Component extends DCLogic {
         rateColor: val >= 50 ? 'var(--color-accent-300)' : val > 0 ? 'var(--color-text)' : 'var(--color-neutral-500)' };
     }).sort((a, b) => b.completedRaw - a.completedRaw || a.label.localeCompare(b.label)).slice(0, 20);
     if (!out.regionRows.length) out.regionRows = [{ label: 'Region not returned by the endpoint', completed: '—', open: '—', people: '—', repsCell: '—', merchCell: '—', rate: '—', rateColor: 'var(--color-neutral-500)', completedRaw: 0 }];
+
+    // Inland / Central / Coastal rollup (Carin, 2026-08-21: "one more
+    // visual showing inland, central and coastal progress adoption") -
+    // straight from National Reporting Hierarchy.xlsx's Organogram sheet
+    // (Division column), rolling up the exact same regionAgg entries
+    // already built above rather than a second API call.
+    const DIVISION_BY_REGION = {
+      'FREE STATE': 'Central', 'NORTH WEST': 'Central',
+      'GAUTENG': 'Inland', 'LIMPOPO': 'Inland', 'MPUMALANGA': 'Inland',
+      'WESTERN CAPE': 'Coastal', 'KWAZULU NATAL': 'Coastal', 'KWA-ZULU NATAL': 'Coastal',
+      'EASTERN CAPE': 'Coastal', 'EAST LONDON': 'Coastal', 'EAST LONDON/EASTERN CAPE': 'Coastal',
+      'PORT ELIZABETH': 'Coastal', 'PE OPERATIONS': 'Coastal', 'SWD': 'Coastal', 'SWD OPERATIONS': 'Coastal',
+    };
+    const divisionAgg = new Map();
+    for (const [key, e] of regionAgg.entries()) {
+      const division = DIVISION_BY_REGION[key] || 'Unmapped';
+      let d = divisionAgg.get(division);
+      if (!d) { d = { label: division, completed: 0, open: 0, totalPeople: 0, activePeople: 0, reps: [0, 0], merch: [0, 0] }; divisionAgg.set(division, d); }
+      d.completed += e.completed; d.open += e.open;
+      d.totalPeople += e.totalPeople || 0; d.activePeople += e.activePeople || 0;
+      d.reps[0] += e.reps[0]; d.reps[1] += e.reps[1];
+      d.merch[0] += e.merch[0]; d.merch[1] += e.merch[1];
+    }
+    const DIVISION_ORDER = ['Inland', 'Central', 'Coastal', 'Unmapped'];
+    out.divisionRows = DIVISION_ORDER.filter(d => divisionAgg.has(d)).map((label) => {
+      const d = divisionAgg.get(label);
+      const val = pct(d.activePeople, d.totalPeople);
+      return { label, completed: n(d.completed), open: n(d.open),
+        people: d.totalPeople ? n(d.activePeople) + ' of ' + n(d.totalPeople) : '—',
+        repsCell: d.reps[1] ? sharp(pct(d.reps[0], d.reps[1])) : '—',
+        merchCell: d.merch[1] ? sharp(pct(d.merch[0], d.merch[1])) : '—',
+        rate: d.totalPeople ? sharp(val) : '—',
+        rateColor: val >= 50 ? 'var(--color-accent-300)' : val > 0 ? 'var(--color-text)' : 'var(--color-neutral-500)' };
+    });
 
     const q = s.storeQuery.trim().toLowerCase();
     const storeList = (q ? m.stores.filter(x => x.store.toLowerCase().includes(q)) : m.stores)
