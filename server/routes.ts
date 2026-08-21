@@ -5914,10 +5914,14 @@ export async function registerRoutes(
       // KPI cards read "no reps/merchandisers in scope" because nothing
       // matched an exact "Rep"/"Merchandiser" string) - bucket by
       // substring instead of relying on an exact value.
+      // Carin, 2026-08-21: "Fieldmarketers... folded into rep" - confirmed
+      // via adoptionByRole that all 19 real Fieldmarketers (mostly P&G) were
+      // silently landing in "Other" since their resourceType string
+      // contains neither "MERCHANDISER" nor "REP".
       const normalizeRole = (raw: string | null | undefined): string => {
         const upper = (raw || "").toUpperCase();
         if (upper.includes("MERCHANDISER")) return "Merchandiser";
-        if (upper.includes("REP")) return "Rep";
+        if (upper.includes("REP") || upper.includes("FIELDMARKETER")) return "Rep";
         if (!upper) return "Unknown";
         return "Other";
       };
