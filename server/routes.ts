@@ -1857,6 +1857,13 @@ export async function registerRoutes(
     `);
     const completed = (completedResult.rows || completedResult) as any[];
 
+    // Carin, 2026-08-21: "lots of people not closing their visits" traced
+    // to the opposite - reps tapping "End Visit" (or now auto-firing on
+    // completion) with nothing actually captured, flooding inboxes with
+    // empty "0 captured" digests that carry no signal. Treat "nothing to
+    // report" as a successful no-op instead of sending a blank email.
+    if (completed.length === 0) return true;
+
     let openCount = 0;
     if (rep) {
       const [rosterRow] = await db.select({ resourceEmpId: resourceRoster.resourceEmpId })
