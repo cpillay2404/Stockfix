@@ -1963,9 +1963,22 @@ export async function registerRoutes(
   // the original manual "End Visit" flow, just no longer dependent on it.
   const VISIT_EMAIL_DEBOUNCE_MS = 3 * 60 * 1000;
   const visitEmailTimers = new Map<string, NodeJS.Timeout>();
+  // Real incident found 2026-08-22 (Carin: "im looking at the mails its a
+  // lot something doesnt add up") - the debounce key used to include
+  // client, so one real store visit spanning several clients (routine for
+  // syndicated reps/merchandisers) fragmented into one timer PER CLIENT,
+  // each firing its own email. The visit is really identified by store+rep
+  // alone - client is still passed through to actually build the email
+  // (as "ALL", pulling every client's captures together) but must never be
+  // part of the dedup key, or "End Visit" (which may pass a specific/blank
+  // client) and the auto-fire (which always passes "ALL") would compute
+  // different keys and both could fire for the same visit.
+  function visitEmailKey(store: string, rep: string): string {
+    return `${store.toUpperCase().trim()}|${(rep || "").toUpperCase().trim()}`;
+  }
   function scheduleVisitSummaryEmail(store: string, rep: string, client: string, baseUrl: string) {
     if (!store || !rep || isUnassigned(rep)) return;
-    const key = `${store.toUpperCase().trim()}|${rep.toUpperCase().trim()}|${(client || "").toUpperCase().trim()}`;
+    const key = visitEmailKey(store, rep);
     const existingTimer = visitEmailTimers.get(key);
     if (existingTimer) clearTimeout(existingTimer);
     visitEmailTimers.set(key, setTimeout(() => {
@@ -1977,8 +1990,8 @@ export async function registerRoutes(
   }
   // Cancels a pending auto-fire so an explicit "End Visit" tap can't also
   // trigger a duplicate debounced email a few minutes later for the same visit.
-  function cancelScheduledVisitSummaryEmail(store: string, rep: string, client: string) {
-    const key = `${store.toUpperCase().trim()}|${(rep || "").toUpperCase().trim()}|${(client || "").toUpperCase().trim()}`;
+  function cancelScheduledVisitSummaryEmail(store: string, rep: string) {
+    const key = visitEmailKey(store, rep);
     const existingTimer = visitEmailTimers.get(key);
     if (existingTimer) {
       clearTimeout(existingTimer);
@@ -2001,7 +2014,7 @@ export async function registerRoutes(
       const client = String(req.body?.client || "").trim();
       if (!store) return res.status(400).json({ error: "store is required" });
 
-      cancelScheduledVisitSummaryEmail(store, rep, client);
+      cancelScheduledVisitSummaryEmail(store, rep);
 
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
@@ -4346,7 +4359,15 @@ export async function registerRoutes(
       if (validated.actionStatus === "Completed") {
         const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
         const host = req.headers['x-forwarded-host'] || req.headers.host || '';
-        scheduleVisitSummaryEmail(updated.storeName, updated.repName, updated.client, `${protocol}://${host}`);
+        // Real incident found 2026-08-22 (Carin: "im looking at the mails
+        // its a lot something doesnt add up") - keying this on the task's
+        // own client fragmented one real store visit into one email PER
+        // CLIENT touched during it (a syndicated rep/merchandiser routinely
+        // captures 5-6+ clients in a single visit), undoing the original
+        // "consolidate all captures for one store in one email" fix. "ALL"
+        // makes triggerVisitSummaryEmail pull every client's captures for
+        // this store+rep together, same as the manual End Visit flow.
+        scheduleVisitSummaryEmail(updated.storeName, updated.repName, "ALL", `${protocol}://${host}`);
       }
 
       res.json(updated);
