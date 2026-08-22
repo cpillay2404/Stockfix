@@ -536,6 +536,13 @@ export async function createTaskOnDemand(params: {
 }): Promise<{ uniqueId: string } | null> {
   const sourceStem = params.classification === "cover" ? "risk" : params.classification;
   const normalizedStore = params.store.trim().toUpperCase();
+  // Real gap found 2026-08-22 (Carin: Checkers Corkwood Square/Clicks
+  // Plettenburg Bay showing region "EASTERN CAPE" - Nexus's generic
+  // catch-all - even though Call Cycle Master has the real, precise region
+  // for both). generateTasksForWeek's pushRow already prefers Call Cycle
+  // Master's region whenever it has an entry; this on-demand path (used
+  // when a rep captures a SKU outside the pre-generated list) never did.
+  const regionByStore = await buildStoreRegionMap();
 
   async function insertOnDemand(week: string, opts: {
     client: string; storeName: string; banner?: string | null; region?: string | null;
@@ -545,6 +552,9 @@ export async function createTaskOnDemand(params: {
   }, actionText: string): Promise<{ uniqueId: string } | null> {
     const assignees = await resolveOnDemandCoverage(opts.storeName, opts.client);
     if (assignees.length === 0) return null; // real call-cycle gap, not guessed at
+
+    const ccmRegion = regionByStore.get(String(opts.storeName).toUpperCase().trim());
+    if (ccmRegion) opts.region = ccmRegion;
 
     const uniqueId = `NEXUS_${week}_${opts.client}_${opts.storeName}_${sourceStem}_${opts.barcode}`.replace(/\s+/g, "_");
 
