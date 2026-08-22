@@ -5904,9 +5904,9 @@ export async function registerRoutes(
       }
       const byRep = toSorted(byRepMap, "rep").map((r: any) => ({
         ...r,
-        resourceType: resourceTypeByName.get(String(r.rep).toUpperCase().trim()) || null,
+        resourceType: resourceTypeByName.get(String(r.rep).toUpperCase().trim()) || resourceTypeFallbackByRepName.get(r.rep) || null,
         region: repRegion.get(r.rep) || null,
-        manager: managerByName.get(String(r.rep).toUpperCase().trim()) || null,
+        manager: managerByName.get(String(r.rep).toUpperCase().trim()) || managerFallbackByRepName.get(r.rep) || null,
       }));
 
       // Real "by manager" breakdown (Carin, 2026-08-19: "how do i see the
