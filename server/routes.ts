@@ -1964,21 +1964,20 @@ export async function registerRoutes(
   const VISIT_EMAIL_DEBOUNCE_MS = 3 * 60 * 1000;
   const visitEmailTimers = new Map<string, NodeJS.Timeout>();
   // Real incident found 2026-08-22 (Carin: "im looking at the mails its a
-  // lot something doesnt add up") - the debounce key used to include
-  // client, so one real store visit spanning several clients (routine for
-  // syndicated reps/merchandisers) fragmented into one timer PER CLIENT,
-  // each firing its own email. The visit is really identified by store+rep
-  // alone - client is still passed through to actually build the email
-  // (as "ALL", pulling every client's captures together) but must never be
-  // part of the dedup key, or "End Visit" (which may pass a specific/blank
-  // client) and the auto-fire (which always passes "ALL") would compute
-  // different keys and both could fire for the same visit.
-  function visitEmailKey(store: string, rep: string): string {
-    return `${store.toUpperCase().trim()}|${(rep || "").toUpperCase().trim()}`;
+  // lot something doesnt add up") - briefly tried collapsing this to
+  // store+rep only (one consolidated email per visit spanning every
+  // client), but that let one client's external contacts see another
+  // client's SKU data in the same email (Carin: "some clients are getting
+  // other clients skus mails"). Confirmed with Carin: multiple emails per
+  // store visit are fine *as long as each one is scoped to a single
+  // client* - so keying stays store+rep+client, exactly as originally
+  // built, just now firing automatically instead of only on "End Visit".
+  function visitEmailKey(store: string, rep: string, client: string): string {
+    return `${store.toUpperCase().trim()}|${(rep || "").toUpperCase().trim()}|${(client || "").toUpperCase().trim()}`;
   }
   function scheduleVisitSummaryEmail(store: string, rep: string, client: string, baseUrl: string) {
     if (!store || !rep || isUnassigned(rep)) return;
-    const key = visitEmailKey(store, rep);
+    const key = visitEmailKey(store, rep, client);
     const existingTimer = visitEmailTimers.get(key);
     if (existingTimer) clearTimeout(existingTimer);
     visitEmailTimers.set(key, setTimeout(() => {
@@ -1990,8 +1989,8 @@ export async function registerRoutes(
   }
   // Cancels a pending auto-fire so an explicit "End Visit" tap can't also
   // trigger a duplicate debounced email a few minutes later for the same visit.
-  function cancelScheduledVisitSummaryEmail(store: string, rep: string) {
-    const key = visitEmailKey(store, rep);
+  function cancelScheduledVisitSummaryEmail(store: string, rep: string, client: string) {
+    const key = visitEmailKey(store, rep, client);
     const existingTimer = visitEmailTimers.get(key);
     if (existingTimer) {
       clearTimeout(existingTimer);
@@ -2014,7 +2013,7 @@ export async function registerRoutes(
       const client = String(req.body?.client || "").trim();
       if (!store) return res.status(400).json({ error: "store is required" });
 
-      cancelScheduledVisitSummaryEmail(store, rep);
+      cancelScheduledVisitSummaryEmail(store, rep, client);
 
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
@@ -4359,15 +4358,10 @@ export async function registerRoutes(
       if (validated.actionStatus === "Completed") {
         const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
         const host = req.headers['x-forwarded-host'] || req.headers.host || '';
-        // Real incident found 2026-08-22 (Carin: "im looking at the mails
-        // its a lot something doesnt add up") - keying this on the task's
-        // own client fragmented one real store visit into one email PER
-        // CLIENT touched during it (a syndicated rep/merchandiser routinely
-        // captures 5-6+ clients in a single visit), undoing the original
-        // "consolidate all captures for one store in one email" fix. "ALL"
-        // makes triggerVisitSummaryEmail pull every client's captures for
-        // this store+rep together, same as the manual End Visit flow.
-        scheduleVisitSummaryEmail(updated.storeName, updated.repName, "ALL", `${protocol}://${host}`);
+        // Carin confirmed 2026-08-22: multiple emails per visit are fine as
+        // long as each is scoped to one client - so this stays keyed and
+        // filtered per client (see visitEmailKey above), never "ALL".
+        scheduleVisitSummaryEmail(updated.storeName, updated.repName, updated.client, `${protocol}://${host}`);
       }
 
       res.json(updated);
@@ -5804,7 +5798,8 @@ export async function registerRoutes(
       // `distinct` changes no result while removing the expensive sort.
       const assigneeJoinResult = await db.execute(sql`
         select t.unique_id as "uniqueId", t.store_name as "storeName", t.client, t.region,
-          t.action_status as "actionStatus", a.resource_name as "resourceName", r.resource_type as "resourceType"
+          t.action_status as "actionStatus", a.resource_name as "resourceName", r.resource_type as "resourceType",
+          r.manager as "manager"
         from nexus_task_assignees a
         join nexus_tasks t on t.unique_id = a.task_unique_id
         left join resource_roster r on r.resource_emp_id = a.resource_emp_id
@@ -5860,6 +5855,16 @@ export async function registerRoutes(
         if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
         byRegionMap.get(region)!.completed++;
       }
+      // Real gap found 2026-08-22 (Carin: "i dont trust the data" - two
+      // people showed "Unspecified" despite being real, roster-matched
+      // people) - resourceTypeByName/managerByName below match by exact
+      // name text, which breaks on a typo between how a name was stored on
+      // the assignee row vs. the roster (e.g. "Jacob Tsulela Tsulela" vs
+      // roster's "Jacob Msebenzi Tsulela" - same empId, different text).
+      // This join is by resource_emp_id, which doesn't care about name
+      // spelling, so capture it here as a reliable fallback.
+      const resourceTypeFallbackByRepName = new Map<string, string>();
+      const managerFallbackByRepName = new Map<string, string>();
       for (const o of openRows) {
         if (!byStoreMap.has(o.storeName)) byStoreMap.set(o.storeName, { completed: 0, open: new Set() });
         byStoreMap.get(o.storeName)!.open.add(o.uniqueId);
@@ -5869,6 +5874,8 @@ export async function registerRoutes(
           if (!byRepMap.has(o.resourceName)) byRepMap.set(o.resourceName, { completed: 0, open: new Set() });
           byRepMap.get(o.resourceName)!.open.add(o.uniqueId);
           if (o.region && !repRegion.has(o.resourceName)) repRegion.set(o.resourceName, normalizeRegion(o.region));
+          if (o.resourceType && !resourceTypeFallbackByRepName.has(o.resourceName)) resourceTypeFallbackByRepName.set(o.resourceName, o.resourceType);
+          if (o.manager && !managerFallbackByRepName.has(o.resourceName)) managerFallbackByRepName.set(o.resourceName, o.manager);
         }
         const region = normalizeRegion(o.region);
         if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
