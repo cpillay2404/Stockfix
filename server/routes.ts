@@ -1229,9 +1229,16 @@ export async function registerRoutes(
       if (role !== "REP" && role !== "MERCHANDISER") {
         return res.status(400).json({ error: "role query param must be 'rep' or 'merchandiser'" });
       }
+      // Real gap found 2026-08-24 (Carin: "why is not showing the name of
+      // the P&G fieldmarketer" - Tshepo Ivan Moima's captures only ever
+      // succeeded through PerfectStorePro's signed token, never direct
+      // StockFix, because "FIELDMARKETER" contains neither "REP" nor
+      // "MERCHANDISER" - he couldn't select his own name on either
+      // screen). Folded into Rep here, matching the same call already
+      // made for adoption reporting.
       const condition = role === "MERCHANDISER"
         ? sql`upper(${resourceRoster.resourceType}) like '%MERCHANDISER%'`
-        : sql`upper(${resourceRoster.resourceType}) like '%REP%' and upper(${resourceRoster.resourceType}) not like '%MERCHANDISER%'`;
+        : sql`(upper(${resourceRoster.resourceType}) like '%REP%' or upper(${resourceRoster.resourceType}) like '%FIELDMARKETER%') and upper(${resourceRoster.resourceType}) not like '%MERCHANDISER%'`;
       const rows = await db
         .select({ resourceName: resourceRoster.resourceName })
         .from(resourceRoster)
