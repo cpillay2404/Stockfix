@@ -5757,6 +5757,15 @@ export async function registerRoutes(
     try {
       const client = String(req.query.client || "").trim();
       const store = String(req.query.store || "").trim();
+      // Real gap found 2026-08-24 - the Captures feed's manager/region/
+      // resourceType filters were applied client-side to an already
+      // 50-row-capped "recent" list, invisible to anything older than
+      // that narrow window. Accept them here so filtering happens against
+      // the full completed set before the cap, not after it.
+      const filterRegion = String(req.query.region || "").trim().toUpperCase();
+      const filterManager = String(req.query.manager || "").trim().toUpperCase();
+      const filterType = String(req.query.rtype || "").trim().toUpperCase();
+      const recentLimit = filterRegion || filterManager || filterType ? 500 : 50;
 
       const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
       const week = weekRow?.week as string | undefined;
@@ -5928,6 +5937,31 @@ export async function registerRoutes(
         manager: managerByName.get(String(r.rep).toUpperCase().trim()) || managerFallbackByRepName.get(r.rep) || null,
       }));
 
+      // Real gap found 2026-08-24 (Carin: "siyanda had 2 reps that
+      // captured why they not appearing here" - traced to the Captures
+      // feed only ever receiving the 50 most recent completions
+      // network-wide, with filters applied client-side AFTER that cap -
+      // anything older than the current top-50 window is invisible to a
+      // filter no matter how correct the filter itself is). A
+      // merchandiser's own `manager` field names the REP they report to,
+      // not the true top-level manager (confirmed 2026-08-24 while
+      // building the Adoption-by-manager panel) - trace it one hop up for
+      // a manager filter to mean what a manager would expect.
+      const isRepLikeType = (t: string | null | undefined) => { const u = (t || "").toUpperCase(); return u.includes("REP") || u.includes("FIELDMARKETER"); };
+      const trueManagerByName = (name: string | null | undefined): string | null => {
+        if (!name) return null;
+        const key = String(name).toUpperCase().trim();
+        const ownType = resourceTypeByName.get(key);
+        const ownManager = managerByName.get(key) || null;
+        if (isRepLikeType(ownType)) return ownManager;
+        // Merchandiser (or unknown type): ownManager names a rep - trace to that rep's own manager.
+        if (ownManager) {
+          const repManager = managerByName.get(ownManager.toUpperCase().trim());
+          if (repManager) return repManager;
+        }
+        return ownManager;
+      };
+
       // Real "by manager" breakdown (Carin, 2026-08-19: "how do i see the
       // adoption by... manager") - each rep's counts rolled up to their
       // real manager field from resource_roster, same real-data pattern
@@ -6069,12 +6103,20 @@ export async function registerRoutes(
         // which doesn't include `lineManager` either. Add these as aliases
         // rather than renaming the real columns everywhere else that
         // already depends on storeName/repName.
-        recent: completed.slice(0, 50).map((c) => ({
-          ...c,
-          store: c.storeName,
-          rep: c.repName,
-          manager: managerByName.get(String(c.repName).toUpperCase().trim()) || c.lineManager || null,
-        })),
+        recent: completed
+          .filter((c) => {
+            if (filterRegion && normalizeRegion(c.region) !== filterRegion) return false;
+            if (filterType && (resourceTypeByName.get(String(c.repName).toUpperCase().trim()) || "").toUpperCase() !== filterType) return false;
+            if (filterManager && (trueManagerByName(c.repName) || "").toUpperCase() !== filterManager) return false;
+            return true;
+          })
+          .slice(0, recentLimit)
+          .map((c) => ({
+            ...c,
+            store: c.storeName,
+            rep: c.repName,
+            manager: trueManagerByName(c.repName) || c.lineManager || null,
+          })),
       });
     } catch (error) {
       console.error("Error fetching live dashboard:", error);

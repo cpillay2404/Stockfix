@@ -430,6 +430,14 @@ class Component extends DCLogic {
     const q = [];
     if (this.state.client) q.push('client=' + encodeURIComponent(this.state.client));
     if (this.state.store) q.push('store=' + encodeURIComponent(this.state.store));
+    // Real gap found 2026-08-24 (Carin: "siyanda had 2 reps that captured
+    // why they not appearing here") - region/manager/resourceType filters
+    // used to apply client-side to an already 50-row-capped feed, missing
+    // anything older than that narrow window. Send them to the server so
+    // filtering happens against the full completed set, not the cap.
+    if (this.state.region) q.push('region=' + encodeURIComponent(this.state.region));
+    if (this.state.manager) q.push('manager=' + encodeURIComponent(this.state.manager));
+    if (this.state.rtype) q.push('rtype=' + encodeURIComponent(this.state.rtype));
     this.json(this.base + '/api/live-dashboard' + (q.length ? '?' + q.join('&') : ''))
       .then(data => { this._sig = null; this.setState({ data, err: '', loading: false, at: new Date() }); })
       .catch(e => this.setState({ err: 'Could not reach /api/live-dashboard — ' + (e.message || e), loading: false }));
@@ -522,9 +530,9 @@ class Component extends DCLogic {
       fClient: s.client, fStore: s.store, fType: s.rtype, fRegion: s.region, fManager: s.manager,
       onClient: e => { const v = e.target.value; this._sig = null; this.setState({ client: v, store: '', stores: [] }, () => { this.load(); if (v) this.json(this.base + '/api/roster/stores-for-client?client=' + encodeURIComponent(v)).then(r => this.setState({ stores: this.opts(r) })).catch(() => {}); }); },
       onStore: e => { this._sig = null; this.setState({ store: e.target.value }, () => this.load()); },
-      onType: e => this.set({ rtype: e.target.value }),
-      onRegion: e => this.set({ region: e.target.value }),
-      onManager: e => this.set({ manager: e.target.value }),
+      onType: e => this.setState({ rtype: e.target.value }, () => this.load()),
+      onRegion: e => this.setState({ region: e.target.value }, () => this.load()),
+      onManager: e => this.setState({ manager: e.target.value }, () => this.load()),
       onReset: () => { this._sig = null; this.setState({ client: '', store: '', rtype: '', region: '', manager: '', stores: [] }, () => this.load()); },
       onStoreQuery: e => this.set({ storeQuery: e.target.value }),
       onManagerQuery: e => this.set({ managerQuery: e.target.value }),
