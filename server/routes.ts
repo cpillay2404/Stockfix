@@ -1496,10 +1496,15 @@ export async function registerRoutes(
         : [];
       const roleByEmpId = new Map(rosterRows.map((r) => [r.resourceEmpId, (r.resourceType || "").toUpperCase()]));
 
+      // Real gap found 2026-08-24 (Carin: "1 person covers this store" -
+      // same bug as /api/roster/names, different endpoint - "FIELDMARKETER"
+      // contains neither "REP" nor "MERCHANDISER", so Tshepo Ivan Moima was
+      // invisible here too, on the actual store-first "select a store"
+      // flow this time, not just the name-list screen).
       const matchesRole = (empId: string | null) => {
         const rt = roleByEmpId.get(empId || "") || "";
         if (role.toUpperCase() === "MERCHANDISER") return rt.includes("MERCHANDISER");
-        if (role.toUpperCase() === "REP") return rt.includes("REP") && !rt.includes("MERCHANDISER");
+        if (role.toUpperCase() === "REP") return (rt.includes("REP") || rt.includes("FIELDMARKETER")) && !rt.includes("MERCHANDISER");
         return true;
       };
 
