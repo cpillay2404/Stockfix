@@ -383,6 +383,7 @@ export default function ActionCapture() {
                   <input
                     type="file"
                     accept="image/*"
+                    capture="environment"
                     className="sf2-ac-photo-input"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
