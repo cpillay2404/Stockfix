@@ -496,6 +496,87 @@ export async function wipeTasksForWeek(week: string): Promise<number> {
   return (result as any).rowCount ?? 0;
 }
 
+// Real gap found 2026-08-24 (Carin: "check greenstone why is not showing
+// the name of the P&G fieldmarketer" - traced to eligible-assignee rows
+// being a one-time snapshot from whenever tasks were generated, never
+// refreshed when Call Cycle Master changes afterward - confirmed 8,000+
+// mismatches network-wide between current coverage and what's actually
+// on still-open tasks). Recomputes eligibility for every OPEN task using
+// the exact same coverage map + resolveAssignees logic generateTasksForWeek
+// uses, and reconciles nexus_task_assignees to match - never touches
+// repName/actionStatus/anything on a completed task, only who's still
+// eligible to work on something still open.
+export async function resyncOpenTaskAssignees(): Promise<{ pairsChecked: number; pairsChanged: number; rowsAdded: number; rowsRemoved: number }> {
+  const coverage = await buildStoreCoverageMap();
+
+  const openTasksResult = await db.execute(sql`
+    select unique_id as "uniqueId", upper(trim(store_name)) as "storeKey", client
+    from nexus_tasks
+    where action_status != 'Completed'
+  `);
+  const openTasks = (openTasksResult.rows || openTasksResult) as { uniqueId: string; storeKey: string; client: string }[];
+
+  const taskIdsByPair = new Map<string, string[]>();
+  for (const t of openTasks) {
+    const pairKey = `${t.storeKey}::${t.client}`;
+    const list = taskIdsByPair.get(pairKey) || [];
+    list.push(t.uniqueId);
+    taskIdsByPair.set(pairKey, list);
+  }
+
+  const currentAssigneesResult = await db.execute(sql`
+    select a.task_unique_id as "taskUniqueId", a.resource_emp_id as "empId",
+      upper(trim(t.store_name)) as "storeKey", t.client
+    from nexus_task_assignees a
+    join nexus_tasks t on t.unique_id = a.task_unique_id
+    where t.action_status != 'Completed'
+  `);
+  const currentAssigneeRows = (currentAssigneesResult.rows || currentAssigneesResult) as
+    { taskUniqueId: string; empId: string; storeKey: string; client: string }[];
+  const currentByTask = new Map<string, Set<string>>();
+  for (const r of currentAssigneeRows) {
+    const key = r.taskUniqueId;
+    if (!currentByTask.has(key)) currentByTask.set(key, new Set());
+    currentByTask.get(key)!.add((r.empId || "").toUpperCase().trim());
+  }
+
+  let pairsChecked = 0, pairsChanged = 0, rowsAdded = 0, rowsRemoved = 0;
+  for (const [pairKey, taskIds] of Array.from(taskIdsByPair.entries())) {
+    pairsChecked++;
+    const [storeKey, client] = pairKey.split("::");
+    const entries = coverage.get(storeKey) || [];
+    const expected = resolveEligibleResourceCoverage(entries, client);
+    const expectedEmpIds = expected.map((e) => e.empId);
+    const expectedSet = new Set(expectedEmpIds.map((id) => id.toUpperCase().trim()));
+
+    let pairChanged = false;
+    for (const uniqueId of taskIds) {
+      const currentSet = currentByTask.get(uniqueId) || new Set();
+      const toRemove = Array.from(currentSet).filter((id) => !expectedSet.has(id));
+      const toAdd = expected.filter((e) => !currentSet.has(e.empId.toUpperCase().trim()));
+      if (toRemove.length === 0 && toAdd.length === 0) continue;
+      pairChanged = true;
+
+      if (toRemove.length > 0) {
+        await db.execute(sql`
+          delete from nexus_task_assignees
+          where task_unique_id = ${uniqueId} and upper(trim(resource_emp_id)) in (${sql.join(toRemove.map((id) => sql`${id}`), sql`, `)})
+        `);
+        rowsRemoved += toRemove.length;
+      }
+      for (const e of toAdd) {
+        await db.insert(nexusTaskAssignees).values({
+          taskUniqueId: uniqueId, resourceEmpId: e.empId, resourceName: e.resourceName,
+        }).onConflictDoNothing();
+        rowsAdded++;
+      }
+    }
+    if (pairChanged) pairsChanged++;
+  }
+
+  return { pairsChecked, pairsChanged, rowsAdded, rowsRemoved };
+}
+
 export async function resolveOnDemandCoverage(storeName: string, client: string): Promise<{ empId: string; resourceName: string }[]> {
   const rows = await db
     .select({

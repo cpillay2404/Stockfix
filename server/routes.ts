@@ -38,7 +38,7 @@ import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, clientScopeFromResourceType, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { dedicatedClientScopesAtStore, isSyndicatedResourceType } from "@shared/resource-client-scope";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
-import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask } from "./nexus-task-generation";
+import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask, resyncOpenTaskAssignees } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
 import {
   hasStockFixApiKeyConfiguration,
@@ -1260,6 +1260,18 @@ export async function registerRoutes(
       }
       const result = await importStoreAssignments(rows);
       res.json(result);
+      // Real gap found 2026-08-24 (Carin: "how will we prevent this when
+      // we run new tasks?") - eligible-assignee rows on already-generated
+      // open tasks were a one-time snapshot that never refreshed when Call
+      // Cycle Master changed afterward (confirmed 8,000+ stale mismatches
+      // network-wide). Every re-upload of the coverage file is exactly the
+      // moment drift starts, so resync open-task eligibility right here,
+      // automatically, instead of waiting for someone to notice a gap.
+      // Fire-and-forget - the import response above already went out, and
+      // this never touches completed tasks or anything already captured.
+      resyncOpenTaskAssignees()
+        .then((summary) => console.log("[Store assignments import] Auto-resynced open task assignees:", summary))
+        .catch((error) => console.error("[Store assignments import] Auto-resync failed:", error));
     } catch (error) {
       console.error("Error importing store assignments:", error);
       res.status(500).json({ error: "Failed to import store assignments" });
