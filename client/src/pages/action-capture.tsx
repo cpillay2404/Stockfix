@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Wrench, Minus, Plus, Camera, AlertTriangle, X, CheckCircle2 } from "lucide-react";
@@ -182,6 +182,88 @@ export default function ActionCapture() {
   const [feedback, setFeedback] = useState("");
   const [photos, setPhotos] = useState<Array<{ file: File; previewUrl: string } | null>>([null, null, null, null]);
   const photoCount = photos.filter((p) => p !== null).length;
+  // Real gap found 2026-08-24 (Perfect Store Pro, after ruling out the
+  // iframe/permissions-policy chain: "the browser is ignoring
+  // capture=environment and choosing the gallery... implement the
+  // explicit camera path with getUserMedia, called directly from the
+  // user's tap, and show the error when permission or device access
+  // fails"). capture="environment" is only a hint some mobile browsers
+  // ignore, especially embedded. A real getUserMedia camera view is
+  // called directly from the tap on each photo slot's button, with the
+  // existing file input kept as a visible fallback if the camera can't
+  // be opened, rather than a silent guess at what the user wanted.
+  const [cameraSlotIndex, setCameraSlotIndex] = useState<number | null>(null);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
+  const [cameraError, setCameraError] = useState<{ slot: number; message: string } | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const fileInputRefs = useRef<Array<HTMLInputElement | null>>([null, null, null, null]);
+
+  useEffect(() => {
+    if (cameraStream && videoRef.current) {
+      videoRef.current.srcObject = cameraStream;
+    }
+  }, [cameraStream]);
+
+  const stopCamera = () => {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    setCameraStream(null);
+    setCameraSlotIndex(null);
+  };
+
+  useEffect(() => {
+    return () => { cameraStream?.getTracks().forEach((track) => track.stop()); };
+  }, [cameraStream]);
+
+  const openCamera = async (i: number) => {
+    setCameraError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      fileInputRefs.current[i]?.click();
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" } },
+        audio: false,
+      });
+      setCameraStream(stream);
+      setCameraSlotIndex(i);
+    } catch (err: any) {
+      const name = err?.name || "";
+      const message =
+        name === "NotAllowedError" || name === "SecurityError"
+          ? "Camera permission was denied. Allow camera access in your browser settings, or choose a photo from your gallery instead."
+          : name === "NotReadableError"
+            ? "The camera is busy or unavailable right now. Try again, or choose a photo from your gallery instead."
+            : name === "NotFoundError"
+              ? "No camera was found on this device. Choose a photo from your gallery instead."
+              : "Could not open the camera. Choose a photo from your gallery instead.";
+      setCameraError({ slot: i, message });
+    }
+  };
+
+  const capturePhoto = () => {
+    const video = videoRef.current;
+    if (!video || cameraSlotIndex === null) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const slot = cameraSlotIndex;
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const file = new File([blob], `capture-${Date.now()}.jpg`, { type: "image/jpeg" });
+      const previewUrl = URL.createObjectURL(file);
+      setPhotos((prev) => {
+        const next = [...prev];
+        if (next[slot]) URL.revokeObjectURL(next[slot]!.previewUrl);
+        next[slot] = { file, previewUrl };
+        return next;
+      });
+      stopCamera();
+    }, "image/jpeg", 0.9);
+  };
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -379,12 +461,18 @@ export default function ActionCapture() {
             <label>Photos <span className="req">*</span> <span className="sf2-ac-sublabel">up to 4</span></label>
             <div className="sf2-ac-photos">
               {photos.map((p, i) => (
-                <label key={i} className="sf2-ac-photo" style={p ? { backgroundImage: `url(${p.previewUrl})` } : undefined}>
+                <div key={i} className="sf2-ac-photo" style={p ? { backgroundImage: `url(${p.previewUrl})` } : undefined}>
+                  {/* Hidden fallback file input - the visible control is the
+                      camera button below, but this stays available so a
+                      failed/unavailable camera still has a working path
+                      (native picker, which also offers "gallery" itself). */}
                   <input
+                    ref={(el) => { fileInputRefs.current[i] = el; }}
                     type="file"
                     accept="image/*"
                     capture="environment"
                     className="sf2-ac-photo-input"
+                    style={{ display: "none" }}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) return;
@@ -394,6 +482,7 @@ export default function ActionCapture() {
                         next[i] = { file, previewUrl: URL.createObjectURL(file) };
                         return next;
                       });
+                      setCameraError(null);
                     }}
                   />
                   {p ? (
@@ -413,12 +502,32 @@ export default function ActionCapture() {
                       <X size={12} />
                     </button>
                   ) : (
-                    <Camera size={18} />
+                    <button type="button" className="sf2-ac-photo-trigger" onClick={() => openCamera(i)} aria-label="Take photo">
+                      <Camera size={18} />
+                    </button>
                   )}
-                </label>
+                  {cameraError?.slot === i && (
+                    <div className="sf2-ac-camera-error">
+                      {cameraError.message}
+                      <button type="button" onClick={() => { setCameraError(null); fileInputRefs.current[i]?.click(); }}>
+                        Choose from gallery
+                      </button>
+                    </div>
+                  )}
+                </div>
               ))}
             </div>
           </div>
+
+          {cameraSlotIndex !== null && (
+            <div className="sf2-ac-camera-overlay" role="dialog" aria-modal="true">
+              <video ref={videoRef} autoPlay playsInline muted className="sf2-ac-camera-video" />
+              <div className="sf2-ac-camera-controls">
+                <button type="button" className="sf2-ac-camera-cancel" onClick={stopCamera}>Cancel</button>
+                <button type="button" className="sf2-ac-camera-shutter" onClick={capturePhoto} aria-label="Capture photo" />
+              </div>
+            </div>
+          )}
 
           {submitted ? (
             <div className="sf2-ac-toast">
