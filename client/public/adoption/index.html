@@ -551,8 +551,17 @@ class Component extends DCLogic {
     });
 
     const m = this.model();
+    // Real gap found 2026-08-24 (Carin: "this does not react to filters") -
+    // the region/manager/resource-type filters correctly narrow m.reps
+    // (see the .filter(...) building it above), but these KPI cards were
+    // reading server-computed totals/adoptionByRole that are only ever
+    // scoped by client/store, never by region/manager/type - so applying
+    // one of those three filters left the top cards showing the full
+    // unfiltered network number while everything else on the page changed.
+    const hasFineFilter = !!(s.region || s.manager || s.rtype);
     const totals = m.d.totals || {};
-    const completed = Number(totals.completed || 0), open = Number(totals.open || 0);
+    const completed = hasFineFilter ? m.reps.reduce((sum, r) => sum + r.completed, 0) : Number(totals.completed || 0);
+    const open = hasFineFilter ? m.reps.reduce((sum, r) => sum + r.open, 0) : Number(totals.open || 0);
     const scope = completed + open;
     const t = m.reps.length;
     const activeF = ['client', 'store', 'rtype', 'region', 'manager'].filter(k => s[k]);
@@ -561,7 +570,7 @@ class Component extends DCLogic {
       const want = role.toLowerCase();
       // role labels vary in case/wording across sources — match loosely
       const match = (v) => { const t = String(v || '').toLowerCase(); return t === want || t.includes(want); };
-      const e = roles.find(x => match(x.role)) || roles.find(x => match(x.resourceType));
+      const e = !hasFineFilter && (roles.find(x => match(x.role)) || roles.find(x => match(x.resourceType)));
       const plural = role + (role.endsWith('s') ? '' : 's');
       if (e) return { pct: sharp(Number(e.adoptionPct || 0)), sub: n(e.activePeople || 0) + ' of ' + n(e.totalPeople || 0) + ' ' + plural + ' active' };
       const cohort = m.reps.filter(r => match(r.resourceType));
@@ -651,7 +660,13 @@ class Component extends DCLogic {
       if (!slot) return;
       slot[0] += Number(active || 0); slot[1] += Number(total || 0);
     };
-    const apiRegions = Array.isArray(m.d.byRegion) ? m.d.byRegion : null;
+    // Real gap found 2026-08-24 (Carin: "this does not react to filters") -
+    // m.d.byRegion is only ever scoped by client/store server-side, never
+    // by manager/resourceType - so those two filters left the region and
+    // division cards showing full-network numbers. Only take the server's
+    // pre-aggregated regions when neither of those two is active; region
+    // itself already narrows correctly inside the loop below.
+    const apiRegions = (!s.manager && !s.rtype && Array.isArray(m.d.byRegion)) ? m.d.byRegion : null;
     if (apiRegions) {
       apiRegions.forEach(x => {
         const k = pick(x, REGION_KEYS) || String(x.name ?? x.label ?? '—');

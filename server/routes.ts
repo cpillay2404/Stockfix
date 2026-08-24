@@ -5770,7 +5770,11 @@ export async function registerRoutes(
       const filterRegion = String(req.query.region || "").trim().toUpperCase();
       const filterManager = String(req.query.manager || "").trim().toUpperCase();
       const filterType = String(req.query.rtype || "").trim().toUpperCase();
-      const recentLimit = filterRegion || filterManager || filterType ? 500 : 50;
+      // Carin, 2026-08-24: "kpi cards still fixed at 50" - a real week's
+      // total (838 completions right now) is small enough to just return
+      // every completed row, always, rather than guessing at which
+      // situations need more than a 50/500 preview.
+      const recentLimit = 5000;
 
       const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
       const week = weekRow?.week as string | undefined;
