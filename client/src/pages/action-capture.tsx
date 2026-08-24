@@ -42,6 +42,7 @@ const SHORTAGE_REASON_CODES = [
   "Store operational issue (closed / access / revamp)",
   "System / data issue (incorrect master data / mapping)",
   "Promo / display not set up",
+  "Slow moving",
 ];
 const EXCESS_REASON_CODES = [
   "Slow-moving / excess stock",
@@ -57,6 +58,7 @@ const DATA_ISSUE_REASON_CODES = [
   "System / data issue (incorrect master data / mapping)",
   "Damaged / expired / returns",
   "Store operational issue (closed / access / revamp)",
+  "Slow moving",
 ];
 const reasonCodesFor = (classification: string): string[] => {
   if (classification === "overstock") return EXCESS_REASON_CODES;
@@ -66,6 +68,7 @@ const reasonCodesFor = (classification: string): string[] => {
 
 const SHORTAGE_ACTIONS_TAKEN = [
   "Order placed",
+  "Stock on Shelf - Physical count matching system SOH",
   "Escalated to supervisor / manager",
   "Logged query with DC / supplier",
   "Stock moved from backroom to shelf",
