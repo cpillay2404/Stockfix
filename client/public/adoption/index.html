@@ -267,32 +267,32 @@
         <div>
           <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:14px;">
             <div>
-              <div style="font-family:var(--font-heading); font-size:16px; font-weight:600;">Store coverage</div>
-              <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:3px;">{{ storeCountLabel }}</div>
+              <div style="font-family:var(--font-heading); font-size:16px; font-weight:600;">Adoption by manager</div>
+              <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:3px;">{{ managerCountLabel }} — each manager's own reps, plus the merchandisers reporting to those reps</div>
             </div>
-            <input type="text" onInput="{{ onStoreQuery }}" placeholder="Filter stores…" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:6px 10px; font-size:12px; font-family:inherit; width:170px;" />
+            <input type="text" onInput="{{ onManagerQuery }}" placeholder="Filter managers…" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:6px 10px; font-size:12px; font-family:inherit; width:170px;" />
           </div>
           <table style="width:100%; border-collapse:collapse; font-size:11.5px;">
             <thead><tr>
-              <th style="text-align:left; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800);">Store</th>
-              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:88px;">Captured</th>
-              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:74px;">Open</th>
-              <th style="text-align:left; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:110px;">State</th>
+              <th style="text-align:left; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800);">Manager</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:100px;">Reps</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:100px;">Their merch</th>
+              <th style="text-align:right; padding:7px 8px; font-size:9px; letter-spacing:0.07em; text-transform:uppercase; color:var(--color-neutral-500); border-bottom:1px solid var(--color-neutral-800); width:84px;">Combined</th>
             </tr></thead>
             <tbody>
-              <sc-for list="{{ storeRows }}" as="s" hint-placeholder-count="8">
+              <sc-for list="{{ managerRows }}" as="mr" hint-placeholder-count="8">
                 <tr class="nx-row">
-                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b;">{{ s.store }}</td>
-                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading);">{{ s.completed }}</td>
-                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; color:var(--color-neutral-400);">{{ s.open }}</td>
-                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b;"><span style="display:inline-block; padding:1px 9px; border-radius:20px; font-size:10.5px; font-weight:600; color:{{ s.stateFg }}; background:{{ s.stateBg }}; border:1px solid {{ s.stateBd }};">{{ s.state }}</span></td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; font-weight:600;">{{ mr.manager }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:var(--color-neutral-200);">{{ mr.repsCell }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:var(--color-neutral-200);">{{ mr.merchCell }}</td>
+                  <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:{{ mr.rateColor }};">{{ mr.rate }}</td>
                 </tr>
               </sc-for>
             </tbody>
           </table>
           <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding-top:10px;">
-            <span style="font-size:11px; color:var(--color-neutral-500);">{{ storeFootnote }}</span>
-            <button onClick="{{ exportStores }}" style="display:flex; align-items:center; gap:7px; background:transparent; border:1px solid rgba(236,109,37,0.45); color:var(--color-accent-300); border-radius:var(--radius-md); padding:6px 13px; font-size:11px; font-weight:600; font-family:inherit; cursor:pointer;" style-hover="background:rgba(236,109,37,0.14); color:#f8c3a1;"><i class="ph ph-download-simple" style="font-size:14px;"></i>{{ exportStoreLabel }}</button>
+            <span style="font-size:11px; color:var(--color-neutral-500);">{{ managerFootnote }}</span>
+            <button onClick="{{ exportManagers }}" style="display:flex; align-items:center; gap:7px; background:transparent; border:1px solid rgba(236,109,37,0.45); color:var(--color-accent-300); border-radius:var(--radius-md); padding:6px 13px; font-size:11px; font-weight:600; font-family:inherit; cursor:pointer;" style-hover="background:rgba(236,109,37,0.14); color:#f8c3a1;"><i class="ph ph-download-simple" style="font-size:14px;"></i>{{ exportManagerLabel }}</button>
           </div>
         </div>
 
@@ -398,7 +398,7 @@ const MANAGER_KEYS = ['manager', 'managerName', 'managerFullName', 'reportsTo', 
 
 class Component extends DCLogic {
   state = { data: null, loading: true, err: '', page: 'overview', client: '', store: '', rtype: '', region: '', manager: '',
-    seg: 'active', storeQuery: '', captureQuery: '', clients: [], stores: [], at: null };
+    seg: 'active', storeQuery: '', managerQuery: '', captureQuery: '', clients: [], stores: [], at: null };
 
   get base() { return (this.props.apiBase || 'https://stock-fix.replit.app').replace(/\/+$/, ''); }
 
@@ -527,6 +527,7 @@ class Component extends DCLogic {
       onManager: e => this.set({ manager: e.target.value }),
       onReset: () => { this._sig = null; this.setState({ client: '', store: '', rtype: '', region: '', manager: '', stores: [] }, () => this.load()); },
       onStoreQuery: e => this.set({ storeQuery: e.target.value }),
+      onManagerQuery: e => this.set({ managerQuery: e.target.value }),
       onRefresh: () => this.load(),
       showRecent: this.props.showRecent !== false,
     };
@@ -754,6 +755,61 @@ class Component extends DCLogic {
         stateBg: done ? 'rgba(236,109,37,0.14)' : untouched ? 'transparent' : 'rgba(157,196,236,0.1)',
         stateBd: done ? 'rgba(236,109,37,0.45)' : untouched ? 'var(--color-neutral-800)' : 'rgba(157,196,236,0.28)' };
     });
+
+    // Adoption by manager (Carin, 2026-08-24: "managers of reps... their
+    // reps have merchandisers reporting to them" - a real 2-hop chain, not
+    // a flat "manager" field. A merchandiser's own `manager` field names
+    // the REP they report to, not the overarching manager - confirmed with
+    // real data (e.g. Sylvia Erasmus's manager = "Wilfred Louw", a rep,
+    // whose own manager = "Jan Verster"). So a merchandiser's true manager
+    // is found by tracing rep -> rep's manager, not read directly.
+    const isRepType = (t) => { const u = String(t || '').toUpperCase(); return u.includes('REP') || u.includes('FIELDMARKETER'); };
+    const isMerchType = (t) => String(t || '').toUpperCase().includes('MERCHANDISER');
+    const repManagerByName = new Map();
+    m.reps.forEach(r => { if (isRepType(r.resourceType) && r.manager) repManagerByName.set(String(r.rep).toUpperCase().trim(), r.manager); });
+    const managerAgg = new Map();
+    const ensureManager = (name) => {
+      const key = String(name || 'Unknown').trim() || 'Unknown';
+      let e = managerAgg.get(key);
+      if (!e) { e = { manager: key, reps: [0, 0], merch: [0, 0] }; managerAgg.set(key, e); }
+      return e;
+    };
+    m.reps.forEach(r => {
+      if (isRepType(r.resourceType) && r.manager) {
+        const e = ensureManager(r.manager);
+        e.reps[1]++; if (r.completed > 0) e.reps[0]++;
+      } else if (isMerchType(r.resourceType) && r.manager) {
+        // r.manager here is the REP's name - trace up to that rep's own manager.
+        const trueManager = repManagerByName.get(String(r.manager).toUpperCase().trim()) || r.manager;
+        const e = ensureManager(trueManager);
+        e.merch[1]++; if (r.completed > 0) e.merch[0]++;
+      }
+    });
+    const mq = s.managerQuery.trim().toLowerCase();
+    const managerList = Array.from(managerAgg.values())
+      .filter(e => !mq || e.manager.toLowerCase().includes(mq))
+      .map(e => {
+        const totalPeople = e.reps[1] + e.merch[1];
+        const activePeople = e.reps[0] + e.merch[0];
+        const rate = pct(activePeople, totalPeople);
+        return Object.assign(e, { totalPeople, activePeople, rate });
+      })
+      .sort((a, b) => b.totalPeople - a.totalPeople || a.manager.localeCompare(b.manager));
+    out.managerCountLabel = n(managerList.length) + ' managers in scope';
+    out.managerFootnote = managerList.length > 12 ? 'Showing the top 12 of ' + n(managerList.length) : '';
+    out.exportManagerLabel = 'Export ' + n(managerList.length);
+    out.exportManagers = () => this.csv('stockfix-manager-adoption',
+      [{ key: 'manager', label: 'Manager' }, { key: 'repsActive', label: 'Reps active' }, { key: 'repsTotal', label: 'Reps total' },
+       { key: 'merchActive', label: 'Merch active' }, { key: 'merchTotal', label: 'Merch total' }, { key: 'rate', label: 'Combined adoption %' }],
+      managerList.map(e => ({ manager: e.manager, repsActive: e.reps[0], repsTotal: e.reps[1], merchActive: e.merch[0], merchTotal: e.merch[1], rate: e.rate })));
+    out.managerRows = managerList.slice(0, 12).map(e => ({
+      manager: e.manager,
+      repsCell: e.reps[1] ? sharp(pct(e.reps[0], e.reps[1])) + ' · ' + n(e.reps[0]) + '/' + n(e.reps[1]) : '—',
+      merchCell: e.merch[1] ? sharp(pct(e.merch[0], e.merch[1])) + ' · ' + n(e.merch[0]) + '/' + n(e.merch[1]) : '—',
+      rate: e.totalPeople ? sharp(e.rate) : '—',
+      rateColor: e.rate >= 50 ? 'var(--color-accent-300)' : e.rate > 0 ? 'var(--color-text)' : 'var(--color-neutral-500)',
+    }));
+    if (!out.managerRows.length) out.managerRows = [{ manager: 'No managers in scope', repsCell: '—', merchCell: '—', rate: '—', rateColor: 'var(--color-neutral-500)' }];
 
     const IMG_KEYS = ['image1', 'image2', 'image3', 'image4'];
     const cq = s.captureQuery.trim().toLowerCase();
