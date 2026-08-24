@@ -46,6 +46,7 @@ const SHORTAGE_REASON_CODES = [
 const EXCESS_REASON_CODES = [
   "Slow-moving / excess stock",
   "On shelf but slow moving",
+  "Slow moving",
   "Stock on Shelf - Not selling",
   "Not ranged / discontinued",
   "Promo / display not set up",
@@ -77,6 +78,7 @@ const SHORTAGE_ACTIONS_TAKEN = [
 const EXCESS_ACTIONS_TAKEN = [
   "Recommended for markdown / transfer (Stock not selling)",
   "Removed / disposed of expired stock",
+  "Stock on Shelf - Physical count matching system SOH",
   "Escalated to supervisor / manager",
   "Logged query with DC / supplier",
   "System stock corrected / discrepancy logged",
