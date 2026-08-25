@@ -43,6 +43,9 @@ const SHORTAGE_REASON_CODES = [
   "System / data issue (incorrect master data / mapping)",
   "Promo / display not set up",
   "Slow moving",
+  "No action taken",
+  "SOH counts correct",
+  "Stock on shelf",
 ];
 const EXCESS_REASON_CODES = [
   "Slow-moving / excess stock",
@@ -53,12 +56,18 @@ const EXCESS_REASON_CODES = [
   "Promo / display not set up",
   "Damaged / expired / returns",
   "System / data issue (incorrect master data / mapping)",
+  "No action taken",
+  "SOH counts correct",
+  "Stock on shelf",
 ];
 const DATA_ISSUE_REASON_CODES = [
   "System / data issue (incorrect master data / mapping)",
   "Damaged / expired / returns",
   "Store operational issue (closed / access / revamp)",
   "Slow moving",
+  "No action taken",
+  "SOH counts correct",
+  "Stock on shelf",
 ];
 const reasonCodesFor = (classification: string): string[] => {
   if (classification === "overstock") return EXCESS_REASON_CODES;
@@ -77,9 +86,6 @@ const SHORTAGE_ACTIONS_TAKEN = [
   "Promo / display action completed",
   "Follow-up required (awaiting delivery / revisit)",
   "Unable to action (store closed / access issue)",
-  "No action taken",
-  "SOH counts correct",
-  "Stock on shelf",
 ];
 const EXCESS_ACTIONS_TAKEN = [
   "Recommended for markdown / transfer (Stock not selling)",
@@ -91,9 +97,6 @@ const EXCESS_ACTIONS_TAKEN = [
   "Promo / display action completed",
   "Follow-up required (awaiting delivery / revisit)",
   "Unable to action (store closed / access issue)",
-  "No action taken",
-  "SOH counts correct",
-  "Stock on shelf",
 ];
 const actionsTakenFor = (classification: string): string[] => {
   if (classification === "overstock") return EXCESS_ACTIONS_TAKEN;
