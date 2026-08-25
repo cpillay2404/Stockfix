@@ -86,6 +86,7 @@ const SHORTAGE_ACTIONS_TAKEN = [
   "Promo / display action completed",
   "Follow-up required (awaiting delivery / revisit)",
   "Unable to action (store closed / access issue)",
+  "Confirmed correct — no action needed",
 ];
 const EXCESS_ACTIONS_TAKEN = [
   "Recommended for markdown / transfer (Stock not selling)",
@@ -97,6 +98,7 @@ const EXCESS_ACTIONS_TAKEN = [
   "Promo / display action completed",
   "Follow-up required (awaiting delivery / revisit)",
   "Unable to action (store closed / access issue)",
+  "Confirmed correct — no action needed",
 ];
 const actionsTakenFor = (classification: string): string[] => {
   if (classification === "overstock") return EXCESS_ACTIONS_TAKEN;
