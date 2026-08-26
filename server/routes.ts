@@ -38,7 +38,7 @@ import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, clientScopeFromResourceType, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { dedicatedClientScopesAtStore, isSyndicatedResourceType } from "@shared/resource-client-scope";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
-import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask, resyncOpenTaskAssignees } from "./nexus-task-generation";
+import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask, resyncOpenTaskAssignees, isResyncRunning, markResyncStarted, markResyncFinished, getResyncJobStatus } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees, adoptionSnapshots } from "@shared/schema";
 import {
   hasStockFixApiKeyConfiguration,
@@ -1772,20 +1772,27 @@ export async function registerRoutes(
     }
   });
 
-  // Synchronous wrapper around resyncOpenTaskAssignees() (Carin, weekly
-  // orchestrator plan 2026-08-26) - lets a caller (the run_weekly_update.ps1
-  // orchestrator, or a manual re-run) trigger the eligibility resync
-  // directly and see its real pairsChanged/rowsAdded/rowsRemoved counts,
-  // instead of relying on the unconfirmed fire-and-forget trigger already
-  // wired into /api/admin/store-assignments/import.
+  // Fire-and-forget wrapper around resyncOpenTaskAssignees() (Carin, weekly
+  // orchestrator plan 2026-08-26) - a network-wide resync reliably takes
+  // longer than Replit's platform request timeout (confirmed live: a real
+  // run 504'd at exactly 5 minutes even though the resync itself was still
+  // progressing server-side), so this can't be awaited inside one request.
+  // Responds instantly; the orchestrator (or a manual re-run) polls
+  // GET .../status for the real pairsChanged/rowsAdded/rowsRemoved counts,
+  // same pattern as /api/admin/nexus-summary-sync.
   app.post("/api/admin/resync-task-assignees", async (req, res) => {
-    try {
-      const result = await resyncOpenTaskAssignees();
-      res.json(result);
-    } catch (error: any) {
-      console.error("Error resyncing task assignees:", error);
-      res.status(500).json({ error: error?.message || "Failed to resync task assignees" });
+    if (isResyncRunning()) {
+      return res.status(409).json({ error: "A resync is already running - check /api/admin/resync-task-assignees/status" });
     }
+    markResyncStarted();
+    resyncOpenTaskAssignees()
+      .then((result) => markResyncFinished(result))
+      .catch((error) => markResyncFinished(null, error?.message || String(error)));
+    res.json({ started: true, checkProgressAt: "/api/admin/resync-task-assignees/status" });
+  });
+
+  app.get("/api/admin/resync-task-assignees/status", (_req, res) => {
+    res.json(getResyncJobStatus());
   });
 
   // Manual trigger for wipeTasksForWeek - normally only ever called by

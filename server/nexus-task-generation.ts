@@ -498,6 +498,38 @@ export async function wipeTasksForWeek(week: string): Promise<number> {
   return (result as any).rowCount ?? 0;
 }
 
+// Real gap found 2026-08-26 - a network-wide resync (tens of thousands of
+// task/resource pairs) reliably takes longer than Replit's platform-level
+// ~5 minute request timeout, so a caller awaiting this inside one HTTP
+// request always gets a 504 even when the resync itself would eventually
+// succeed. Same fix already proven for the Nexus sync
+// (isSyncRunning/markSyncStarted/markSyncFinished/getSyncJobStatus in
+// nexus-sync.ts) - the route responds instantly and hands back status
+// separately via GET /api/admin/resync-task-assignees/status instead of
+// holding one long connection open.
+type ResyncResult = { pairsChecked: number; pairsChanged: number; rowsAdded: number; rowsRemoved: number };
+interface ResyncJobStatus {
+  running: boolean;
+  startedAt: string | null;
+  finishedAt: string | null;
+  lastResult: ResyncResult | null;
+  lastError: string | null;
+}
+let resyncJob: ResyncJobStatus = { running: false, startedAt: null, finishedAt: null, lastResult: null, lastError: null };
+
+export function isResyncRunning(): boolean {
+  return resyncJob.running;
+}
+export function markResyncStarted(): void {
+  resyncJob = { running: true, startedAt: new Date().toISOString(), finishedAt: null, lastResult: null, lastError: null };
+}
+export function markResyncFinished(result: ResyncResult | null, error?: string): void {
+  resyncJob = { ...resyncJob, running: false, finishedAt: new Date().toISOString(), lastResult: result, lastError: error || null };
+}
+export function getResyncJobStatus(): ResyncJobStatus {
+  return { ...resyncJob };
+}
+
 // Real gap found 2026-08-24 (Carin: "check greenstone why is not showing
 // the name of the P&G fieldmarketer" - traced to eligible-assignee rows
 // being a one-time snapshot from whenever tasks were generated, never
@@ -508,7 +540,7 @@ export async function wipeTasksForWeek(week: string): Promise<number> {
 // uses, and reconciles nexus_task_assignees to match - never touches
 // repName/actionStatus/anything on a completed task, only who's still
 // eligible to work on something still open.
-export async function resyncOpenTaskAssignees(): Promise<{ pairsChecked: number; pairsChanged: number; rowsAdded: number; rowsRemoved: number }> {
+export async function resyncOpenTaskAssignees(): Promise<ResyncResult> {
   const coverage = await buildStoreCoverageMap();
 
   const openTasksResult = await db.execute(sql`
