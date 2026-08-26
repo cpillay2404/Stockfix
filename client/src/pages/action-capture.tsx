@@ -351,25 +351,46 @@ export default function ActionCapture() {
         uploadedPaths.push(objectPath);
       }
 
-      const patchRes = await fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}`, {
+      const patchBody = JSON.stringify({
+        actionStatus: "Completed",
+        reasonCode,
+        actionTakenComment: actionTaken,
+        feedback,
+        physicalCount: String(physicalCount),
+        variance: String(variance),
+        systemAdjusted: hasVariance ? (stockAdjusted === "yes" ? "Yes" : "No") : undefined,
+        image1: uploadedPaths[0] || undefined,
+        image2: uploadedPaths[1] || undefined,
+        image3: uploadedPaths[2] || undefined,
+        image4: uploadedPaths[3] || undefined,
+      });
+      const doPatch = () => fetch(`/api/nexus-tasks/${encodeURIComponent(uniqueId)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...identityHeaders },
-        body: JSON.stringify({
-          actionStatus: "Completed",
-          reasonCode,
-          actionTakenComment: actionTaken,
-          feedback,
-          physicalCount: String(physicalCount),
-          variance: String(variance),
-          systemAdjusted: hasVariance ? (stockAdjusted === "yes" ? "Yes" : "No") : undefined,
-          image1: uploadedPaths[0] || undefined,
-          image2: uploadedPaths[1] || undefined,
-          image3: uploadedPaths[2] || undefined,
-          image4: uploadedPaths[3] || undefined,
-        }),
+        body: patchBody,
       });
+      // Real gap found 2026-08-26 (Carin: Kesentseng's capture at Dischem
+      // Thatchfield failed to save with no useful detail) - this used to
+      // throw a hardcoded generic message on any non-ok response, hiding
+      // the server's real reason (a stale claim, a transient 5xx, etc) and
+      // giving up on the very first try. One automatic retry after a short
+      // delay covers a transient blip; if it still fails, surface the
+      // server's actual error text (same pattern the claim step above
+      // already uses) so a real cause is visible instead of guessed at.
+      let patchRes = await doPatch();
+      if (!patchRes.ok && patchRes.status >= 500) {
+        await new Promise((r) => setTimeout(r, 1500));
+        patchRes = await doPatch();
+      }
       if (!patchRes.ok) {
-        throw new Error("Failed to save this action");
+        let detail = "";
+        try {
+          const body = await patchRes.json();
+          detail = typeof body?.error === "string" ? body.error : JSON.stringify(body?.error || "");
+        } catch {
+          // Keep the fallback generic if the server did not return JSON.
+        }
+        throw new Error(detail || `Failed to save this action (HTTP ${patchRes.status})`);
       }
       notifyStockFixTaskCaptured(uniqueId);
       markVisitHasCaptures(store, rep, client);
