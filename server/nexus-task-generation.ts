@@ -574,14 +574,26 @@ export async function resyncOpenTaskAssignees(): Promise<ResyncResult> {
     currentByTask.get(key)!.add((r.empId || "").toUpperCase().trim());
   }
 
-  let pairsChecked = 0, pairsChanged = 0, rowsAdded = 0, rowsRemoved = 0;
+  // Real perf bug found 2026-08-26 - the original version of this loop
+  // issued one DELETE/INSERT per individual changed row, awaited one at a
+  // time. That's fine at small scale but with today's much larger dataset
+  // (a fresh Call Cycle Master import + a newly generated week) it made
+  // this look permanently hung rather than just slow - thousands of
+  // sequential round-trips to Neon. Computing every removal/addition in
+  // memory first, then writing in 500-row batches (same chunk size and
+  // sql.join-based IN-list pattern already proven elsewhere in this file),
+  // cuts a many-minutes run down to a real, bounded one, with progress
+  // logged along the way so a genuinely large run is visibly progressing
+  // rather than indistinguishable from stuck.
+  const removals: { uniqueId: string; empId: string }[] = [];
+  const additions: { uniqueId: string; empId: string; resourceName: string }[] = [];
+  let pairsChecked = 0, pairsChanged = 0;
   for (const [pairKey, taskIds] of Array.from(taskIdsByPair.entries())) {
     pairsChecked++;
     const [storeKey, client] = pairKey.split("::");
     const entries = coverage.get(storeKey) || [];
     const expected = resolveEligibleResourceCoverage(entries, client);
-    const expectedEmpIds = expected.map((e) => e.empId);
-    const expectedSet = new Set(expectedEmpIds.map((id) => id.toUpperCase().trim()));
+    const expectedSet = new Set(expected.map((e) => e.empId.toUpperCase().trim()));
 
     let pairChanged = false;
     for (const uniqueId of taskIds) {
@@ -590,25 +602,46 @@ export async function resyncOpenTaskAssignees(): Promise<ResyncResult> {
       const toAdd = expected.filter((e) => !currentSet.has(e.empId.toUpperCase().trim()));
       if (toRemove.length === 0 && toAdd.length === 0) continue;
       pairChanged = true;
-
-      if (toRemove.length > 0) {
-        await db.execute(sql`
-          delete from nexus_task_assignees
-          where task_unique_id = ${uniqueId} and upper(trim(resource_emp_id)) in (${sql.join(toRemove.map((id) => sql`${id}`), sql`, `)})
-        `);
-        rowsRemoved += toRemove.length;
-      }
-      for (const e of toAdd) {
-        await db.insert(nexusTaskAssignees).values({
-          taskUniqueId: uniqueId, resourceEmpId: e.empId, resourceName: e.resourceName,
-        }).onConflictDoNothing();
-        rowsAdded++;
-      }
+      for (const id of toRemove) removals.push({ uniqueId, empId: id });
+      for (const e of toAdd) additions.push({ uniqueId, empId: e.empId, resourceName: e.resourceName });
     }
     if (pairChanged) pairsChanged++;
+    if (pairsChecked % 2000 === 0) {
+      console.log(`[resyncOpenTaskAssignees] computed ${pairsChecked}/${taskIdsByPair.size} pairs...`);
+    }
   }
+  console.log(`[resyncOpenTaskAssignees] computed all ${taskIdsByPair.size} pairs - ${removals.length} removals, ${additions.length} additions to apply`);
 
-  return { pairsChecked, pairsChanged, rowsAdded, rowsRemoved };
+  const CHUNK = 500;
+  for (let i = 0; i < removals.length; i += CHUNK) {
+    const batch = removals.slice(i, i + CHUNK);
+    // Grouped by uniqueId so each statement's IN-list is just the emp IDs to
+    // remove for that one task, matching the unique constraint's shape -
+    // avoids building one giant OR'd condition across mixed tasks.
+    const byTask = new Map<string, string[]>();
+    for (const r of batch) {
+      const list = byTask.get(r.uniqueId) || [];
+      list.push(r.empId);
+      byTask.set(r.uniqueId, list);
+    }
+    for (const [uniqueId, empIds] of Array.from(byTask.entries())) {
+      await db.execute(sql`
+        delete from nexus_task_assignees
+        where task_unique_id = ${uniqueId} and upper(trim(resource_emp_id)) in (${sql.join(empIds.map((id) => sql`${id}`), sql`, `)})
+      `);
+    }
+    if ((i + CHUNK) % 5000 < CHUNK) console.log(`[resyncOpenTaskAssignees] removed ${Math.min(i + CHUNK, removals.length)}/${removals.length}...`);
+  }
+  for (let i = 0; i < additions.length; i += CHUNK) {
+    const batch = additions.slice(i, i + CHUNK);
+    await db.insert(nexusTaskAssignees)
+      .values(batch.map((a) => ({ taskUniqueId: a.uniqueId, resourceEmpId: a.empId, resourceName: a.resourceName })))
+      .onConflictDoNothing();
+    if ((i + CHUNK) % 5000 < CHUNK) console.log(`[resyncOpenTaskAssignees] added ${Math.min(i + CHUNK, additions.length)}/${additions.length}...`);
+  }
+  console.log(`[resyncOpenTaskAssignees] done - ${pairsChanged}/${pairsChecked} pairs changed, ${additions.length} added, ${removals.length} removed`);
+
+  return { pairsChecked, pairsChanged, rowsAdded: additions.length, rowsRemoved: removals.length };
 }
 
 export async function resolveOnDemandCoverage(storeName: string, client: string): Promise<{ empId: string; resourceName: string }[]> {
