@@ -39,7 +39,7 @@ import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, im
 import { dedicatedClientScopesAtStore, isSyndicatedResourceType } from "@shared/resource-client-scope";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask, resyncOpenTaskAssignees } from "./nexus-task-generation";
-import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees } from "@shared/schema";
+import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees, adoptionSnapshots } from "@shared/schema";
 import {
   hasStockFixApiKeyConfiguration,
   inspectPerfectStoreCaptureToken,
@@ -1772,6 +1772,22 @@ export async function registerRoutes(
     }
   });
 
+  // Synchronous wrapper around resyncOpenTaskAssignees() (Carin, weekly
+  // orchestrator plan 2026-08-26) - lets a caller (the run_weekly_update.ps1
+  // orchestrator, or a manual re-run) trigger the eligibility resync
+  // directly and see its real pairsChanged/rowsAdded/rowsRemoved counts,
+  // instead of relying on the unconfirmed fire-and-forget trigger already
+  // wired into /api/admin/store-assignments/import.
+  app.post("/api/admin/resync-task-assignees", async (req, res) => {
+    try {
+      const result = await resyncOpenTaskAssignees();
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error resyncing task assignees:", error);
+      res.status(500).json({ error: error?.message || "Failed to resync task assignees" });
+    }
+  });
+
   // Manual trigger for wipeTasksForWeek - normally only ever called by
   // nexus-weekly-scheduler.ts's automatic cycle, and only after that same
   // week's tasks are confirmed exported to SharePoint. Exposed here so an
@@ -1810,8 +1826,21 @@ export async function registerRoutes(
         });
       }
 
+      // Save a permanent Adoption snapshot for the outgoing week before it's
+      // gone for good - same safety-gate pattern as the SharePoint export
+      // above: refuse to wipe if this didn't succeed, rather than silently
+      // losing the week's Adoption numbers.
+      const snapshotResp = await fetch(`http://127.0.0.1:${port}/api/admin/adoption-snapshot?week=${encodeURIComponent(week)}`, { method: "POST" });
+      const snapshotBody = await snapshotResp.json().catch(() => ({}));
+      if (!snapshotResp.ok || !snapshotBody.ok) {
+        return res.status(409).json({
+          error: "Adoption snapshot failed - refusing to wipe. Fix the snapshot save first.",
+          snapshotResult: snapshotBody,
+        });
+      }
+
       const wiped = await wipeTasksForWeek(week);
-      res.json({ week, wiped, exportResult: exportBody });
+      res.json({ week, wiped, exportResult: exportBody, snapshotResult: snapshotBody });
     } catch (error: any) {
       console.error("Error wiping Nexus tasks for week:", error);
       res.status(500).json({ error: error?.message || "Failed to wipe week" });
@@ -5776,8 +5805,15 @@ export async function registerRoutes(
       // situations need more than a 50/500 preview.
       const recentLimit = 5000;
 
-      const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
-      const week = weekRow?.week as string | undefined;
+      // Explicit ?week= lets a caller ask for a specific week's live numbers
+      // (e.g. the adoption-snapshot save step, right before that week gets
+      // wiped) instead of always defaulting to the current max week.
+      const requestedWeek = req.query.week ? String(req.query.week).trim() : "";
+      let week: string | undefined = requestedWeek || undefined;
+      if (!week) {
+        const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+        week = weekRow?.week as string | undefined;
+      }
       if (!week) {
         return res.json({ week: null, totals: { completed: 0, open: 0 }, byStore: [], byClient: [], byRep: [], byRegion: [], byManager: [], recent: [] });
       }
@@ -6130,6 +6166,67 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching live dashboard:", error);
       res.status(500).json({ error: "Failed to fetch live dashboard" });
+    }
+  });
+
+  // Permanent Adoption snapshot (Carin, 2026-08-25: "the adoption report
+  // needs to be part of the process... save the file so that i can click
+  // on a week in the dashboard and see the adoption for that week just as
+  // i see it now but its saved"). /api/live-dashboard's numbers for a week
+  // only exist as long as that week's nexus_tasks rows are still in the DB
+  // - nexus-wipe-week hard-deletes them. This captures the full unfiltered
+  // /api/live-dashboard response for one week and stores it permanently,
+  // keyed by week, so a wiped week's Adoption view is still viewable after.
+  app.post("/api/admin/adoption-snapshot", async (req, res) => {
+    try {
+      const week = String(req.query.week || "").trim();
+      if (!week) return res.status(400).json({ error: "week query param is required" });
+      const port = req.socket.localPort || 5000;
+      const liveResp = await fetch(`http://127.0.0.1:${port}/api/live-dashboard?week=${encodeURIComponent(week)}`);
+      if (!liveResp.ok) {
+        return res.status(502).json({ ok: false, error: "Failed to compute live-dashboard data for this week" });
+      }
+      const data = await liveResp.json();
+      if (!data.week) {
+        return res.status(404).json({ ok: false, error: "No nexus_tasks found for this week - nothing to snapshot" });
+      }
+      await db.insert(adoptionSnapshots)
+        .values({ weekEnding: week, data })
+        .onConflictDoUpdate({ target: adoptionSnapshots.weekEnding, set: { data, savedAt: new Date() } });
+      res.json({ ok: true, week, totals: data.totals });
+    } catch (error) {
+      console.error("Error saving adoption snapshot:", error);
+      res.status(500).json({ ok: false, error: "Failed to save adoption snapshot" });
+    }
+  });
+
+  // List every week with a saved Adoption snapshot, newest first - powers
+  // the week picker on the Adoption dashboard.
+  app.get("/api/admin/adoption-weeks", async (_req, res) => {
+    try {
+      const rows = await db.select({ weekEnding: adoptionSnapshots.weekEnding, savedAt: adoptionSnapshots.savedAt })
+        .from(adoptionSnapshots)
+        .orderBy(sql`${adoptionSnapshots.weekEnding} desc`);
+      res.json({ weeks: rows });
+    } catch (error) {
+      console.error("Error listing adoption weeks:", error);
+      res.status(500).json({ error: "Failed to list adoption weeks" });
+    }
+  });
+
+  // Read one saved Adoption snapshot back out, in the exact same shape
+  // /api/live-dashboard returns, so the Adoption page can use either
+  // interchangeably.
+  app.get("/api/adoption-snapshot", async (req, res) => {
+    try {
+      const week = String(req.query.week || "").trim();
+      if (!week) return res.status(400).json({ error: "week query param is required" });
+      const [row] = await db.select().from(adoptionSnapshots).where(eq(adoptionSnapshots.weekEnding, week)).limit(1);
+      if (!row) return res.status(404).json({ error: "No saved snapshot for this week" });
+      res.json(row.data);
+    } catch (error) {
+      console.error("Error reading adoption snapshot:", error);
+      res.status(500).json({ error: "Failed to read adoption snapshot" });
     }
   });
 

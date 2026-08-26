@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, serial, timestamp, integer, doublePrecision, boolean, unique, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, timestamp, integer, doublePrecision, boolean, unique, index, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -630,6 +630,24 @@ export const insertDistributionGapsSchema = createInsertSchema(distributionGaps)
 
 export type InsertDistributionGaps = z.infer<typeof insertDistributionGapsSchema>;
 export type DistributionGaps = typeof distributionGaps.$inferSelect;
+
+// Permanent weekly Adoption dashboard snapshot (Carin, 2026-08-25: "the
+// adoption report needs to be part of the process... save the file so
+// that i can click on a week in the dashboard and see the adoption for
+// that week just as i see it now but its saved"). /api/live-dashboard's
+// output for a week only exists as long as that week's nexus_tasks rows
+// are still in the DB - nexus-wipe-week hard-deletes them. Saving the
+// full response JSON here, keyed by week, means a past week's Adoption
+// view survives the wipe. Table already exists live in Postgres (created
+// directly via SQL on 2026-08-25) - this just re-adds the Drizzle
+// definition, lost when the local clone was wiped.
+export const adoptionSnapshots = pgTable("adoption_snapshots", {
+  weekEnding: text("week_ending").primaryKey(),
+  data: jsonb("data").notNull(),
+  savedAt: timestamp("saved_at").defaultNow().notNull(),
+});
+
+export type AdoptionSnapshot = typeof adoptionSnapshots.$inferSelect;
 
 // Stores the MIME type for files in Replit Object Storage. The public SDK
 // exposes no metadata/stat API, so this keeps download responses accurate
