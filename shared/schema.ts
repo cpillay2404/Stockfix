@@ -524,6 +524,12 @@ export const storeSkuWeekly = pgTable("store_sku_weekly", {
   // include both.
   brand: text("brand"),
   category: text("category"),
+  // Added 2026-08-26 (Carin: "on the tasks we must only add active skus") -
+  // Nexus's store_sku_current already returns this (dashboard_queries.py
+  // reads it straight off the source "Article Status" column, real values
+  // confirmed 'Active'/'Discontinued'), it just was never synced into this
+  // table before. generateTasksForWeek excludes Discontinued rows.
+  articleStatus: text("article_status"),
   // Only real on oos_detail/low_stock_detail rows - null for everything else,
   // never fabricated (same convention as the live fetchStoreSkuList/
   // fetchIssueDetailList code this table replaces).

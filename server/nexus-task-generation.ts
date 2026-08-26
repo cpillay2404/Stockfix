@@ -220,6 +220,7 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
     where week_ending = ${week}
       and source_stem in ('oos', 'low')
       and estimated_missed_units > 0
+      and (article_status is null or article_status != 'Discontinued')
   `);
 
   // Overstock is now judged per-client, not by one blanket Nexus label
@@ -268,6 +269,7 @@ export async function generateTasksForWeek(week: string): Promise<{ tasksCreated
       where curr.week_ending = ${week}
         and curr.client in (${sql.join(clients.map((c: string) => sql`${c}`), sql`, `)})
         and curr.store_soh > 0
+        and (curr.article_status is null or curr.article_status != 'Discontinued')
         and ${sql.join(checkpointExists, sql` and `)}
     `);
     flaggedOverstock.push(...((rows.rows || rows) as any[]));
@@ -679,6 +681,7 @@ export async function createTaskOnDemand(params: {
     .where(sql`upper(trim(${storeSkuWeekly.cleanedStoreName})) = ${normalizedStore} and ${storeSkuWeekly.client} = ${params.client} and ${storeSkuWeekly.barcode} = ${params.barcode} and ${storeSkuWeekly.weekEnding} = ${latestWeekRow.weekEnding}`)
     .limit(1);
   if (!row) return null;
+  if (row.articleStatus === "Discontinued") return null;
 
   // Only ever create a task for a SKU that genuinely qualifies for the
   // requested classification right now - same real thresholds as
