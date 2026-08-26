@@ -26,6 +26,9 @@ interface OverviewResponse {
   // ?scope=fix so it shows the exact same narrow set, keeping the badge
   // and its own list in agreement.
   overstockCountFix: number;
+  oosCountFix: number;
+  lowStockCountFix: number;
+  negSOHCountFix: number;
   atRiskCount: number;
   distributionGapsCount: number;
 }
@@ -92,7 +95,7 @@ export default function FixIndex() {
             onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=oos${clientQS}`)}
           >
             <div className="sf2-listrow-title">Out of Stock</div>
-            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.oosCount}</span><ChevronRight size={16} /></div>
+            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.oosCountFix}</span><ChevronRight size={16} /></div>
           </button>
 
           <button
@@ -100,7 +103,7 @@ export default function FixIndex() {
             onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=low${clientQS}`)}
           >
             <div className="sf2-listrow-title">Low Stock</div>
-            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.lowStockCount}</span><ChevronRight size={16} /></div>
+            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.lowStockCountFix}</span><ChevronRight size={16} /></div>
           </button>
 
           <button
@@ -116,7 +119,7 @@ export default function FixIndex() {
             onClick={() => setLocation(`/store-detail/list?store=${encodeURIComponent(store)}&rep=${encodeURIComponent(rep)}&classification=negsoh${clientQS}`)}
           >
             <div className="sf2-listrow-title">Negative SOH corrections</div>
-            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.negSOHCount}</span><ChevronRight size={16} /></div>
+            <div className="sf2-fixrow-right"><span className="sf2-listrow-status warn">{data.negSOHCountFix}</span><ChevronRight size={16} /></div>
           </button>
 
           <button

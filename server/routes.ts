@@ -770,12 +770,26 @@ async function getRepClientScopeForStore(
 // real assignee exists) - a store/client with no one assigned won't count
 // here, on purpose, matching what's actually actionable today. This is a
 // small, indexed table read, not a live calculation - safe at request time.
-async function getOverstockCountForFix(store: string, client?: string): Promise<number> {
+// Generic "how many of this classification does this rep still need to
+// fix at this store" count - matches nexus_tasks' own unique_id
+// convention (..._<stem>_<barcode>) and, critically, only counts tasks
+// still open. Originally only existed for overstock (getOverstockCountForFix)
+// and even that version never filtered out Completed rows - a capture never
+// actually reduced the badge. Real gap found 2026-08-26 (Carin: "when the
+// person captures under fix, the count of items that they must fix
+// actually reduces by the amount of items they submitted feedback for").
+// Deliberately separate from Insights' oosCount/lowStockCount/negSOHCount
+// (store_weekly_summary's blanket "everything classified this week"
+// figure, which must NOT shrink as captures happen - that's the true
+// picture of what's wrong this week, same reasoning already documented on
+// overstockCountFix above).
+async function getOpenFixCount(store: string, client: string | undefined, stem: string): Promise<number> {
   const clientFilter = client && client !== "ALL" && client !== "SYNDICATED" ? sql`and client = ${client}` : sql``;
   const result = await db.execute(sql`
     select count(*)::int as count from nexus_tasks
     where lower(trim(store_name)) = lower(trim(${store}))
-      and unique_id like '%\_overstock\_%' escape '\'
+      and unique_id like ${'%\\_' + stem + '\\_%'} escape '\'
+      and action_status != 'Completed'
       ${clientFilter}
   `);
   const rows = (result.rows || result) as any[];
@@ -810,7 +824,10 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
   // old blanket cover>=18 one (see nexus-task-generation.ts). A plain sum
   // of an already-loaded column, not a live calculation.
   const overstockCount = sumBy(latestRows, "overstockCount");
-  const overstockCountFix = await getOverstockCountForFix(store);
+  const overstockCountFix = await getOpenFixCount(store, undefined, "overstock");
+  const oosCountFix = await getOpenFixCount(store, undefined, "oos");
+  const lowStockCountFix = await getOpenFixCount(store, undefined, "low");
+  const negSOHCountFix = await getOpenFixCount(store, undefined, "negsoh");
   const salesAtRiskSkuCount = sumBy(latestRows, "salesAtRiskSkuCount");
   const dcAvailabilityPct = weightedAvg(latestRows, "dcAvailabilityPct", "oosCount", 100);
   const avgWeeksOfCover = weightedAvg(latestRows, "avgWeeksOfCover", "lowStockCount", 0);
@@ -915,6 +932,9 @@ async function buildAllClientsOverview(store: string, summaryRows: any[]) {
     oosP1Count: sumOk((o) => o.oosP1Count || 0),
     lowStockP1Count: sumOk((o) => o.lowStockP1Count || 0),
     overstockCountFix,
+    oosCountFix,
+    lowStockCountFix,
+    negSOHCountFix,
     salesAtRiskSkuCount,
     topIssues: ok
       .flatMap((c) => c.overview.topIssues || [])
@@ -2257,7 +2277,11 @@ export async function registerRoutes(
       // overstockCountFix is Fix's separate, client-computed, nexus_tasks-based
       // number (Carin, 2026-08-18: "the fix menu must only show the client
       // computed overstocks").
-      (overview as any).overstockCountFix = await getOverstockCountForFix(store, knownClient || clientScope);
+      const fixClient = knownClient || clientScope;
+      (overview as any).overstockCountFix = await getOpenFixCount(store, fixClient, "overstock");
+      (overview as any).oosCountFix = await getOpenFixCount(store, fixClient, "oos");
+      (overview as any).lowStockCountFix = await getOpenFixCount(store, fixClient, "low");
+      (overview as any).negSOHCountFix = await getOpenFixCount(store, fixClient, "negsoh");
 
       // At Risk now comes straight off overview (computed there from the
       // same skuRows already loaded - no second DB round-trip). Distribution
