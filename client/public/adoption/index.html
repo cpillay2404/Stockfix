@@ -107,12 +107,22 @@
         <option value="">All resource types</option>
         <sc-for list="{{ typeOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">{{ o }}</option></sc-for>
       </select>
+      <select class="nx-in" value="{{ fWeek }}" onChange="{{ onWeek }}" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:7px 10px; font-size:12px; font-family:inherit; min-width:170px;">
+        <option value="">Current week (live)</option>
+        <sc-for list="{{ weekOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">Week ending {{ o }}</option></sc-for>
+      </select>
       <button onClick="{{ onReset }}" style="background:transparent; border:1px solid var(--color-neutral-800); color:var(--color-neutral-400); border-radius:var(--radius-md); padding:7px 13px; font-size:11.5px; font-family:inherit; cursor:pointer;" style-hover="border-color:var(--color-accent-700); color:var(--color-accent-300);">Reset</button>
       <div style="margin-left:auto; font-size:11px; color:var(--color-neutral-500);">{{ filterSummary }}</div>
     </div>
 
     <sc-if value="{{ loadError }}" hint-placeholder-val="{{ false }}">
       <div style="margin:0 34px 20px; padding:16px 18px; border:1px solid var(--color-neutral-800); border-radius:var(--radius-md); background:var(--color-surface); font-size:12.5px; color:var(--color-neutral-300);">{{ loadError }}</div>
+    </sc-if>
+
+    <sc-if value="{{ viewingSavedWeek }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:0 34px 20px; padding:10px 16px; border:1px solid rgba(236,109,37,0.4); border-radius:var(--radius-md); background:rgba(236,109,37,0.08); font-size:12px; color:var(--color-accent-300);">
+        Viewing a saved snapshot for week ending {{ fWeek }} — not live. Select "Current week (live)" above to go back.
+      </div>
     </sc-if>
 
     <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
@@ -398,15 +408,24 @@ const MANAGER_KEYS = ['manager', 'managerName', 'managerFullName', 'reportsTo', 
 
 class Component extends DCLogic {
   state = { data: null, loading: true, err: '', page: 'overview', client: '', store: '', rtype: '', region: '', manager: '',
-    seg: 'active', storeQuery: '', managerQuery: '', captureQuery: '', clients: [], stores: [], at: null };
+    seg: 'active', storeQuery: '', managerQuery: '', captureQuery: '', clients: [], stores: [], at: null,
+    week: '', savedWeeks: [] };
 
   get base() { return (this.props.apiBase || 'https://stock-fix.replit.app').replace(/\/+$/, ''); }
 
   componentDidMount() {
     this.load();
     this.json(this.base + '/api/roster/all-clients').then(r => this.setState({ clients: this.opts(r) })).catch(() => {});
+    // Past weeks a snapshot was saved for (Carin, 2026-08-25: "save the
+    // file so that i can click on a week in the dashboard and see the
+    // adoption for that week just as i see it now but its saved") -
+    // /api/admin/nexus-wipe-week now saves one of these automatically
+    // before wiping a week, so this list grows on its own each cycle.
+    this.json(this.base + '/api/admin/adoption-weeks')
+      .then(r => this.setState({ savedWeeks: Array.isArray(r.weeks) ? r.weeks.map(w => w.weekEnding) : [] }))
+      .catch(() => {});
     const secs = Number(this.props.refreshSeconds ?? 0);
-    if (secs > 0) this.timer = setInterval(() => this.load(), secs * 1000);
+    if (secs > 0) this.timer = setInterval(() => { if (!this.state.week) this.load(); }, secs * 1000);
   }
   componentWillUnmount() { if (this.timer) clearInterval(this.timer); }
 
@@ -427,6 +446,20 @@ class Component extends DCLogic {
 
   load() {
     this.setState({ loading: true });
+    // A selected past week reads its saved snapshot instead of the live
+    // endpoint - once that week is wiped, /api/live-dashboard has nothing
+    // left for it, but the snapshot (saved automatically right before the
+    // wipe) still has the exact same shape this whole page already expects.
+    // Snapshots aren't scoped by client/store/region/manager/rtype server-
+    // side (that filtering only exists on the live route) - client-side
+    // filtering already downstream of this (m.reps etc) still applies to
+    // whatever the snapshot returns, same as it would to a live response.
+    if (this.state.week) {
+      this.json(this.base + '/api/adoption-snapshot?week=' + encodeURIComponent(this.state.week))
+        .then(data => { this._sig = null; this.setState({ data, err: '', loading: false, at: new Date() }); })
+        .catch(e => this.setState({ err: 'Could not load the saved snapshot for this week — ' + (e.message || e), loading: false }));
+      return;
+    }
     const q = [];
     if (this.state.client) q.push('client=' + encodeURIComponent(this.state.client));
     if (this.state.store) q.push('store=' + encodeURIComponent(this.state.store));
@@ -527,13 +560,16 @@ class Component extends DCLogic {
       week: (s.data && s.data.week) || '—',
       statusLine: s.loading ? 'Fetching…' : s.at ? 'Live · ' + s.at.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : 'Idle',
       loadError: s.err || false,
-      fClient: s.client, fStore: s.store, fType: s.rtype, fRegion: s.region, fManager: s.manager,
+      fClient: s.client, fStore: s.store, fType: s.rtype, fRegion: s.region, fManager: s.manager, fWeek: s.week,
+      weekOptions: s.savedWeeks,
+      onWeek: e => { this._sig = null; this.setState({ week: e.target.value }, () => this.load()); },
+      viewingSavedWeek: !!s.week,
       onClient: e => { const v = e.target.value; this._sig = null; this.setState({ client: v, store: '', stores: [] }, () => { this.load(); if (v) this.json(this.base + '/api/roster/stores-for-client?client=' + encodeURIComponent(v)).then(r => this.setState({ stores: this.opts(r) })).catch(() => {}); }); },
       onStore: e => { this._sig = null; this.setState({ store: e.target.value }, () => this.load()); },
       onType: e => this.setState({ rtype: e.target.value }, () => this.load()),
       onRegion: e => this.setState({ region: e.target.value }, () => this.load()),
       onManager: e => this.setState({ manager: e.target.value }, () => this.load()),
-      onReset: () => { this._sig = null; this.setState({ client: '', store: '', rtype: '', region: '', manager: '', stores: [] }, () => this.load()); },
+      onReset: () => { this._sig = null; this.setState({ client: '', store: '', rtype: '', region: '', manager: '', stores: [], week: '' }, () => this.load()); },
       onStoreQuery: e => this.set({ storeQuery: e.target.value }),
       onManagerQuery: e => this.set({ managerQuery: e.target.value }),
       onRefresh: () => this.load(),
