@@ -134,35 +134,57 @@ async function fetchAllPages<T = any>(clientSlug: string, week: string, stem: st
   if (!apiKey) throw new Error("NEXUS_API_KEY is not configured");
   const rows: T[] = [];
 
-  async function fetchPage(page: number): Promise<{ ok: boolean; done: boolean; rows: T[] }> {
+  // Real bug found 2026-08-27 (Carin: P&G's 2026-08-26 sync landed only 933
+  // of 1804 real stores, confirmed via direct dashboard.duckdb comparison -
+  // every other client synced with a perfect 0% gap, only P&G, by far the
+  // largest client with thousands of pages, was affected). `done` used to
+  // mean two different things: "genuinely reached the end of real data" AND
+  // "this page failed after every retry" - both returned done:true, so a
+  // single transient failure on any page silently truncated ALL subsequent
+  // pages as if the client's data had simply ended there. A huge client
+  // fetching for 49 minutes is far more likely to hit one transient failure
+  // than a small client that finishes in seconds - exactly why only P&G
+  // was affected. `done` now means ONLY "genuinely empty/404 page"; a
+  // retry-exhausted failure is a separate `failed` signal that does NOT
+  // stop pagination - the loop skips past it and keeps fetching later
+  // pages, and every failed page is collected so the caller can see exactly
+  // what's missing instead of silently believing the sync succeeded in full.
+  async function fetchPage(page: number): Promise<{ ok: boolean; done: boolean; failed: boolean; rows: T[] }> {
     const url = `${NEXUS_BASE_URL}/api/dashboard-data/weeks/${encodeURIComponent(week)}/clients/${encodeURIComponent(clientSlug)}/pages/${stem}/${String(page).padStart(5, "0")}.json?code=${apiKey}`;
     const MAX_PAGE_ATTEMPTS = 4;
     let lastErr: any = null;
     for (let attempt = 1; attempt <= MAX_PAGE_ATTEMPTS; attempt++) {
       try {
         const resp = await fetchWithTimeout(url);
-        if (resp.status === 404) return { ok: true, done: true, rows: [] };
+        if (resp.status === 404) return { ok: true, done: true, failed: false, rows: [] };
         if (!resp.ok) {
-          logSyncProgress(`... ${clientSlug} ${stem} page ${page} returned ${resp.status}`);
-          return { ok: false, done: true, rows: [] };
+          logSyncProgress(`... ${clientSlug} ${stem} page ${page} returned ${resp.status} (attempt ${attempt}/${MAX_PAGE_ATTEMPTS})`);
+          lastErr = new Error(`HTTP ${resp.status}`);
+          continue;
         }
         const data = await resp.json();
         const pageRows: T[] = data.rows || [];
-        return { ok: true, done: pageRows.length === 0, rows: pageRows };
+        return { ok: true, done: pageRows.length === 0, failed: false, rows: pageRows };
       } catch (err: any) {
         lastErr = err;
       }
     }
-    logSyncProgress(`... ${clientSlug} ${stem} page ${page} failed after ${MAX_PAGE_ATTEMPTS} attempts, keeping ${rows.length} row(s) fetched so far: ${lastErr?.message || lastErr}`);
-    return { ok: false, done: true, rows: [] };
+    logSyncProgress(`... ${clientSlug} ${stem} page ${page} FAILED after ${MAX_PAGE_ATTEMPTS} attempts, skipping this page and continuing: ${lastErr?.message || lastErr}`);
+    return { ok: false, done: false, failed: true, rows: [] };
   }
 
+  const failedPages: number[] = [];
   let page = 0;
   let finished = false;
   while (!finished) {
     const batch = Array.from({ length: PAGE_FETCH_CONCURRENCY }, (_, i) => page + i);
     const results = await Promise.all(batch.map(fetchPage));
     for (const result of results) {
+      if (result.failed) {
+        failedPages.push(page);
+        page++;
+        continue;
+      }
       if (result.done) {
         finished = true;
         break;
@@ -170,6 +192,9 @@ async function fetchAllPages<T = any>(clientSlug: string, week: string, stem: st
       rows.push(...result.rows);
       page++;
     }
+  }
+  if (failedPages.length > 0) {
+    logSyncProgress(`... ${clientSlug} ${stem} finished with ${failedPages.length} page(s) that failed after retries and were skipped: [${failedPages.join(", ")}] - data for those pages is missing from this sync, real gap not a silent truncation`);
   }
   return rows;
 }
