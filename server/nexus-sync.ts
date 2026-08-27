@@ -25,6 +25,34 @@ function logSyncProgress(line: string) {
   }
 }
 
+// Real bug found 2026-08-27 (Carin: "we cant keep retrying... cant we do
+// the same as we did for resync" - i.e. small batches with resilience, not
+// one giant all-or-nothing operation) - P&G's sync died 35 minutes in with
+// "terminating connection due to administrator command" (Neon dropping a
+// long-held connection), losing the whole client's sync even though writes
+// were already batched 500 rows at a time. The batching alone didn't help
+// because nothing retried a batch whose connection got dropped mid-write -
+// one bad batch killed the entire client. This wraps a single batch write
+// with a few retries on a fresh connection before giving up, so a dropped
+// connection only costs one batch, not 35 minutes of real work.
+async function writeBatchWithRetry(fn: () => Promise<unknown>, label: string): Promise<void> {
+  const MAX_ATTEMPTS = 4;
+  let lastErr: any = null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      await fn();
+      return;
+    } catch (err: any) {
+      lastErr = err;
+      logSyncProgress(`... ${label} write failed (attempt ${attempt}/${MAX_ATTEMPTS}): ${err?.message || err}`);
+      if (attempt < MAX_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 2000 * attempt));
+      }
+    }
+  }
+  throw lastErr;
+}
+
 const NEXUS_BASE_URL =
   process.env.NEXUS_BASE_URL ||
   "https://stockfix-validate-fdhkefdwc6dmejda.northeurope-01.azurewebsites.net";
@@ -377,7 +405,7 @@ export async function runWeeklySummarySync(targetWeek?: string, onlyClients?: st
       const BATCH = 500;
       for (let i = 0; i < summaryRows.length; i += BATCH) {
         const batch = summaryRows.slice(i, i + BATCH);
-        await db
+        await writeBatchWithRetry(() => db
           .insert(storeWeeklySummary)
           .values(batch)
           .onConflictDoUpdate({
@@ -401,7 +429,7 @@ export async function runWeeklySummarySync(targetWeek?: string, onlyClients?: st
               negSohCount: sql`excluded.neg_soh_count`,
               syncedAt: new Date(),
             },
-          });
+          }), `${client} storeWeeklySummary batch ${i}`);
         rowsWritten += batch.length;
       }
 
@@ -448,7 +476,7 @@ export async function runWeeklySummarySync(targetWeek?: string, onlyClients?: st
       });
       for (let i = 0; i < skuBatchRows.length; i += BATCH) {
         const batch = skuBatchRows.slice(i, i + BATCH);
-        await db
+        await writeBatchWithRetry(() => db
           .insert(storeSkuWeekly)
           .values(batch)
           .onConflictDoUpdate({
@@ -476,7 +504,7 @@ export async function runWeeklySummarySync(targetWeek?: string, onlyClients?: st
               sourceStem: sql`excluded.source_stem`,
               syncedAt: new Date(),
             },
-          });
+          }), `${client} storeSkuWeekly batch ${i}`);
         rowsWritten += batch.length;
       }
 
