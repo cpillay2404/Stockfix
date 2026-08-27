@@ -35,12 +35,28 @@ function logSyncProgress(line: string) {
 // one bad batch killed the entire client. This wraps a single batch write
 // with a few retries on a fresh connection before giving up, so a dropped
 // connection only costs one batch, not 35 minutes of real work.
+// Real bug found 2026-08-27, live, mid-incident: the retry above still got
+// stuck on attempt 1/4 for 3+ minutes with nothing happening - a dead TCP
+// socket after 49 minutes of pure idle (no db.* calls at all during the
+// fetch phase) doesn't always reject promptly, it can just hang waiting for
+// a response that will never come. A retry loop is useless if a single
+// attempt can hang forever. Racing each attempt against a hard timeout
+// guarantees it fails fast and moves to a genuinely fresh connection
+// instead of sitting stuck indefinitely.
+const WRITE_ATTEMPT_TIMEOUT_MS = 20_000;
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)),
+  ]);
+}
+
 async function writeBatchWithRetry(fn: () => Promise<unknown>, label: string): Promise<void> {
   const MAX_ATTEMPTS = 4;
   let lastErr: any = null;
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
     try {
-      await fn();
+      await withTimeout(fn(), WRITE_ATTEMPT_TIMEOUT_MS, label);
       return;
     } catch (err: any) {
       lastErr = err;
