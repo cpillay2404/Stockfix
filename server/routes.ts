@@ -6025,8 +6025,22 @@ export async function registerRoutes(
       // Track a representative region per rep (last one seen is fine - used
       // for filtering, not as an exact single-region claim for reps who
       // cover more than one) alongside the existing counts.
+      // Real timestamp of when this week's tasks actually went live (Carin,
+      // 2026-08-28: "cutover must be applied everywhere... yes everything"
+      // - confirmed with "504 captures for coastal already this morning" -
+      // byRegionMap/byStoreMap/byClientMap/byRepMap's "completed" counts
+      // below were still every completion this week regardless of timing,
+      // the same mixed-total problem already fixed for adoption % and the
+      // headline KPI, just missed in this earlier loop. Computed here,
+      // before any of these maps are built, so every "completed" count on
+      // this whole endpoint is consistently post-cutover.
+      const [genLogRow] = await db.select().from(weekGenerationLog).where(eq(weekGenerationLog.weekEnding, week)).limit(1);
+      const weekGeneratedAt = genLogRow?.generatedAt ? genLogRow.generatedAt.toISOString() : null;
+      const isSinceCutover = (c: any) => !genLogRow || (c.updatedAt && new Date(c.updatedAt) > genLogRow.generatedAt);
+
       const repRegion = new Map<string, string>();
       for (const c of completed) {
+        if (!isSinceCutover(c)) continue;
         if (!byStoreMap.has(c.storeName)) byStoreMap.set(c.storeName, { completed: 0, open: new Set() });
         byStoreMap.get(c.storeName)!.completed++;
         if (!byClientMap.has(c.client)) byClientMap.set(c.client, { completed: 0, open: new Set() });
@@ -6191,21 +6205,6 @@ export async function registerRoutes(
         totalPeopleByManager.get(manager)!.add(a.resourceName);
       }
 
-      // Real timestamp of when this week's tasks actually went live (Carin,
-      // 2026-08-28: "we only want to measure tasks when the new tasks
-      // started" / "cutover must be applied everywhere"). A staggered
-      // rollout (multi-hour sync retries, on-demand captures landing
-      // before the official bulk generation finished) let people show as
-      // "active" purely from captures that happened before this week's
-      // tasks officially went live (confirmed: 177 people had any
-      // completion this week, only 26 had one since the real cutover) -
-      // every "active" calculation below must only count completions
-      // after this timestamp, not just the headline Captures Logged
-      // counter. The "total people" denominators are untouched - they're
-      // about who's assigned this week, not when they acted.
-      const [genLogRow] = await db.select().from(weekGenerationLog).where(eq(weekGenerationLog.weekEnding, week)).limit(1);
-      const weekGeneratedAt = genLogRow?.generatedAt ? genLogRow.generatedAt.toISOString() : null;
-      const isSinceCutover = (c: any) => !genLogRow || (c.updatedAt && new Date(c.updatedAt) > genLogRow.generatedAt);
       const capturedSinceGeneration = weekGeneratedAt ? completed.filter(isSinceCutover).length : null;
 
       const activePeopleByRegion = new Map<string, Set<string>>();
