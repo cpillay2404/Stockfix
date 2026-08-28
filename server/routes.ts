@@ -5662,6 +5662,15 @@ export async function registerRoutes(
       // "Unassigned" on the task itself, so per-rep open counts have to
       // come from nexus_task_assignees (every eligible person), same
       // pattern as /api/gamification/leaderboard.
+      // Real bug found 2026-08-28 (same root cause as "Luntu Boyce shows
+      // twice" on rep-for-store) - one person can have store_assignments/
+      // task-assignee rows with inconsistent name capitalization across
+      // the Call Cycle Master vs P&G tabs. Keying repStats by the literal
+      // name text splits the same real person into two leaderboard rows.
+      // Key by normalized (trimmed, uppercased) name; display a clean
+      // title-cased name regardless of which row's casing is encountered
+      // first.
+      const titleCase = (s: string) => s.trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
       const repStats: Record<string, { repName: string; open: number; completed: number; oldestOpenDays: number }> = {};
 
       for (const task of teamTasks) {
@@ -5673,8 +5682,9 @@ export async function registerRoutes(
           const captureDate = new Date(task.captureDate);
           if ((dateFrom && captureDate < new Date(dateFrom)) || (dateTo && captureDate > new Date(dateTo + 'T23:59:59'))) continue;
         }
-        if (!repStats[rep]) repStats[rep] = { repName: rep, open: 0, completed: 0, oldestOpenDays: 0 };
-        repStats[rep].completed++;
+        const key = rep.trim().toUpperCase();
+        if (!repStats[key]) repStats[key] = { repName: titleCase(rep), open: 0, completed: 0, oldestOpenDays: 0 };
+        repStats[key].completed++;
       }
 
       const openTasks2 = teamTasks.filter((t) => t.actionStatus !== 'Completed');
@@ -5709,13 +5719,14 @@ export async function registerRoutes(
         `);
         const assigneeRows = (assigneeResult.rows || assigneeResult) as { resourceName: string; taskUniqueId: string }[];
         for (const a of assigneeRows) {
-          if (!repStats[a.resourceName]) repStats[a.resourceName] = { repName: a.resourceName, open: 0, completed: 0, oldestOpenDays: 0 };
-          repStats[a.resourceName].open++;
+          const key = a.resourceName.trim().toUpperCase();
+          if (!repStats[key]) repStats[key] = { repName: titleCase(a.resourceName), open: 0, completed: 0, oldestOpenDays: 0 };
+          repStats[key].open++;
           const createdAt = openTaskCreatedAt.get(a.taskUniqueId);
           if (createdAt) {
             const taskAge = Math.floor((new Date().getTime() - new Date(createdAt).getTime()) / (1000 * 60 * 60 * 24));
-            if (taskAge > repStats[a.resourceName].oldestOpenDays) {
-              repStats[a.resourceName].oldestOpenDays = taskAge;
+            if (taskAge > repStats[key].oldestOpenDays) {
+              repStats[key].oldestOpenDays = taskAge;
             }
           }
         }
