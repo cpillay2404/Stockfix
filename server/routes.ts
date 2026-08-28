@@ -1549,17 +1549,17 @@ export async function registerRoutes(
       // general Call Cycle Master tab, one from the P&G tab, by design -
       // see import_call_cycle_master.py), and the two tabs don't always
       // agree on capitalization ("Luntu Boyce" vs "LUNTU BOYCE"). Deduping
-      // by the literal name text treated those as two different people.
-      // resourceEmpId is the real unique identifier - dedupe by that
-      // instead, keeping one canonical (first-seen) name per person.
-      const seenEmpIds = new Set<string>();
+      // by the exact-case name text treated those as two different people.
+      // Dedupe by normalized (trimmed, uppercased) name instead - per
+      // Carin's explicit call, name not resourceEmpId - keeping one
+      // canonical (first-seen) display name per person.
+      const seenNames = new Set<string>();
       const empIdByName = new Map<string, string>();
       const allNames: string[] = [];
       for (const r of rows) {
-        const empId = r.resourceEmpId || "";
-        const key = empId || r.resourceName;
-        if (seenEmpIds.has(key)) continue;
-        seenEmpIds.add(key);
+        const key = r.resourceName.trim().toUpperCase();
+        if (seenNames.has(key)) continue;
+        seenNames.add(key);
         allNames.push(r.resourceName);
         if (r.resourceEmpId) empIdByName.set(r.resourceName, r.resourceEmpId);
       }
