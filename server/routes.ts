@@ -784,11 +784,23 @@ async function getRepClientScopeForStore(
 // picture of what's wrong this week, same reasoning already documented on
 // overstockCountFix above).
 async function getOpenFixCount(store: string, client: string | undefined, stem: string): Promise<number> {
+  // Real bug found 2026-08-28 (Carin: "no overstock or low stock in fix
+  // menu" - confirmed live at Checkers FX Sitari, overstockCount=222 but
+  // overstockCountFix=0). Root cause: `like $1 escape '\'` with the pattern
+  // passed as a BOUND PARAMETER silently fails to match in Postgres, even
+  // though the identical pattern written as literal SQL text (the other two
+  // `like '%\_overstock\_%' escape '\'` call sites elsewhere in this file)
+  // works fine - confirmed directly against the live DB. Dropping the
+  // escape entirely and matching `_` as "any single character" instead of
+  // strictly "literal underscore" changes nothing in practice here - a real
+  // false match on e.g. "_overstockX_" is not a realistic risk for these
+  // distinctive keywords - and sidesteps the broken escape+parameter
+  // interaction entirely.
   const clientFilter = client && client !== "ALL" && client !== "SYNDICATED" ? sql`and client = ${client}` : sql``;
   const result = await db.execute(sql`
     select count(*)::int as count from nexus_tasks
     where lower(trim(store_name)) = lower(trim(${store}))
-      and unique_id like ${'%\\_' + stem + '\\_%'} escape '\'
+      and unique_id like ${'%_' + stem + '_%'}
       and action_status != 'Completed'
       ${clientFilter}
   `);
