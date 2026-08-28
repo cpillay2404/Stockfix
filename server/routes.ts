@@ -5933,8 +5933,28 @@ export async function registerRoutes(
         const normalized = normalizeObjectUrl(p);
         return normalized.startsWith('http') ? normalized : `${baseUrl}${normalized}`;
       };
+      // Real bug found 2026-08-28 (Carin: "adoption percentages thats not
+      // right" - confirmed same root cause as "Luntu Boyce shows twice")
+      // - completed tasks carry whatever name casing was on the identity
+      // at capture time, open task assignees carry store_assignments'
+      // casing (which can differ across the Call Cycle Master vs P&G
+      // tabs for the same person) - every byRepMap.has()/.set() below is
+      // keyed on this exact text, so the same real person can silently
+      // split into two "people": one with only completions (looks active)
+      // and a phantom duplicate with only opens (looks dormant/inactive),
+      // inflating the total roster denominator without adding to the
+      // active count - directly deflating every adoption percentage.
+      // Normalizing the display name once here, right where the rows are
+      // read, means every downstream Map keyed on repName/resourceName
+      // (byRepMap, repRegion, resourceTypeFallbackByRepName, etc.) treats
+      // the same real person as one person without needing each site
+      // touched individually.
+      const normalizeRepName = (s: string | null | undefined): string =>
+        s ? s.trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : s || "";
+
       const completed = completedRawFull.map((c) => ({
         ...c,
+        repName: normalizeRepName(c.repName),
         image1: toFullImageUrl(c.image1),
         image2: toFullImageUrl(c.image2),
         image3: toFullImageUrl(c.image3),
@@ -5967,7 +5987,10 @@ export async function registerRoutes(
         left join resource_roster r on r.resource_emp_id = a.resource_emp_id
         where t.week_ending_date = ${week} ${clientCond} ${storeCond}
       `);
-      const assigneeJoinRows = (assigneeJoinResult.rows || assigneeJoinResult) as any[];
+      const assigneeJoinRows = (assigneeJoinResult.rows || assigneeJoinResult).map((r: any) => ({
+        ...r,
+        resourceName: normalizeRepName(r.resourceName),
+      })) as any[];
       const openRows = assigneeJoinRows.filter((r) => r.actionStatus !== "Completed");
       const openTaskIds = new Set(openRows.map((r) => r.uniqueId));
 
