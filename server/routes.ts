@@ -1543,17 +1543,25 @@ export async function registerRoutes(
       const rows = assignmentRows.filter((r) => matchesRole(r.resourceEmpId));
       const dedicated = rows.find((r) => r.clientScope !== "SYNDICATED");
       const chosen = dedicated || rows[0];
-      const allNames = Array.from(new Set(rows.map((r) => r.resourceName)));
-      // Real gap found 2026-08-19 (Carin: "why is there no resource linked
-      // to it") - /api/auth/identify (which the claim step needs) requires
-      // both a name and resourceEmpId, but nothing in the UI ever called it
-      // - select-rep-store.tsx only ever had a name to work with. Since a
-      // name picked here is already a confirmed roster match, expose the
-      // empId alongside it so the login flow can identify the person
-      // automatically, with no new field for the rep to fill in.
+      // Real bug found 2026-08-28 (Carin: "Luntu Boyce for Shoprite
+      // Bellville, it says two people assigned") - one person can have
+      // multiple store_assignments rows at the same store (one from the
+      // general Call Cycle Master tab, one from the P&G tab, by design -
+      // see import_call_cycle_master.py), and the two tabs don't always
+      // agree on capitalization ("Luntu Boyce" vs "LUNTU BOYCE"). Deduping
+      // by the literal name text treated those as two different people.
+      // resourceEmpId is the real unique identifier - dedupe by that
+      // instead, keeping one canonical (first-seen) name per person.
+      const seenEmpIds = new Set<string>();
       const empIdByName = new Map<string, string>();
+      const allNames: string[] = [];
       for (const r of rows) {
-        if (r.resourceEmpId && !empIdByName.has(r.resourceName)) empIdByName.set(r.resourceName, r.resourceEmpId);
+        const empId = r.resourceEmpId || "";
+        const key = empId || r.resourceName;
+        if (seenEmpIds.has(key)) continue;
+        seenEmpIds.add(key);
+        allNames.push(r.resourceName);
+        if (r.resourceEmpId) empIdByName.set(r.resourceName, r.resourceEmpId);
       }
       const repsWithIds = allNames.map((name) => ({ name, resourceEmpId: empIdByName.get(name) || null }));
       res.json({ rep: chosen?.resourceName || null, allReps: allNames, repsWithIds });
