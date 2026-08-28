@@ -212,14 +212,27 @@ export async function countRealOverstockAtStore(store: string, week: string, cli
 }
 
 export async function generateTasksForWeek(week: string): Promise<{ tasksCreated: number; storesWithNoAssignment: number }> {
+  // Real bug found 2026-08-28 (Carin: "low stock" showing 0 on Fix at
+  // multiple stores despite Insights showing real Low Stock counts) -
+  // confirmed directly: 100% of Low Stock rows have estimated_missed_units
+  // = NULL (never populated for this source_stem at all, unlike OOS which
+  // has it calculated for roughly half its rows) - so the blanket
+  // `estimated_missed_units > 0` requirement below silently excluded
+  // essentially every Low Stock row from ever getting a task generated,
+  // for every store, every week. Carin's call: Low Stock rows qualify on
+  // being flagged at all, not on a missed-units figure Nexus never
+  // actually computes for this classification - OOS keeps the stricter
+  // estimated_missed_units > 0 requirement unchanged.
   const flaggedIssue = await db.execute(sql`
     select client, cleaned_store_name, banner, region, barcode,
       article_description, category, classification, source_stem,
       store_soh, dc_soh, sell_out_p4, cover, estimated_missed_units, issue_driver
     from store_sku_weekly
     where week_ending = ${week}
-      and source_stem in ('oos', 'low')
-      and estimated_missed_units > 0
+      and (
+        (source_stem = 'oos' and estimated_missed_units > 0)
+        or source_stem = 'low'
+      )
       and (article_status is null or article_status != 'Discontinued')
   `);
 
