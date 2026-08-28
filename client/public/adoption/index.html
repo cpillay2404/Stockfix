@@ -161,6 +161,9 @@
         </div>
         <div style="font-family:var(--font-heading); font-size:32px; font-weight:600; line-height:1.05; margin-top:8px;">{{ completedLabel }}</div>
         <div style="font-size:11.5px; color:var(--color-neutral-500); margin-top:5px;">{{ openSub }}</div>
+        <sc-if value="{{ sinceLiveLabel }}" hint-placeholder-val="{{ false }}">
+          <div style="font-size:10.5px; color:var(--color-accent-300); margin-top:3px;">{{ sinceLiveLabel }}</div>
+        </sc-if>
       </div>
     </div>
 
@@ -579,7 +582,7 @@ class Component extends DCLogic {
       clientOptions: s.clients, storeOptions: [], typeOptions: [], regionOptions: [], managerOptions: [],
       storePlaceholder: 'All stores', filterSummary: s.err ? '' : 'Loading live dashboard…',
       mixLegend: [], repRows: [], clientRows: [], storeRows: [], typeRows: [], recentRows: [], segTabs: [],
-      adoptionPct: '—', adoptionSub: '', merchPct: '—', merchSub: '', coveragePct: '—', coverageSub: '', dormantCount: '—', completedLabel: '—', openSub: '',
+      adoptionPct: '—', adoptionSub: '', merchPct: '—', merchSub: '', coveragePct: '—', coverageSub: '', dormantCount: '—', completedLabel: '—', openSub: '', sinceLiveLabel: '',
       repCountLabel: '', repFootnote: '', storeCountLabel: '', storeFootnote: '', exportRepLabel: 'Export', exportStoreLabel: 'Export',
       exportReps: () => {}, exportStores: () => {},
       captureStats: [], captureRows: [], captureCountLabel: '', captureFootnote: '', noCaptures: false,
@@ -633,6 +636,14 @@ class Component extends DCLogic {
       dormantCount: n(m.dormant.length),
       completedLabel: n(completed),
       openSub: n(open) + ' open · ' + sharp(pct(completed, scope || 1)) + ' of scope',
+      // Carin, 2026-08-28: "we only want to measure tasks when the new
+      // tasks started" - a staggered rollout (on-demand captures landing
+      // before the official bulk generation finished) can make the raw
+      // completed total look inflated/confusing. Shows a clean count from
+      // the real moment this week's tasks went live, whenever that's known.
+      sinceLiveLabel: (m.d.weekGeneratedAt && m.d.capturedSinceGeneration != null)
+        ? n(m.d.capturedSinceGeneration) + ' captured since tasks went live (' + new Date(m.d.weekGeneratedAt).toLocaleString('en-ZA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ')'
+        : '',
       mixLegend: [
         { color: 'var(--color-accent)', label: 'Habitual · ' + m.heavyAt + '+ captures', value: n(m.heavy.length) },
         { color: '#6fb2ff', label: 'Trialling · 1–' + (m.heavyAt - 1), value: n(m.light.length) },

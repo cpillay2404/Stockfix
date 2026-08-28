@@ -647,6 +647,20 @@ export const adoptionSnapshots = pgTable("adoption_snapshots", {
   savedAt: timestamp("saved_at").defaultNow().notNull(),
 });
 
+// Real timestamp of when a week's tasks actually went live (Carin,
+// 2026-08-28: "we only want to measure tasks when the new tasks started" -
+// confirmed real need, not a one-off: 2026-08-26's rollout was unusually
+// staggered (multiple sync retries across hours), so some on-demand
+// captures genuinely landed before the official bulk generation finished,
+// making raw "completed this week" look inflated/confusing. Recorded once
+// per week by /api/admin/nexus-generate-tasks, so "captured since tasks
+// went live" can be computed live on the Adoption dashboard every week,
+// not just explained manually after the fact.
+export const weekGenerationLog = pgTable("week_generation_log", {
+  weekEnding: text("week_ending").primaryKey(),
+  generatedAt: timestamp("generated_at").defaultNow().notNull(),
+});
+
 export type AdoptionSnapshot = typeof adoptionSnapshots.$inferSelect;
 
 // Stores the MIME type for files in Replit Object Storage. The public SDK

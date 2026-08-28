@@ -39,7 +39,7 @@ import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, im
 import { dedicatedClientScopesAtStore, isSyndicatedResourceType } from "@shared/resource-client-scope";
 import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask, resyncOpenTaskAssignees, isResyncRunning, markResyncStarted, markResyncFinished, getResyncJobStatus } from "./nexus-task-generation";
-import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees, adoptionSnapshots } from "@shared/schema";
+import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees, adoptionSnapshots, weekGenerationLog } from "@shared/schema";
 import {
   hasStockFixApiKeyConfiguration,
   inspectPerfectStoreCaptureToken,
@@ -1797,6 +1797,16 @@ export async function registerRoutes(
         return res.status(400).json({ error: "No synced week found - pass ?week= explicitly" });
       }
       const result = await generateTasksForWeek(week);
+      // Real timestamp of when this week's tasks actually went live (Carin,
+      // 2026-08-28: "we only want to measure tasks when the new tasks
+      // started" - not a one-off, a permanent need). Powers "captured since
+      // tasks went live" on the Adoption dashboard, so a staggered rollout
+      // (like 2026-08-26's, spread across hours of retries) doesn't make
+      // raw "completed this week" look inflated by captures that happened
+      // via on-demand task creation before the official bulk generation.
+      await db.insert(weekGenerationLog)
+        .values({ weekEnding: week })
+        .onConflictDoUpdate({ target: weekGenerationLog.weekEnding, set: { generatedAt: new Date() } });
       res.json({ week, ...result });
     } catch (error: any) {
       console.error("Error generating Nexus tasks:", error);
@@ -6176,9 +6186,23 @@ export async function registerRoutes(
         return { ...m, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
       });
 
+      // Real timestamp of when this week's tasks actually went live (Carin,
+      // 2026-08-28: "we only want to measure tasks when the new tasks
+      // started"). A staggered rollout (multi-hour sync retries, on-demand
+      // captures landing before the official bulk generation finished) can
+      // make raw "completed this week" look inflated - this gives a clean,
+      // real count starting from the actual cutover instead.
+      const [genLogRow] = await db.select().from(weekGenerationLog).where(eq(weekGenerationLog.weekEnding, week)).limit(1);
+      const weekGeneratedAt = genLogRow?.generatedAt ? genLogRow.generatedAt.toISOString() : null;
+      const capturedSinceGeneration = weekGeneratedAt
+        ? completed.filter((c: any) => c.updatedAt && new Date(c.updatedAt) > genLogRow!.generatedAt).length
+        : null;
+
       res.json({
         week,
         totals: { completed: completed.length, open: openTaskIds.size },
+        weekGeneratedAt,
+        capturedSinceGeneration,
         byStore: toSorted(byStoreMap, "store"),
         byClient: toSorted(byClientMap, "client"),
         byRep,
