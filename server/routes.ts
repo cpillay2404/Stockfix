@@ -5119,6 +5119,12 @@ export async function registerRoutes(
   // distinct names in JS; this is a direct DISTINCT at the DB level.
   app.get("/api/managers", async (req, res) => {
     try {
+      // Real bug found 2026-08-28 (same root cause as "Luntu Boyce shows
+      // twice") - the same manager can appear with inconsistent name
+      // casing across resource_roster rows (Call Cycle Master tab vs P&G
+      // tab), and a plain DISTINCT on the exact text splits them into two
+      // separate dropdown entries. Dedupe on normalized (trimmed,
+      // uppercased) name, display a clean title-cased name.
       const result = await db.execute(sql`
         select distinct manager
         from resource_roster
@@ -5127,7 +5133,16 @@ export async function registerRoutes(
         order by manager
       `);
       const rows = (result.rows || result) as any[];
-      const managers = rows.map((r) => r.manager);
+      const titleCase = (s: string) => s.trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
+      const seen = new Set<string>();
+      const managers: string[] = [];
+      for (const r of rows) {
+        const key = String(r.manager).trim().toUpperCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        managers.push(titleCase(r.manager));
+      }
+      managers.sort();
       res.json({ managers });
     } catch (error) {
       console.error("Error fetching managers:", error);
