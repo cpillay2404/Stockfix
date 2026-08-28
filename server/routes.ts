@@ -6191,12 +6191,30 @@ export async function registerRoutes(
         totalPeopleByManager.get(manager)!.add(a.resourceName);
       }
 
+      // Real timestamp of when this week's tasks actually went live (Carin,
+      // 2026-08-28: "we only want to measure tasks when the new tasks
+      // started" / "cutover must be applied everywhere"). A staggered
+      // rollout (multi-hour sync retries, on-demand captures landing
+      // before the official bulk generation finished) let people show as
+      // "active" purely from captures that happened before this week's
+      // tasks officially went live (confirmed: 177 people had any
+      // completion this week, only 26 had one since the real cutover) -
+      // every "active" calculation below must only count completions
+      // after this timestamp, not just the headline Captures Logged
+      // counter. The "total people" denominators are untouched - they're
+      // about who's assigned this week, not when they acted.
+      const [genLogRow] = await db.select().from(weekGenerationLog).where(eq(weekGenerationLog.weekEnding, week)).limit(1);
+      const weekGeneratedAt = genLogRow?.generatedAt ? genLogRow.generatedAt.toISOString() : null;
+      const isSinceCutover = (c: any) => !genLogRow || (c.updatedAt && new Date(c.updatedAt) > genLogRow.generatedAt);
+      const capturedSinceGeneration = weekGeneratedAt ? completed.filter(isSinceCutover).length : null;
+
       const activePeopleByRegion = new Map<string, Set<string>>();
       const activePeopleByRole = new Map<string, Set<string>>();
       const activePeopleByRegionRole = new Map<string, Set<string>>();
       const activePeopleByManager = new Map<string, Set<string>>();
       for (const c of completed) {
         if (!c.repName || c.repName === "Unassigned") continue;
+        if (!isSinceCutover(c)) continue;
         const region = normalizeRegion(c.region);
         if (!activePeopleByRegion.has(region)) activePeopleByRegion.set(region, new Set());
         activePeopleByRegion.get(region)!.add(c.repName);
@@ -6244,18 +6262,6 @@ export async function registerRoutes(
         const activePeople = activePeopleByManager.get(m.manager)?.size || 0;
         return { ...m, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
       });
-
-      // Real timestamp of when this week's tasks actually went live (Carin,
-      // 2026-08-28: "we only want to measure tasks when the new tasks
-      // started"). A staggered rollout (multi-hour sync retries, on-demand
-      // captures landing before the official bulk generation finished) can
-      // make raw "completed this week" look inflated - this gives a clean,
-      // real count starting from the actual cutover instead.
-      const [genLogRow] = await db.select().from(weekGenerationLog).where(eq(weekGenerationLog.weekEnding, week)).limit(1);
-      const weekGeneratedAt = genLogRow?.generatedAt ? genLogRow.generatedAt.toISOString() : null;
-      const capturedSinceGeneration = weekGeneratedAt
-        ? completed.filter((c: any) => c.updatedAt && new Date(c.updatedAt) > genLogRow!.generatedAt).length
-        : null;
 
       res.json({
         week,
