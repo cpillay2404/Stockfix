@@ -1553,6 +1553,7 @@ export async function registerRoutes(
       // Dedupe by normalized (trimmed, uppercased) name instead - per
       // Carin's explicit call, name not resourceEmpId - keeping one
       // canonical (first-seen) display name per person.
+      const titleCase = (s: string) => s.trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
       const seenNames = new Set<string>();
       const empIdByName = new Map<string, string>();
       const allNames: string[] = [];
@@ -1560,11 +1561,12 @@ export async function registerRoutes(
         const key = r.resourceName.trim().toUpperCase();
         if (seenNames.has(key)) continue;
         seenNames.add(key);
-        allNames.push(r.resourceName);
-        if (r.resourceEmpId) empIdByName.set(r.resourceName, r.resourceEmpId);
+        const displayName = titleCase(r.resourceName);
+        allNames.push(displayName);
+        if (r.resourceEmpId) empIdByName.set(displayName, r.resourceEmpId);
       }
       const repsWithIds = allNames.map((name) => ({ name, resourceEmpId: empIdByName.get(name) || null }));
-      res.json({ rep: chosen?.resourceName || null, allReps: allNames, repsWithIds });
+      res.json({ rep: chosen?.resourceName ? titleCase(chosen.resourceName) : null, allReps: allNames, repsWithIds });
     } catch (error) {
       console.error("Error resolving rep for store:", error);
       res.status(500).json({ error: "Failed to resolve rep for store" });
