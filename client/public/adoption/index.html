@@ -636,13 +636,15 @@ class Component extends DCLogic {
       dormantCount: n(m.dormant.length),
       completedLabel: n(completed),
       openSub: n(open) + ' open · ' + sharp(pct(completed, scope || 1)) + ' of scope',
-      // Carin, 2026-08-28: "we only want to measure tasks when the new
-      // tasks started" - a staggered rollout (on-demand captures landing
-      // before the official bulk generation finished) can make the raw
-      // completed total look inflated/confusing. Shows a clean count from
-      // the real moment this week's tasks went live, whenever that's known.
-      sinceLiveLabel: (m.d.weekGeneratedAt && m.d.capturedSinceGeneration != null)
-        ? n(m.d.capturedSinceGeneration) + ' captured since tasks went live (' + new Date(m.d.weekGeneratedAt).toLocaleString('en-ZA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ')'
+      // Carin, 2026-08-28: "cutover must be applied everywhere... yes
+      // everything" - the headline number itself now IS the post-cutover
+      // count (server-side change), so this sub-line would be redundant
+      // repeating the same number. Shows the real all-time-this-week
+      // total instead (including pre-cutover on-demand captures from
+      // 2026-08-26's unusually staggered rollout) for transparency, not
+      // as the primary metric.
+      sinceLiveLabel: (m.d.weekGeneratedAt && m.d.totalCompletedAllTime != null && m.d.totalCompletedAllTime !== completed)
+        ? n(m.d.totalCompletedAllTime) + ' total this week (incl. before tasks went live at ' + new Date(m.d.weekGeneratedAt).toLocaleString('en-ZA', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) + ')'
         : '',
       mixLegend: [
         { color: 'var(--color-accent)', label: 'Habitual · ' + m.heavyAt + '+ captures', value: n(m.heavy.length) },

@@ -6265,7 +6265,21 @@ export async function registerRoutes(
 
       res.json({
         week,
-        totals: { completed: completed.length, open: openTaskIds.size },
+        // Real fix 2026-08-28 (Carin: "yes everything... cutover must be
+        // applied everywhere") - the headline "Captures Logged" total
+        // used to be every completion this week regardless of when it
+        // happened, mixing in pre-cutover on-demand captures the same way
+        // the adoption % bug did. Now uses the same post-cutover count as
+        // everything else, so every KPI on this page agrees with each
+        // other. completed.length (the real all-time-this-week total)
+        // stays available separately as totalCompletedAllTime for anyone
+        // who needs it - nothing is deleted, the detailed Captures feed
+        // below is untouched and still shows every real capture.
+        totals: {
+          completed: weekGeneratedAt ? capturedSinceGeneration : completed.length,
+          open: openTaskIds.size,
+          totalCompletedAllTime: completed.length,
+        },
         weekGeneratedAt,
         capturedSinceGeneration,
         byStore: toSorted(byStoreMap, "store"),
