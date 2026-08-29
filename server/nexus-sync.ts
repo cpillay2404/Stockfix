@@ -119,29 +119,53 @@ const STALE_HEARTBEAT_MS = 15 * 60 * 1000;
 let currentRunId: number | null = null;
 let currentRunWeek: string | null = null;
 
-export async function isSyncRunning(): Promise<boolean> {
+// Clears a stale 'running' row (no heartbeat in 15 minutes - the process
+// that started it is almost certainly gone, killed by a Publish or an
+// Autoscale instance swap) so it stops blocking a real new run. Separated
+// from isSyncRunning() so markSyncStarted() can call it too, right before
+// trying to grab the lock - otherwise a stale row from a dead instance
+// would permanently block every future sync on every other instance.
+async function clearStaleRunningRow(): Promise<void> {
   const [row] = await db.select().from(syncRuns).where(eq(syncRuns.status, "running"))
     .orderBy(sql`${syncRuns.id} desc`).limit(1);
-  if (!row) return false;
+  if (!row) return;
   const staleMs = Date.now() - new Date(row.heartbeatAt).getTime();
   if (staleMs > STALE_HEARTBEAT_MS) {
-    // The process that started this run is gone (killed by a Publish or an
-    // Autoscale instance swap) - no heartbeat in 15 minutes means nothing is
-    // actually still writing. Mark it dead so status stops lying and a new
-    // run (which will resume via sync_client_progress) isn't blocked forever.
     await db.update(syncRuns).set({
       status: "failed",
       finishedAt: new Date(),
       errorMessage: "No heartbeat for 15+ minutes - the process was almost certainly killed (Publish or instance replacement) mid-sync.",
     }).where(eq(syncRuns.id, row.id));
-    return false;
   }
-  return true;
 }
-export async function markSyncStarted(week: string): Promise<void> {
-  const [row] = await db.insert(syncRuns).values({ week, status: "running" }).returning({ id: syncRuns.id });
-  currentRunId = row.id;
-  currentRunWeek = week;
+
+export async function isSyncRunning(): Promise<boolean> {
+  await clearStaleRunningRow();
+  const [row] = await db.select().from(syncRuns).where(eq(syncRuns.status, "running")).limit(1);
+  return !!row;
+}
+
+// Real gap flagged in Replit's own #9 audit ("A database-backed lease or
+// advisory lock prevents duplicate jobs across instances") - Autoscale can
+// run more than one instance, and a plain check-then-insert (isSyncRunning()
+// then markSyncStarted()) has a race: two instances could both see "not
+// running" and both start. A plain session-level pg_advisory_lock doesn't
+// help here either - it's tied to one pooled connection, which drizzle
+// doesn't guarantee stays held across separate queries. Instead, a partial
+// unique index on sync_runs (status) WHERE status='running' makes Postgres
+// itself the lock: only one 'running' row can ever exist, so a second
+// instance's insert fails with a unique-violation, not a logic race.
+export async function markSyncStarted(week: string): Promise<boolean> {
+  await clearStaleRunningRow();
+  try {
+    const [row] = await db.insert(syncRuns).values({ week, status: "running" }).returning({ id: syncRuns.id });
+    currentRunId = row.id;
+    currentRunWeek = week;
+    return true;
+  } catch (err: any) {
+    if (err?.code === "23505") return false; // unique_violation - another instance already holds the lock
+    throw err;
+  }
 }
 export async function markSyncFinished(result: SyncResult | null, error?: string): Promise<void> {
   if (currentRunId == null) return;
@@ -236,7 +260,9 @@ async function fetchWithTimeout(url: string): Promise<Response> {
 // never mixes up the true stopping point).
 const PAGE_FETCH_CONCURRENCY = 10;
 
-async function fetchAllPages<T = any>(clientSlug: string, week: string, stem: string): Promise<T[]> {
+interface PagedFetchResult<T> { rows: T[]; failedPages: number[] }
+
+async function fetchAllPages<T = any>(clientSlug: string, week: string, stem: string): Promise<PagedFetchResult<T>> {
   const apiKey = process.env.NEXUS_API_KEY;
   if (!apiKey) throw new Error("NEXUS_API_KEY is not configured");
   const rows: T[] = [];
@@ -303,10 +329,10 @@ async function fetchAllPages<T = any>(clientSlug: string, week: string, stem: st
   if (failedPages.length > 0) {
     logSyncProgress(`... ${clientSlug} ${stem} finished with ${failedPages.length} page(s) that failed after retries and were skipped: [${failedPages.join(", ")}] - data for those pages is missing from this sync, real gap not a silent truncation`);
   }
-  return rows;
+  return { rows, failedPages };
 }
 
-async function fetchAllStoreCurrentPages(clientSlug: string, week: string): Promise<NexusStoreCurrentRow[]> {
+async function fetchAllStoreCurrentPages(clientSlug: string, week: string): Promise<PagedFetchResult<NexusStoreCurrentRow>> {
   return fetchAllPages<NexusStoreCurrentRow>(clientSlug, week, "store_current");
 }
 
@@ -322,12 +348,13 @@ interface StoreIssueAgg { dcAvailable: number; oosRowCount: number; wfcSum: numb
 // aggregates (StoreIssueAgg) and the per-SKU detail-field merge below -
 // avoids fetching oos/low/overstock_detail twice.
 async function fetchIssueDetailByClient(clientSlug: string, week: string) {
-  const [oosRows, lowStockRows, overstockRows] = await Promise.all([
+  const [oos, lowStock, overstock] = await Promise.all([
     fetchAllPages<any>(clientSlug, week, "oos_detail"),
     fetchAllPages<any>(clientSlug, week, "low_stock_detail"),
     fetchAllPages<any>(clientSlug, week, "overstock_detail"),
   ]);
-  return { oosRows, lowStockRows, overstockRows };
+  const failedPages = [...oos.failedPages, ...lowStock.failedPages, ...overstock.failedPages];
+  return { oosRows: oos.rows, lowStockRows: lowStock.rows, overstockRows: overstock.rows, failedPages };
 }
 
 function aggregateIssuesByStore(oosRows: any[], lowStockRows: any[]): Map<string, StoreIssueAgg> {
@@ -454,21 +481,37 @@ export async function runWeeklySummarySync(targetWeek?: string, onlyClients?: st
     logSyncProgress(`... ${client} starting`);
     await heartbeat();
     try {
-      const [rows, skuRows, detail, distributionGapsFile] = await Promise.all([
+      // Real gap flagged in Replit's own #10 audit ("Completeness checks
+      // prevent a client/week from being marked successful when pages or
+      // batches are missing") - fetchAllPages used to only LOG a failed
+      // page, never report it back here, so a client with genuinely missing
+      // data (a page that failed all 4 retries) still got markClientDone()
+      // called on it below, meaning a resumed run would wrongly skip it
+      // forever instead of retrying the gap. Every fetch's failedPages is
+      // now collected into one list; a whole-endpoint throw (the .catch
+      // fallbacks below) counts as failed too via the -1 sentinel, since
+      // that's a total, not partial, gap for this sync.
+      let distributionGapsFailed = false;
+      const [storeCurrent, skuCurrent, detail, distributionGapsFile] = await Promise.all([
         fetchAllStoreCurrentPages(slug, week),
         fetchAllPages<any>(slug, week, "store_sku_current").catch((err) => {
           errors.push(`${client} (store_sku_current): ${err?.message || err}`);
-          return [] as any[];
+          return { rows: [] as any[], failedPages: [-1] };
         }),
         fetchIssueDetailByClient(slug, week).catch((err) => {
           errors.push(`${client} (issue detail): ${err?.message || err}`);
-          return { oosRows: [] as any[], lowStockRows: [] as any[], overstockRows: [] as any[] };
+          return { oosRows: [] as any[], lowStockRows: [] as any[], overstockRows: [] as any[], failedPages: [-1] };
         }),
         fetchNexusJson<{ storeView: any[]; detailView: any[] }>(week, slug, "distribution_gaps").catch((err) => {
           errors.push(`${client} (distribution_gaps): ${err?.message || err}`);
+          distributionGapsFailed = true;
           return { storeView: [], detailView: [] };
         }),
       ]);
+      const rows = storeCurrent.rows;
+      const skuRows = skuCurrent.rows;
+      const allFailedPages = [...storeCurrent.failedPages, ...skuCurrent.failedPages, ...detail.failedPages];
+      const clientComplete = allFailedPages.length === 0 && !distributionGapsFailed;
       if (rows.length === 0) continue;
 
       const issueAggByStore = aggregateIssuesByStore(detail.oosRows, detail.lowStockRows);
@@ -648,18 +691,29 @@ export async function runWeeklySummarySync(targetWeek?: string, onlyClients?: st
       // often a Publish or instance swap has killed a sync mid-run. Wrapped
       // in a transaction so either the full replace happens or none of it
       // does - the old rows survive if the new write can't complete.
-      await db.transaction(async (tx) => {
+      // Wrapped in the same retry helper as every other batch write here -
+      // a transaction can still fail outright if the connection drops
+      // mid-transaction (it rolls back cleanly, but that's still a failed
+      // client, not a retried one, without this).
+      await writeBatchWithRetry(() => db.transaction(async (tx) => {
         await tx.delete(distributionGaps).where(sql`week_ending = ${week} and client = ${client}`);
         for (let i = 0; i < gapsRows.length; i += BATCH) {
           await tx.insert(distributionGaps).values(gapsRows.slice(i, i + BATCH));
         }
-      });
+      }), `${client} distributionGaps replace`);
       rowsWritten += gapsRows.length;
 
-      await markClientDone(week, client, rows.length + skuRows.length + gapsRows.length);
+      // Only mark this client done for the week if every page/batch actually
+      // succeeded - a partial fetch (missing pages) must stay eligible for a
+      // future resume to retry, not get silently accepted as complete.
+      if (clientComplete) {
+        await markClientDone(week, client, rows.length + skuRows.length + gapsRows.length);
+      } else {
+        logSyncProgress(`... ${client} written but NOT marked done - ${allFailedPages.length} failed page(s)${distributionGapsFailed ? " + distribution_gaps fetch failed" : ""}, will retry this client on the next resume`);
+      }
       clientsSynced++;
       const secs = ((Date.now() - clientStartedAt) / 1000).toFixed(1);
-      logSyncProgress(`OK  ${client} done in ${secs}s (${rows.length} stores, ${skuRows.length} skus, ${gapsRows.length} gaps)`);
+      logSyncProgress(`OK  ${client} done in ${secs}s (${rows.length} stores, ${skuRows.length} skus, ${gapsRows.length} gaps)${clientComplete ? "" : " [INCOMPLETE]"}`);
     } catch (err: any) {
       const secs = ((Date.now() - clientStartedAt) / 1000).toFixed(1);
       logSyncProgress(`ERR ${client} failed after ${secs}s: ${err?.message || err}`);

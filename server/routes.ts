@@ -1619,12 +1619,17 @@ export async function registerRoutes(
   // responds immediately - check GET /api/admin/nexus-summary-sync/status
   // (or the plain-text /api/admin/sync-log) for real progress instead.
   app.post("/api/admin/nexus-summary-sync", async (req, res) => {
-    if (await isSyncRunning()) {
-      return res.status(409).json({ error: "A sync is already running - check /api/admin/nexus-summary-sync/status" });
-    }
     const week = req.query.week ? String(req.query.week) : (await fetchLatestWeek());
     const onlyClients = req.query.clients ? String(req.query.clients).split(",").map((c) => c.trim().toUpperCase()) : undefined;
-    await markSyncStarted(week);
+    // markSyncStarted itself is the lock (a DB-level unique index, not a
+    // check-then-insert race) - it returns false if another instance/request
+    // already holds it, which is the authoritative answer, not a separate
+    // isSyncRunning() check beforehand that could go stale between the check
+    // and the insert.
+    const gotLock = await markSyncStarted(week);
+    if (!gotLock) {
+      return res.status(409).json({ error: "A sync is already running - check /api/admin/nexus-summary-sync/status" });
+    }
     runWeeklySummarySync(week, onlyClients)
       .then((result) => markSyncFinished(result))
       .catch((error: any) => {
