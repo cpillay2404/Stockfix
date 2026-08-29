@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { storeSkuWeekly } from "@shared/schema";
+import { storeSkuWeekly, weekGenerationLog } from "@shared/schema";
 import { sql } from "drizzle-orm";
 import { fetchLatestWeek, runWeeklySummarySync } from "./nexus-sync";
 import { generateTasksForWeek, wipeTasksForWeek } from "./nexus-task-generation";
@@ -82,6 +82,15 @@ async function checkAndSyncLatestWeek(): Promise<void> {
     // Step 3: generate the new week's tasks from the freshly-synced data
     const genResult = await generateTasksForWeek(nexusLatest);
     console.log(`[Nexus Weekly Cycle] Generated ${genResult.tasksCreated} tasks for week ${nexusLatest} (${genResult.storesWithNoAssignment} stores had no call-cycle coverage, skipped)`);
+    // Real gap found 2026-08-29: the manual /api/admin/nexus-generate-tasks
+    // route stamps this week's Adoption cutover timestamp, but this fully
+    // automatic path never did - so a week that rolls over on its own here
+    // would have no cutover row at all, and every capture would count as
+    // "since cutover" with no filtering. onConflictDoNothing so a later
+    // manual re-run (a safe additive backfill) can never move it forward.
+    await db.insert(weekGenerationLog)
+      .values({ weekEnding: nexusLatest })
+      .onConflictDoNothing({ target: weekGenerationLog.weekEnding });
 
     // Step 4: only wipe the outgoing week if its export actually succeeded
     if (exportResult.ok && exportResult.week) {

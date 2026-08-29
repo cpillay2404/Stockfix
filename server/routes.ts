@@ -1814,9 +1814,20 @@ export async function registerRoutes(
       // (like 2026-08-26's, spread across hours of retries) doesn't make
       // raw "completed this week" look inflated by captures that happened
       // via on-demand task creation before the official bulk generation.
+      //
+      // Real bug found 2026-08-29 (Carin: "why does it show 467" - traced to
+      // the cutover silently resetting to "now" three separate times that
+      // same day): this used to onConflictDoUpdate every single call,
+      // including harmless additive backfill re-runs of an ALREADY-live week
+      // (the Low Stock fix and the Store Mapper fix both needed exactly this
+      // kind of safe re-run today) - each one wiped out hours of real
+      // completions from "since cutover" counts by moving the goalposts
+      // forward. Only the FIRST generation for a week should ever set this -
+      // onConflictDoNothing so a re-run of an already-generated week can
+      // never touch it again.
       await db.insert(weekGenerationLog)
         .values({ weekEnding: week })
-        .onConflictDoUpdate({ target: weekGenerationLog.weekEnding, set: { generatedAt: new Date() } });
+        .onConflictDoNothing({ target: weekGenerationLog.weekEnding });
       res.json({ week, ...result });
     } catch (error: any) {
       console.error("Error generating Nexus tasks:", error);
