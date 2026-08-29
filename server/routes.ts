@@ -1985,7 +1985,42 @@ export async function registerRoutes(
   // consolidated-digest query either way, per Carin 2026-08-19: "can we
   // consolidate all captures for one store in one email."
   async function triggerVisitSummaryEmail(store: string, rep: string, client: string, baseUrl: string): Promise<boolean> {
-    const clientCond = client && client !== "ALL" ? sql`and client = ${client}` : sql``;
+    // Real leak found 2026-08-29 (Wilmar's KAM: "Wilmar KAM and me receiving
+    // aQuelle & Staedtler notifications as well") - the manual "End Visit"
+    // button (nexus-exit-visit.tsx) reads `client` from the page's own URL
+    // querystring, which is empty whenever a rep reaches End Visit without a
+    // single client filter selected (multi-client reps working several
+    // brands in one store visit, e.g. Wilmar + Aquelle + Staedtler SKUs at
+    // the same store). An empty/"ALL" client used to fall through to one
+    // bundled email covering every client's captures from the visit, CC'd
+    // using only the single most-recently-captured task's client - so
+    // Wilmar's CC list ended up seeing Aquelle/Staedtler SKU details in the
+    // same email. This is exactly the bug already fixed once for the
+    // auto-fire path (2026-08-22 comment below: "confirmed with Carin:
+    // multiple emails per store visit are fine as long as each one is
+    // scoped to a single client") - re-apply the same rule here instead of
+    // bundling: when no specific client is given, split into one real,
+    // separately-CC'd email per distinct client actually present in the
+    // visit, rather than a single multi-client digest.
+    if (!client || client === "ALL") {
+      const distinctClientsResult = await db.execute(sql`
+        select distinct client from nexus_tasks
+        where upper(trim(store_name)) = ${store.toUpperCase().trim()}
+          and upper(trim(rep_name)) = ${rep.toUpperCase().trim()}
+          and action_status = 'Completed'
+      `);
+      const distinctClients = ((distinctClientsResult.rows || distinctClientsResult) as any[])
+        .map((r) => r.client).filter(Boolean);
+      if (distinctClients.length === 0) return true;
+      let allOk = true;
+      for (const c of distinctClients) {
+        const ok = await triggerVisitSummaryEmail(store, rep, c, baseUrl);
+        if (!ok) allOk = false;
+      }
+      return allOk;
+    }
+
+    const clientCond = sql`and client = ${client}`;
 
     const completedResult = await db.execute(sql`
       select barcode, article_description, feedback, reason_code, action_taken_comment, capture_date,
@@ -2031,7 +2066,7 @@ export async function registerRoutes(
 
     return await sendVisitSummaryEmail({
       repName: rep || null,
-      client: client && client !== "ALL" ? client : (completed[0]?.client ?? null),
+      client,
       storeName: store,
       banner: completed[0]?.banner ?? null,
       region: completed[0]?.region ?? null,
