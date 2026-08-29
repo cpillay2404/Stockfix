@@ -37,7 +37,7 @@ import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRost
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, clientScopeFromResourceType, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
 import { dedicatedClientScopesAtStore, isSyndicatedResourceType } from "@shared/resource-client-scope";
-import { runWeeklySummarySync, fetchNexusWeeks, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
+import { runWeeklySummarySync, fetchNexusWeeks, fetchLatestWeek, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask, resyncOpenTaskAssignees, isResyncRunning, markResyncStarted, markResyncFinished, getResyncJobStatus } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees, adoptionSnapshots, weekGenerationLog } from "@shared/schema";
 import {
@@ -1619,12 +1619,12 @@ export async function registerRoutes(
   // responds immediately - check GET /api/admin/nexus-summary-sync/status
   // (or the plain-text /api/admin/sync-log) for real progress instead.
   app.post("/api/admin/nexus-summary-sync", async (req, res) => {
-    if (isSyncRunning()) {
+    if (await isSyncRunning()) {
       return res.status(409).json({ error: "A sync is already running - check /api/admin/nexus-summary-sync/status" });
     }
-    const week = req.query.week ? String(req.query.week) : undefined;
+    const week = req.query.week ? String(req.query.week) : (await fetchLatestWeek());
     const onlyClients = req.query.clients ? String(req.query.clients).split(",").map((c) => c.trim().toUpperCase()) : undefined;
-    markSyncStarted();
+    await markSyncStarted(week);
     runWeeklySummarySync(week, onlyClients)
       .then((result) => markSyncFinished(result))
       .catch((error: any) => {
@@ -1633,14 +1633,14 @@ export async function registerRoutes(
       });
     res.status(202).json({
       started: true,
-      week: week || "(latest)",
+      week,
       clients: onlyClients || "(all)",
       checkProgressAt: "/api/admin/nexus-summary-sync/status",
     });
   });
 
   app.get("/api/admin/nexus-summary-sync/status", async (req, res) => {
-    res.json(getSyncJobStatus());
+    res.json(await getSyncJobStatus());
   });
 
   // Real gap found 2026-08-20 (Carin: "a portal for me so i can see how
@@ -1710,7 +1710,7 @@ export async function registerRoutes(
           taskCount: Number(w.task_count),
           completedCount: Number(w.completed_count),
         })),
-        syncJob: getSyncJobStatus(),
+        syncJob: await getSyncJobStatus(),
       };
     })();
     try {

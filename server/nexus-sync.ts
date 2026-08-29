@@ -5,8 +5,8 @@
 // cheap (~340MB steady-state) while full SKU-level detail stays live-fetched
 // on demand instead of being synced here.
 import { db } from "./db";
-import { storeWeeklySummary, storeSkuWeekly, distributionGaps } from "@shared/schema";
-import { sql } from "drizzle-orm";
+import { storeWeeklySummary, storeSkuWeekly, distributionGaps, syncRuns, syncClientProgress } from "@shared/schema";
+import { sql, eq, and } from "drizzle-orm";
 import { fetchNexusJson, nexusClientSlug, type NexusStoreCurrentRow } from "./nexus";
 import fs from "fs";
 import path from "path";
@@ -104,19 +104,82 @@ interface SyncJobStatus {
   lastResult: SyncResult | null;
   lastError: string | null;
 }
-let syncJob: SyncJobStatus = { running: false, startedAt: null, finishedAt: null, lastResult: null, lastError: null };
 
-export function isSyncRunning(): boolean {
-  return syncJob.running;
+// Real incident found 2026-08-27/28 (traced properly, not guessed, via a
+// pasted-in independent investigation): sync status used to live only in
+// this process's memory. Replit Autoscale can replace an instance without
+// the app crashing, and every Publish replaces the serving revision even
+// mid-sync - both silently reset `running` to its default with no error,
+// so the next check said "not running" while a client's data was actually
+// half-synced, and there was no record of which clients had actually
+// finished. Persisted here instead, so status survives a killed process
+// and a resumed run can skip clients already done for the week rather than
+// re-fetching everything (Carin, 2026-08-29: "we need to fix all bugs now").
+const STALE_HEARTBEAT_MS = 15 * 60 * 1000;
+let currentRunId: number | null = null;
+let currentRunWeek: string | null = null;
+
+export async function isSyncRunning(): Promise<boolean> {
+  const [row] = await db.select().from(syncRuns).where(eq(syncRuns.status, "running"))
+    .orderBy(sql`${syncRuns.id} desc`).limit(1);
+  if (!row) return false;
+  const staleMs = Date.now() - new Date(row.heartbeatAt).getTime();
+  if (staleMs > STALE_HEARTBEAT_MS) {
+    // The process that started this run is gone (killed by a Publish or an
+    // Autoscale instance swap) - no heartbeat in 15 minutes means nothing is
+    // actually still writing. Mark it dead so status stops lying and a new
+    // run (which will resume via sync_client_progress) isn't blocked forever.
+    await db.update(syncRuns).set({
+      status: "failed",
+      finishedAt: new Date(),
+      errorMessage: "No heartbeat for 15+ minutes - the process was almost certainly killed (Publish or instance replacement) mid-sync.",
+    }).where(eq(syncRuns.id, row.id));
+    return false;
+  }
+  return true;
 }
-export function markSyncStarted(): void {
-  syncJob = { running: true, startedAt: new Date().toISOString(), finishedAt: null, lastResult: null, lastError: null };
+export async function markSyncStarted(week: string): Promise<void> {
+  const [row] = await db.insert(syncRuns).values({ week, status: "running" }).returning({ id: syncRuns.id });
+  currentRunId = row.id;
+  currentRunWeek = week;
 }
-export function markSyncFinished(result: SyncResult | null, error?: string): void {
-  syncJob = { ...syncJob, running: false, finishedAt: new Date().toISOString(), lastResult: result, lastError: error || null };
+export async function markSyncFinished(result: SyncResult | null, error?: string): Promise<void> {
+  if (currentRunId == null) return;
+  await db.update(syncRuns).set({
+    status: error ? "failed" : "completed",
+    finishedAt: new Date(),
+    heartbeatAt: new Date(),
+    errorMessage: error || null,
+    rowsWritten: result?.rowsWritten ?? undefined,
+    clientsSynced: result?.clientsSynced ?? undefined,
+  }).where(eq(syncRuns.id, currentRunId));
+  currentRunId = null;
+  currentRunWeek = null;
 }
-export function getSyncJobStatus(): SyncJobStatus {
-  return { ...syncJob };
+async function heartbeat(): Promise<void> {
+  if (currentRunId == null) return;
+  await db.update(syncRuns).set({ heartbeatAt: new Date() }).where(eq(syncRuns.id, currentRunId));
+}
+async function markClientDone(week: string, client: string, rowsWritten: number): Promise<void> {
+  await db.insert(syncClientProgress).values({ weekEnding: week, client, status: "done", rowsWritten })
+    .onConflictDoUpdate({
+      target: [syncClientProgress.weekEnding, syncClientProgress.client],
+      set: { status: "done", rowsWritten, finishedAt: new Date() },
+    });
+}
+export async function getSyncJobStatus(): Promise<SyncJobStatus> {
+  const [row] = await db.select().from(syncRuns).orderBy(sql`${syncRuns.id} desc`).limit(1);
+  if (!row) return { running: false, startedAt: null, finishedAt: null, lastResult: null, lastError: null };
+  const running = row.status === "running" && (Date.now() - new Date(row.heartbeatAt).getTime()) <= STALE_HEARTBEAT_MS;
+  return {
+    running,
+    startedAt: row.startedAt ? new Date(row.startedAt).toISOString() : null,
+    finishedAt: row.finishedAt ? new Date(row.finishedAt).toISOString() : null,
+    lastResult: row.status !== "running"
+      ? { week: row.week, clientsSynced: row.clientsSynced || 0, rowsWritten: row.rowsWritten || 0, weeksPruned: 0, errors: row.errorMessage ? [row.errorMessage] : [] }
+      : null,
+    lastError: row.errorMessage,
+  };
 }
 
 export async function fetchLatestWeek(): Promise<string> {
@@ -360,9 +423,28 @@ export async function runWeeklySummarySync(targetWeek?: string, onlyClients?: st
   // bigger pull than the old summary-only sync) shouldn't force re-fetching
   // every already-synced client just to retry the handful that failed -
   // Carin, 2026-08-13, hit exactly this after 5/25 clients errored out.
-  const clientList = onlyClients && onlyClients.length > 0
+  const requestedList = onlyClients && onlyClients.length > 0
     ? NEXUS_CLIENTS.filter((c) => onlyClients.includes(c))
     : NEXUS_CLIENTS;
+
+  // Resume support (Carin, 2026-08-29: "we need to fix all bugs now" - this
+  // is the deferred fix for last week's chaos): an explicit ?clients= list
+  // always re-runs exactly what was asked for (that's a deliberate gap-fill
+  // request), but a full/default run skips clients already marked done for
+  // this exact week in sync_client_progress, so a run that resumes after a
+  // killed process picks up where it left off instead of re-fetching
+  // clients (P&G alone took ~49 minutes) that already succeeded.
+  let clientList = requestedList;
+  if (!onlyClients || onlyClients.length === 0) {
+    const doneRows = await db.select({ client: syncClientProgress.client })
+      .from(syncClientProgress)
+      .where(and(eq(syncClientProgress.weekEnding, week), eq(syncClientProgress.status, "done")));
+    const doneSet = new Set(doneRows.map((r) => r.client));
+    if (doneSet.size > 0) {
+      clientList = requestedList.filter((c) => !doneSet.has(c));
+      logSyncProgress(`RESUME week=${week} - skipping ${doneSet.size} already-done client(s): [${Array.from(doneSet).join(", ")}]`);
+    }
+  }
 
   logSyncProgress(`START week=${week} clients=${clientList.length} (${clientList.join(", ")})`);
 
@@ -370,6 +452,7 @@ export async function runWeeklySummarySync(targetWeek?: string, onlyClients?: st
     const slug = nexusClientSlug(client);
     const clientStartedAt = Date.now();
     logSyncProgress(`... ${client} starting`);
+    await heartbeat();
     try {
       const [rows, skuRows, detail, distributionGapsFile] = await Promise.all([
         fetchAllStoreCurrentPages(slug, week),
@@ -557,12 +640,23 @@ export async function runWeeklySummarySync(targetWeek?: string, onlyClients?: st
       // Full replace per client+week rather than upsert - detailView isn't
       // keyed by a stable natural id from Nexus, and the whole file is
       // small enough that a delete+insert is simpler than reconciling diffs.
-      await db.delete(distributionGaps).where(sql`week_ending = ${week} and client = ${client}`);
-      for (let i = 0; i < gapsRows.length; i += BATCH) {
-        await db.insert(distributionGaps).values(gapsRows.slice(i, i + BATCH));
-        rowsWritten += Math.min(BATCH, gapsRows.length - i);
-      }
+      // Real gap found 2026-08-29 (deferred fix from the "atomic writes"
+      // item flagged in the 2026-08-27/28 incident investigation): a
+      // delete-then-insert that isn't wrapped in one transaction leaves this
+      // client's gaps genuinely empty (not stale, GONE) if the process dies
+      // between the delete and the inserts finishing - a real risk given how
+      // often a Publish or instance swap has killed a sync mid-run. Wrapped
+      // in a transaction so either the full replace happens or none of it
+      // does - the old rows survive if the new write can't complete.
+      await db.transaction(async (tx) => {
+        await tx.delete(distributionGaps).where(sql`week_ending = ${week} and client = ${client}`);
+        for (let i = 0; i < gapsRows.length; i += BATCH) {
+          await tx.insert(distributionGaps).values(gapsRows.slice(i, i + BATCH));
+        }
+      });
+      rowsWritten += gapsRows.length;
 
+      await markClientDone(week, client, rows.length + skuRows.length + gapsRows.length);
       clientsSynced++;
       const secs = ((Date.now() - clientStartedAt) / 1000).toFixed(1);
       logSyncProgress(`OK  ${client} done in ${secs}s (${rows.length} stores, ${skuRows.length} skus, ${gapsRows.length} gaps)`);

@@ -663,6 +663,42 @@ export const weekGenerationLog = pgTable("week_generation_log", {
 
 export type AdoptionSnapshot = typeof adoptionSnapshots.$inferSelect;
 
+// Durable sync job state (Carin, 2026-08-29: "we need to fix all bugs now" -
+// this is the deferred fix from the 2026-08-27/28 incidents: sync status
+// used to live only in the server process's memory plus a local log file,
+// so a Replit Autoscale instance replacement or a Publish (which replaces
+// the serving revision even mid-sync) silently wiped all progress with no
+// crash and no error - the next run had no idea anything had even been
+// attempted, forcing a slow manual per-client gap-hunt every time. Persisted
+// here so a run surviving a restart can resume instead of starting over,
+// and so /api/admin/nexus-summary-sync/status reflects the truth even after
+// the process that started the sync is gone.
+export const syncRuns = pgTable("sync_runs", {
+  id: serial("id").primaryKey(),
+  week: text("week").notNull(),
+  status: text("status").notNull(), // 'running' | 'completed' | 'failed'
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  heartbeatAt: timestamp("heartbeat_at").defaultNow().notNull(),
+  finishedAt: timestamp("finished_at"),
+  errorMessage: text("error_message"),
+  rowsWritten: integer("rows_written").default(0),
+  clientsSynced: integer("clients_synced").default(0),
+});
+
+// One row per client successfully synced for a given week - lets a resumed
+// run (after a killed process) skip clients already done instead of
+// re-fetching everything from scratch.
+export const syncClientProgress = pgTable("sync_client_progress", {
+  id: serial("id").primaryKey(),
+  weekEnding: text("week_ending").notNull(),
+  client: text("client").notNull(),
+  status: text("status").notNull(), // 'done'
+  rowsWritten: integer("rows_written").default(0),
+  finishedAt: timestamp("finished_at").defaultNow().notNull(),
+}, (table) => ({
+  weekClientUnique: unique().on(table.weekEnding, table.client),
+}));
+
 // Stores the MIME type for files in Replit Object Storage. The public SDK
 // exposes no metadata/stat API, so this keeps download responses accurate
 // across server restarts and deployments.
