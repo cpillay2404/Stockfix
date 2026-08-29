@@ -36,7 +36,7 @@ import {
 import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRoster, storeAssignments } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, clientScopeFromResourceType, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
-import { dedicatedClientScopesAtStore, isSyndicatedResourceType } from "@shared/resource-client-scope";
+import { dedicatedClientScopesAtStore, isSyndicatedResourceType, displayResourceType } from "@shared/resource-client-scope";
 import { runWeeklySummarySync, fetchNexusWeeks, fetchLatestWeek, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask, resyncOpenTaskAssignees, isResyncRunning, markResyncStarted, markResyncFinished, getResyncJobStatus } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees, adoptionSnapshots, weekGenerationLog } from "@shared/schema";
@@ -6138,7 +6138,10 @@ export async function registerRoutes(
       }
       const byRep = toSorted(byRepMap, "rep").map((r: any) => ({
         ...r,
-        resourceType: resourceTypeByName.get(String(r.rep).toUpperCase().trim()) || resourceTypeFallbackByRepName.get(r.rep) || null,
+        // displayResourceType collapses client-prefixed syndicated labels
+        // (e.g. "P&G SYNDICATED REP") down to one consistent "Syndicated
+        // Rep"/"Syndicated Merchandiser" for reporting (Carin, 2026-08-29).
+        resourceType: displayResourceType(resourceTypeByName.get(String(r.rep).toUpperCase().trim()) || resourceTypeFallbackByRepName.get(r.rep) || null),
         region: repRegion.get(r.rep) || null,
         manager: managerByName.get(String(r.rep).toUpperCase().trim()) || managerFallbackByRepName.get(r.rep) || null,
       }));
