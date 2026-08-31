@@ -1252,6 +1252,10 @@
   background: var(--card); border: 1px solid var(--border); border-left: 3px solid var(--border);
   border-radius: 10px; padding: 12px 14px; text-align: left; color: #F7F9FC; min-width: 0; overflow: hidden;
 }
+/* Already-completed rows stay visible (so a rep can see their own past
+   captures at a glance) but aren't tappable into a dead-end capture screen
+   for something someone else already finished (Carin, 2026-08-31). */
+.sf2-listrow:disabled { opacity: 0.55; cursor: not-allowed; }
 .sf2-listrow.tone-red { border-left-color: var(--red); }
 .sf2-listrow.tone-orange { border-left-color: var(--orange); }
 .sf2-listrow.tone-amber { border-left-color: var(--amber); }

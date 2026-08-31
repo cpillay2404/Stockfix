@@ -63,6 +63,7 @@ type NexusCaptureTaskScope = {
   storeName: string;
   client: string;
   repName: string;
+  actionStatus?: string;
 };
 
 function captureTokenHeaderStatus(req: Request): "missing" | "empty" | "multiple" | "present" {
@@ -183,6 +184,17 @@ async function authorizeNexusCaptureTask(req: Request, task: NexusCaptureTaskSco
   }
 
   if (requireClaimedDirectTask && !sameScopedValue(task.repName, identity.resourceName)) {
+    // Real gap found 2026-08-31 (Carin: a rep filled in an entire capture
+    // form, then hit this exact block, for an item someone ELSE had already
+    // finished capturing minutes earlier - the wording read like an
+    // instruction ("claim this task") when the real, unactionable reason was
+    // "you're too late, it's done". Two genuinely different situations need
+    // two different messages - only the second one is ever hit in practice
+    // today (this task's own claim step runs first in the normal flow), but
+    // both are handled here so neither can show the wrong one.
+    if (task.actionStatus === "Completed") {
+      return { ok: false as const, status: 409, error: "Already captured - please proceed to capture another task." };
+    }
     return { ok: false as const, status: 409, error: "Claim this task with the verified StockFix identity before completing it" };
   }
 

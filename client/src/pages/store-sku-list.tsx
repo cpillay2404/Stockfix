@@ -332,7 +332,22 @@ export default function StoreSkuList() {
                 .slice()
                 .sort((a, b) => ((b.dcSoh || 0) > 0 ? 1 : 0) - ((a.dcSoh || 0) > 0 ? 1 : 0))
                 .map((r) => (
-                <button className={`sf2-listrow tone-${tone}`} key={r.barcode} onClick={() => goToSku(r.barcode, r.client)}>
+                <button
+                  className={`sf2-listrow tone-${tone}`}
+                  key={r.barcode}
+                  // Real gap found 2026-08-31 (Carin: a rep filled in an
+                  // entire capture form for an item someone else had
+                  // already finished, only to be blocked at the very end) -
+                  // an already-completed row still opened the capture
+                  // screen and let a second person invest all that effort
+                  // before hitting the server's block. Disabled instead of
+                  // hidden entirely - the checkmark/"Logged" state below
+                  // (built the same day, for the opposite reason: seeing
+                  // your OWN completed work at a glance) still needs the
+                  // row visible, just not tappable into a dead end.
+                  disabled={r.isCompleted}
+                  onClick={() => { if (!r.isCompleted) goToSku(r.barcode, r.client); }}
+                >
                   <div>
                     <div className="sf2-listrow-title">
                       {/* Real gap found 2026-08-19 (Carin: "when something is
