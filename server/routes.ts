@@ -6441,6 +6441,129 @@ export async function registerRoutes(
     }
   });
 
+  // Combines the "completed"/"open"-style rows several weeks' worth of
+  // already-aggregated Adoption data into one row per key (store/client/rep/
+  // region/manager/role), summing the additive counts. totalPeople/
+  // activePeople are summed too (a "person-week" weighted count, not a
+  // deduplicated unique headcount - the underlying per-person data for a
+  // retired week no longer exists anywhere once nexus_tasks wipes it, only
+  // this week's own already-aggregated counts do, so summing is the most
+  // honest thing that can be computed from what's actually still available).
+  function sumAdoptionRows(weeksOfRows: any[][], keyField: string): any[] {
+    const byKey = new Map<string, any>();
+    const NUMERIC_FIELDS = ["completed", "open", "totalPeople", "activePeople"];
+    for (const rowsForWeek of weeksOfRows) {
+      for (const r of rowsForWeek) {
+        const key = r[keyField];
+        if (key == null) continue;
+        let existing = byKey.get(key);
+        if (!existing) {
+          existing = { ...r };
+          byKey.set(key, existing);
+          continue;
+        }
+        for (const field of NUMERIC_FIELDS) {
+          if (field in r || field in existing) existing[field] = (existing[field] || 0) + (r[field] || 0);
+        }
+        for (const sub of ["reps", "merchandisers"] as const) {
+          if (r[sub]) {
+            existing[sub] = existing[sub] || { totalPeople: 0, activePeople: 0, adoptionPct: 0 };
+            existing[sub].totalPeople += r[sub].totalPeople || 0;
+            existing[sub].activePeople += r[sub].activePeople || 0;
+          }
+        }
+        // Carry over any scalar field (resourceType/region/manager on a
+        // byRep row, etc) the first week that had it, without clobbering an
+        // already-set value from an earlier week with a later week's null.
+        for (const k of Object.keys(r)) {
+          if (NUMERIC_FIELDS.includes(k) || k === "reps" || k === "merchandisers") continue;
+          if (existing[k] == null && r[k] != null) existing[k] = r[k];
+        }
+      }
+    }
+    const result = Array.from(byKey.values());
+    const pct = (active: number, total: number) => total > 0 ? Math.round((active / total) * 1000) / 10 : 0;
+    for (const r of result) {
+      if ("totalPeople" in r) r.adoptionPct = pct(r.activePeople || 0, r.totalPeople || 0);
+      for (const sub of ["reps", "merchandisers"] as const) {
+        if (r[sub]) r[sub].adoptionPct = pct(r[sub].activePeople, r[sub].totalPeople);
+      }
+    }
+    return result;
+  }
+
+  // GET /api/admin/adoption-month?month=YYYY-MM - combined totals across
+  // every week in a calendar month (Carin, 2026-08-31: "a month filter so
+  // there can be a view for all the weeks in the month"). Draws on the same
+  // per-week data the single-week Adoption view already uses - the live
+  // week straight from /api/live-dashboard, every other week from its saved
+  // snapshot - so a month made up of a mix of live and retired weeks still
+  // combines cleanly.
+  app.get("/api/admin/adoption-month", async (req, res) => {
+    try {
+      const month = String(req.query.month || "").trim();
+      if (!/^\d{4}-\d{2}$/.test(month)) {
+        return res.status(400).json({ error: "month query param is required, format YYYY-MM" });
+      }
+      const port = req.socket.localPort || 5000;
+      const snapshotWeeks = await db.select({ weekEnding: adoptionSnapshots.weekEnding }).from(adoptionSnapshots);
+      const [liveWeekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+      const liveWeek = liveWeekRow?.week as string | undefined;
+
+      const weekSet = new Set<string>();
+      for (const r of snapshotWeeks) if (r.weekEnding.startsWith(month)) weekSet.add(r.weekEnding);
+      if (liveWeek && liveWeek.startsWith(month)) weekSet.add(liveWeek);
+      const weeks = Array.from(weekSet).sort();
+
+      if (weeks.length === 0) {
+        return res.json({
+          month, weeksIncluded: [],
+          totals: { completed: 0, open: 0, totalCompletedAllTime: 0 },
+          byStore: [], byClient: [], byRep: [], byRegion: [], byManager: [], adoptionByRole: [], recent: [],
+        });
+      }
+
+      const weekDatas: any[] = [];
+      for (const w of weeks) {
+        if (w === liveWeek) {
+          const liveResp = await fetch(`http://127.0.0.1:${port}/api/live-dashboard?week=${encodeURIComponent(w)}`);
+          if (liveResp.ok) weekDatas.push(await liveResp.json());
+        } else {
+          const [row] = await db.select().from(adoptionSnapshots).where(eq(adoptionSnapshots.weekEnding, w)).limit(1);
+          if (row) weekDatas.push(row.data);
+        }
+      }
+
+      const totals = { completed: 0, open: 0, totalCompletedAllTime: 0 };
+      for (const d of weekDatas) {
+        totals.completed += d.totals?.completed || 0;
+        totals.open += d.totals?.open || 0;
+        totals.totalCompletedAllTime += d.totals?.totalCompletedAllTime || 0;
+      }
+
+      const byWeighted = (arr: any[]) => arr.sort((a, b) => ((b.completed || 0) + (b.open || 0)) - ((a.completed || 0) + (a.open || 0)));
+
+      res.json({
+        month,
+        weeksIncluded: weeks,
+        totals,
+        byStore: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byStore || []), "store")),
+        byClient: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byClient || []), "client")),
+        byRep: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byRep || []), "rep")),
+        byRegion: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byRegion || []), "region")),
+        byManager: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byManager || []), "manager")),
+        adoptionByRole: sumAdoptionRows(weekDatas.map((d) => d.adoptionByRole || []), "role")
+          .sort((a, b) => (b.totalPeople || 0) - (a.totalPeople || 0)),
+        recent: weekDatas.flatMap((d) => d.recent || [])
+          .sort((a, b) => new Date(b.captureDate || 0).getTime() - new Date(a.captureDate || 0).getTime())
+          .slice(0, 5000),
+      });
+    } catch (error) {
+      console.error("Error building adoption month view:", error);
+      res.status(500).json({ error: "Failed to build month view" });
+    }
+  });
+
   // GET all contacts
   app.get("/api/contacts", async (req, res) => {
     try {

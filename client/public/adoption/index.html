@@ -111,6 +111,10 @@
         <option value="">Current week (live)</option>
         <sc-for list="{{ weekOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">Week ending {{ o }}</option></sc-for>
       </select>
+      <select class="nx-in" value="{{ fMonth }}" onChange="{{ onMonth }}" style="background:#0a1c3a; border:1px solid var(--color-neutral-800); color:var(--color-text); border-radius:var(--radius-md); padding:7px 10px; font-size:12px; font-family:inherit; min-width:170px;">
+        <option value="">Single week</option>
+        <sc-for list="{{ monthOptions }}" as="o" hint-placeholder-count="3"><option value="{{ o }}">Month: {{ o }}</option></sc-for>
+      </select>
       <button onClick="{{ onReset }}" style="background:transparent; border:1px solid var(--color-neutral-800); color:var(--color-neutral-400); border-radius:var(--radius-md); padding:7px 13px; font-size:11.5px; font-family:inherit; cursor:pointer;" style-hover="border-color:var(--color-accent-700); color:var(--color-accent-300);">Reset</button>
       <div style="margin-left:auto; font-size:11px; color:var(--color-neutral-500);">{{ filterSummary }}</div>
     </div>
@@ -122,6 +126,11 @@
     <sc-if value="{{ viewingSavedWeek }}" hint-placeholder-val="{{ false }}">
       <div style="margin:0 34px 20px; padding:10px 16px; border:1px solid rgba(236,109,37,0.4); border-radius:var(--radius-md); background:rgba(236,109,37,0.08); font-size:12px; color:var(--color-accent-300);">
         Viewing a saved snapshot for week ending {{ fWeek }} — not live. Select "Current week (live)" above to go back.
+      </div>
+    </sc-if>
+    <sc-if value="{{ viewingMonth }}" hint-placeholder-val="{{ false }}">
+      <div style="margin:0 34px 20px; padding:10px 16px; border:1px solid rgba(236,109,37,0.4); border-radius:var(--radius-md); background:rgba(236,109,37,0.08); font-size:12px; color:var(--color-accent-300);">
+        Viewing combined totals for {{ fMonth }} ({{ monthWeeksLabel }}). "Active people" counts are summed across weeks, not a unique headcount for the month — someone active in 3 of 4 weeks is counted 3 times.
       </div>
     </sc-if>
 
@@ -412,7 +421,7 @@ const MANAGER_KEYS = ['manager', 'managerName', 'managerFullName', 'reportsTo', 
 class Component extends DCLogic {
   state = { data: null, loading: true, err: '', page: 'overview', client: '', store: '', rtype: '', region: '', manager: '',
     seg: 'active', storeQuery: '', managerQuery: '', captureQuery: '', clients: [], stores: [], at: null,
-    week: '', savedWeeks: [] };
+    week: '', savedWeeks: [], month: '' };
 
   get base() { return (this.props.apiBase || 'https://stock-fix.replit.app').replace(/\/+$/, ''); }
 
@@ -449,6 +458,17 @@ class Component extends DCLogic {
 
   load() {
     this.setState({ loading: true });
+    // A month view combines every week in that calendar month into one set
+    // of totals server-side (Carin, 2026-08-31: "a month filter so there
+    // can be a view for all the weeks in the month") - takes priority over
+    // a single-week selection since picking a month clears it (see onMonth/
+    // onWeek below, which keep the two mutually exclusive).
+    if (this.state.month) {
+      this.json(this.base + '/api/admin/adoption-month?month=' + encodeURIComponent(this.state.month))
+        .then(data => { this._sig = null; this.setState({ data, err: '', loading: false, at: new Date() }); })
+        .catch(e => this.setState({ err: 'Could not load the month view — ' + (e.message || e), loading: false }));
+      return;
+    }
     // A selected past week reads its saved snapshot instead of the live
     // endpoint - once that week is wiped, /api/live-dashboard has nothing
     // left for it, but the snapshot (saved automatically right before the
@@ -545,7 +565,9 @@ class Component extends DCLogic {
   renderVals() {
     const s = this.state;
     const PAGES = [
-      { k: 'overview', label: 'Overview', icon: 'ph ph-squares-four', title: 'Overview', sub: 'Week ' + ((s.data && s.data.week) || '—') + ' · computed fresh on every request' },
+      { k: 'overview', label: 'Overview', icon: 'ph ph-squares-four', title: 'Overview',
+        sub: (s.data && s.data.month) ? ('Month ' + s.data.month + ' · ' + (s.data.weeksIncluded || []).length + ' week(s) combined')
+          : 'Week ' + ((s.data && s.data.week) || '—') + ' · computed fresh on every request' },
       { k: 'captures', label: 'Captures', icon: 'ph ph-camera', title: 'Captures', sub: 'Every completed capture in scope, with the detail each one carries' },
     ];
     const page = PAGES.find(p => p.k === s.page) || PAGES[0];
@@ -563,16 +585,25 @@ class Component extends DCLogic {
       week: (s.data && s.data.week) || '—',
       statusLine: s.loading ? 'Fetching…' : s.at ? 'Live · ' + s.at.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : 'Idle',
       loadError: s.err || false,
-      fClient: s.client, fStore: s.store, fType: s.rtype, fRegion: s.region, fManager: s.manager, fWeek: s.week,
+      fClient: s.client, fStore: s.store, fType: s.rtype, fRegion: s.region, fManager: s.manager, fWeek: s.week, fMonth: s.month,
       weekOptions: s.savedWeeks,
-      onWeek: e => { this._sig = null; this.setState({ week: e.target.value }, () => this.load()); },
+      // Month options are every distinct YYYY-MM a saved week falls in,
+      // plus the current live week's own month (always available even
+      // before any snapshot exists for it yet).
+      monthOptions: Array.from(new Set(
+        s.savedWeeks.map(w => w.slice(0, 7)).concat([new Date().toISOString().slice(0, 7)])
+      )).sort().reverse(),
+      onWeek: e => { this._sig = null; this.setState({ week: e.target.value, month: '' }, () => this.load()); },
+      onMonth: e => { this._sig = null; this.setState({ month: e.target.value, week: '' }, () => this.load()); },
       viewingSavedWeek: !!s.week,
+      viewingMonth: !!s.month,
+      monthWeeksLabel: (s.data && Array.isArray(s.data.weeksIncluded)) ? (s.data.weeksIncluded.length + ' week(s): ' + s.data.weeksIncluded.join(', ')) : '',
       onClient: e => { const v = e.target.value; this._sig = null; this.setState({ client: v, store: '', stores: [] }, () => { this.load(); if (v) this.json(this.base + '/api/roster/stores-for-client?client=' + encodeURIComponent(v)).then(r => this.setState({ stores: this.opts(r) })).catch(() => {}); }); },
       onStore: e => { this._sig = null; this.setState({ store: e.target.value }, () => this.load()); },
       onType: e => this.setState({ rtype: e.target.value }, () => this.load()),
       onRegion: e => this.setState({ region: e.target.value }, () => this.load()),
       onManager: e => this.setState({ manager: e.target.value }, () => this.load()),
-      onReset: () => { this._sig = null; this.setState({ client: '', store: '', rtype: '', region: '', manager: '', stores: [], week: '' }, () => this.load()); },
+      onReset: () => { this._sig = null; this.setState({ client: '', store: '', rtype: '', region: '', manager: '', stores: [], week: '', month: '' }, () => this.load()); },
       onStoreQuery: e => this.set({ storeQuery: e.target.value }),
       onManagerQuery: e => this.set({ managerQuery: e.target.value }),
       onRefresh: () => this.load(),
