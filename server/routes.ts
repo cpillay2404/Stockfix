@@ -6452,14 +6452,25 @@ export async function registerRoutes(
   function sumAdoptionRows(weeksOfRows: any[][], keyField: string): any[] {
     const byKey = new Map<string, any>();
     const NUMERIC_FIELDS = ["completed", "open", "totalPeople", "activePeople"];
+    // Real bug found 2026-09-01 (Carin: "I have 5 reps in SWD... I only have
+    // 3") - a saved snapshot freezes whatever name casing existed the week
+    // it was saved (the one snapshot that exists today, week 2026-08-19,
+    // predates the name-casing dedup fix and still has raw "GIDEON NEL"),
+    // while the live week already has the fix's "Gideon Nel". Grouping by
+    // the exact string reintroduces the same real person as two rows the
+    // moment two weeks disagree on casing - grouping by a normalized key
+    // instead (same trim+uppercase pattern already proven for this exact
+    // problem everywhere else) collapses them back into one, regardless of
+    // which week's casing happens to survive as the displayed value.
     for (const rowsForWeek of weeksOfRows) {
       for (const r of rowsForWeek) {
         const key = r[keyField];
         if (key == null) continue;
-        let existing = byKey.get(key);
+        const normKey = String(key).trim().toUpperCase();
+        let existing = byKey.get(normKey);
         if (!existing) {
-          existing = { ...r };
-          byKey.set(key, existing);
+          existing = { ...r, [keyField]: keyField === "rep" ? String(key).trim().toLowerCase().replace(/\b\w/g, (c: string) => c.toUpperCase()) : key };
+          byKey.set(normKey, existing);
           continue;
         }
         for (const field of NUMERIC_FIELDS) {
