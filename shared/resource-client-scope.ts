@@ -45,7 +45,7 @@ export function isSyndicatedResourceType(resourceType: string | null | undefined
 export function displayResourceType(resourceType: string | null | undefined): string | null {
   if (!resourceType) return resourceType ?? null;
   if (isSyndicatedResourceType(resourceType)) {
-    return isMerchandiserType(resourceType) ? "Syndicated Merchandiser" : "Syndicated Rep";
+    return isMerchandiserType(resourceType) ? "SYNDICATED MERCHANDISER" : "SYNDICATED REP";
   }
   // Real gap found 2026-09-02 (Carin: "uppercase... resource type because
   // it duplicates now on the stock fix adoption") - a dedicated type isn't
