@@ -6159,9 +6159,27 @@ export async function registerRoutes(
       const repNames = Array.from(byRepMap.keys());
       const resourceTypeByName = new Map<string, string>();
       const managerByName = new Map<string, string>();
+      // Real gap found 2026-09-02 (Carin: "didn't I say Karl's reps
+      // merchandisers must appear under him too" - Karl Robertshaw is
+      // typed SYNDICATED REP in the roster, same as an ordinary field rep,
+      // even though 6 reps AND a merchandiser genuinely list him as their
+      // real manager) - trueManagerByName below hops a merchandiser's
+      // named "manager" up one level whenever that person is Rep-typed,
+      // on the assumption they're just an incidental peer rep, not a real
+      // manager. That assumption breaks for anyone like Karl who actually
+      // has their own team. Counting how many people list each name as
+      // their manager lets the hop-up tell the two cases apart: a true
+      // team lead (2+ direct reports) keeps their own reports; a lone
+      // peer-rep mislabel (this merchandiser is the only one pointing at
+      // them) still hops up as before.
+      const directReportCountByName = new Map<string, number>();
       if (repNames.length > 0) {
         const typeRows = await db.select({ resourceName: resourceRoster.resourceName, resourceType: resourceRoster.resourceType, manager: resourceRoster.manager })
           .from(resourceRoster);
+        for (const r of typeRows) {
+          const mgrKey = (r.manager || "").toUpperCase().trim();
+          if (mgrKey) directReportCountByName.set(mgrKey, (directReportCountByName.get(mgrKey) || 0) + 1);
+        }
         for (const r of typeRows) {
           resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
           // Real gap found 2026-09-02 (Carin: "uppercase line managers...
@@ -6203,8 +6221,14 @@ export async function registerRoutes(
         const ownType = resourceTypeByName.get(key);
         const ownManager = managerByName.get(key) || null;
         if (isRepLikeType(ownType)) return ownManager;
-        // Merchandiser (or unknown type): ownManager names a rep - trace to that rep's own manager.
-        if (ownManager) {
+        // Merchandiser (or unknown type): only hop up if the named "manager"
+        // has no real team of their own (2026-09-02 fix - see comment where
+        // directReportCountByName is built). Someone with 2+ direct reports,
+        // like Karl Robertshaw, IS this merchandiser's real manager, whatever
+        // their own roster resourceType happens to say (Carin: "Karl
+        // Robertshaw is not a rep" - that label is wrong, but this check no
+        // longer depends on it either way).
+        if (ownManager && (directReportCountByName.get(ownManager.toUpperCase().trim()) || 0) <= 1) {
           const repManager = managerByName.get(ownManager.toUpperCase().trim());
           if (repManager) return repManager;
         }
