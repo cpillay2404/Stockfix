@@ -6337,6 +6337,11 @@ export async function registerRoutes(
       // for managers as region/role, rolled up via the same manager field
       // used by byManagerMap above.
       const totalPeopleByManager = new Map<string, Set<string>>();
+      // Manager+role pair, mirroring totalPeopleByRegionRole above - powers
+      // the Reps/Merch split on the "Adoption by manager" panel the same
+      // way region already gets one, instead of that panel recomputing its
+      // own (narrower, task-activity-only) version client-side.
+      const totalPeopleByManagerRole = new Map<string, Set<string>>();
       for (const a of allAssignees) {
         const region = normalizeRegion(a.region);
         if (!totalPeopleByRegion.has(region)) totalPeopleByRegion.set(region, new Set());
@@ -6350,6 +6355,9 @@ export async function registerRoutes(
         const manager = managerByName.get(String(a.resourceName).toUpperCase().trim()) || "Unknown";
         if (!totalPeopleByManager.has(manager)) totalPeopleByManager.set(manager, new Set());
         totalPeopleByManager.get(manager)!.add(a.resourceName);
+        const mrKey = `${manager}::${role}`;
+        if (!totalPeopleByManagerRole.has(mrKey)) totalPeopleByManagerRole.set(mrKey, new Set());
+        totalPeopleByManagerRole.get(mrKey)!.add(a.resourceName);
       }
 
       const capturedSinceGeneration = weekGeneratedAt ? completed.filter(isSinceCutover).length : null;
@@ -6358,6 +6366,7 @@ export async function registerRoutes(
       const activePeopleByRole = new Map<string, Set<string>>();
       const activePeopleByRegionRole = new Map<string, Set<string>>();
       const activePeopleByManager = new Map<string, Set<string>>();
+      const activePeopleByManagerRole = new Map<string, Set<string>>();
       for (const c of completed) {
         if (!c.repName || c.repName === "Unassigned") continue;
         if (!isSinceCutover(c)) continue;
@@ -6373,6 +6382,9 @@ export async function registerRoutes(
         const manager = managerByName.get(String(c.repName).toUpperCase().trim()) || "Unknown";
         if (!activePeopleByManager.has(manager)) activePeopleByManager.set(manager, new Set());
         activePeopleByManager.get(manager)!.add(c.repName);
+        const mrKey = `${manager}::${role}`;
+        if (!activePeopleByManagerRole.has(mrKey)) activePeopleByManagerRole.set(mrKey, new Set());
+        activePeopleByManagerRole.get(mrKey)!.add(c.repName);
       }
 
       const adoptionPct = (active: number, total: number) => total > 0 ? Math.round((active / total) * 1000) / 10 : 0;
@@ -6380,6 +6392,11 @@ export async function registerRoutes(
       const roleAdoptionFor = (region: string, role: string) => {
         const total = totalPeopleByRegionRole.get(`${region}::${role}`)?.size || 0;
         const active = activePeopleByRegionRole.get(`${region}::${role}`)?.size || 0;
+        return { totalPeople: total, activePeople: active, adoptionPct: adoptionPct(active, total) };
+      };
+      const managerRoleAdoptionFor = (manager: string, role: string) => {
+        const total = totalPeopleByManagerRole.get(`${manager}::${role}`)?.size || 0;
+        const active = activePeopleByManagerRole.get(`${manager}::${role}`)?.size || 0;
         return { totalPeople: total, activePeople: active, adoptionPct: adoptionPct(active, total) };
       };
 
@@ -6406,7 +6423,20 @@ export async function registerRoutes(
       const byManagerWithAdoption = toSorted(byManagerMap, "manager").map((m: any) => {
         const totalPeople = totalPeopleByManager.get(m.manager)?.size || 0;
         const activePeople = activePeopleByManager.get(m.manager)?.size || 0;
-        return { ...m, totalPeople, activePeople, adoptionPct: adoptionPct(activePeople, totalPeople) };
+        return {
+          ...m,
+          totalPeople,
+          activePeople,
+          adoptionPct: adoptionPct(activePeople, totalPeople),
+          // Real gap found 2026-09-02 (Carin: Karl Robertshaw's "Adoption
+          // by manager" row showed "Reps 3/5, Merch -" - the panel that
+          // reads this recomputed its own reps/merch split client-side
+          // from byRep, i.e. task-activity-only data, same root cause as
+          // the total-people fix above). Now backed by the same
+          // store_assignments-based totals as everywhere else.
+          reps: managerRoleAdoptionFor(m.manager, "Rep"),
+          merchandisers: managerRoleAdoptionFor(m.manager, "Merchandiser"),
+        };
       });
 
       res.json({

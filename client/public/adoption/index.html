@@ -861,53 +861,32 @@ class Component extends DCLogic {
 
     // Adoption by manager (Carin, 2026-08-24: "managers of reps... their
     // reps have merchandisers reporting to them" - a real 2-hop chain, not
-    // a flat "manager" field. A merchandiser's own `manager` field names
-    // the REP they report to, not the overarching manager - confirmed with
-    // real data (e.g. Sylvia Erasmus's manager = "Wilfred Louw", a rep,
-    // whose own manager = "Jan Verster"). So a merchandiser's true manager
-    // is found by tracing rep -> rep's manager, not read directly.
-    const isRepType = (t) => { const u = String(t || '').toUpperCase(); return u.includes('REP') || u.includes('FIELDMARKETER'); };
-    const isMerchType = (t) => String(t || '').toUpperCase().includes('MERCHANDISER');
-    const repManagerByName = new Map();
-    m.reps.forEach(r => { if (isRepType(r.resourceType) && r.manager) repManagerByName.set(String(r.rep).toUpperCase().trim(), r.manager); });
-    // Real bug found 2026-09-02 (Carin: Karl Robertshaw showed "Reps 3/5,
-    // Merch -" despite genuinely having a merchandiser) - this panel grouped
-    // by the raw r.manager text as its own map key, uppercased nowhere. If a
-    // rep's manager field and a merchandiser's manager field for the exact
-    // same real manager ever differ in casing (even after the server-side
-    // fix, this is a second, independent grouping pass with its own key),
-    // reps and merch silently split into two separate, unmerged rows - one
-    // shown, one invisible. Normalizing the key here the same way as every
-    // other casing-duplicate fix this week makes this panel robust
-    // regardless of what casing anything upstream happens to send it.
-    const managerAgg = new Map();
-    const ensureManager = (name) => {
-      const display = String(name || 'Unknown').trim() || 'Unknown';
-      const key = display.toUpperCase();
-      let e = managerAgg.get(key);
-      if (!e) { e = { manager: display, reps: [0, 0], merch: [0, 0] }; managerAgg.set(key, e); }
-      return e;
-    };
-    m.reps.forEach(r => {
-      if (isRepType(r.resourceType) && r.manager) {
-        const e = ensureManager(r.manager);
-        e.reps[1]++; if (r.completed > 0) e.reps[0]++;
-      } else if (isMerchType(r.resourceType) && r.manager) {
-        // r.manager here is the REP's name - trace up to that rep's own manager.
-        const trueManager = repManagerByName.get(String(r.manager).toUpperCase().trim()) || r.manager;
-        const e = ensureManager(trueManager);
-        e.merch[1]++; if (r.completed > 0) e.merch[0]++;
-      }
-    });
+    // a flat "manager" field).
+    //
+    // Real bug found 2026-09-02 (Carin, confirmed via Karl Robertshaw:
+    // showed "Reps 3/5, Merch -" despite genuinely having 7 reps and a
+    // merchandiser) - this panel used to recompute its own reps/merch
+    // split client-side from m.reps (d.byRep), which only ever contains
+    // people with actual task activity this week - the same root cause as
+    // the total-people gap fixed server-side that day ("only people that
+    // have been assigned a store on Stock Fix, not the total call cycle").
+    // /api/live-dashboard's byManager now carries a real reps/merchandisers
+    // split built from store_assignments (via managerRoleAdoptionFor) -
+    // reading it directly here instead of recomputing a narrower version
+    // fixes both the missing-people gap and the casing-split risk in one
+    // move, and stays correct automatically if the server logic changes.
     const mq = s.managerQuery.trim().toLowerCase();
-    const managerList = Array.from(managerAgg.values())
+    const managerList = (Array.isArray(d.byManager) ? d.byManager : [])
+      .filter(e => e.manager && e.manager !== 'Unknown')
       .filter(e => !mq || e.manager.toLowerCase().includes(mq))
-      .map(e => {
-        const totalPeople = e.reps[1] + e.merch[1];
-        const activePeople = e.reps[0] + e.merch[0];
-        const rate = pct(activePeople, totalPeople);
-        return Object.assign(e, { totalPeople, activePeople, rate });
-      })
+      .map(e => ({
+        manager: e.manager,
+        reps: [e.reps?.activePeople || 0, e.reps?.totalPeople || 0],
+        merch: [e.merchandisers?.activePeople || 0, e.merchandisers?.totalPeople || 0],
+        totalPeople: e.totalPeople || 0,
+        activePeople: e.activePeople || 0,
+        rate: e.adoptionPct || 0,
+      }))
       .sort((a, b) => b.totalPeople - a.totalPeople || a.manager.localeCompare(b.manager));
     out.managerCountLabel = n(managerList.length) + ' managers in scope';
     out.managerFootnote = managerList.length > 12 ? 'Showing the top 12 of ' + n(managerList.length) : '';
