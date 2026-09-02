@@ -303,7 +303,7 @@
             </tr></thead>
             <tbody>
               <sc-for list="{{ managerRows }}" as="mr" hint-placeholder-count="8">
-                <tr class="nx-row">
+                <tr class="nx-row" onClick="{{ mr.onClick }}" style="cursor:pointer;">
                   <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; font-weight:600;">{{ mr.manager }}</td>
                   <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:var(--color-neutral-200);">{{ mr.repsCell }}</td>
                   <td style="padding:7px 8px; border-bottom:1px solid #1c3f6b; text-align:right; font-family:var(--font-heading); color:var(--color-neutral-200);">{{ mr.merchCell }}</td>
@@ -895,14 +895,21 @@ class Component extends DCLogic {
       [{ key: 'manager', label: 'Manager' }, { key: 'repsActive', label: 'Reps active' }, { key: 'repsTotal', label: 'Reps total' },
        { key: 'merchActive', label: 'Merch active' }, { key: 'merchTotal', label: 'Merch total' }, { key: 'rate', label: 'Combined adoption %' }],
       managerList.map(e => ({ manager: e.manager, repsActive: e.reps[0], repsTotal: e.reps[1], merchActive: e.merch[0], merchTotal: e.merch[1], rate: e.rate })));
+    // Real gap found 2026-09-02 (Carin: "when i click on him it adoption by
+    // region doesnt filter... adoption by manager shows all managers") -
+    // these rows had no click handler at all, so nothing happened -
+    // clicking a manager now sets the same `manager` filter the dropdown
+    // above does, which every panel (region/KPI/leaderboard/this table
+    // itself) now respects server-side.
     out.managerRows = managerList.slice(0, 12).map(e => ({
       manager: e.manager,
       repsCell: e.reps[1] ? sharp(pct(e.reps[0], e.reps[1])) + ' · ' + n(e.reps[0]) + '/' + n(e.reps[1]) : '—',
       merchCell: e.merch[1] ? sharp(pct(e.merch[0], e.merch[1])) + ' · ' + n(e.merch[0]) + '/' + n(e.merch[1]) : '—',
       rate: e.totalPeople ? sharp(e.rate) : '—',
       rateColor: e.rate >= 50 ? 'var(--color-accent-300)' : e.rate > 0 ? 'var(--color-text)' : 'var(--color-neutral-500)',
+      onClick: () => { this._sig = null; this.setState({ manager: e.manager }, () => this.load()); },
     }));
-    if (!out.managerRows.length) out.managerRows = [{ manager: 'No managers in scope', repsCell: '—', merchCell: '—', rate: '—', rateColor: 'var(--color-neutral-500)' }];
+    if (!out.managerRows.length) out.managerRows = [{ manager: 'No managers in scope', repsCell: '—', merchCell: '—', rate: '—', rateColor: 'var(--color-neutral-500)', onClick: () => {} }];
 
     const IMG_KEYS = ['image1', 'image2', 'image3', 'image4'];
     const cq = s.captureQuery.trim().toLowerCase();

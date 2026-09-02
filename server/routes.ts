@@ -6014,9 +6014,65 @@ export async function registerRoutes(
       // category/dcSoh/p4WeekSales/missedSales/storeWfc/action/actionDate/
       // physicalCount/variance/systemAdjusted, and 3 of 4 images) entirely.
       // Full typed select - every real column on the row.
-      const completedRawFull = await db.select().from(nexusTasks)
+      let completedRawFull = await db.select().from(nexusTasks)
         .where(sql`${nexusTasks.weekEndingDate} = ${week} and ${nexusTasks.actionStatus} = 'Completed' ${clientCondPlain} ${storeCondPlain}`)
         .orderBy(sql`${nexusTasks.captureDate} desc nulls last`);
+
+      // Real gap found 2026-09-02 (Carin: clicked Karl Robertshaw - "adoption
+      // by region doesnt filter, the KPI cards dont filter... adoption by
+      // manager shows all managers" / "the resource leaderboard also doesnt
+      // show his reps merchandisers") - ?manager= used to only narrow the
+      // Captures feed at the very bottom of this endpoint; every other
+      // panel (region, KPI totals, the manager table itself, the resource
+      // leaderboard) read the full, unfiltered network-wide data regardless
+      // of this filter. Fetching the full roster here - independent of any
+      // task data, so it's ready before anything else is built - and
+      // filtering the two raw inputs (completed tasks, task assignees)
+      // immediately after they're fetched means EVERY downstream
+      // computation (byStore/byClient/byRep/byRegion/byManager/adoption%/
+      // KPI totals/recent) automatically sees only the requested manager's
+      // team, the same way the existing client/store filters already
+      // scope the underlying SQL queries upstream of everything else.
+      const allRosterRows = await db.select({ resourceName: resourceRoster.resourceName, resourceType: resourceRoster.resourceType, manager: resourceRoster.manager })
+        .from(resourceRoster);
+      const resourceTypeByName = new Map<string, string>();
+      const managerByName = new Map<string, string>();
+      // Counts REP-typed direct reports per manager name - lets the 2-hop
+      // rollup below tell a real team lead (Karl Robertshaw: 7 reps report
+      // to him, despite his own roster resourceType wrongly saying "Rep")
+      // apart from an ordinary rep with no reports of their own, who should
+      // still get hopped past to find their real manager. Label-independent
+      // on purpose - Carin, 2026-09-02: "Karl Robertshaw is not a rep".
+      const repReportCountByName = new Map<string, number>();
+      const isRepLikeRosterType = (t: string | null | undefined) => { const u = (t || "").toUpperCase(); return u.includes("REP") || u.includes("FIELDMARKETER"); };
+      for (const r of allRosterRows) {
+        resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
+        // Real gap found 2026-09-02 (Carin: "uppercase line managers...
+        // because it duplicates now on the stock fix adoption") - the same
+        // real manager can be stored with different casing across roster
+        // rows (e.g. "Duanne Nel" vs "DUANNE NEL"), used as-is as every
+        // manager-grouping key below - two casings meant two separate rows
+        // for the same person. Normalizing to uppercase here, once, fixes
+        // every downstream consumer without needing each site fixed
+        // individually.
+        managerByName.set(r.resourceName.toUpperCase().trim(), (r.manager || "").toUpperCase().trim());
+        const mgrKey = (r.manager || "").toUpperCase().trim();
+        if (mgrKey && isRepLikeRosterType(r.resourceType)) {
+          repReportCountByName.set(mgrKey, (repReportCountByName.get(mgrKey) || 0) + 1);
+        }
+      }
+      const resolveManagerBucket = (name: string | null | undefined): string => {
+        let current = managerByName.get(String(name || "").toUpperCase().trim()) || "Unknown";
+        if (current !== "Unknown" && !repReportCountByName.get(current)) {
+          const hopped = managerByName.get(current);
+          if (hopped) current = hopped;
+        }
+        return current;
+      };
+
+      if (filterManager) {
+        completedRawFull = completedRawFull.filter((c) => resolveManagerBucket(c.repName) === filterManager);
+      }
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
       const baseUrl = `${protocol}://${host}`;
@@ -6079,10 +6135,13 @@ export async function registerRoutes(
         left join resource_roster r on r.resource_emp_id = a.resource_emp_id
         where t.week_ending_date = ${week} ${clientCond} ${storeCond}
       `);
-      const assigneeJoinRows = (assigneeJoinResult.rows || assigneeJoinResult).map((r: any) => ({
+      let assigneeJoinRows = (assigneeJoinResult.rows || assigneeJoinResult).map((r: any) => ({
         ...r,
         resourceName: normalizeRepName(r.resourceName),
       })) as any[];
+      if (filterManager) {
+        assigneeJoinRows = assigneeJoinRows.filter((r) => resolveManagerBucket(r.resourceName) === filterManager);
+      }
       const openRows = assigneeJoinRows.filter((r) => r.actionStatus !== "Completed");
       const openTaskIds = new Set(openRows.map((r) => r.uniqueId));
 
@@ -6185,73 +6244,10 @@ export async function registerRoutes(
       // Activity" table built off this data showed real reps under it -
       // resourceType was never in this response at all, so whoever
       // consumes it was guessing/mislabeling instead of using real data).
-      const repNames = Array.from(byRepMap.keys());
-      const resourceTypeByName = new Map<string, string>();
-      const managerByName = new Map<string, string>();
-      // Real gap found 2026-09-02 (Carin, repeatedly: "didn't I say Karl's
-      // reps merchandisers must appear under him too" / merchandisers
-      // reporting to a manager's REPS must roll up under that manager too)
-      // - Karl Robertshaw is typed SYNDICATED REP in the roster, same as an
-      // ordinary field rep, even though 7 reps AND ~128 merchandisers
-      // (through those reps) genuinely report up through him. The old hop
-      // logic used a rep/merchandiser's own resourceType label to decide
-      // whether to trust their named "manager" directly - wrong here, since
-      // Karl's own label is wrong ("Karl Robertshaw is not a rep").
-      // Counting how many REP-typed people list each name as their manager
-      // gives a label-independent signal instead: a real team lead (1+
-      // reps of their own) keeps their reports and everyone reporting
-      // through them; an ordinary rep with zero reps of their own gets
-      // hopped past to find the real manager one level up.
-      const repReportCountByName = new Map<string, number>();
-      if (repNames.length > 0) {
-        const typeRows = await db.select({ resourceName: resourceRoster.resourceName, resourceType: resourceRoster.resourceType, manager: resourceRoster.manager })
-          .from(resourceRoster);
-        const isRepLikeRosterType = (t: string | null | undefined) => { const u = (t || "").toUpperCase(); return u.includes("REP") || u.includes("FIELDMARKETER"); };
-        for (const r of typeRows) {
-          const mgrKey = (r.manager || "").toUpperCase().trim();
-          if (mgrKey && isRepLikeRosterType(r.resourceType)) {
-            repReportCountByName.set(mgrKey, (repReportCountByName.get(mgrKey) || 0) + 1);
-          }
-        }
-        for (const r of typeRows) {
-          resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
-          // Real gap found 2026-09-02 (Carin: "uppercase line managers...
-          // because it duplicates now on the stock fix adoption") - the
-          // same real manager can be stored with different casing across
-          // roster rows (e.g. "Duanne Nel" vs "DUANNE NEL"), and this value
-          // is used as-is as byManagerMap's grouping key below - two
-          // casings meant two separate manager rows for the same person.
-          // Normalizing to uppercase here, once, fixes every downstream
-          // consumer (byManagerMap, the manager filter dropdown, etc)
-          // without needing each site fixed individually.
-          managerByName.set(r.resourceName.toUpperCase().trim(), (r.manager || "").toUpperCase().trim());
-        }
-      }
-      // Real gap found 2026-09-02, final version (Carin, repeatedly:
-      // merchandisers reporting to a manager's REPS must roll up under that
-      // manager too, e.g. Karl Robertshaw's 7 reps have ~128 real
-      // merchandisers reporting through them, not just the 1 who names Karl
-      // directly - confirmed still broken on the Resource leaderboard after
-      // the Adoption-by-manager panel was already fixed, since byRep's own
-      // `manager` field was still a plain one-hop lookup). One shared
-      // 2-hop rule, used everywhere "manager" is computed for grouping
-      // (byRep, byManagerMap, totalPeopleByManagerRole,
-      // activePeopleByManagerRole) so the leaderboard, the manager filter,
-      // and the Adoption-by-manager panel always agree: take the person's
-      // own manager field; if that named person has no REP-typed reports
-      // of their own (repReportCountByName), they're an ordinary peer, not
-      // a real team lead - hop up once more to find their actual manager.
-      // A real team lead like Karl (7 reps report to him) is NEVER hopped
-      // past, no matter what his own roster resourceType label says.
-      const resolveManagerBucket = (name: string): string => {
-        let current = managerByName.get(String(name).toUpperCase().trim()) || "Unknown";
-        if (current !== "Unknown" && !repReportCountByName.get(current)) {
-          const hopped = managerByName.get(current);
-          if (hopped) current = hopped;
-        }
-        return current;
-      };
-
+      // resourceTypeByName/managerByName/repReportCountByName/
+      // resolveManagerBucket are all built earlier now (before the manager
+      // filter is applied to the raw inputs above), so nothing needs
+      // rebuilding here - just used as-is.
       const byRep = toSorted(byRepMap, "rep").map((r: any) => ({
         ...r,
         // displayResourceType collapses client-prefixed syndicated labels
@@ -6335,7 +6331,10 @@ export async function registerRoutes(
       // client filter is active; with no client filter, every person
       // assigned to any store network-wide counts, matching "all clients"
       // everywhere else on this page.
-      const coverageRowsRaw = await getCoverageRows();
+      let coverageRowsRaw = await getCoverageRows();
+      if (filterManager) {
+        coverageRowsRaw = coverageRowsRaw.filter((r) => resolveManagerBucket(r.resourceName) === filterManager);
+      }
       const allAssignees: { resourceName: string; region: string | null; resourceType: string | null }[] = [];
       if (client) {
         const byStore = new Map<string, typeof coverageRowsRaw>();
