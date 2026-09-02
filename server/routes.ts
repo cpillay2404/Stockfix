@@ -6227,6 +6227,31 @@ export async function registerRoutes(
           managerByName.set(r.resourceName.toUpperCase().trim(), (r.manager || "").toUpperCase().trim());
         }
       }
+      // Real gap found 2026-09-02, final version (Carin, repeatedly:
+      // merchandisers reporting to a manager's REPS must roll up under that
+      // manager too, e.g. Karl Robertshaw's 7 reps have ~128 real
+      // merchandisers reporting through them, not just the 1 who names Karl
+      // directly - confirmed still broken on the Resource leaderboard after
+      // the Adoption-by-manager panel was already fixed, since byRep's own
+      // `manager` field was still a plain one-hop lookup). One shared
+      // 2-hop rule, used everywhere "manager" is computed for grouping
+      // (byRep, byManagerMap, totalPeopleByManagerRole,
+      // activePeopleByManagerRole) so the leaderboard, the manager filter,
+      // and the Adoption-by-manager panel always agree: take the person's
+      // own manager field; if that named person has no REP-typed reports
+      // of their own (repReportCountByName), they're an ordinary peer, not
+      // a real team lead - hop up once more to find their actual manager.
+      // A real team lead like Karl (7 reps report to him) is NEVER hopped
+      // past, no matter what his own roster resourceType label says.
+      const resolveManagerBucket = (name: string): string => {
+        let current = managerByName.get(String(name).toUpperCase().trim()) || "Unknown";
+        if (current !== "Unknown" && !repReportCountByName.get(current)) {
+          const hopped = managerByName.get(current);
+          if (hopped) current = hopped;
+        }
+        return current;
+      };
+
       const byRep = toSorted(byRepMap, "rep").map((r: any) => ({
         ...r,
         // displayResourceType collapses client-prefixed syndicated labels
@@ -6234,7 +6259,10 @@ export async function registerRoutes(
         // Rep"/"Syndicated Merchandiser" for reporting (Carin, 2026-08-29).
         resourceType: displayResourceType(resourceTypeByName.get(String(r.rep).toUpperCase().trim()) || resourceTypeFallbackByRepName.get(r.rep) || null),
         region: repRegion.get(r.rep) || null,
-        manager: managerByName.get(String(r.rep).toUpperCase().trim()) || managerFallbackByRepName.get(r.rep) || null,
+        manager: (() => {
+          const resolved = resolveManagerBucket(r.rep);
+          return resolved !== "Unknown" ? resolved : (managerFallbackByRepName.get(r.rep) || null);
+        })(),
       }));
 
       // Real gap found 2026-08-24 (Carin: "siyanda had 2 reps that
@@ -6268,28 +6296,6 @@ export async function registerRoutes(
           if (repManager) return repManager;
         }
         return ownManager;
-      };
-
-      // Real gap found 2026-09-02, final version (Carin, repeatedly:
-      // merchandisers reporting to a manager's REPS must roll up under that
-      // manager too, e.g. Karl Robertshaw's 7 reps have ~128 real
-      // merchandisers reporting through them, not just the 1 who names Karl
-      // directly). One shared 2-hop rule, used everywhere "manager" is
-      // computed for grouping (byManagerMap, totalPeopleByManagerRole,
-      // activePeopleByManagerRole) so the flat counts and the reps/merch
-      // split always agree: take the person's own manager field; if that
-      // named person has no REP-typed reports of their own
-      // (repReportCountByName), they're an ordinary peer, not a real team
-      // lead - hop up once more to find their actual manager. A real team
-      // lead like Karl (7 reps report to him) is NEVER hopped past, no
-      // matter what his own roster resourceType label says.
-      const resolveManagerBucket = (name: string): string => {
-        let current = managerByName.get(String(name).toUpperCase().trim()) || "Unknown";
-        if (current !== "Unknown" && !repReportCountByName.get(current)) {
-          const hopped = managerByName.get(current);
-          if (hopped) current = hopped;
-        }
-        return current;
       };
 
       // Real "by manager" breakdown (Carin, 2026-08-19: "how do i see the
