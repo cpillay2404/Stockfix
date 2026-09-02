@@ -6033,6 +6033,19 @@ export async function registerRoutes(
       // KPI totals/recent) automatically sees only the requested manager's
       // team, the same way the existing client/store filters already
       // scope the underlying SQL queries upstream of everything else.
+      // Real bug found 2026-09-02 (Carin: "Canethia Snowman" showing twice
+      // on the Resource leaderboard) - her roster name has a genuine double
+      // space ("CANETHIA  SNOWMAN"), while some task-assignee rows have a
+      // single space ("Canethia Snowman"). Plain .toUpperCase().trim() only
+      // strips leading/trailing whitespace, never internal runs of it - two
+      // texts that are the same real name can still fail to match, the same
+      // way a casing mismatch would. Every name used as a lookup/grouping
+      // key anywhere in this endpoint (resourceTypeByName, managerByName,
+      // repReportCountByName, resolveManagerBucket, byRep's own lookups)
+      // goes through this one function so they can never drift out of sync
+      // with each other.
+      const normKey = (s: string | null | undefined): string => (s || "").trim().replace(/\s+/g, " ").toUpperCase();
+
       const allRosterRows = await db.select({ resourceName: resourceRoster.resourceName, resourceType: resourceRoster.resourceType, manager: resourceRoster.manager })
         .from(resourceRoster);
       const resourceTypeByName = new Map<string, string>();
@@ -6046,23 +6059,22 @@ export async function registerRoutes(
       const repReportCountByName = new Map<string, number>();
       const isRepLikeRosterType = (t: string | null | undefined) => { const u = (t || "").toUpperCase(); return u.includes("REP") || u.includes("FIELDMARKETER"); };
       for (const r of allRosterRows) {
-        resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
+        resourceTypeByName.set(normKey(r.resourceName), r.resourceType || "");
         // Real gap found 2026-09-02 (Carin: "uppercase line managers...
         // because it duplicates now on the stock fix adoption") - the same
         // real manager can be stored with different casing across roster
         // rows (e.g. "Duanne Nel" vs "DUANNE NEL"), used as-is as every
         // manager-grouping key below - two casings meant two separate rows
-        // for the same person. Normalizing to uppercase here, once, fixes
-        // every downstream consumer without needing each site fixed
-        // individually.
-        managerByName.set(r.resourceName.toUpperCase().trim(), (r.manager || "").toUpperCase().trim());
-        const mgrKey = (r.manager || "").toUpperCase().trim();
+        // for the same person. Normalizing here, once, fixes every
+        // downstream consumer without needing each site fixed individually.
+        managerByName.set(normKey(r.resourceName), normKey(r.manager));
+        const mgrKey = normKey(r.manager);
         if (mgrKey && isRepLikeRosterType(r.resourceType)) {
           repReportCountByName.set(mgrKey, (repReportCountByName.get(mgrKey) || 0) + 1);
         }
       }
       const resolveManagerBucket = (name: string | null | undefined): string => {
-        let current = managerByName.get(String(name || "").toUpperCase().trim()) || "Unknown";
+        let current = managerByName.get(normKey(name)) || "Unknown";
         if (current !== "Unknown" && !repReportCountByName.get(current)) {
           const hopped = managerByName.get(current);
           if (hopped) current = hopped;
@@ -6097,8 +6109,16 @@ export async function registerRoutes(
       // (byRepMap, repRegion, resourceTypeFallbackByRepName, etc.) treats
       // the same real person as one person without needing each site
       // touched individually.
+      // Real bug found 2026-09-02 (Carin: "Canethia Snowman" showing twice
+      // on the Resource leaderboard) - her roster name has a genuine double
+      // space ("CANETHIA  SNOWMAN"), while some task-assignee rows have a
+      // single space ("Canethia Snowman"). .trim() only strips leading/
+      // trailing whitespace, never internal runs of it - the two texts
+      // still didn't match after normalizing, splitting one real person
+      // into two rows the same way a casing mismatch would. Collapsing any
+      // run of internal whitespace to one space closes this for good.
       const normalizeRepName = (s: string | null | undefined): string =>
-        s ? s.trim().toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : s || "";
+        s ? s.trim().replace(/\s+/g, " ").toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase()) : s || "";
 
       const completed = completedRawFull.map((c) => ({
         ...c,
@@ -6253,7 +6273,7 @@ export async function registerRoutes(
         // displayResourceType collapses client-prefixed syndicated labels
         // (e.g. "P&G SYNDICATED REP") down to one consistent "Syndicated
         // Rep"/"Syndicated Merchandiser" for reporting (Carin, 2026-08-29).
-        resourceType: displayResourceType(resourceTypeByName.get(String(r.rep).toUpperCase().trim()) || resourceTypeFallbackByRepName.get(r.rep) || null),
+        resourceType: displayResourceType(resourceTypeByName.get(normKey(r.rep)) || resourceTypeFallbackByRepName.get(r.rep) || null),
         region: repRegion.get(r.rep) || null,
         manager: (() => {
           const resolved = resolveManagerBucket(r.rep);
@@ -6283,12 +6303,12 @@ export async function registerRoutes(
       // below, kept inline here since this helper is defined first.
       const trueManagerByName = (name: string | null | undefined): string | null => {
         if (!name) return null;
-        const key = String(name).toUpperCase().trim();
+        const key = normKey(name);
         const ownType = resourceTypeByName.get(key);
         const ownManager = managerByName.get(key) || null;
         if (isRepLikeType(ownType)) return ownManager;
-        if (ownManager && !repReportCountByName.get(ownManager.toUpperCase().trim())) {
-          const repManager = managerByName.get(ownManager.toUpperCase().trim());
+        if (ownManager && !repReportCountByName.get(normKey(ownManager))) {
+          const repManager = managerByName.get(normKey(ownManager));
           if (repManager) return repManager;
         }
         return ownManager;
@@ -6525,7 +6545,7 @@ export async function registerRoutes(
         recent: completed
           .filter((c) => {
             if (filterRegion && normalizeRegion(c.region) !== filterRegion) return false;
-            if (filterType && (resourceTypeByName.get(String(c.repName).toUpperCase().trim()) || "").toUpperCase() !== filterType) return false;
+            if (filterType && (resourceTypeByName.get(normKey(c.repName)) || "").toUpperCase() !== filterType) return false;
             if (filterManager && (trueManagerByName(c.repName) || "").toUpperCase() !== filterManager) return false;
             return true;
           })
