@@ -5931,6 +5931,35 @@ export async function registerRoutes(
     }
   });
 
+  // Real outage found 2026-09-02: the store_assignments+resource_roster
+  // join added that day (for the "total people = real store coverage, not
+  // just who got a task generated" fix) takes ~4s on its own, and used to
+  // re-run on EVERY /api/live-dashboard call - every filter click, every
+  // page load. Stacked with everything else this endpoint already does,
+  // that took the whole page down (60s+ timeouts, nothing ever loaded).
+  // This data only ever changes via an explicit Call Cycle Master import,
+  // never between captures, so a short cache costs nothing in real
+  // freshness - unlike the captures/counts data below, which stays
+  // deliberately uncached per Carin's "always-fresh on load" call.
+  const COVERAGE_CACHE_MS = 2 * 60 * 1000;
+  let coverageCache: { at: number; rows: any[] } | null = null;
+  async function getCoverageRows() {
+    if (coverageCache && Date.now() - coverageCache.at < COVERAGE_CACHE_MS) return coverageCache.rows;
+    const rows = await db
+      .select({
+        resourceEmpId: storeAssignments.resourceEmpId,
+        resourceName: storeAssignments.resourceName,
+        cleanedStoreName: storeAssignments.cleanedStoreName,
+        region: storeAssignments.region,
+        clientScope: storeAssignments.clientScope,
+        resourceType: resourceRoster.resourceType,
+      })
+      .from(storeAssignments)
+      .leftJoin(resourceRoster, sql`upper(trim(${storeAssignments.resourceEmpId})) = upper(trim(${resourceRoster.resourceEmpId}))`);
+    coverageCache = { at: Date.now(), rows };
+    return rows;
+  }
+
   // GET /api/live-dashboard - company-wide live view of this week's
   // capture activity (Carin, 2026-08-19: "we need to plan a live dashboard
   // for this weeks tasks being captured" - "everyone" should be able to see
@@ -6300,17 +6329,7 @@ export async function registerRoutes(
       // client filter is active; with no client filter, every person
       // assigned to any store network-wide counts, matching "all clients"
       // everywhere else on this page.
-      const coverageRowsRaw = await db
-        .select({
-          resourceEmpId: storeAssignments.resourceEmpId,
-          resourceName: storeAssignments.resourceName,
-          cleanedStoreName: storeAssignments.cleanedStoreName,
-          region: storeAssignments.region,
-          clientScope: storeAssignments.clientScope,
-          resourceType: resourceRoster.resourceType,
-        })
-        .from(storeAssignments)
-        .leftJoin(resourceRoster, sql`upper(trim(${storeAssignments.resourceEmpId})) = upper(trim(${resourceRoster.resourceEmpId}))`);
+      const coverageRowsRaw = await getCoverageRows();
       const allAssignees: { resourceName: string; region: string | null; resourceType: string | null }[] = [];
       if (client) {
         const byStore = new Map<string, typeof coverageRowsRaw>();
