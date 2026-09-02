@@ -6159,26 +6159,30 @@ export async function registerRoutes(
       const repNames = Array.from(byRepMap.keys());
       const resourceTypeByName = new Map<string, string>();
       const managerByName = new Map<string, string>();
-      // Real gap found 2026-09-02 (Carin: "didn't I say Karl's reps
-      // merchandisers must appear under him too" - Karl Robertshaw is
-      // typed SYNDICATED REP in the roster, same as an ordinary field rep,
-      // even though 6 reps AND a merchandiser genuinely list him as their
-      // real manager) - trueManagerByName below hops a merchandiser's
-      // named "manager" up one level whenever that person is Rep-typed,
-      // on the assumption they're just an incidental peer rep, not a real
-      // manager. That assumption breaks for anyone like Karl who actually
-      // has their own team. Counting how many people list each name as
-      // their manager lets the hop-up tell the two cases apart: a true
-      // team lead (2+ direct reports) keeps their own reports; a lone
-      // peer-rep mislabel (this merchandiser is the only one pointing at
-      // them) still hops up as before.
-      const directReportCountByName = new Map<string, number>();
+      // Real gap found 2026-09-02 (Carin, repeatedly: "didn't I say Karl's
+      // reps merchandisers must appear under him too" / merchandisers
+      // reporting to a manager's REPS must roll up under that manager too)
+      // - Karl Robertshaw is typed SYNDICATED REP in the roster, same as an
+      // ordinary field rep, even though 7 reps AND ~128 merchandisers
+      // (through those reps) genuinely report up through him. The old hop
+      // logic used a rep/merchandiser's own resourceType label to decide
+      // whether to trust their named "manager" directly - wrong here, since
+      // Karl's own label is wrong ("Karl Robertshaw is not a rep").
+      // Counting how many REP-typed people list each name as their manager
+      // gives a label-independent signal instead: a real team lead (1+
+      // reps of their own) keeps their reports and everyone reporting
+      // through them; an ordinary rep with zero reps of their own gets
+      // hopped past to find the real manager one level up.
+      const repReportCountByName = new Map<string, number>();
       if (repNames.length > 0) {
         const typeRows = await db.select({ resourceName: resourceRoster.resourceName, resourceType: resourceRoster.resourceType, manager: resourceRoster.manager })
           .from(resourceRoster);
+        const isRepLikeRosterType = (t: string | null | undefined) => { const u = (t || "").toUpperCase(); return u.includes("REP") || u.includes("FIELDMARKETER"); };
         for (const r of typeRows) {
           const mgrKey = (r.manager || "").toUpperCase().trim();
-          if (mgrKey) directReportCountByName.set(mgrKey, (directReportCountByName.get(mgrKey) || 0) + 1);
+          if (mgrKey && isRepLikeRosterType(r.resourceType)) {
+            repReportCountByName.set(mgrKey, (repReportCountByName.get(mgrKey) || 0) + 1);
+          }
         }
         for (const r of typeRows) {
           resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
@@ -6215,24 +6219,48 @@ export async function registerRoutes(
       // building the Adoption-by-manager panel) - trace it one hop up for
       // a manager filter to mean what a manager would expect.
       const isRepLikeType = (t: string | null | undefined) => { const u = (t || "").toUpperCase(); return u.includes("REP") || u.includes("FIELDMARKETER"); };
+      // Real gap found 2026-09-02, final version (Carin, repeatedly:
+      // merchandisers reporting to a manager's REPS must roll up under that
+      // manager too) - a merchandiser's named manager is only trusted
+      // directly if THAT person has real REP-typed reports of their own
+      // (repReportCountByName) - a genuine team lead like Karl Robertshaw
+      // (7 reps report to him), whatever his own roster resourceType label
+      // says. Otherwise it's an ordinary rep with no team, and the true
+      // manager is one hop further up. Same rule as resolveManagerBucket
+      // below, kept inline here since this helper is defined first.
       const trueManagerByName = (name: string | null | undefined): string | null => {
         if (!name) return null;
         const key = String(name).toUpperCase().trim();
         const ownType = resourceTypeByName.get(key);
         const ownManager = managerByName.get(key) || null;
         if (isRepLikeType(ownType)) return ownManager;
-        // Merchandiser (or unknown type): only hop up if the named "manager"
-        // has no real team of their own (2026-09-02 fix - see comment where
-        // directReportCountByName is built). Someone with 2+ direct reports,
-        // like Karl Robertshaw, IS this merchandiser's real manager, whatever
-        // their own roster resourceType happens to say (Carin: "Karl
-        // Robertshaw is not a rep" - that label is wrong, but this check no
-        // longer depends on it either way).
-        if (ownManager && (directReportCountByName.get(ownManager.toUpperCase().trim()) || 0) <= 1) {
+        if (ownManager && !repReportCountByName.get(ownManager.toUpperCase().trim())) {
           const repManager = managerByName.get(ownManager.toUpperCase().trim());
           if (repManager) return repManager;
         }
         return ownManager;
+      };
+
+      // Real gap found 2026-09-02, final version (Carin, repeatedly:
+      // merchandisers reporting to a manager's REPS must roll up under that
+      // manager too, e.g. Karl Robertshaw's 7 reps have ~128 real
+      // merchandisers reporting through them, not just the 1 who names Karl
+      // directly). One shared 2-hop rule, used everywhere "manager" is
+      // computed for grouping (byManagerMap, totalPeopleByManagerRole,
+      // activePeopleByManagerRole) so the flat counts and the reps/merch
+      // split always agree: take the person's own manager field; if that
+      // named person has no REP-typed reports of their own
+      // (repReportCountByName), they're an ordinary peer, not a real team
+      // lead - hop up once more to find their actual manager. A real team
+      // lead like Karl (7 reps report to him) is NEVER hopped past, no
+      // matter what his own roster resourceType label says.
+      const resolveManagerBucket = (name: string): string => {
+        let current = managerByName.get(String(name).toUpperCase().trim()) || "Unknown";
+        if (current !== "Unknown" && !repReportCountByName.get(current)) {
+          const hopped = managerByName.get(current);
+          if (hopped) current = hopped;
+        }
+        return current;
       };
 
       // Real "by manager" breakdown (Carin, 2026-08-19: "how do i see the
@@ -6241,7 +6269,7 @@ export async function registerRoutes(
       // as byStore/byClient/byRep/byRegion.
       const byManagerMap = new Map<string, { completed: number; open: Set<string> }>();
       for (const [repName, counts] of Array.from(byRepMap.entries())) {
-        const manager = managerByName.get(repName.toUpperCase().trim()) || "Unknown";
+        const manager = resolveManagerBucket(repName);
         if (!byManagerMap.has(manager)) byManagerMap.set(manager, { completed: 0, open: new Set() });
         const entry = byManagerMap.get(manager)!;
         entry.completed += counts.completed;
@@ -6352,7 +6380,7 @@ export async function registerRoutes(
         const rrKey = `${region}::${role}`;
         if (!totalPeopleByRegionRole.has(rrKey)) totalPeopleByRegionRole.set(rrKey, new Set());
         totalPeopleByRegionRole.get(rrKey)!.add(a.resourceName);
-        const manager = managerByName.get(String(a.resourceName).toUpperCase().trim()) || "Unknown";
+        const manager = resolveManagerBucket(a.resourceName);
         if (!totalPeopleByManager.has(manager)) totalPeopleByManager.set(manager, new Set());
         totalPeopleByManager.get(manager)!.add(a.resourceName);
         const mrKey = `${manager}::${role}`;
@@ -6379,7 +6407,7 @@ export async function registerRoutes(
         const rrKey = `${region}::${role}`;
         if (!activePeopleByRegionRole.has(rrKey)) activePeopleByRegionRole.set(rrKey, new Set());
         activePeopleByRegionRole.get(rrKey)!.add(c.repName);
-        const manager = managerByName.get(String(c.repName).toUpperCase().trim()) || "Unknown";
+        const manager = resolveManagerBucket(c.repName);
         if (!activePeopleByManager.has(manager)) activePeopleByManager.set(manager, new Set());
         activePeopleByManager.get(manager)!.add(c.repName);
         const mrKey = `${manager}::${role}`;
