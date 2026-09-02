@@ -741,12 +741,18 @@ class Component extends DCLogic {
       slot[0] += Number(active || 0); slot[1] += Number(total || 0);
     };
     // Real gap found 2026-08-24 (Carin: "this does not react to filters") -
-    // m.d.byRegion is only ever scoped by client/store server-side, never
-    // by manager/resourceType - so those two filters left the region and
-    // division cards showing full-network numbers. Only take the server's
-    // pre-aggregated regions when neither of those two is active; region
-    // itself already narrows correctly inside the loop below.
-    const apiRegions = (!s.manager && !s.rtype && Array.isArray(m.d.byRegion)) ? m.d.byRegion : null;
+    // m.d.byRegion used to only ever be scoped by client/store server-side,
+    // never by manager/resourceType - so those two filters left the region
+    // and division cards showing full-network numbers, falling back to a
+    // client-side approximation that never set totalPeople/activePeople at
+    // all (Carin, 2026-09-02: Coastal Adoption's own total showed "—"
+    // despite its Reps/Merch sub-rows being correct - that fallback path is
+    // why). /api/live-dashboard's ?manager= now scopes byRegion (and
+    // everything else) correctly server-side (2026-09-02 fix), so the
+    // manager exclusion here is stale and was actively hiding the correct
+    // data - removed. resourceType (?rtype=) still isn't server-scoped, so
+    // that exclusion stays.
+    const apiRegions = (!s.rtype && Array.isArray(m.d.byRegion)) ? m.d.byRegion : null;
     if (apiRegions) {
       apiRegions.forEach(x => {
         const k = pick(x, REGION_KEYS) || String(x.name ?? x.label ?? '—');
