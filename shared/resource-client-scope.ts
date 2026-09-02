@@ -47,7 +47,16 @@ export function displayResourceType(resourceType: string | null | undefined): st
   if (isSyndicatedResourceType(resourceType)) {
     return isMerchandiserType(resourceType) ? "Syndicated Merchandiser" : "Syndicated Rep";
   }
-  return resourceType;
+  // Real gap found 2026-09-02 (Carin: "uppercase... resource type because
+  // it duplicates now on the stock fix adoption") - a dedicated type isn't
+  // just written "P&G SYNDICATED REP" vs "SYNDICATED REP" (the case this
+  // function already collapsed above) - the SAME dedicated label can also
+  // carry different casing across imports (e.g. "P&G Dedicated Rep" vs
+  // "P&G DEDICATED REP"), which fragmented into two separate reporting
+  // rows the same way. Normalizing every non-syndicated label to uppercase
+  // here keeps it one consistent row regardless of casing, matching the
+  // syndicated case's already-fixed, single-label behavior.
+  return resourceType.trim().toUpperCase();
 }
 
 export function dedicatedClientScopesAtStore(resources: Pick<ClientScopedResource, "clientScope" | "resourceType">[]): Set<string> {

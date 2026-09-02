@@ -6137,7 +6137,10 @@ export async function registerRoutes(
           byRepMap.get(o.resourceName)!.open.add(o.uniqueId);
           if (o.region && !repRegion.has(o.resourceName)) repRegion.set(o.resourceName, normalizeRegion(o.region));
           if (o.resourceType && !resourceTypeFallbackByRepName.has(o.resourceName)) resourceTypeFallbackByRepName.set(o.resourceName, o.resourceType);
-          if (o.manager && !managerFallbackByRepName.has(o.resourceName)) managerFallbackByRepName.set(o.resourceName, o.manager);
+          // Same uppercase normalization as managerByName above, applied to
+          // this fallback path too so a rep with no direct roster manager
+          // match still gets a casing-consistent value (Carin, 2026-09-02).
+          if (o.manager && !managerFallbackByRepName.has(o.resourceName)) managerFallbackByRepName.set(o.resourceName, o.manager.toUpperCase().trim());
         }
         const region = normalizeRegion(o.region);
         if (!byRegionMap.has(region)) byRegionMap.set(region, { completed: 0, open: new Set() });
@@ -6161,7 +6164,16 @@ export async function registerRoutes(
           .from(resourceRoster);
         for (const r of typeRows) {
           resourceTypeByName.set(r.resourceName.toUpperCase().trim(), r.resourceType || "");
-          managerByName.set(r.resourceName.toUpperCase().trim(), r.manager || "");
+          // Real gap found 2026-09-02 (Carin: "uppercase line managers...
+          // because it duplicates now on the stock fix adoption") - the
+          // same real manager can be stored with different casing across
+          // roster rows (e.g. "Duanne Nel" vs "DUANNE NEL"), and this value
+          // is used as-is as byManagerMap's grouping key below - two
+          // casings meant two separate manager rows for the same person.
+          // Normalizing to uppercase here, once, fixes every downstream
+          // consumer (byManagerMap, the manager filter dropdown, etc)
+          // without needing each site fixed individually.
+          managerByName.set(r.resourceName.toUpperCase().trim(), (r.manager || "").toUpperCase().trim());
         }
       }
       const byRep = toSorted(byRepMap, "rep").map((r: any) => ({
