@@ -876,7 +876,7 @@ class Component extends DCLogic {
     // fixes both the missing-people gap and the casing-split risk in one
     // move, and stays correct automatically if the server logic changes.
     const mq = s.managerQuery.trim().toLowerCase();
-    const managerList = (Array.isArray(d.byManager) ? d.byManager : [])
+    const managerList = (s.data && Array.isArray(s.data.byManager) ? s.data.byManager : [])
       .filter(e => e.manager && e.manager !== 'Unknown')
       .filter(e => !mq || e.manager.toLowerCase().includes(mq))
       .map(e => ({
