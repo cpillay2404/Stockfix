@@ -870,11 +870,22 @@ class Component extends DCLogic {
     const isMerchType = (t) => String(t || '').toUpperCase().includes('MERCHANDISER');
     const repManagerByName = new Map();
     m.reps.forEach(r => { if (isRepType(r.resourceType) && r.manager) repManagerByName.set(String(r.rep).toUpperCase().trim(), r.manager); });
+    // Real bug found 2026-09-02 (Carin: Karl Robertshaw showed "Reps 3/5,
+    // Merch -" despite genuinely having a merchandiser) - this panel grouped
+    // by the raw r.manager text as its own map key, uppercased nowhere. If a
+    // rep's manager field and a merchandiser's manager field for the exact
+    // same real manager ever differ in casing (even after the server-side
+    // fix, this is a second, independent grouping pass with its own key),
+    // reps and merch silently split into two separate, unmerged rows - one
+    // shown, one invisible. Normalizing the key here the same way as every
+    // other casing-duplicate fix this week makes this panel robust
+    // regardless of what casing anything upstream happens to send it.
     const managerAgg = new Map();
     const ensureManager = (name) => {
-      const key = String(name || 'Unknown').trim() || 'Unknown';
+      const display = String(name || 'Unknown').trim() || 'Unknown';
+      const key = display.toUpperCase();
       let e = managerAgg.get(key);
-      if (!e) { e = { manager: key, reps: [0, 0], merch: [0, 0] }; managerAgg.set(key, e); }
+      if (!e) { e = { manager: display, reps: [0, 0], merch: [0, 0] }; managerAgg.set(key, e); }
       return e;
     };
     m.reps.forEach(r => {
