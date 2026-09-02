@@ -36,7 +36,7 @@ import {
 import { invStoreSummary, invSkuMetrics, invSyncLog, pilotCaptures, resourceRoster, storeAssignments } from "@shared/schema";
 import pilotRepsSeed from "./pilot-reps-seed.json" with { type: "json" };
 import { requireIdentity, scopeToClient, findRosterMatch, issueIdentityToken, importRosterRows, importStoreAssignments, clientScopeFromResourceType, IDENTITY_COOKIE_NAME, IDENTITY_TOKEN_TTL_MS } from "./identity";
-import { dedicatedClientScopesAtStore, isSyndicatedResourceType, displayResourceType } from "@shared/resource-client-scope";
+import { dedicatedClientScopesAtStore, isSyndicatedResourceType, displayResourceType, resolveEligibleResourceCoverage } from "@shared/resource-client-scope";
 import { runWeeklySummarySync, fetchNexusWeeks, fetchLatestWeek, runDistributionGapsOnlySync, isSyncRunning, markSyncStarted, markSyncFinished, getSyncJobStatus, NEXUS_CLIENTS } from "./nexus-sync";
 import { claimTask, generateTasksForWeek, wipeTasksForWeek, createTaskOnDemand, countRealOverstockAtStore, listRealOverstockAtStore, isEligibleForOnDemandTask, resyncOpenTaskAssignees, isResyncRunning, markResyncStarted, markResyncFinished, getResyncJobStatus } from "./nexus-task-generation";
 import { storeWeeklySummary, storeSkuWeekly, nexusTasks, nexusTaskAssignees, adoptionSnapshots, weekGenerationLog } from "@shared/schema";
@@ -6255,13 +6255,58 @@ export async function registerRoutes(
       // are meaningless as an adoption rate: a region with 3 captures out
       // of 42,531 open tasks looked "75% of captures" while every other
       // region with real people who haven't captured yet showed nothing).
-      // Real formula: distinct people who captured >=1 task this week,
-      // divided by the distinct people who were actually assigned >=1 task
-      // this week (the full nexus_task_assignees pool for the week,
-      // regardless of whether that specific task is now completed - a
-      // person keeps counting in the denominator even after their task is
-      // done, since claimTask() never deletes their assignee row).
-      const allAssignees = assigneeJoinRows;
+      //
+      // Real gap found 2026-09-02 (Carin, confirmed live via Karl
+      // Robertshaw: 129 real people report through his chain, but only 8
+      // ever appeared anywhere on this page) - the denominator used to be
+      // the nexus_task_assignees pool (assigneeJoinRows), i.e. people who
+      // had a real task GENERATED for them this week. Someone whose stores
+      // simply had no flagged issue this week - or who fell through a Call
+      // Cycle/Store Mapper coverage gap upstream - was invisible
+      // everywhere, not counted as "0% active", just silently missing,
+      // understating every denominator on the page. "Only people that have
+      // been assigned a store on Stock Fix, not the total call cycle" -
+      // total people is now built from store_assignments itself (who
+      // StockFix actually has on record as covering a store), resolved
+      // per-client the exact same way task eligibility already is when a
+      // client filter is active; with no client filter, every person
+      // assigned to any store network-wide counts, matching "all clients"
+      // everywhere else on this page.
+      const coverageRowsRaw = await db
+        .select({
+          resourceEmpId: storeAssignments.resourceEmpId,
+          resourceName: storeAssignments.resourceName,
+          cleanedStoreName: storeAssignments.cleanedStoreName,
+          region: storeAssignments.region,
+          clientScope: storeAssignments.clientScope,
+          resourceType: resourceRoster.resourceType,
+        })
+        .from(storeAssignments)
+        .leftJoin(resourceRoster, sql`upper(trim(${storeAssignments.resourceEmpId})) = upper(trim(${resourceRoster.resourceEmpId}))`);
+      const allAssignees: { resourceName: string; region: string | null; resourceType: string | null }[] = [];
+      if (client) {
+        const byStore = new Map<string, typeof coverageRowsRaw>();
+        for (const r of coverageRowsRaw) {
+          const key = r.cleanedStoreName.toUpperCase().trim();
+          const list = byStore.get(key) || [];
+          list.push(r);
+          byStore.set(key, list);
+        }
+        for (const entries of Array.from(byStore.values())) {
+          const eligible = resolveEligibleResourceCoverage(
+            entries.map((e) => ({ empId: e.resourceEmpId, resourceName: e.resourceName, clientScope: e.clientScope, resourceType: e.resourceType })),
+            client,
+          );
+          for (const e of eligible) {
+            const full = entries.find((x) => x.resourceEmpId === e.empId);
+            if (full) allAssignees.push({ resourceName: normalizeRepName(full.resourceName), region: full.region, resourceType: full.resourceType });
+          }
+        }
+      } else {
+        for (const r of coverageRowsRaw) {
+          allAssignees.push({ resourceName: normalizeRepName(r.resourceName), region: r.region, resourceType: r.resourceType });
+        }
+      }
 
       // Real resourceType values are things like "SYNDICATED REP",
       // "P&G DEDICATED MERCHANDISER", "FIELDMARKETER" (Carin, 2026-08-20:
