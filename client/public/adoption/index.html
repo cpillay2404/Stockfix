@@ -463,8 +463,30 @@ class Component extends DCLogic {
     // can be a view for all the weeks in the month") - takes priority over
     // a single-week selection since picking a month clears it (see onMonth/
     // onWeek below, which keep the two mutually exclusive).
+    // Real gap found 2026-08-24 (Carin: "siyanda had 2 reps that captured
+    // why they not appearing here") - region/manager/resourceType filters
+    // used to apply client-side to an already 50-row-capped feed, missing
+    // anything older than that narrow window. Send them to the server so
+    // filtering happens against the full completed set, not the cap.
+    // Real gap found 2026-09-03, live, Carin ("if i select a manager why
+    // do all managers still appear") - the server-side support for scoping
+    // Month view and saved-week snapshots by these same 5 filters was built
+    // and deployed (see filterSnapshotData in routes.ts), but THIS function
+    // never actually attached them to the month/week fetch URLs below -
+    // only the live-dashboard branch did. The server was correct and tested
+    // independently; this page just never asked it for a scoped answer.
+    // Built once, shared by every branch below, so the three fetches can
+    // never drift out of sync with each other again.
+    const q = [];
+    if (this.state.client) q.push('client=' + encodeURIComponent(this.state.client));
+    if (this.state.store) q.push('store=' + encodeURIComponent(this.state.store));
+    if (this.state.region) q.push('region=' + encodeURIComponent(this.state.region));
+    if (this.state.manager) q.push('manager=' + encodeURIComponent(this.state.manager));
+    if (this.state.rtype) q.push('rtype=' + encodeURIComponent(this.state.rtype));
+    const qs = q.length ? '&' + q.join('&') : '';
+
     if (this.state.month) {
-      this.json(this.base + '/api/admin/adoption-month?month=' + encodeURIComponent(this.state.month))
+      this.json(this.base + '/api/admin/adoption-month?month=' + encodeURIComponent(this.state.month) + qs)
         .then(data => { this._sig = null; this.setState({ data, err: '', loading: false, at: new Date() }); })
         .catch(e => this.setState({ err: 'Could not load the month view — ' + (e.message || e), loading: false }));
       return;
@@ -473,28 +495,13 @@ class Component extends DCLogic {
     // endpoint - once that week is wiped, /api/live-dashboard has nothing
     // left for it, but the snapshot (saved automatically right before the
     // wipe) still has the exact same shape this whole page already expects.
-    // Snapshots aren't scoped by client/store/region/manager/rtype server-
-    // side (that filtering only exists on the live route) - client-side
-    // filtering already downstream of this (m.reps etc) still applies to
-    // whatever the snapshot returns, same as it would to a live response.
     if (this.state.week) {
-      this.json(this.base + '/api/adoption-snapshot?week=' + encodeURIComponent(this.state.week))
+      this.json(this.base + '/api/adoption-snapshot?week=' + encodeURIComponent(this.state.week) + qs)
         .then(data => { this._sig = null; this.setState({ data, err: '', loading: false, at: new Date() }); })
         .catch(e => this.setState({ err: 'Could not load the saved snapshot for this week — ' + (e.message || e), loading: false }));
       return;
     }
-    const q = [];
-    if (this.state.client) q.push('client=' + encodeURIComponent(this.state.client));
-    if (this.state.store) q.push('store=' + encodeURIComponent(this.state.store));
-    // Real gap found 2026-08-24 (Carin: "siyanda had 2 reps that captured
-    // why they not appearing here") - region/manager/resourceType filters
-    // used to apply client-side to an already 50-row-capped feed, missing
-    // anything older than that narrow window. Send them to the server so
-    // filtering happens against the full completed set, not the cap.
-    if (this.state.region) q.push('region=' + encodeURIComponent(this.state.region));
-    if (this.state.manager) q.push('manager=' + encodeURIComponent(this.state.manager));
-    if (this.state.rtype) q.push('rtype=' + encodeURIComponent(this.state.rtype));
-    this.json(this.base + '/api/live-dashboard' + (q.length ? '?' + q.join('&') : ''))
+    this.json(this.base + '/api/live-dashboard' + (qs ? '?' + qs.slice(1) : ''))
       .then(data => { this._sig = null; this.setState({ data, err: '', loading: false, at: new Date() }); })
       .catch(e => this.setState({ err: 'Could not reach /api/live-dashboard — ' + (e.message || e), loading: false }));
   }
