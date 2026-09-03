@@ -6107,6 +6107,18 @@ export async function registerRoutes(
       if (filterRegion) {
         completedRawFull = completedRawFull.filter((c) => (c.region || "").trim().toUpperCase() === filterRegion);
       }
+      // Real gap found 2026-09-03 audit - filterType (?rtype=) used to only
+      // narrow the Captures feed, and even there compared the RAW roster
+      // value ("P&G SYNDICATED REP") against filterType, while the dropdown
+      // the user actually picks from is built from displayResourceType()'s
+      // collapsed label ("Syndicated Rep") - uppercased, those never match,
+      // so picking a resource type silently returned zero captures while
+      // every other panel kept showing the whole network. Compare through
+      // the same displayResourceType() collapse everywhere, and apply it
+      // upstream like manager/region so every panel is actually scoped.
+      if (filterType) {
+        completedRawFull = completedRawFull.filter((c) => displayResourceType(c.resourceType || resourceTypeByName.get(normKey(c.repName)) || "").toUpperCase() === filterType);
+      }
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
       const baseUrl = `${protocol}://${host}`;
@@ -6186,6 +6198,9 @@ export async function registerRoutes(
       }
       if (filterRegion) {
         assigneeJoinRows = assigneeJoinRows.filter((r) => (r.region || "").trim().toUpperCase() === filterRegion);
+      }
+      if (filterType) {
+        assigneeJoinRows = assigneeJoinRows.filter((r) => displayResourceType(r.resourceType || resourceTypeByName.get(normKey(r.resourceName)) || "").toUpperCase() === filterType);
       }
       const openRows = assigneeJoinRows.filter((r) => r.actionStatus !== "Completed");
       const openTaskIds = new Set(openRows.map((r) => r.uniqueId));
@@ -6392,6 +6407,9 @@ export async function registerRoutes(
       if (store) {
         const filterStore = store.toUpperCase().trim();
         coverageRowsRaw = coverageRowsRaw.filter((r) => (r.cleanedStoreName || "").toUpperCase().trim() === filterStore);
+      }
+      if (filterType) {
+        coverageRowsRaw = coverageRowsRaw.filter((r) => displayResourceType(r.resourceType || "").toUpperCase() === filterType);
       }
       const allAssignees: { resourceName: string; region: string | null; resourceType: string | null }[] = [];
       if (client) {
@@ -6646,16 +6664,121 @@ export async function registerRoutes(
     }
   });
 
+  // Real gap found 2026-09-03, live, Carin: picking a manager while viewing
+  // a saved snapshot or Month view scoped the KPI cards/leaderboard (built
+  // client-side from byRep) but left Adoption-by-region/manager showing the
+  // WHOLE NETWORK, because these endpoints returned the snapshot's frozen
+  // aggregates untouched. Her explicit call once this was found: "no, not
+  // disabled, it must work" - not "show a warning and grey it out". A saved
+  // snapshot's own byRep/recent arrays already carry each person's
+  // region/manager/resourceType (recent also has client/store), so
+  // manager/region/resourceType CAN be genuinely re-scoped by filtering
+  // those two arrays and recomputing every rollup from the filtered subset,
+  // the same real numbers a live re-query would produce, not an
+  // approximation. byStore/byClient are rebuilt from filtered `recent`
+  // (completed counts only - a snapshot never retained per-store/per-client
+  // OPEN task assignment, only the network-wide open total, so a filtered
+  // open count isn't fabricated here, it's left at 0 rather than guessed).
+  function filterSnapshotData(data: any, filters: { manager?: string; region?: string; rtype?: string; client?: string; store?: string }): any {
+    const { manager, region, rtype, client, store } = filters;
+    if (!manager && !region && !rtype && !client && !store) return data;
+
+    const isRepLike = (t: string | null | undefined) => { const u = (t || "").toUpperCase(); return u.includes("REP") || u.includes("FIELDMARKETER"); };
+
+    const byRep = (Array.isArray(data.byRep) ? data.byRep : []).filter((r: any) => {
+      if (manager && (r.manager || "").toUpperCase() !== manager) return false;
+      if (region && (r.region || "").toUpperCase() !== region) return false;
+      if (rtype && displayResourceType(r.resourceType || "").toUpperCase() !== rtype) return false;
+      return true;
+    });
+
+    const recent = (Array.isArray(data.recent) ? data.recent : []).filter((c: any) => {
+      if (manager && (c.manager || c.lineManager || "").toUpperCase() !== manager) return false;
+      if (region && (c.region || "").toUpperCase() !== region) return false;
+      if (rtype && displayResourceType(c.resourceType || "").toUpperCase() !== rtype) return false;
+      if (client && c.client !== client) return false;
+      if (store && (c.storeName || c.store || "").toUpperCase().trim() !== store) return false;
+      return true;
+    });
+
+    const rollUp = (keyFn: (r: any) => string) => {
+      const map = new Map<string, { completed: number; open: number; reps: { total: number; active: number }; merch: { total: number; active: number } }>();
+      for (const r of byRep) {
+        const key = keyFn(r);
+        if (!key) continue;
+        if (!map.has(key)) map.set(key, { completed: 0, open: 0, reps: { total: 0, active: 0 }, merch: { total: 0, active: 0 } });
+        const e = map.get(key)!;
+        e.completed += r.completed || 0;
+        e.open += r.open || 0;
+        const bucket = isRepLike(r.resourceType) ? e.reps : e.merch;
+        bucket.total += 1;
+        if ((r.completed || 0) > 0) bucket.active += 1;
+      }
+      return map;
+    };
+    const pct = (n: number, d: number) => d ? Math.round((n / d) * 1000) / 10 : 0;
+    const toRows = (map: Map<string, any>, labelKey: string) => Array.from(map.entries()).map(([k, e]) => ({
+      [labelKey]: k, completed: e.completed, open: e.open,
+      totalPeople: e.reps.total + e.merch.total, activePeople: e.reps.active + e.merch.active,
+      adoptionPct: pct(e.reps.active + e.merch.active, e.reps.total + e.merch.total),
+      reps: { totalPeople: e.reps.total, activePeople: e.reps.active, adoptionPct: pct(e.reps.active, e.reps.total) },
+      merchandisers: { totalPeople: e.merch.total, activePeople: e.merch.active, adoptionPct: pct(e.merch.active, e.merch.total) },
+    }));
+
+    const byRegion = toRows(rollUp((r) => r.region || ""), "region");
+    const byManager = toRows(rollUp((r) => r.manager || ""), "manager");
+
+    const roleMap = new Map<string, { total: number; active: number }>();
+    for (const r of byRep) {
+      const role = isRepLike(r.resourceType) ? "Rep" : "Merchandiser";
+      if (!roleMap.has(role)) roleMap.set(role, { total: 0, active: 0 });
+      const e = roleMap.get(role)!;
+      e.total += 1;
+      if ((r.completed || 0) > 0) e.active += 1;
+    }
+    const adoptionByRole = Array.from(roleMap.entries()).map(([role, e]) => ({ role, totalPeople: e.total, activePeople: e.active, adoptionPct: pct(e.active, e.total) }));
+
+    const storeClientMap = (key: "storeName" | "client") => {
+      const map = new Map<string, number>();
+      for (const c of recent) {
+        const k = key === "storeName" ? (c.storeName || c.store || "") : (c.client || "");
+        if (!k) continue;
+        map.set(k, (map.get(k) || 0) + 1);
+      }
+      return Array.from(map.entries()).map(([k, completed]) => ({ [key === "storeName" ? "store" : "client"]: k, completed, open: 0 }));
+    };
+
+    const totalCompleted = byRep.reduce((s: number, r: any) => s + (r.completed || 0), 0);
+    const totalOpen = byRep.reduce((s: number, r: any) => s + (r.open || 0), 0);
+
+    return {
+      ...data,
+      byRep, recent, byRegion, byManager, adoptionByRole,
+      byStore: storeClientMap("storeName"),
+      byClient: storeClientMap("client"),
+      totals: { completed: recent.length, open: totalOpen, totalCompletedAllTime: totalCompleted },
+    };
+  }
+
   // Read one saved Adoption snapshot back out, in the exact same shape
   // /api/live-dashboard returns, so the Adoption page can use either
-  // interchangeably.
+  // interchangeably. Accepts the same manager/region/rtype/client/store
+  // filters as the live route - see filterSnapshotData above for how a
+  // frozen snapshot can still be genuinely re-scoped.
   app.get("/api/adoption-snapshot", async (req, res) => {
     try {
       const week = String(req.query.week || "").trim();
       if (!week) return res.status(400).json({ error: "week query param is required" });
       const [row] = await db.select().from(adoptionSnapshots).where(eq(adoptionSnapshots.weekEnding, week)).limit(1);
       if (!row) return res.status(404).json({ error: "No saved snapshot for this week" });
-      res.json(row.data);
+      const filtered = filterSnapshotData(row.data, {
+        manager: String(req.query.manager || "").trim().toUpperCase() || undefined,
+        region: String(req.query.region || "").trim().toUpperCase() || undefined,
+        rtype: String(req.query.rtype || "").trim().toUpperCase() || undefined,
+        client: String(req.query.client || "").trim() || undefined,
+        store: String(req.query.store || "").trim().toUpperCase() || undefined,
+      });
+      res.json(filtered);
     } catch (error) {
       console.error("Error reading adoption snapshot:", error);
       res.status(500).json({ error: "Failed to read adoption snapshot" });
@@ -6763,14 +6886,36 @@ export async function registerRoutes(
         });
       }
 
+      // Real gap found 2026-09-03, live, Carin: a manager filter picked in
+      // Month view scoped the KPI cards but left Adoption-by-region showing
+      // the whole network, because this endpoint never forwarded ANY filter
+      // to either the live week's own filtering or the snapshot weeks -
+      // "no, not disabled, it must work" was her call once this was found.
+      // Forward the exact same 5 filters /api/live-dashboard and
+      // /api/adoption-snapshot already support, so a month made of a mix of
+      // live and retired weeks stays correctly scoped either way.
+      const monthFilterQs = ["client", "region", "manager", "store", "rtype"]
+        .map((k) => [k, String(req.query[k] || "").trim()])
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}=${encodeURIComponent(v as string)}`)
+        .join("&");
+      const snapshotFilters = {
+        manager: String(req.query.manager || "").trim().toUpperCase() || undefined,
+        region: String(req.query.region || "").trim().toUpperCase() || undefined,
+        rtype: String(req.query.rtype || "").trim().toUpperCase() || undefined,
+        client: String(req.query.client || "").trim() || undefined,
+        store: String(req.query.store || "").trim().toUpperCase() || undefined,
+      };
+
       const weekDatas: any[] = [];
       for (const w of weeks) {
         if (w === liveWeek) {
-          const liveResp = await fetch(`http://127.0.0.1:${port}/api/live-dashboard?week=${encodeURIComponent(w)}`);
+          const qs = `week=${encodeURIComponent(w)}` + (monthFilterQs ? `&${monthFilterQs}` : "");
+          const liveResp = await fetch(`http://127.0.0.1:${port}/api/live-dashboard?${qs}`);
           if (liveResp.ok) weekDatas.push(await liveResp.json());
         } else {
           const [row] = await db.select().from(adoptionSnapshots).where(eq(adoptionSnapshots.weekEnding, w)).limit(1);
-          if (row) weekDatas.push(row.data);
+          if (row) weekDatas.push(filterSnapshotData(row.data, snapshotFilters));
         }
       }
 
