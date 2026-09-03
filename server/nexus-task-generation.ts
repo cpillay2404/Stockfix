@@ -10,7 +10,7 @@
 // serves the classic Tasks screen from, so isolating it here means testing/
 // generated rows can never mix into that table's completion reporting).
 import { db } from "./db";
-import { storeSkuWeekly, storeAssignments, resourceRoster, nexusTasks, nexusTaskAssignees, distributionGaps, clientOverstockRules, type InsertNexusTask } from "@shared/schema";
+import { storeSkuWeekly, storeAssignments, resourceRoster, nexusTasks, nexusTaskAssignees, distributionGaps, clientOverstockRules, weekGenerationLog, type InsertNexusTask } from "@shared/schema";
 import { resolveEligibleResourceCoverage, type ClientScopedResource } from "@shared/resource-client-scope";
 import { sql, eq, and } from "drizzle-orm";
 import { AT_RISK_WFC_THRESHOLD_WEEKS } from "./nexus";
@@ -692,9 +692,28 @@ export async function isEligibleForOnDemandTask(storeName: string, client: strin
 // gets created here since a rep genuinely trying to capture it should
 // never hit a dead end (KPI cards intentionally stay uncapped/live per
 // the same conversation).
+// Real incident 2026-09-02/03 (Carin: "the tasks loaded for that week belong
+// to that month ... it should fall under August", "tasks captured today must
+// fall under August"): storeSkuWeekly/distributionGaps get fresh data as soon
+// as the weekly inventory sync runs, but that happens well BEFORE the week is
+// officially retired/generated (nexus-wipe-week + nexus-generate-tasks, run
+// manually as the last step of the weekly cycle). Picking "whatever week has
+// the newest synced data" here meant a single rep tap could create a task
+// under a week nobody had generated yet, which then hijacked the whole
+// Adoption dashboard's "current week" detection (max(week_ending_date)).
+// The one and only source of truth for "which week is actually live" is
+// week_generation_log - so on-demand captures are capped to that week, never
+// to whatever the raw sync happens to have most recently.
+async function getOfficialCurrentWeek(): Promise<string | null> {
+  const [row] = await db.select({ weekEnding: weekGenerationLog.weekEnding }).from(weekGenerationLog)
+    .orderBy(sql`${weekGenerationLog.weekEnding} desc`).limit(1);
+  return row?.weekEnding ?? null;
+}
+
 export async function createTaskOnDemand(params: {
   client: string; store: string; classification: string; barcode: string;
 }): Promise<{ uniqueId: string } | null> {
+  const officialWeek = await getOfficialCurrentWeek();
   const sourceStem = params.classification === "cover" ? "risk" : params.classification;
   const normalizedStore = params.store.trim().toUpperCase();
   // Real gap found 2026-08-22 (Carin: Checkers Corkwood Square/Clicks
@@ -737,7 +756,7 @@ export async function createTaskOnDemand(params: {
 
   if (sourceStem === "distribution") {
     const [latestWeekRow] = await db.select({ weekEnding: distributionGaps.weekEnding }).from(distributionGaps)
-      .where(sql`upper(trim(${distributionGaps.cleanedStoreName})) = ${normalizedStore} and ${distributionGaps.client} = ${params.client} and ${distributionGaps.barcode} = ${params.barcode}`)
+      .where(sql`upper(trim(${distributionGaps.cleanedStoreName})) = ${normalizedStore} and ${distributionGaps.client} = ${params.client} and ${distributionGaps.barcode} = ${params.barcode}${officialWeek ? sql` and ${distributionGaps.weekEnding} <= ${officialWeek}` : sql``}`)
       .orderBy(sql`${distributionGaps.weekEnding} desc`).limit(1);
     if (!latestWeekRow) return null;
     const [row] = await db.select().from(distributionGaps)
@@ -752,7 +771,7 @@ export async function createTaskOnDemand(params: {
   }
 
   const [latestWeekRow] = await db.select({ weekEnding: storeSkuWeekly.weekEnding }).from(storeSkuWeekly)
-    .where(sql`upper(trim(${storeSkuWeekly.cleanedStoreName})) = ${normalizedStore} and ${storeSkuWeekly.client} = ${params.client} and ${storeSkuWeekly.barcode} = ${params.barcode}`)
+    .where(sql`upper(trim(${storeSkuWeekly.cleanedStoreName})) = ${normalizedStore} and ${storeSkuWeekly.client} = ${params.client} and ${storeSkuWeekly.barcode} = ${params.barcode}${officialWeek ? sql` and ${storeSkuWeekly.weekEnding} <= ${officialWeek}` : sql``}`)
     .orderBy(sql`${storeSkuWeekly.weekEnding} desc`).limit(1);
   if (!latestWeekRow) return null;
   const [row] = await db.select().from(storeSkuWeekly)

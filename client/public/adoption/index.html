@@ -588,10 +588,18 @@ class Component extends DCLogic {
       fClient: s.client, fStore: s.store, fType: s.rtype, fRegion: s.region, fManager: s.manager, fWeek: s.week, fMonth: s.month,
       weekOptions: s.savedWeeks,
       // Month options are every distinct YYYY-MM a saved week falls in,
-      // plus the current live week's own month (always available even
-      // before any snapshot exists for it yet).
+      // plus the ACTUAL LIVE WEEK's own month - not today's calendar date.
+      // Real bug found 2026-09-03 (Carin: "we shouldnt even say 2026-09 in
+      // the Month drop down... the tasks loaded for that week belong to
+      // that month... it should fall under August") - using today's system
+      // clock meant the dropdown offered "2026-09" the moment the calendar
+      // rolled over, even though the live week (2026-08-26) - and every
+      // task in it - belongs to August. A week's month is decided by its
+      // own week_ending date, never by what today happens to be.
       monthOptions: Array.from(new Set(
-        s.savedWeeks.map(w => w.slice(0, 7)).concat([new Date().toISOString().slice(0, 7)])
+        s.savedWeeks.map(w => w.slice(0, 7)).concat(
+          (s.data && s.data.week) ? [String(s.data.week).slice(0, 7)] : []
+        )
       )).sort().reverse(),
       onWeek: e => { this._sig = null; this.setState({ week: e.target.value, month: '' }, () => this.load()); },
       onMonth: e => { this._sig = null; this.setState({ month: e.target.value, week: '' }, () => this.load()); },
