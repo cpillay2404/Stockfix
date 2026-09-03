@@ -135,7 +135,14 @@
     </sc-if>
 
     <sc-if value="{{ isOverview }}" hint-placeholder-val="{{ true }}">
-    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; padding:0 34px 4px;">
+    <!-- Real bug found 2026-09-03, live, Carin: "i select month 2026-08 it
+         bounces back to this week" - while a new view (month/week/filter
+         change) is loading, this whole grid still showed the PREVIOUS
+         view's numbers with no visual sign they were stale, which reads
+         exactly like the page silently reverted your selection. Dimming
+         everything below while a fetch is in flight makes clear these are
+         old numbers about to change, not a wrong permanent state. -->
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; padding:0 34px 4px; opacity:{{ loadingOpacity }}; transition:opacity 0.15s;">
       <div style="background:var(--color-surface); border:1px solid var(--color-neutral-800); border-radius:var(--radius-lg); padding:18px 20px 20px;">
         <div style="display:flex; align-items:center; gap:10px; font-size:9.5px; letter-spacing:0.1em; text-transform:uppercase; color:var(--color-neutral-500);">
           <i class="ph ph-user-focus" style="font-size:22px; color:var(--color-accent);"></i><span>Rep adoption %</span>
@@ -428,6 +435,17 @@ class Component extends DCLogic {
   componentDidMount() {
     this.load();
     this.json(this.base + '/api/roster/all-clients').then(r => this.setState({ clients: this.opts(r) })).catch(() => {});
+    // Real bug found 2026-09-03, live, Carin: "i want to change the manager,
+    // doesnt allow me" - once a manager filter is active, the server
+    // (correctly, per the same-day fix above) returns byRep scoped to just
+    // that manager's team, but the dropdown's OWN option list was being
+    // rebuilt from that same scoped byRep every render - so picking one
+    // manager collapsed the dropdown down to just that one manager, with no
+    // way to pick a different one without a full Reset. The filter options
+    // need the FULL, unfiltered universe of managers/regions/types
+    // regardless of what's currently selected - fetched once, completely
+    // separately from whatever load() is currently showing.
+    this.json(this.base + '/api/live-dashboard').then(r => this.setState({ refByRep: Array.isArray(r.byRep) ? r.byRep : [] })).catch(() => {});
     // Past weeks a snapshot was saved for (Carin, 2026-08-25: "save the
     // file so that i can click on a week in the dashboard and see the
     // adoption for that week just as i see it now but its saved") -
@@ -526,6 +544,10 @@ class Component extends DCLogic {
     if (this._sig === sig && this._m) return this._m;
     const heavyAt = Math.max(2, Number(this.props.heavyUseAt ?? 5));
     const raw = Array.isArray(d.byRep) ? d.byRep : [];
+    // Unfiltered reference list for the filter dropdowns themselves - see
+    // componentDidMount. Falls back to raw (whatever the current view
+    // happens to have) only until that one-time reference fetch resolves.
+    const refRaw = (Array.isArray(s.refByRep) && s.refByRep.length) ? s.refByRep : raw;
     const reps = raw.map(r => ({
       rep: String(r.rep ?? '—'), completed: Number(r.completed || 0), open: Number(r.open || 0),
       resourceType: String(r.resourceType || 'Unspecified'),
@@ -557,13 +579,14 @@ class Component extends DCLogic {
       dormant: reps.filter(r => r.completed === 0),
       touched: stores.filter(x => x.completed > 0),
       types: [...byType.values()].sort((a, b) => b.total - a.total),
-      allTypes: uniq(raw.map(r => String(r.resourceType || 'Unspecified'))),
-      allRegions: uniq(
-        (Array.isArray(d.byRegion) ? d.byRegion : []).map(x => pick(x, REGION_KEYS) || String(x.name ?? x.label ?? ''))
-          .concat(raw.map(r => pick(r, REGION_KEYS)))
-          .concat(recentAll.map(r => pick(r, REGION_KEYS)))
-      ),
-      allManagers: uniq(raw.map(r => pick(r, MANAGER_KEYS)).concat(recentAll.map(r => pick(r, MANAGER_KEYS)))),
+      // Options list is built from refByRep (a completely unfiltered
+      // reference fetch, see componentDidMount) whenever it's available -
+      // NOT from raw/d, which is whatever the current filters just scoped
+      // the response down to. Falls back to raw only for the first render
+      // or two, before that reference fetch has resolved.
+      allTypes: uniq(refRaw.map(r => String(r.resourceType || 'Unspecified'))),
+      allRegions: uniq(refRaw.map(r => pick(r, REGION_KEYS))),
+      allManagers: uniq(refRaw.map(r => pick(r, MANAGER_KEYS))),
     };
     this._sig = sig; this._m = m;
     return m;
@@ -573,8 +596,21 @@ class Component extends DCLogic {
     const s = this.state;
     const PAGES = [
       { k: 'overview', label: 'Overview', icon: 'ph ph-squares-four', title: 'Overview',
-        sub: (s.data && s.data.month) ? ('Month ' + s.data.month + ' · ' + (s.data.weeksIncluded || []).length + ' week(s) combined')
-          : 'Week ' + ((s.data && s.data.week) || '—') + ' · computed fresh on every request' },
+        // Real bug found 2026-09-03, live, Carin: "i select month 2026-08
+        // it bounces back to this week" - this used to key off s.data's OWN
+        // shape (does the last-fetched response happen to have a `month`
+        // field?) instead of what's actually selected right now. The moment
+        // a month fetch was slow (heavy server load) or still in flight,
+        // s.data was still the PREVIOUS live-week response, which has no
+        // `month` field - so the header (and by extension the visible
+        // "current mode") fell back to showing the live week, looking
+        // exactly like the selection had silently reverted even though the
+        // dropdown itself never changed. Base this on the actual selected
+        // state (s.month/s.week) instead, so the header always agrees with
+        // what's selected the instant you select it, loading or not.
+        sub: s.month ? ('Month ' + s.month + (s.loading ? ' · loading…' : ' · ' + ((s.data && s.data.weeksIncluded) || []).length + ' week(s) combined'))
+          : s.week ? ('Week ' + s.week + (s.loading ? ' · loading…' : ' · saved snapshot'))
+          : 'Week ' + ((s.data && s.data.week) || '—') + (s.loading ? ' · loading…' : ' · computed fresh on every request') },
       { k: 'captures', label: 'Captures', icon: 'ph ph-camera', title: 'Captures', sub: 'Every completed capture in scope, with the detail each one carries' },
     ];
     const page = PAGES.find(p => p.k === s.page) || PAGES[0];
@@ -593,6 +629,7 @@ class Component extends DCLogic {
       statusLine: s.loading ? 'Fetching…' : s.at ? 'Live · ' + s.at.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' }) : 'Idle',
       loadError: s.err || false,
       fClient: s.client, fStore: s.store, fType: s.rtype, fRegion: s.region, fManager: s.manager, fWeek: s.week, fMonth: s.month,
+      loadingOpacity: s.loading ? '0.45' : '1',
       weekOptions: s.savedWeeks,
       // Month options are every distinct YYYY-MM a saved week falls in,
       // plus the ACTUAL LIVE WEEK's own month - not today's calendar date.
