@@ -5981,10 +5981,17 @@ export async function registerRoutes(
       const filterManager = String(req.query.manager || "").trim().toUpperCase();
       const filterType = String(req.query.rtype || "").trim().toUpperCase();
       // Carin, 2026-08-24: "kpi cards still fixed at 50" - a real week's
-      // total (838 completions right now) is small enough to just return
-      // every completed row, always, rather than guessing at which
+      // total (838 completions at the time) was small enough to just
+      // return every completed row, always, rather than guessing at which
       // situations need more than a 50/500 preview.
-      const recentLimit = 5000;
+      // Real gap found 2026-09-03, live, Carin: "why is captures capped at
+      // 5000" - completions have grown far past 838 since (2026-08-26 alone
+      // hit 8,311+ before it was wiped), so this cap had started silently
+      // dropping the OLDEST captures of the week from the Captures feed and
+      // its export the moment a week crossed 5000 - exactly the guessing
+      // this comment said not to do. Raised well above any real week's
+      // volume so it functions as a safety ceiling, not an active limit.
+      const recentLimit = 200000;
 
       // Explicit ?week= lets a caller ask for a specific week's live numbers
       // (e.g. the adoption-snapshot save step, right before that week gets
@@ -6987,9 +6994,11 @@ export async function registerRoutes(
         adoptionByRole: Array.from(monthRoleMap.entries())
           .map(([role, e]) => ({ role, totalPeople: e.total, activePeople: e.active, adoptionPct: pctMonth(e.active, e.total) }))
           .sort((a, b) => (b.totalPeople || 0) - (a.totalPeople || 0)),
+        // Same fix as /api/live-dashboard above - combining multiple weeks
+        // here makes hitting 5000 even more likely, not less.
         recent: weekDatas.flatMap((d) => d.recent || [])
           .sort((a, b) => new Date(b.captureDate || 0).getTime() - new Date(a.captureDate || 0).getTime())
-          .slice(0, 5000),
+          .slice(0, 200000),
       });
     } catch (error) {
       console.error("Error building adoption month view:", error);
