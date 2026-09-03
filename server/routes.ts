@@ -5992,8 +5992,19 @@ export async function registerRoutes(
       const requestedWeek = req.query.week ? String(req.query.week).trim() : "";
       let week: string | undefined = requestedWeek || undefined;
       if (!week) {
-        const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
-        week = weekRow?.week as string | undefined;
+        // Real incident 2026-09-02/03: this used to trust max(week_ending_date)
+        // in nexus_tasks directly - a single stray on-demand task under a
+        // not-yet-generated week silently hijacked the whole live dashboard
+        // into showing that near-empty week instead of the real current one.
+        // week_generation_log is the one source of truth for "officially
+        // live" (only written by nexus-generate-tasks) - prefer it, and only
+        // fall back to the raw max if the log is somehow empty.
+        const [genRow] = await db.execute(sql`select max(week_ending) as week from week_generation_log`).then((r: any) => (r.rows || r));
+        week = genRow?.week as string | undefined;
+        if (!week) {
+          const [weekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+          week = weekRow?.week as string | undefined;
+        }
       }
       if (!week) {
         return res.json({ week: null, totals: { completed: 0, open: 0 }, byStore: [], byClient: [], byRep: [], byRegion: [], byManager: [], recent: [] });
@@ -6085,6 +6096,17 @@ export async function registerRoutes(
       if (filterManager) {
         completedRawFull = completedRawFull.filter((c) => resolveManagerBucket(c.repName) === filterManager);
       }
+      // Real gap found 2026-09-03 audit - filterRegion was accepted by this
+      // endpoint (used further down to narrow the Captures feed only) but
+      // never applied to completedRawFull/assigneeJoinRows/coverageRowsRaw,
+      // so picking a region left byManager, the KPI cards and the coverage
+      // denominators showing the whole network while only the Captures list
+      // actually narrowed - same class of bug as the manager filter gap
+      // above, fixed the same way: filter the raw inputs immediately after
+      // fetch so every downstream computation inherits the scope.
+      if (filterRegion) {
+        completedRawFull = completedRawFull.filter((c) => (c.region || "").trim().toUpperCase() === filterRegion);
+      }
       const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
       const host = req.headers['x-forwarded-host'] || req.headers.host || '';
       const baseUrl = `${protocol}://${host}`;
@@ -6161,6 +6183,9 @@ export async function registerRoutes(
       })) as any[];
       if (filterManager) {
         assigneeJoinRows = assigneeJoinRows.filter((r) => resolveManagerBucket(r.resourceName) === filterManager);
+      }
+      if (filterRegion) {
+        assigneeJoinRows = assigneeJoinRows.filter((r) => (r.region || "").trim().toUpperCase() === filterRegion);
       }
       const openRows = assigneeJoinRows.filter((r) => r.actionStatus !== "Completed");
       const openTaskIds = new Set(openRows.map((r) => r.uniqueId));
@@ -6354,6 +6379,19 @@ export async function registerRoutes(
       let coverageRowsRaw = await getCoverageRows();
       if (filterManager) {
         coverageRowsRaw = coverageRowsRaw.filter((r) => resolveManagerBucket(r.resourceName) === filterManager);
+      }
+      if (filterRegion) {
+        coverageRowsRaw = coverageRowsRaw.filter((r) => (r.region || "").trim().toUpperCase() === filterRegion);
+      }
+      // Real gap found 2026-09-03 audit - ?store= scoped the task queries
+      // (storeCond/storeCondPlain above) but never this coverage list, so
+      // picking a single store left the "total people assigned" denominator
+      // at network-wide while completions dropped to that one store,
+      // crashing every adoption % toward 0. Same normalization the SQL
+      // storeCond already uses (upper+trim).
+      if (store) {
+        const filterStore = store.toUpperCase().trim();
+        coverageRowsRaw = coverageRowsRaw.filter((r) => (r.cleanedStoreName || "").toUpperCase().trim() === filterStore);
       }
       const allAssignees: { resourceName: string; region: string | null; resourceType: string | null }[] = [];
       if (client) {
@@ -6701,8 +6739,16 @@ export async function registerRoutes(
       }
       const port = req.socket.localPort || 5000;
       const snapshotWeeks = await db.select({ weekEnding: adoptionSnapshots.weekEnding }).from(adoptionSnapshots);
-      const [liveWeekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
-      const liveWeek = liveWeekRow?.week as string | undefined;
+      // Same fix as /api/live-dashboard (2026-09-03 incident) - prefer the
+      // officially generated week (week_generation_log), not just whatever
+      // week has the newest raw task row, so a stray on-demand task can't
+      // hijack the month view into a not-yet-generated month either.
+      const [genRow] = await db.execute(sql`select max(week_ending) as week from week_generation_log`).then((r: any) => (r.rows || r));
+      let liveWeek = genRow?.week as string | undefined;
+      if (!liveWeek) {
+        const [liveWeekRow] = await db.execute(sql`select max(week_ending_date) as week from nexus_tasks`).then((r: any) => (r.rows || r));
+        liveWeek = liveWeekRow?.week as string | undefined;
+      }
 
       const weekSet = new Set<string>();
       for (const r of snapshotWeeks) if (r.weekEnding.startsWith(month)) weekSet.add(r.weekEnding);
