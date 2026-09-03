@@ -6928,16 +6928,64 @@ export async function registerRoutes(
 
       const byWeighted = (arr: any[]) => arr.sort((a, b) => ((b.completed || 0) + (b.open || 0)) - ((a.completed || 0) + (a.open || 0)));
 
+      // Real gap found 2026-09-03, live, Carin: "440 reps what the fuck" -
+      // byRegion/byManager/adoptionByRole's totalPeople/activePeople used to
+      // be SUMMED across each week's own already-deduplicated count
+      // (sumAdoptionRows on the pre-aggregated rows), so a real rep who
+      // shows up in both weeks got counted twice in every headline number -
+      // ~212 real reps summed across 2 weeks read as "440 Reps". byRep
+      // itself, right above, is correctly merged by name across weeks
+      // (sumAdoptionRows keyed on "rep" - one row per real person, counts
+      // summed onto that one row) - so deriving region/manager/role
+      // rollups FROM that already-deduplicated byRep, instead of from each
+      // week's own separate rollup, gives a genuine unique-person headcount
+      // for the month: "did this real person capture anything at all this
+      // month" - not "how many week-slots were active."
+      const monthByRep = byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byRep || []), "rep"));
+      const isRepLikeMonth = (t: string | null | undefined) => { const u = (t || "").toUpperCase(); return u.includes("REP") || u.includes("FIELDMARKETER"); };
+      const pctMonth = (n: number, d: number) => d ? Math.round((n / d) * 1000) / 10 : 0;
+      const monthRollUp = (keyFn: (r: any) => string) => {
+        const map = new Map<string, { completed: number; open: number; reps: { total: number; active: number }; merch: { total: number; active: number } }>();
+        for (const r of monthByRep) {
+          const key = keyFn(r);
+          if (!key) continue;
+          if (!map.has(key)) map.set(key, { completed: 0, open: 0, reps: { total: 0, active: 0 }, merch: { total: 0, active: 0 } });
+          const e = map.get(key)!;
+          e.completed += r.completed || 0;
+          e.open += r.open || 0;
+          const bucket = isRepLikeMonth(r.resourceType) ? e.reps : e.merch;
+          bucket.total += 1;
+          if ((r.completed || 0) > 0) bucket.active += 1;
+        }
+        return map;
+      };
+      const monthToRows = (map: Map<string, any>, labelKey: string) => Array.from(map.entries()).map(([k, e]) => ({
+        [labelKey]: k, completed: e.completed, open: e.open,
+        totalPeople: e.reps.total + e.merch.total, activePeople: e.reps.active + e.merch.active,
+        adoptionPct: pctMonth(e.reps.active + e.merch.active, e.reps.total + e.merch.total),
+        reps: { totalPeople: e.reps.total, activePeople: e.reps.active, adoptionPct: pctMonth(e.reps.active, e.reps.total) },
+        merchandisers: { totalPeople: e.merch.total, activePeople: e.merch.active, adoptionPct: pctMonth(e.merch.active, e.merch.total) },
+      }));
+      const monthRoleMap = new Map<string, { total: number; active: number }>();
+      for (const r of monthByRep) {
+        const role = isRepLikeMonth(r.resourceType) ? "Rep" : "Merchandiser";
+        if (!monthRoleMap.has(role)) monthRoleMap.set(role, { total: 0, active: 0 });
+        const e = monthRoleMap.get(role)!;
+        e.total += 1;
+        if ((r.completed || 0) > 0) e.active += 1;
+      }
+
       res.json({
         month,
         weeksIncluded: weeks,
         totals,
         byStore: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byStore || []), "store")),
         byClient: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byClient || []), "client")),
-        byRep: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byRep || []), "rep")),
-        byRegion: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byRegion || []), "region")),
-        byManager: byWeighted(sumAdoptionRows(weekDatas.map((d) => d.byManager || []), "manager")),
-        adoptionByRole: sumAdoptionRows(weekDatas.map((d) => d.adoptionByRole || []), "role")
+        byRep: monthByRep,
+        byRegion: byWeighted(monthToRows(monthRollUp((r) => r.region || ""), "region")),
+        byManager: byWeighted(monthToRows(monthRollUp((r) => r.manager || ""), "manager")),
+        adoptionByRole: Array.from(monthRoleMap.entries())
+          .map(([role, e]) => ({ role, totalPeople: e.total, activePeople: e.active, adoptionPct: pctMonth(e.active, e.total) }))
           .sort((a, b) => (b.totalPeople || 0) - (a.totalPeople || 0)),
         recent: weekDatas.flatMap((d) => d.recent || [])
           .sort((a, b) => new Date(b.captureDate || 0).getTime() - new Date(a.captureDate || 0).getTime())
