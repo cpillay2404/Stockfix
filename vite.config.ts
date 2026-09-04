@@ -34,6 +34,21 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//, /^\/objects\//],
         runtimeCaching: [
           {
+            // Roster/store data (KPI counts, SKU lists, overview) - never
+            // silently fall back to a stale cached response here. Real bug
+            // found 2026-09-04: on weak in-store signal, the small
+            // store-overview call would succeed live (showing a real KPI
+            // count) while the heavier sku-list "All Clients" fan-out call
+            // missed the 8s NetworkFirst timeout and silently served an
+            // old/unrelated cached response from the shared 60-entry
+            // "stockfix-api" cache - producing a KPI card and its own
+            // drill-in list that genuinely disagreed, with no error shown.
+            // A failed/slow load must surface as a loading or error state,
+            // not a wrong number, for data reps are acting on live in-store.
+            urlPattern: /^\/api\/roster\//,
+            handler: "NetworkOnly",
+          },
+          {
             // API: network-first with short cache fallback
             urlPattern: /^\/api\//,
             handler: "NetworkFirst",
